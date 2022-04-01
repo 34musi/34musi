@@ -1,0 +1,174 @@
+{
+  "uid" : "16b8849259621bac",
+  "name" : "test_gm_manager_add_activity",
+  "fullName" : "Script.test_GM_management_platform.test_gm_manager_detail_search.TestClassuser#test_gm_manager_add_activity",
+  "historyId" : "7c5aa5216b0fccaf883feb98193b07de",
+  "time" : {
+    "start" : 1648181477912,
+    "stop" : 1648181478001,
+    "duration" : 89
+  },
+  "status" : "passed",
+  "flaky" : false,
+  "newFailed" : false,
+  "beforeStages" : [ {
+    "name" : "_xunit_setup_class_fixture_TestClassuser",
+    "time" : {
+      "start" : 1648181477643,
+      "stop" : 1648181477911,
+      "duration" : 268
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  }, {
+    "name" : "_session_faker",
+    "time" : {
+      "start" : 1648181477336,
+      "stop" : 1648181477416,
+      "duration" : 80
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "testStage" : {
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ {
+      "uid" : "b0ffdd57f109b8f6",
+      "name" : "log",
+      "source" : "b0ffdd57f109b8f6.txt",
+      "type" : "text/plain",
+      "size" : 10382
+    }, {
+      "uid" : "1ca508e81f911823",
+      "name" : "stderr",
+      "source" : "1ca508e81f911823.txt",
+      "type" : "text/plain",
+      "size" : 10670
+    } ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 2,
+    "hasContent" : true,
+    "stepsCount" : 0
+  },
+  "afterStages" : [ {
+    "name" : "_xunit_setup_class_fixture_TestClassuser::0",
+    "time" : {
+      "start" : 1648181478001,
+      "stop" : 1648181478002,
+      "duration" : 1
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "labels" : [ {
+    "name" : "feature",
+    "value" : "中台系统 - GM管理平台-游戏活动管理-活动详情查询"
+  }, {
+    "name" : "parentSuite",
+    "value" : "Script.test_GM_management_platform"
+  }, {
+    "name" : "suite",
+    "value" : "test_gm_manager_detail_search"
+  }, {
+    "name" : "subSuite",
+    "value" : "TestClassuser"
+  }, {
+    "name" : "host",
+    "value" : "W664"
+  }, {
+    "name" : "thread",
+    "value" : "15228-MainThread"
+  }, {
+    "name" : "framework",
+    "value" : "pytest"
+  }, {
+    "name" : "language",
+    "value" : "cpython3"
+  }, {
+    "name" : "package",
+    "value" : "Script.test_GM_management_platform.test_gm_manager_detail_search"
+  }, {
+    "name" : "resultFormat",
+    "value" : "allure2"
+  } ],
+  "parameters" : [ ],
+  "links" : [ ],
+  "hidden" : false,
+  "retry" : false,
+  "extra" : {
+    "severity" : "normal",
+    "retries" : [ {
+      "uid" : "c3c36ef49e1fced6",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647942292431,
+        "stop" : 1647942292454,
+        "duration" : 23
+      }
+    }, {
+      "uid" : "ed3837192e862f91",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647942179136,
+        "stop" : 1647942179150,
+        "duration" : 14
+      }
+    }, {
+      "uid" : "42da921f5f87127f",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941562934,
+        "stop" : 1647941562958,
+        "duration" : 24
+      }
+    }, {
+      "uid" : "37ad189367418a48",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941487436,
+        "stop" : 1647941487448,
+        "duration" : 12
+      }
+    }, {
+      "uid" : "df7af1411029a848",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941365145,
+        "stop" : 1647941365236,
+        "duration" : 91
+      }
+    }, {
+      "uid" : "a84e6f04c1fe42b9",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941298045,
+        "stop" : 1647941298060,
+        "duration" : 15
+      }
+    } ],
+    "categories" : [ ],
+    "tags" : [ ]
+  },
+  "source" : "16b8849259621bac.json",
+  "parameterValues" : [ ]
+}

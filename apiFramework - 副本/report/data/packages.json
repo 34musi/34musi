@@ -1,0 +1,128 @@
+{
+  "uid" : "83edc06c07f9ae9e47eb6dd1b683e4e2",
+  "name" : "packages",
+  "children" : [ {
+    "name" : "Script.test_GM_management_platform",
+    "children" : [ {
+      "name" : "test_gm_manager_add_activity",
+      "children" : [ {
+        "name" : "test_gm_manager_add_activity",
+        "uid" : "cc942896de30641d",
+        "parentUid" : "de160ab194317f1afbe8ae7086e1cf8b",
+        "status" : "passed",
+        "time" : {
+          "start" : 1647942291845,
+          "stop" : 1647942292041,
+          "duration" : 196
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "de160ab194317f1afbe8ae7086e1cf8b"
+    }, {
+      "name" : "test_gm_manager_activity_search",
+      "children" : [ {
+        "name" : "test_gm_manager_activity_search",
+        "uid" : "78e80bc32f4b230c",
+        "parentUid" : "b5e728ffd380343cc19c77c324c18370",
+        "status" : "passed",
+        "time" : {
+          "start" : 1648181477433,
+          "stop" : 1648181477610,
+          "duration" : 177
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "b5e728ffd380343cc19c77c324c18370"
+    }, {
+      "name" : "test_gm_manager_change_status",
+      "children" : [ {
+        "name" : "test_gm_manager_change_status",
+        "uid" : "193eac66c90953e2",
+        "parentUid" : "f1e812115d6c2ebf547827d4ec33101a",
+        "status" : "passed",
+        "time" : {
+          "start" : 1648181477623,
+          "stop" : 1648181477638,
+          "duration" : 15
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "f1e812115d6c2ebf547827d4ec33101a"
+    }, {
+      "name" : "test_gm_manager_detail_search",
+      "children" : [ {
+        "name" : "test_gm_manager_add_activity",
+        "uid" : "16b8849259621bac",
+        "parentUid" : "1b0199cd0e32491ead5a468eb3302feb",
+        "status" : "passed",
+        "time" : {
+          "start" : 1648181477912,
+          "stop" : 1648181478001,
+          "duration" : 89
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "1b0199cd0e32491ead5a468eb3302feb"
+    }, {
+      "name" : "test_gm_manager_gift_group_games",
+      "children" : [ {
+        "name" : "test_gm_manager_gift_group_games",
+        "uid" : "c10b114c5222fa75",
+        "parentUid" : "933aea57b7205a751f6521ccfa467801",
+        "status" : "passed",
+        "time" : {
+          "start" : 1648181478015,
+          "stop" : 1648181478027,
+          "duration" : 12
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "933aea57b7205a751f6521ccfa467801"
+    }, {
+      "name" : "test_gm_manager_gift_group_search",
+      "children" : [ {
+        "name" : "test_gm_manager_gift_group_search",
+        "uid" : "ec090195207f1",
+        "parentUid" : "20fc4639add67fddb783612278655678",
+        "status" : "passed",
+        "time" : {
+          "start" : 1648181478301,
+          "stop" : 1648181478321,
+          "duration" : 20
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "20fc4639add67fddb783612278655678"
+    }, {
+      "name" : "test_gm_manager_table_change_log",
+      "children" : [ {
+        "name" : "test_gm_manager_table_change_log",
+        "uid" : "ba51e5d8fe614598",
+        "parentUid" : "01c2fe233e42986cee7d2754e9f5af9e",
+        "status" : "passed",
+        "time" : {
+          "start" : 1648181479000,
+          "stop" : 1648181479015,
+          "duration" : 15
+        },
+        "flaky" : false,
+        "newFailed" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "01c2fe233e42986cee7d2754e9f5af9e"
+    } ],
+    "uid" : "Script.test_GM_management_platform"
+  } ]
+}

@@ -1,0 +1,69 @@
+'{}}':
+  url: /api/gm_manager/activity/search
+  method: post
+  des: 测试描述
+  data:
+    start_time: 1641168000
+    end_time: 1646092799
+    page: 1
+    limit: 20
+
+'{1}}':
+  url: /api/gm_manager/activity/search
+  method: post
+  des: 测试描述
+  data:
+    start_time: 1641168000
+    end_time: 1646092799
+    page: 1
+    limit: 20
+
+测试case:
+  url: /api/gm_manager/activity/search
+  method: post
+  des: 测试描述
+  data:
+    start_time: 1641168000
+    end_time: 1646092799
+    page: 1
+    limit: 20
+
+测试case1:
+  url: /api/gm_manager/activity/search
+  method: post
+  des: 测试描述
+  data:
+    start_time: 1641168000
+    end_time: 1646092799
+    page: 1
+    limit: 20
+
+测试case1:
+  url: /api/gm_manager/activity/search
+  method: post
+  des: 测试描述
+  data:
+    start_time: 1641168000
+    end_time: 1646092799
+    page: 1
+    limit: 20
+
+测试case1:
+  url: /api/gm_manager/activity/search
+  method: post
+  des: 测试描述
+  data:
+    start_time: 1641168000
+    end_time: 1646092799
+    page: 1
+    limit: 20
+
+测试case1:
+  url: /api/gm_manager/activity/search
+  method: post
+  des: 测试描述
+  data:
+    start_time: 1641168000
+    end_time: 1646092799
+    page: 1
+    limit: 20

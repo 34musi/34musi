@@ -1,0 +1,8 @@
+INFO     test.py:test_gm_manager_add_activity.py:26 test_gm_manager_table_change_log after time is : Tue Mar 22 17:32:42 2022 
+DEBUG    test.py:test_gm_manager_add_activity.py:37 中台首页 -GM管理平台 -游戏活动管理 -活动新增
+INFO     test.py:test_gm_manager_add_activity.py:40 中台首页 -GM管理平台 -游戏活动管理 -活动新增
+INFO     method.py:method.py:39 正在发送请求，请求地址：http://platform-develop.outer.staruniongame.com:32141/api/gm_manager/activity， 请求参数{'start_time': 1647941562, 'end_time': 1650533562, 'server_ids': ['1', '10', '2', '3', '4', '5', '6', '7', '89', '9'], 'conf_id': 585}
+DEBUG    urllib3.connectionpool:connectionpool.py:228 Starting new HTTP connection (1): platform-develop.outer.staruniongame.com:32141
+DEBUG    urllib3.connectionpool:connectionpool.py:456 http://platform-develop.outer.staruniongame.com:32141 "POST /api/gm_manager/activity HTTP/1.1" 200 82
+DEBUG    test.py:test_gm_manager_add_activity.py:42 {'code': 20000, 'message': 'Success', 'data': None, 'request_id': 'c8spfeksad5rhq7t8mpg'}
+INFO     test.py:test_gm_manager_add_activity.py:57 test_gm_manager_table_change_log after time is : Tue Mar 22 17:32:42 2022

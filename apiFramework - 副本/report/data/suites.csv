@@ -1,0 +1,8 @@
+"Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
+"passed","Tue Mar 22 17:44:51 CST 2022","Tue Mar 22 17:44:52 CST 2022","196","Script.test_GM_management_platform","test_gm_manager_add_activity","TestClassuser","","","test_gm_manager_add_activity",""
+"passed","Fri Mar 25 12:11:18 CST 2022","Fri Mar 25 12:11:18 CST 2022","12","Script.test_GM_management_platform","test_gm_manager_gift_group_games","TestClassuser","","","test_gm_manager_gift_group_games",""
+"passed","Fri Mar 25 12:11:17 CST 2022","Fri Mar 25 12:11:18 CST 2022","89","Script.test_GM_management_platform","test_gm_manager_detail_search","TestClassuser","","","test_gm_manager_add_activity",""
+"passed","Fri Mar 25 12:11:19 CST 2022","Fri Mar 25 12:11:19 CST 2022","15","Script.test_GM_management_platform","test_gm_manager_table_change_log","TestClassuser","","","test_gm_manager_table_change_log",""
+"passed","Fri Mar 25 12:11:17 CST 2022","Fri Mar 25 12:11:17 CST 2022","177","Script.test_GM_management_platform","test_gm_manager_activity_search","TestClassuser","","","test_gm_manager_activity_search","活动查询"
+"passed","Fri Mar 25 12:11:18 CST 2022","Fri Mar 25 12:11:18 CST 2022","20","Script.test_GM_management_platform","test_gm_manager_gift_group_search","TestClassuser","","","test_gm_manager_gift_group_search",""
+"passed","Fri Mar 25 12:11:17 CST 2022","Fri Mar 25 12:11:17 CST 2022","15","Script.test_GM_management_platform","test_gm_manager_change_status","TestClassuser","","","test_gm_manager_change_status",""

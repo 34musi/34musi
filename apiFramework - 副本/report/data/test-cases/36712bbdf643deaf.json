@@ -1,0 +1,121 @@
+{
+  "uid" : "36712bbdf643deaf",
+  "name" : "test_gm_manager_table_change_log",
+  "fullName" : "Script.test_GM_management_platform.test_gm_manager_table_change_log.TestClassuser#test_gm_manager_table_change_log",
+  "historyId" : "68c0e24c21185eeb4958a566f4148b56",
+  "time" : {
+    "start" : 1647941563233,
+    "stop" : 1647941563244,
+    "duration" : 11
+  },
+  "status" : "passed",
+  "flaky" : false,
+  "newFailed" : false,
+  "beforeStages" : [ {
+    "name" : "_session_faker",
+    "time" : {
+      "start" : 1647941562171,
+      "stop" : 1647941562228,
+      "duration" : 57
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  }, {
+    "name" : "_xunit_setup_class_fixture_TestClassuser",
+    "time" : {
+      "start" : 1647941562962,
+      "stop" : 1647941563233,
+      "duration" : 271
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "testStage" : {
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ {
+      "uid" : "79a6f5d3200a255a",
+      "name" : "log",
+      "source" : "79a6f5d3200a255a.txt",
+      "type" : "text/plain",
+      "size" : 2351
+    }, {
+      "uid" : "e80f22b31d0506bb",
+      "name" : "stderr",
+      "source" : "e80f22b31d0506bb.txt",
+      "type" : "text/plain",
+      "size" : 2304
+    } ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 2,
+    "hasContent" : true,
+    "stepsCount" : 0
+  },
+  "afterStages" : [ {
+    "name" : "_xunit_setup_class_fixture_TestClassuser::0",
+    "time" : {
+      "start" : 1647941563244,
+      "stop" : 1647941563244,
+      "duration" : 0
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "labels" : [ {
+    "name" : "parentSuite",
+    "value" : "Script.test_GM_management_platform"
+  }, {
+    "name" : "suite",
+    "value" : "test_gm_manager_table_change_log"
+  }, {
+    "name" : "subSuite",
+    "value" : "TestClassuser"
+  }, {
+    "name" : "host",
+    "value" : "W769"
+  }, {
+    "name" : "thread",
+    "value" : "16472-MainThread"
+  }, {
+    "name" : "framework",
+    "value" : "pytest"
+  }, {
+    "name" : "language",
+    "value" : "cpython3"
+  }, {
+    "name" : "package",
+    "value" : "Script.test_GM_management_platform.test_gm_manager_table_change_log"
+  }, {
+    "name" : "resultFormat",
+    "value" : "allure2"
+  } ],
+  "parameters" : [ ],
+  "links" : [ ],
+  "hidden" : true,
+  "retry" : true,
+  "extra" : {
+    "categories" : [ ],
+    "tags" : [ ]
+  },
+  "source" : "36712bbdf643deaf.json",
+  "parameterValues" : [ ]
+}

@@ -1,0 +1,59 @@
+{
+  "total" : 5,
+  "items" : [ {
+    "uid" : "0028fd0d0f9fb2ca31009efb19fe6f65",
+    "name" : "中台系统 - GM管理平台-游戏活动管理-{模块名}",
+    "statistic" : {
+      "failed" : 0,
+      "broken" : 0,
+      "skipped" : 0,
+      "passed" : 2,
+      "unknown" : 0,
+      "total" : 2
+    }
+  }, {
+    "uid" : "13f37d43f69c257d9f233708f49827e2",
+    "name" : "中台系统 - GM管理平台-游戏活动管理-操作记录详情",
+    "statistic" : {
+      "failed" : 0,
+      "broken" : 0,
+      "skipped" : 0,
+      "passed" : 2,
+      "unknown" : 0,
+      "total" : 2
+    }
+  }, {
+    "uid" : "7e458cdda1cbff0ff856fde53077c173",
+    "name" : "中台系统 - GM管理平台-游戏活动管理-活动新增",
+    "statistic" : {
+      "failed" : 0,
+      "broken" : 0,
+      "skipped" : 0,
+      "passed" : 1,
+      "unknown" : 0,
+      "total" : 1
+    }
+  }, {
+    "uid" : "c954efa0a1cca96bb70b10c7e8ae73d0",
+    "name" : "中台系统 - GM管理平台-游戏活动管理-活动查询",
+    "statistic" : {
+      "failed" : 0,
+      "broken" : 0,
+      "skipped" : 0,
+      "passed" : 1,
+      "unknown" : 0,
+      "total" : 1
+    }
+  }, {
+    "uid" : "587105de909a268131401839259882f0",
+    "name" : "中台系统 - GM管理平台-游戏活动管理-活动详情查询",
+    "statistic" : {
+      "failed" : 0,
+      "broken" : 0,
+      "skipped" : 0,
+      "passed" : 1,
+      "unknown" : 0,
+      "total" : 1
+    }
+  } ]
+}

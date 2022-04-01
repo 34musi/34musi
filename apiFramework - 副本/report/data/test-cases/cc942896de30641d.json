@@ -1,0 +1,166 @@
+{
+  "uid" : "cc942896de30641d",
+  "name" : "test_gm_manager_add_activity",
+  "fullName" : "Script.test_GM_management_platform.test_gm_manager_add_activity.TestClassuser#test_gm_manager_add_activity",
+  "historyId" : "285ef653bfb1355f62e68534185a6b57",
+  "time" : {
+    "start" : 1647942291845,
+    "stop" : 1647942292041,
+    "duration" : 196
+  },
+  "status" : "passed",
+  "flaky" : false,
+  "newFailed" : false,
+  "beforeStages" : [ {
+    "name" : "_session_faker",
+    "time" : {
+      "start" : 1647942291590,
+      "stop" : 1647942291641,
+      "duration" : 51
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  }, {
+    "name" : "_xunit_setup_class_fixture_TestClassuser",
+    "time" : {
+      "start" : 1647942291840,
+      "stop" : 1647942291844,
+      "duration" : 4
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "testStage" : {
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ {
+      "uid" : "fc8547f045615291",
+      "name" : "log",
+      "source" : "fc8547f045615291.txt",
+      "type" : "text/plain",
+      "size" : 1219
+    }, {
+      "uid" : "89d01239be625659",
+      "name" : "stderr",
+      "source" : "89d01239be625659.txt",
+      "type" : "text/plain",
+      "size" : 1463
+    } ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 2,
+    "hasContent" : true,
+    "stepsCount" : 0
+  },
+  "afterStages" : [ {
+    "name" : "_xunit_setup_class_fixture_TestClassuser::0",
+    "time" : {
+      "start" : 1647942292041,
+      "stop" : 1647942292042,
+      "duration" : 1
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "labels" : [ {
+    "name" : "feature",
+    "value" : "中台系统 - GM管理平台-游戏活动管理-活动新增"
+  }, {
+    "name" : "parentSuite",
+    "value" : "Script.test_GM_management_platform"
+  }, {
+    "name" : "suite",
+    "value" : "test_gm_manager_add_activity"
+  }, {
+    "name" : "subSuite",
+    "value" : "TestClassuser"
+  }, {
+    "name" : "host",
+    "value" : "W769"
+  }, {
+    "name" : "thread",
+    "value" : "13064-MainThread"
+  }, {
+    "name" : "framework",
+    "value" : "pytest"
+  }, {
+    "name" : "language",
+    "value" : "cpython3"
+  }, {
+    "name" : "package",
+    "value" : "Script.test_GM_management_platform.test_gm_manager_add_activity"
+  }, {
+    "name" : "resultFormat",
+    "value" : "allure2"
+  } ],
+  "parameters" : [ ],
+  "links" : [ ],
+  "hidden" : false,
+  "retry" : false,
+  "extra" : {
+    "severity" : "normal",
+    "retries" : [ {
+      "uid" : "fc20f7892f189445",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647942178447,
+        "stop" : 1647942178739,
+        "duration" : 292
+      }
+    }, {
+      "uid" : "6fd9c5bfe7cadebe",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941562449,
+        "stop" : 1647941562639,
+        "duration" : 190
+      }
+    }, {
+      "uid" : "2014669ad860399c",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941486850,
+        "stop" : 1647941487138,
+        "duration" : 288
+      }
+    }, {
+      "uid" : "e8390ad0fb0f4720",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941364558,
+        "stop" : 1647941364838,
+        "duration" : 280
+      }
+    }, {
+      "uid" : "6cb3a883179ea4c9",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647941297454,
+        "stop" : 1647941297736,
+        "duration" : 282
+      }
+    } ],
+    "categories" : [ ],
+    "tags" : [ ]
+  },
+  "source" : "cc942896de30641d.json",
+  "parameterValues" : [ ]
+}

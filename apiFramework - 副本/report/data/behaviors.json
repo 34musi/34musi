@@ -1,0 +1,116 @@
+{
+  "uid" : "b1a8273437954620fa374b796ffaacdd",
+  "name" : "behaviors",
+  "children" : [ {
+    "name" : "中台系统 - GM管理平台-游戏活动管理-活动新增",
+    "children" : [ {
+      "name" : "test_gm_manager_add_activity",
+      "uid" : "cc942896de30641d",
+      "parentUid" : "7e458cdda1cbff0ff856fde53077c173",
+      "status" : "passed",
+      "time" : {
+        "start" : 1647942291845,
+        "stop" : 1647942292041,
+        "duration" : 196
+      },
+      "flaky" : false,
+      "newFailed" : false,
+      "parameters" : [ ]
+    } ],
+    "uid" : "7e458cdda1cbff0ff856fde53077c173"
+  }, {
+    "name" : "中台系统 - GM管理平台-游戏活动管理-活动查询",
+    "children" : [ {
+      "name" : "test_gm_manager_activity_search",
+      "uid" : "78e80bc32f4b230c",
+      "parentUid" : "c954efa0a1cca96bb70b10c7e8ae73d0",
+      "status" : "passed",
+      "time" : {
+        "start" : 1648181477433,
+        "stop" : 1648181477610,
+        "duration" : 177
+      },
+      "flaky" : false,
+      "newFailed" : false,
+      "parameters" : [ ]
+    } ],
+    "uid" : "c954efa0a1cca96bb70b10c7e8ae73d0"
+  }, {
+    "name" : "中台系统 - GM管理平台-游戏活动管理-{模块名}",
+    "children" : [ {
+      "name" : "test_gm_manager_change_status",
+      "uid" : "193eac66c90953e2",
+      "parentUid" : "0028fd0d0f9fb2ca31009efb19fe6f65",
+      "status" : "passed",
+      "time" : {
+        "start" : 1648181477623,
+        "stop" : 1648181477638,
+        "duration" : 15
+      },
+      "flaky" : false,
+      "newFailed" : false,
+      "parameters" : [ ]
+    }, {
+      "name" : "test_gm_manager_gift_group_games",
+      "uid" : "c10b114c5222fa75",
+      "parentUid" : "0028fd0d0f9fb2ca31009efb19fe6f65",
+      "status" : "passed",
+      "time" : {
+        "start" : 1648181478015,
+        "stop" : 1648181478027,
+        "duration" : 12
+      },
+      "flaky" : false,
+      "newFailed" : false,
+      "parameters" : [ ]
+    } ],
+    "uid" : "0028fd0d0f9fb2ca31009efb19fe6f65"
+  }, {
+    "name" : "中台系统 - GM管理平台-游戏活动管理-活动详情查询",
+    "children" : [ {
+      "name" : "test_gm_manager_add_activity",
+      "uid" : "16b8849259621bac",
+      "parentUid" : "587105de909a268131401839259882f0",
+      "status" : "passed",
+      "time" : {
+        "start" : 1648181477912,
+        "stop" : 1648181478001,
+        "duration" : 89
+      },
+      "flaky" : false,
+      "newFailed" : false,
+      "parameters" : [ ]
+    } ],
+    "uid" : "587105de909a268131401839259882f0"
+  }, {
+    "name" : "中台系统 - GM管理平台-游戏活动管理-操作记录详情",
+    "children" : [ {
+      "name" : "test_gm_manager_gift_group_search",
+      "uid" : "ec090195207f1",
+      "parentUid" : "13f37d43f69c257d9f233708f49827e2",
+      "status" : "passed",
+      "time" : {
+        "start" : 1648181478301,
+        "stop" : 1648181478321,
+        "duration" : 20
+      },
+      "flaky" : false,
+      "newFailed" : false,
+      "parameters" : [ ]
+    }, {
+      "name" : "test_gm_manager_table_change_log",
+      "uid" : "ba51e5d8fe614598",
+      "parentUid" : "13f37d43f69c257d9f233708f49827e2",
+      "status" : "passed",
+      "time" : {
+        "start" : 1648181479000,
+        "stop" : 1648181479015,
+        "duration" : 15
+      },
+      "flaky" : false,
+      "newFailed" : false,
+      "parameters" : [ ]
+    } ],
+    "uid" : "13f37d43f69c257d9f233708f49827e2"
+  } ]
+}

@@ -1,0 +1,8 @@
+INFO     test.py:test_gm_manager_gift_group_games.py:28 test_gm_manager_gift_group_games after time is : Fri Mar 25 12:11:18 2022 
+DEBUG    test.py:test_gm_manager_gift_group_games.py:35 中台首页 -GM管理平台 -游戏礼包管理 - 游戏礼包页
+INFO     test.py:test_gm_manager_gift_group_games.py:38 中台首页 -GM管理平台 -游戏礼包管理 - 游戏礼包页
+INFO     test.py:InterfacePublicMethods.py:31 正在发送get请求，请求地址：http://platform-develop.outer.staruniongame.com:32141/api/public/games， 请求参数{}
+DEBUG    urllib3.connectionpool:connectionpool.py:232 Starting new HTTP connection (1): platform-develop.outer.staruniongame.com:32141
+DEBUG    urllib3.connectionpool:connectionpool.py:465 http://platform-develop.outer.staruniongame.com:32141 "GET /api/public/games HTTP/1.1" 200 239
+INFO     test.py:InterfacePublicMethods.py:33 正在发送get请求， 请求结果{"code":20000,"message":"Success","data":[{"id":30,"name":"GameDemo","app_key":"bUFESFdBTjdhYToxNjQ3NTk5Mzk3OmRldmVsb3A="},{"id":37,"name":"p0202","app_key":"dXphWUtVSHBhYToxNjQ3ODM0NjM2OmRldmVsb3A=1"}],"request_id":"c8uk1pksad5pl6i4vv00"}
+INFO     test.py:test_gm_manager_gift_group_games.py:52 test_gm_manager_gift_group_games after time is : Fri Mar 25 12:11:18 2022

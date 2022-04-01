@@ -1,0 +1,126 @@
+{
+  "uid" : "193eac66c90953e2",
+  "name" : "test_gm_manager_change_status",
+  "fullName" : "Script.test_GM_management_platform.test_gm_manager_change_status.TestClassuser#test_gm_manager_change_status",
+  "historyId" : "8a5e1b65c033d6ee6d62f6ae3f9e4a54",
+  "time" : {
+    "start" : 1648181477623,
+    "stop" : 1648181477638,
+    "duration" : 15
+  },
+  "status" : "passed",
+  "flaky" : false,
+  "newFailed" : false,
+  "beforeStages" : [ {
+    "name" : "_xunit_setup_class_fixture_TestClassuser",
+    "time" : {
+      "start" : 1648181477613,
+      "stop" : 1648181477623,
+      "duration" : 10
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  }, {
+    "name" : "_session_faker",
+    "time" : {
+      "start" : 1648181477336,
+      "stop" : 1648181477416,
+      "duration" : 80
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "testStage" : {
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ {
+      "uid" : "6877b65c13fc4cb7",
+      "name" : "log",
+      "source" : "6877b65c13fc4cb7.txt",
+      "type" : "text/plain",
+      "size" : 2973
+    }, {
+      "uid" : "3625ec8b437c2e54",
+      "name" : "stderr",
+      "source" : "3625ec8b437c2e54.txt",
+      "type" : "text/plain",
+      "size" : 3443
+    } ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 2,
+    "hasContent" : true,
+    "stepsCount" : 0
+  },
+  "afterStages" : [ {
+    "name" : "_xunit_setup_class_fixture_TestClassuser::0",
+    "time" : {
+      "start" : 1648181477638,
+      "stop" : 1648181477638,
+      "duration" : 0
+    },
+    "status" : "passed",
+    "steps" : [ ],
+    "attachments" : [ ],
+    "parameters" : [ ],
+    "shouldDisplayMessage" : false,
+    "attachmentsCount" : 0,
+    "hasContent" : false,
+    "stepsCount" : 0
+  } ],
+  "labels" : [ {
+    "name" : "feature",
+    "value" : "中台系统 - GM管理平台-游戏活动管理-{模块名}"
+  }, {
+    "name" : "parentSuite",
+    "value" : "Script.test_GM_management_platform"
+  }, {
+    "name" : "suite",
+    "value" : "test_gm_manager_change_status"
+  }, {
+    "name" : "subSuite",
+    "value" : "TestClassuser"
+  }, {
+    "name" : "host",
+    "value" : "W664"
+  }, {
+    "name" : "thread",
+    "value" : "15228-MainThread"
+  }, {
+    "name" : "framework",
+    "value" : "pytest"
+  }, {
+    "name" : "language",
+    "value" : "cpython3"
+  }, {
+    "name" : "package",
+    "value" : "Script.test_GM_management_platform.test_gm_manager_change_status"
+  }, {
+    "name" : "resultFormat",
+    "value" : "allure2"
+  } ],
+  "parameters" : [ ],
+  "links" : [ ],
+  "hidden" : false,
+  "retry" : false,
+  "extra" : {
+    "severity" : "normal",
+    "retries" : [ ],
+    "categories" : [ ],
+    "tags" : [ ]
+  },
+  "source" : "193eac66c90953e2.json",
+  "parameterValues" : [ ]
+}

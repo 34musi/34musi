@@ -1,0 +1,71 @@
+[ {
+  "uid" : "16b8849259621bac",
+  "name" : "test_gm_manager_add_activity",
+  "time" : {
+    "start" : 1648181477912,
+    "stop" : 1648181478001,
+    "duration" : 89
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "ec090195207f1",
+  "name" : "test_gm_manager_gift_group_search",
+  "time" : {
+    "start" : 1648181478301,
+    "stop" : 1648181478321,
+    "duration" : 20
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "cc942896de30641d",
+  "name" : "test_gm_manager_add_activity",
+  "time" : {
+    "start" : 1647942291845,
+    "stop" : 1647942292041,
+    "duration" : 196
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "193eac66c90953e2",
+  "name" : "test_gm_manager_change_status",
+  "time" : {
+    "start" : 1648181477623,
+    "stop" : 1648181477638,
+    "duration" : 15
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "ba51e5d8fe614598",
+  "name" : "test_gm_manager_table_change_log",
+  "time" : {
+    "start" : 1648181479000,
+    "stop" : 1648181479015,
+    "duration" : 15
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "78e80bc32f4b230c",
+  "name" : "test_gm_manager_activity_search",
+  "time" : {
+    "start" : 1648181477433,
+    "stop" : 1648181477610,
+    "duration" : 177
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "c10b114c5222fa75",
+  "name" : "test_gm_manager_gift_group_games",
+  "time" : {
+    "start" : 1648181478015,
+    "stop" : 1648181478027,
+    "duration" : 12
+  },
+  "status" : "passed",
+  "severity" : "normal"
+} ]

@@ -1,0 +1,6 @@
+[2022-03-22 17:28:17,449][test.py] [[32m**INFO**[0m] [test_gm_manager_add_activity.py:setup_class:[32m26[0m] [32mtest_gm_manager_table_change_log after time is : Tue Mar 22 17:28:17 2022 [0m
+[2022-03-22 17:28:17,453][test.py] [[37m**DEBUG**[0m] [test_gm_manager_add_activity.py:setup_class:[37m37[0m] [37m中台首页 -GM管理平台 -游戏活动管理 -活动新增[0m
+[2022-03-22 17:28:17,453][test.py] [[32m**INFO**[0m] [test_gm_manager_add_activity.py:test_gm_manager_add_activity:[32m40[0m] [32m中台首页 -GM管理平台 -游戏活动管理 -活动新增[0m
+[2022-03-22 17:28:17,454][method.py] [[32m**INFO**[0m] [method.py:sendRequest:[32m39[0m] [32m正在发送请求，请求地址：http://platform-develop.outer.staruniongame.com:32141/api/gm_manager/activity， 请求参数{'start_time': 1647941297, 'end_time': 1650533297, 'server_ids': ['1', '10', '2', '3', '4', '5', '6', '7', '89', '9'], 'conf_id': 8826}[0m
+[2022-03-22 17:28:17,735][test.py] [[37m**DEBUG**[0m] [test_gm_manager_add_activity.py:test_gm_manager_add_activity:[37m42[0m] [37m{'code': 20000, 'message': 'Success', 'data': None, 'request_id': 'c8spdccsad5rhq7t8mf0'}[0m
+[2022-03-22 17:28:17,736][test.py] [[32m**INFO**[0m] [test_gm_manager_add_activity.py:teardown_class:[32m57[0m] [32mtest_gm_manager_table_change_log after time is : Tue Mar 22 17:28:17 2022 [0m
