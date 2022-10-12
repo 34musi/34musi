@@ -1,7 +1,7 @@
 middle_env:
   default: test
   middle_host:
-    test: http://platform-develop.outer.staruniongame.com
+    test: http://xxxxx
     dev: test/api
   middle_prod:
     test: 32141
