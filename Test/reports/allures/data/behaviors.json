@@ -1,0 +1,77 @@
+{
+  "uid" : "b1a8273437954620fa374b796ffaacdd",
+  "name" : "behaviors",
+  "children" : [ {
+    "name" : "项目名称：正在学习",
+    "children" : [ {
+      "name" : "模块名称：test——api ",
+      "children" : [ {
+        "name" : "接口测试名称： 测试百里接口",
+        "children" : [ {
+          "name" : "test_bai[\\u767e\\u91cc]",
+          "uid" : "b1ad5cdb86a3f3e3",
+          "parentUid" : "c267ce605343da5848e6033372bf9e08",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680334,
+            "stop" : 1681043680334,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'百里'" ]
+        }, {
+          "name" : "test_bai[\\u661f\\u8000]",
+          "uid" : "2b8f2097346ab84a",
+          "parentUid" : "c267ce605343da5848e6033372bf9e08",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680338,
+            "stop" : 1681043680338,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'星耀'" ]
+        }, {
+          "name" : "test_bai[\\u738b\\u8005]",
+          "uid" : "ebd44ab1116460f3",
+          "parentUid" : "c267ce605343da5848e6033372bf9e08",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680342,
+            "stop" : 1681043680342,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'王者'" ]
+        } ],
+        "uid" : "c267ce605343da5848e6033372bf9e08"
+      }, {
+        "name" : "test_li",
+        "uid" : "8d929758a08d4105",
+        "parentUid" : "9961da7589d718657dfc0699d41cb2d8",
+        "status" : "passed",
+        "time" : {
+          "start" : 1681043680344,
+          "stop" : 1681043680345,
+          "duration" : 1
+        },
+        "flaky" : false,
+        "parameters" : [ ]
+      }, {
+        "name" : "test_num",
+        "uid" : "f99f98ae3d163010",
+        "parentUid" : "9961da7589d718657dfc0699d41cb2d8",
+        "status" : "passed",
+        "time" : {
+          "start" : 1681043680347,
+          "stop" : 1681043680654,
+          "duration" : 307
+        },
+        "flaky" : false,
+        "parameters" : [ ]
+      } ],
+      "uid" : "9961da7589d718657dfc0699d41cb2d8"
+    } ],
+    "uid" : "b467a8fbcceb422422ef2fd4d2528e02"
+  } ]
+}

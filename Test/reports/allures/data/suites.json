@@ -1,0 +1,77 @@
+{
+  "uid" : "98d3104e051c652961429bf95fa0b5d6",
+  "name" : "suites",
+  "children" : [ {
+    "name" : "testcase",
+    "children" : [ {
+      "name" : "test_api",
+      "children" : [ {
+        "name" : "TestApi",
+        "children" : [ {
+          "name" : "test_bai[\\u767e\\u91cc]",
+          "uid" : "b1ad5cdb86a3f3e3",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680334,
+            "stop" : 1681043680334,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'百里'" ]
+        }, {
+          "name" : "test_bai[\\u661f\\u8000]",
+          "uid" : "2b8f2097346ab84a",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680338,
+            "stop" : 1681043680338,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'星耀'" ]
+        }, {
+          "name" : "test_bai[\\u738b\\u8005]",
+          "uid" : "ebd44ab1116460f3",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680342,
+            "stop" : 1681043680342,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'王者'" ]
+        }, {
+          "name" : "test_li",
+          "uid" : "8d929758a08d4105",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680344,
+            "stop" : 1681043680345,
+            "duration" : 1
+          },
+          "flaky" : false,
+          "parameters" : [ ]
+        }, {
+          "name" : "test_num",
+          "uid" : "f99f98ae3d163010",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681043680347,
+            "stop" : 1681043680654,
+            "duration" : 307
+          },
+          "flaky" : false,
+          "parameters" : [ ]
+        } ],
+        "uid" : "56ad7f2451dd67ecfe8bf570f2092bf2"
+      } ],
+      "uid" : "1ba035f71e562d62e23101f65e594a11"
+    } ],
+    "uid" : "7d3977dcbf31acd3e26ecbe96342e45e"
+  } ]
+}

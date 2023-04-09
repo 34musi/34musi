@@ -1,0 +1,47 @@
+allure左边定制
+1.项目名称 allure.epic("xxx")
+2.项目模块 allure.feature("xxx")
+3.用例名臣 allure.story("xxx")
+4.用例标题（单） allure.title("xxx")
+5.用例标题（多）allure.dynamic.title("xxx")
+
+allure右边定制
+1。blocker：中断缺陷，致命bug
+2.critical：临界缺陷：严重bug
+3.normal：一般缺陷：一般bug
+4.minor：次要缺陷：提示bug
+5.trivial：轻微缺陷：轻微bug
+
+用例表述
+1.allure.description（”xxx“）
+
+测试用例地址的定制
+1。接口地址
+allure.link
+2.bug地址
+allure.issue
+3.测试用例地址
+allure.testcase
+
+用例步骤
+allure.step（“xxx”） 不建议使用
+with allure.step（“xxx”）这个是是在用例中执行的
+
+
+附件的定制
+web自动化定制
+with open("图片路径", mode="rb") as f:
+    allure.attach(body=f.read(), name="错误截图", attachment_type=allure.attachment_type.PNG)
+
+接口自动化定制
+        allure.attach(body="接口地址", name="请求地址：")
+        allure.attach(body="get", name="请求方式:", attachment_type=allure.attachment_type.TEXT)
+        data = {
+            "grant_type": "client_credential",
+            "appid": "wx6b11b3efd1cdc290",
+            "secret": "106a9c6157c4bd5f6029918738f9529d"
+        }
+        allure.attach(body=json.dumps(data), name="请求数据", attachment_type=allure.attachment_type.TEXT)
+        rep = requests.get(url="https://api.weixin.qq.com/cgi-bin/token", params=data)
+        allure.attach(body=rep.text, name="响应数据", attachment_type=allure.attachment_type.TEXT)
+        for i in range(1, 6):
