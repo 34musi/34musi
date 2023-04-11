@@ -45,3 +45,24 @@ with open("图片路径", mode="rb") as f:
         rep = requests.get(url="https://api.weixin.qq.com/cgi-bin/token", params=data)
         allure.attach(body=rep.text, name="响应数据", attachment_type=allure.attachment_type.TEXT)
         for i in range(1, 6):
+
+企业中的真实定制
+1.项目名称:@allure.epic("xxx")
+2.模块名称:@allure.feature("xxx")
+3.接口名称:@allure.story("xxx")
+4.测试用例标题
+    1.@allure.title("xxx")  适用一个方法对应一个用例
+    2.@allure.dynameic.title  适用于一个方法对应多个用例(数据驱动)
+
+如果本地访问allure报告
+1.在本地搭建本地服务器
+2.通过启动服务器打开allure报告
+    allure open 报告路径
+
+allure数据驱动装饰器
+1.@allure.mark.params("参数名", 元组,列表,字典)
+2.@allure.mark.parameterize("key, value", [[k1, v1], [k2, v2],...])
+
+yaml两种数据结构
+- 表示列表
+键值对: key: value的形式

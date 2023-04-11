@@ -48,6 +48,11 @@ class TestApi:
                     f"这个是我执行的用例步骤{i}"
                 )
 
+    @pytest.mark.parametrize("date", list)
+    def test_date(self, date):
+        print(f"这个是")
+        print(date)
+
     def setup_class(self):
         print(
             "在执行类之前之前一次"

@@ -9,64 +9,100 @@
         "name" : "TestApi",
         "children" : [ {
           "name" : "test_bai[\\u767e\\u91cc]",
-          "uid" : "b1ad5cdb86a3f3e3",
+          "uid" : "f738b58ac79b2734",
           "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
           "status" : "passed",
           "time" : {
-            "start" : 1681043680334,
-            "stop" : 1681043680334,
+            "start" : 1681221601656,
+            "stop" : 1681221601656,
             "duration" : 0
           },
           "flaky" : false,
           "parameters" : [ "'百里'" ]
         }, {
           "name" : "test_bai[\\u661f\\u8000]",
-          "uid" : "2b8f2097346ab84a",
+          "uid" : "cf9c4afdb5dc68b6",
           "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
           "status" : "passed",
           "time" : {
-            "start" : 1681043680338,
-            "stop" : 1681043680338,
+            "start" : 1681221601659,
+            "stop" : 1681221601659,
             "duration" : 0
           },
           "flaky" : false,
           "parameters" : [ "'星耀'" ]
         }, {
           "name" : "test_bai[\\u738b\\u8005]",
-          "uid" : "ebd44ab1116460f3",
+          "uid" : "3ccbcca90efd7513",
           "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
           "status" : "passed",
           "time" : {
-            "start" : 1681043680342,
-            "stop" : 1681043680342,
+            "start" : 1681221601661,
+            "stop" : 1681221601661,
             "duration" : 0
           },
           "flaky" : false,
           "parameters" : [ "'王者'" ]
         }, {
           "name" : "test_li",
-          "uid" : "8d929758a08d4105",
+          "uid" : "ac4f483f13b4a35d",
           "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
           "status" : "passed",
           "time" : {
-            "start" : 1681043680344,
-            "stop" : 1681043680345,
-            "duration" : 1
+            "start" : 1681221601663,
+            "stop" : 1681221601663,
+            "duration" : 0
           },
           "flaky" : false,
           "parameters" : [ ]
         }, {
           "name" : "test_num",
-          "uid" : "f99f98ae3d163010",
+          "uid" : "5ae4ce5e1eedc26e",
           "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
           "status" : "passed",
           "time" : {
-            "start" : 1681043680347,
-            "stop" : 1681043680654,
-            "duration" : 307
+            "start" : 1681221601664,
+            "stop" : 1681221601911,
+            "duration" : 247
           },
           "flaky" : false,
           "parameters" : [ ]
+        }, {
+          "name" : "test_date[\\u767e\\u91cc]",
+          "uid" : "c38b04407e17a9d1",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681221601912,
+            "stop" : 1681221601912,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'百里'" ]
+        }, {
+          "name" : "test_date[\\u661f\\u8000]",
+          "uid" : "10b45b39a0b36771",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681221601914,
+            "stop" : 1681221601914,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'星耀'" ]
+        }, {
+          "name" : "test_date[\\u738b\\u8005]",
+          "uid" : "96f7d1c96f31b733",
+          "parentUid" : "56ad7f2451dd67ecfe8bf570f2092bf2",
+          "status" : "passed",
+          "time" : {
+            "start" : 1681221601916,
+            "stop" : 1681221601916,
+            "duration" : 0
+          },
+          "flaky" : false,
+          "parameters" : [ "'王者'" ]
         } ],
         "uid" : "56ad7f2451dd67ecfe8bf570f2092bf2"
       } ],

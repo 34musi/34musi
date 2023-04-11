@@ -1,51 +1,81 @@
 [ {
-  "uid" : "ebd44ab1116460f3",
-  "name" : "test_bai[\\u738b\\u8005]",
-  "time" : {
-    "start" : 1681043680342,
-    "stop" : 1681043680342,
-    "duration" : 0
-  },
-  "status" : "passed",
-  "severity" : "normal"
-}, {
-  "uid" : "f99f98ae3d163010",
-  "name" : "test_num",
-  "time" : {
-    "start" : 1681043680347,
-    "stop" : 1681043680654,
-    "duration" : 307
-  },
-  "status" : "passed",
-  "severity" : "critical"
-}, {
-  "uid" : "b1ad5cdb86a3f3e3",
+  "uid" : "f738b58ac79b2734",
   "name" : "test_bai[\\u767e\\u91cc]",
   "time" : {
-    "start" : 1681043680334,
-    "stop" : 1681043680334,
+    "start" : 1681221601656,
+    "stop" : 1681221601656,
     "duration" : 0
   },
   "status" : "passed",
   "severity" : "normal"
 }, {
-  "uid" : "8d929758a08d4105",
+  "uid" : "3ccbcca90efd7513",
+  "name" : "test_bai[\\u738b\\u8005]",
+  "time" : {
+    "start" : 1681221601661,
+    "stop" : 1681221601661,
+    "duration" : 0
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "10b45b39a0b36771",
+  "name" : "test_date[\\u661f\\u8000]",
+  "time" : {
+    "start" : 1681221601914,
+    "stop" : 1681221601914,
+    "duration" : 0
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "c38b04407e17a9d1",
+  "name" : "test_date[\\u767e\\u91cc]",
+  "time" : {
+    "start" : 1681221601912,
+    "stop" : 1681221601912,
+    "duration" : 0
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "ac4f483f13b4a35d",
   "name" : "test_li",
   "time" : {
-    "start" : 1681043680344,
-    "stop" : 1681043680345,
-    "duration" : 1
+    "start" : 1681221601663,
+    "stop" : 1681221601663,
+    "duration" : 0
   },
   "status" : "passed",
   "severity" : "blocker"
 }, {
-  "uid" : "2b8f2097346ab84a",
+  "uid" : "cf9c4afdb5dc68b6",
   "name" : "test_bai[\\u661f\\u8000]",
   "time" : {
-    "start" : 1681043680338,
-    "stop" : 1681043680338,
+    "start" : 1681221601659,
+    "stop" : 1681221601659,
     "duration" : 0
   },
   "status" : "passed",
   "severity" : "normal"
+}, {
+  "uid" : "96f7d1c96f31b733",
+  "name" : "test_date[\\u738b\\u8005]",
+  "time" : {
+    "start" : 1681221601916,
+    "stop" : 1681221601916,
+    "duration" : 0
+  },
+  "status" : "passed",
+  "severity" : "normal"
+}, {
+  "uid" : "5ae4ce5e1eedc26e",
+  "name" : "test_num",
+  "time" : {
+    "start" : 1681221601664,
+    "stop" : 1681221601911,
+    "duration" : 247
+  },
+  "status" : "passed",
+  "severity" : "critical"
 } ]
