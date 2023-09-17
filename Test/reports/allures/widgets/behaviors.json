@@ -1,15 +1,15 @@
 {
-  "total" : 1,
+  "total" : 3,
   "items" : [ {
-    "uid" : "b467a8fbcceb422422ef2fd4d2528e02",
-    "name" : "项目名称：正在学习",
+    "uid" : "37eab6a15d5938f7bb066dd2ee1292d2",
+    "name" : "接口测试名称： 测试百里接口",
     "statistic" : {
       "failed" : 0,
       "broken" : 0,
       "skipped" : 0,
-      "passed" : 1,
+      "passed" : 3,
       "unknown" : 0,
-      "total" : 1
+      "total" : 3
     }
   } ]
 }
