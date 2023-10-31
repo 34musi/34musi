@@ -1,6 +1,2 @@
 "Status","Start Time","Stop Time","Duration in ms","Parent Suite","Suite","Sub Suite","Test Class","Test Method","Name","Description"
-"passed","Sun Sep 17 17:56:46 CST 2023","Sun Sep 17 17:56:46 CST 2023","384","testcase","test_api","TestApi","","","test_num[date0]","描述：这个答案是0"
-"passed","Sun Sep 17 17:56:46 CST 2023","Sun Sep 17 17:56:46 CST 2023","0","testcase","test_api","TestApi","","","test_bai[\u661f\u8000]",""
-"passed","Sun Sep 17 17:56:46 CST 2023","Sun Sep 17 17:56:46 CST 2023","1","testcase","test_api","TestApi","","","test_bai[\u767e\u91cc]",""
-"passed","Sun Sep 17 17:56:46 CST 2023","Sun Sep 17 17:56:46 CST 2023","0","testcase","test_api","TestApi","","","test_bai[\u738b\u8005]",""
-"passed","Sun Sep 17 17:56:46 CST 2023","Sun Sep 17 17:56:46 CST 2023","1","testcase","test_api","TestApi","","","test_li",""
+"passed","Sun Sep 17 21:22:51 CST 2023","Sun Sep 17 21:22:52 CST 2023","328","testcase","test_request","TestRequest","","","test_request",""

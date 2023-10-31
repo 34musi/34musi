@@ -66,3 +66,81 @@ allure数据驱动装饰器
 yaml两种数据结构
 - 表示列表
 键值对: key: value的形式
+
+
+
+第四天
+
+requests库的介绍
+
+
+requests是用于http的第三方请求
+一：下载
+pip install requests
+二：requests库的使用方法
+1.requests.get(url，param=None，**kwargs);      发送get请求(通过params传参)
+
+2.requests.post(url，data=None，json=None， **kwargs);       发送post请求(通过data/json传参)
+    请求头:
+    1.请求正文格式:multipart/from-data
+        Content-Type:multipart/from-data                    一般用户键值对和文件
+    2.请求正文格式:application/x-www-form-urlencoded
+        Content-Type:application/x-www-form-urlencoded      以表单的方式传参，数据格式key1=value1&key2=value2
+    3.请求正文格式: raw
+        Content-Type:application/json
+        Content-Type:text/plain
+        Content-Type:application/javascript
+        Content-Type:text/html
+        Content-Type:application/xml
+    4.请求正文格式: binary
+        Content-Type:application/octet-stream       二进制流的数据
+3.requests.put(url，data=None，**kwargs);
+
+4.requests.delete(url， **kwargs);
+
+5.requests.request(method, url, **kwargs);       核心方法
+    1.method:   请求方法
+    2.url:      请求路径
+    3.params:   get请求参数
+    4.data:     post,put,patch传参
+    5.headers:  请求头
+    6.cookies:  请求cookie信息
+    7.files:    文件上传
+    8.json:     post传参
+
+6.requests.session();        核心方法
+
+6.requests.patch(url，data=None，**kwargs);        核心方法
+
+
+三:request()执行后返回的对象response对象
+    res = requests.get(url, params)
+    # print(res.text)
+    # print(res.content)
+    # print(res.json())
+    # print(res.status_code)
+    # print(res.headers)
+    # print(res.cookies)
+
+四: 实战（get，post<data、json传参，file文件上传>）
+get:   def test_request(self):
+        url = "https://www.wanandroid.com/user/login"
+        params = {"username": "小李子呀",
+                       "password": 123456}
+        res = requests.post(url, params)
+        Json = res.json()
+        TestRequest
+        nickname = Json
+        print(res.text)
+        print(res.content)
+        print(res.json())
+        print(res.status_code)
+        print(res.headers)
+        requests.get()
+        requests.post()
+        requests.delete()
+        requests.patch()
+        requests.session()
+        requests.put()
+
+post:
