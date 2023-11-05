@@ -57,7 +57,7 @@ def parse_timestr_to_timestamp(time_str, flag=True):
 
 def tiem_ago(n):
     """
-    n：时间天数  int
+    n：时间天数   int
     获取几天前的时间
     """
     threeDayAgo = (datetime.datetime.now() - datetime.timedelta(n))

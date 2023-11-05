@@ -1,46 +1,49 @@
 import requests
 
+from common.requests_util import re
+from common.yaml_util import write_extract_yaml
 
-class TestRequest():
-    # def __init__(self):
-    #     self.url = "https://www.wanandroid.com/user/login"
-    #     self.params = {"username": 60,
-    #                    "password": 123456}
-    #     self.res = requests.post(self.url, self.params)
 
-    def test_request(self):
-        url = "https://www.wanandroid.com/user/login"
-        params = {"username": "小李子呀",
-                       "password": 123456}
-        res = requests.post(url, params)
-        Json = res.json()
-        # TestRequest
-        nickname = Json["data"]["nickname"]
-        return nickname
+class TestWanJiaDj:
 
-        # print(res.text)
-        # print(res.content)
-        # print(res.json())
-        # print(res.status_code)
-        # print(res.headers)
-        # requests.get()
-        # requests.post()
-        # requests.delete()
-        # requests.patch()
-        # requests.session()
-        # requests.put()
-
-    def test_post(self):
-        url = "https://www.wanandroid.com/user/login"
+    def test_login(self):
+        url = "/api/user/login"
+        method = "post"
         data = {
-            "username" :self.test_request(),
-            "password": 123456
+            "username": "admin",
+            "password": "starunion2021"
         }
-        res = requests.post(url=url, json=data)
-        print(res.json()
-              )
-        print(res.request.headers)
+        res = re.send_requests(url=url, method=method, headers=None, json=data)
+        res_token = res.json()
+        write_extract_yaml(res_token)
+
+    # def test_shishi(self):
+    #     # url = "api/real_time_online"
+    #     headers = {}
+    #     method = "post"
+    #     data = {
+    #         "base_param": {
+    #             "player_info": {},
+    #             "time_range": {
+    #                 "from_time": 1698969600,
+    #                 "to_time": 1699055999,
+    #                 "time_zone": 0
+    #             },
+    #             "group": {
+    #                 "group_by_date": 7
+    #             },
+    #             "page": 1,
+    #             "size": 20
+    #         },
+    #         "payment_param": {},
+    #         "role_param": {},
+    #         "account_param": {},
+    #         "device_param": {},
+    #         "log_base_param": {},
+    #         "activity_param": {}
+    #     }
+    #     res = re.send_requests(url=url, method=method, data=data)
+    #     return res
 
 if __name__ == '__main__':
-    test = TestRequest()
-    print(test.test_post())
+    T = TestWanJiaDj()

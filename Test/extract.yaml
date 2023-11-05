@@ -1,0 +1,7 @@
+code: 20000
+data:
+  stage: release
+  tag: false
+  token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOiIxNjk5ODAwNzcyIiwiaXRhIjoiMTY5OTE5NTk3MiIsInBhc3N3b3JkIjoiIiwicm9sZUlkIjoiMSIsInV1aWQiOiJjbDNxb2g2MnZ2bXE2ajlvaGw4MCJ9.qP3PEKs7yeD4qOWG-BqcecUHEjiJ3rqtBlmb3nr5oj0
+message: ok
+request_id: cl3qoh62vvmq6j9ohl7g

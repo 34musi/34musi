@@ -57,6 +57,42 @@
 #             "在执行类之前之前一次"
 #         )
 #
+# def test_send(self):
+#     url = "/api/roles_log/gamelog/log_item"
+#     method = "Post"
+#     headers = {
+#         "authority": "platform-release.staruniongame.com",
+#         "accept": "pplication / json, text / plain, * / *",
+#         "content-type": "application/json;charset=UTF-8",
+#         "cookie": re.get_cookie(),
+#         "X-Token": re.get_token()
+#     }
+#     data = {
+#         "player_info": {
+#             "role_id": "",
+#             "role_name": "",
+#             "acc_id": ""
+#         },
+#         "time_range": {
+#             "from_time": 1696118400,
+#             "to_time": 1698789428,
+#             "time_zone": 0
+#         },
+#         "exc_internal": False,
+#         "category": 1,
+#         "order_by": {
+#             "desc": True,
+#             "field_choose": 1,
+#             "field_name": "created_at"
+#         },
+#         "page": 1,
+#         "size": 20,
+#         "table_prefix": "log_item"
+#     }
+#     res = re.send_requests(method=method, url=url, headers=headers, data=data)
+#     res_data = res.json()
+#     write_extract_yaml(res_data)
 #
+#     return res
 # if __name__ == '__main__':
 #     t = TestApi()
