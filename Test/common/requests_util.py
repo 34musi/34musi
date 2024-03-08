@@ -1,7 +1,7 @@
 import json
 
 import requests
-from common.yaml_util import *
+from common.path_util import *
 from common.yaml_util import *
 
 
@@ -10,8 +10,8 @@ class RequestUtil:
 
     def __init__(self, file_path, base, base_url):
         """获取通用指定的url路径地址"""
-        self.base_url = read_yaml(file_path, base, base_url)
-        self.last_herders = {}
+        self.base_url = rf.read_yaml(file_path, base, base_url)
+        print(self.base_url)
 
     # 替换数据的方法
     def replace_value(self, data):
@@ -24,7 +24,7 @@ class RequestUtil:
                 star_va = str_data.index("{{")
                 end_va = str_data.index("}}")
                 old_va = str_data[star_va:end_va + 2]
-                new_va = read_yaml(extract_path(), old_va[2:-2])
+                new_va = rf.read_yaml(examine_path_url(), old_va[2:-2])
                 str_data.replace(old_va, new_va)
         if data and isinstance(data, dict):
             data = json.loads(str_data)
@@ -33,33 +33,36 @@ class RequestUtil:
         return data
 
     # 发送请求的方法
-    def send_requests(self, method, url, headers=None, **kwargs):  # headers=None
+    def send_requests(self, method, url, **kwargs):  # headers=None
         self.url = self.base_url + url  # 需要访问的接口地址
         self.last_method = str(method).lower()  # 处理请求方法的大小写
-        # # 判断请求头是否为空
-        if headers and isinstance(headers, dict):
-            self.last_herders = self.replace_value(headers)
+        # # # 判断请求头是否为空
+        # if headers and isinstance(headers, dict):
+        #     self.last_herders = self.replace_value(headers)
 
-        # 如何替换请求头中，可能会包含params， data， json格式的数据
-        for key, value in kwargs.items():
-            if key in ["params", "data", "json"]:
-                kwargs[key] = self.replace_value(value)
-        res = requests.session().request(method=self.last_method, url=self.url, headers=self.last_herders,
+        # 如何替换请求头中，可能会包含params， Data， json格式的数据
+        # for key, value in kwargs.items():
+        #     if key in ["params", "Data", "json"]:
+        #         kwargs[key] = self.replace_value(value)
+        res = requests.session().request(method=self.last_method, url=self.url,
                                          **kwargs)  # 发送请求 headers=self.last_herders,
         return res
 
-    def get_cookie(self):
-        cook = read_yaml("Cookie", "cookie")
-        return cook
+    # 规范测试用例文件编写方法
+    def analysis_yaml(self, caseinfo):
+        # 1. 必须有四个一级关键字
+        caseinfo_key = dict(caseinfo).keys()
+        if "name" in caseinfo_key and "requests" in caseinfo_key and "valid" in caseinfo_key:
+            print("测试数据键是正常的")
+            re_key = dict(caseinfo["requests"]).keys()
+            if "method" in re_key and "url" in re_key and "params" in re_key:
+                print("数据正常没有错误值")
+            else:
+                print("缺少我需要填写的值")
+        else:
+            print("其中有些值不存在的")
 
-    def get_token(self):
-        tok = read_yaml("X-Token", "token")
-        return tok
 
-
-re = RequestUtil(yong_li_path(), "base", "xinghe_base")
+re = RequestUtil(rf.read_yaml(examine_path_data()), "audit_policy", "examine_url")
 if __name__ == '__main__':
-    res = re.send_requests("post", "/api/user/login", json= {
-            "username": "admin",
-            "password": "starunion2021"
-        } )
+    print(re)

@@ -11,16 +11,17 @@ def gen_path():
     return Dir
 
 
-def yong_li_path():
-    yongli = gen_path() + "\get_yaml.yaml"
-    return yongli
+# 审核策略地址
+def examine_path_url():
+    examine = gen_path() + "/Data/data_ai_url.yaml"
+    return examine
 
 
-def extract_path():
-    """获取配置路径"""
-    PeiZ = gen_path() + "/extract.yaml"
+def examine_path_data():
+    """获取审核策略查询数据配置"""
+    PeiZ = gen_path() + "/Data/data_ai_examine.yaml"
     return PeiZ
 
 
 if __name__ == '__main__':
-    print(extract_path())
+    print(examine_path_url())

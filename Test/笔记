@@ -143,7 +143,20 @@ get:   def test_request(self):
         requests.session()
         requests.put()
 
+
+拓展：
+json.dumps(data)    序列化：将字典转化未字符串
+json.loads(data)    反序列化：将字符串转化成字典
+
+
+
 post:
+    data（键值对的字典：key：value):
+        默认：Content-Type: application/x-www-form-urlencoded
+    json(有嵌套的字典)：
+        默认 ：Content-Type: application/json
+    files（文件上传）： 注释----一般是通过数据流去上传的直接上传不行
+        默认：Content-Type: multipart/from-data
 
 
 一：自动化接口请求封装
