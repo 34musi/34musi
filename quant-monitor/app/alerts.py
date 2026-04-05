@@ -26,6 +26,8 @@ def signal_to_snapshot(sig: SignalOut) -> dict[str, Any]:
         "trend": sig.trend,
         "strength": sig.strength,
         "score": sig.buy_suitability_score,
+        "technical_score": sig.technical_score,
+        "fundamental_adjustment": sig.fundamental_adjustment,
         "position_hint": sig.position_hint,
         "as_of_date": sig.as_of_date,
     }

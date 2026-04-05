@@ -5,6 +5,7 @@
 - bars：按 symbol + trade_date 唯一的日线 OHLCV。
 - watchlist：用户监控的 6 位 A 股代码列表。
 - signal_cache：告警预览用的「上一版信号」JSON 快照。
+- fundamental_snapshots：自选扩展因子快照（估值、财务同比、主力净流入等），供信号合成使用。
 """
 
 import logging
@@ -60,6 +61,23 @@ class SignalCacheRow(Base):
     symbol: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     payload_json: Mapped[str] = mapped_column(Text)
     updated_at: Mapped[str] = mapped_column(String(32))
+
+
+class FundamentalSnapshotRow(Base):
+    """单标的最新扩展因子快照；由 /ingest/fundamentals 写入，信号侧只读。"""
+
+    __tablename__ = "fundamental_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), unique=True, index=True)
+    updated_at: Mapped[str] = mapped_column(String(32))
+    pe_dynamic: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pb: Mapped[float | None] = mapped_column(Float, nullable=True)
+    revenue_yoy_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    profit_yoy_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    financial_report_date: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    main_net_inflow: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fund_flow_date: Mapped[str | None] = mapped_column(String(24), nullable=True)
 
 
 _engine = None

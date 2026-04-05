@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>趋势监控 · 控制台</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --ok: #3ecf8e;
+      --err: #f87171;
+      --nav-w: 260px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    header h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+    header a { color: var(--accent); text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    .layout { display: flex; min-height: calc(100vh - 52px); }
+    nav {
+      width: var(--nav-w);
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      padding: 0.75rem 0;
+      background: #121a24;
+      overflow-y: auto;
+    }
+    .nav-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 0.65rem 1rem;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.9rem;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { background: rgba(61, 139, 253, 0.08); }
+    .nav-item.active {
+      background: rgba(61, 139, 253, 0.12);
+      border-left-color: var(--accent);
+    }
+    .nav-item .tag { font-weight: 700; color: var(--accent); margin-right: 0.35rem; }
+    .nav-item .hint {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      line-height: 1.35;
+      font-weight: normal;
+    }
+    main {
+      flex: 1;
+      padding: 1.25rem 1.5rem;
+      overflow-y: auto;
+      max-width: 900px;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .panel h2 { margin-top: 0; font-size: 1.15rem; }
+    .lead { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      max-width: 320px;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .row { margin-bottom: 1rem; }
+    .btns { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0; }
+    button.primary, button.secondary {
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    button.primary:disabled, button.secondary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    button.secondary { background: var(--panel); color: var(--text); }
+    .status-pill {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+    .status-pill.ok { background: rgba(62, 207, 142, 0.2); color: var(--ok); }
+    .status-pill.warn { background: rgba(248, 113, 113, 0.15); color: var(--err); }
+    pre.out {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: auto;
+      font-size: 0.8rem;
+      max-height: 420px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 0.5rem; }
+    th, td { border: 1px solid var(--border); padding: 0.45rem 0.65rem; text-align: left; }
+    th { background: var(--panel); color: var(--muted); font-weight: 500; }
+    .link-del {
+      color: var(--err);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: inherit;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .disclaimer-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .disclaimer-box h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--muted); }
+    .disclaimer-box p { margin: 0 0 0.75rem; }
+    details { margin-top: 0.75rem; color: var(--muted); font-size: 0.85rem; }
+    .ingest-h3 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--text); }
+    .ingest-result-wrap { margin-top: 1rem; }
+    .ingest-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .ingest-table th, .ingest-table td { border: 1px solid var(--border); padding: 0.5rem 0.65rem; text-align: left; }
+    .ingest-table th { background: var(--panel); color: var(--muted); font-weight: 500; white-space: nowrap; }
+    .ingest-table .cell-err { color: var(--err); font-size: 0.82rem; }
+    .ingest-table .cell-pre { white-space: pre-wrap; word-break: break-word; }
+    .ingest-test-box {
+      margin-top: 0.75rem;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    .ingest-test-box.ok { border-color: rgba(62, 207, 142, 0.35); }
+    .ingest-test-box.fail { border-color: rgba(248, 113, 113, 0.35); }
+    .pill { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; }
+    .pill.ok { background: rgba(62, 207, 142, 0.2); color: var(--ok); }
+    .pill.err { background: rgba(248, 113, 113, 0.15); color: var(--err); }
+    .ingest-notes { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 0.5rem; }
+    .note-field { margin-bottom: 0.75rem; }
+    .note-field:last-child { margin-bottom: 0; }
+    .note-field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .note-val { font-size: 0.85rem; line-height: 1.45; white-space: pre-wrap; }
+    .ingest-raw { margin-top: 0.75rem; }
+    @media (max-width: 720px) {
+      .layout { flex-direction: column; }
+      nav { width: 100%; border-right: none; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem; }
+      .nav-item { width: auto; flex: 1 1 45%; border-left: none; border-radius: 6px; }
+      .nav-item.active { border-left: none; outline: 1px solid var(--accent); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>A 股趋势监控 · 图形控制台</h1>
+    <span>
+      <a href="/docs" target="_blank" rel="noopener">开发者文档 /docs</a>
+    </span>
+  </header>
+  <div class="layout">
+    <nav id="nav" aria-label="功能模块"></nav>
+    <main>
+      <section id="panel-1" class="panel" data-module="1">
+        <h2>① 入门必读</h2>
+        <p class="lead">先看服务是否正常；在左侧切换其他模块。行情为公开日线，非实时，不构成投资建议。</p>
+        <p id="auth-banner" class="lead"></p>
+        <div class="row">
+          <label for="apiKey">API Key（若服务端未启用可留空）</label>
+          <input type="password" id="apiKey" placeholder="与服务器环境变量 API_KEY 一致" autocomplete="off" />
+        </div>
+        <div class="btns">
+          <button type="button" class="primary" id="btnSaveKey">保存到本机浏览器</button>
+          <button type="button" class="secondary" id="btnTest">测试连接</button>
+          <button type="button" class="secondary" id="btnRoot">刷新服务信息</button>
+        </div>
+        <pre class="out" id="out-1" hidden></pre>
+      </section>
+
+      <section id="panel-2" class="panel" data-module="2">
+        <h2>② 管理自选股票</h2>
+        <p class="lead">告诉系统要关注哪些 6 位 A 股代码；拉数据、算信号都基于自选列表。</p>
+        <div class="row">
+          <label for="symAdd">股票代码</label>
+          <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
+        </div>
+        <div class="btns">
+          <button type="button" class="primary" id="btnAddWl">确定添加</button>
+          <button type="button" class="secondary" id="btnRefreshWl">刷新列表</button>
+        </div>
+        <div id="wl-table-wrap"></div>
+        <pre class="out" id="out-2" hidden></pre>
+      </section>
+
+      <section id="panel-3" class="panel" data-module="3">
+        <h2>③ 更新行情数据</h2>
+        <p class="lead">从网络拉日线写入本机数据库；自选里有几只就更新几只。需联网，请稍等。完成后下方以表格展示每只股票的写入情况。</p>
+        <div class="row">
+          <label for="ingestDataSource">行情路线</label>
+          <select id="ingestDataSource">
+            <option value="auto">自动（东财 → 新浪 → 腾讯 → Baostock）</option>
+            <option value="eastmoney">仅东方财富（AkShare）</option>
+            <option value="sina">仅新浪财经（AkShare）</option>
+            <option value="tencent">仅腾讯（AkShare，无成交量则记 0）</option>
+            <option value="baostock">仅 Baostock</option>
+          </select>
+        </div>
+        <p class="lead" style="margin-top:0;font-size:0.82rem;">路线会保存到本机浏览器；与接口 Body 字段 <code>data_source</code> 一致。默认自动链式 failover；固定单一源便于排查网络问题。</p>
+        <div class="row">
+          <label for="ingestStartDate">开始日期（含当日）</label>
+          <input type="date" id="ingestStartDate" />
+        </div>
+        <div class="row">
+          <label for="ingestEndDate">结束日期（含当日）</label>
+          <input type="date" id="ingestEndDate" />
+        </div>
+        <p class="lead" style="margin-top:0;font-size:0.82rem;">
+          <strong>都不填</strong>：按库增量更新到今天。<strong>只填结束</strong>：增量更新到结束日。<strong>只填开始</strong>：从该日拉到今日。<strong>两个都填</strong>：拉取该闭区间。
+          若出现「远端断开连接」，多为数据源限流或网络问题，可先点下方「测试数据源连接」。
+        </p>
+        <div class="btns">
+          <button type="button" class="secondary" id="btnIngestTest">测试数据源连接</button>
+          <button type="button" class="primary" id="btnIngest">开始更新自选行情</button>
+        </div>
+        <div id="ingest-test-wrap" hidden></div>
+        <div id="ingest-result-wrap" class="ingest-result-wrap" hidden></div>
+        <h3 class="ingest-h3">扩展因子（量化 Demo）</h3>
+        <p class="lead" style="margin-top:0;font-size:0.82rem;">
+          拉取并入库：市盈率(动)、市净率、营收/净利润同比（最近财报）、最近交易日主力净流入。完成后在「④ 查看信号」里会看到
+          <code>fundamentals</code>、<code>technical_score</code> 与合成后的 <code>buy_suitability_score</code>。与日线更新相互独立，需联网。
+        </p>
+        <div class="btns">
+          <button type="button" class="secondary" id="btnFundamentals">拉取自选扩展因子</button>
+        </div>
+        <div id="fundamentals-result-wrap" class="ingest-result-wrap" hidden></div>
+        <h3 class="ingest-h3">查看已入库行情</h3>
+        <p class="lead" style="margin-top:0;font-size:0.82rem;">不依赖刚才是否刚拉取：输入代码即可读本地数据库里的日线（开高低收、量额、较前日涨跌%）。</p>
+        <div class="row" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+          <div>
+            <label for="quoteSym">股票代码</label>
+            <input type="text" id="quoteSym" placeholder="如 600519" maxlength="16" style="max-width:140px;" />
+          </div>
+          <div>
+            <label for="quoteLimit">根数</label>
+            <input type="number" id="quoteLimit" value="30" min="1" max="500" style="max-width:88px;" />
+          </div>
+          <button type="button" class="secondary" id="btnQuoteBars">查询本地 K 线</button>
+        </div>
+        <div id="quotes-manual-wrap" class="ingest-result-wrap" hidden></div>
+        <pre class="out" id="out-3" hidden></pre>
+      </section>
+
+      <section id="panel-4" class="panel" data-module="4">
+        <h2>④ 查看信号</h2>
+        <p class="lead">需已拉取足够 K 线。可先完成「③ 更新行情数据」。</p>
+        <div class="btns">
+          <button type="button" class="primary" id="btnSignalsAll">查看自选全部信号</button>
+        </div>
+        <div class="row" style="margin-top:1rem;">
+          <label for="symOne">单只股票代码</label>
+          <input type="text" id="symOne" placeholder="6 位代码" maxlength="16" />
+        </div>
+        <div class="btns">
+          <button type="button" class="secondary" id="btnSignalOne">查询该只</button>
+        </div>
+        <pre class="out" id="out-4" hidden></pre>
+      </section>
+
+      <section id="panel-5" class="panel" data-module="5">
+        <h2>⑤ 变动预览</h2>
+        <p class="lead">对比「上一次缓存」与当前计算结果，看趋势或评分十位档是否变化。</p>
+        <div class="btns">
+          <button type="button" class="primary" id="btnAlerts">对比上次缓存</button>
+        </div>
+        <pre class="out" id="out-5" hidden></pre>
+      </section>
+
+      <section id="panel-6" class="panel" data-module="6">
+        <h2>⑥ 说明与免责</h2>
+        <p class="lead">数据源与免责声明全文。</p>
+        <div class="btns">
+          <button type="button" class="primary" id="btnDisclaimer">加载免责说明</button>
+        </div>
+        <div id="disclaimer-render"></div>
+        <pre class="out" id="out-6" hidden></pre>
+      </section>
+    </main>
+  </div>
+
+  <script>
+(function () {
+  var LS_KEY = "quant_monitor_api_key";
+  var LS_DS = "quant_monitor_ingest_data_source";
+  var SS_MOD = "quant_console_module";
+
+  var modules = [
+    { id: "1", title: "① 入门必读", hint: "密钥、测试连接、服务信息" },
+    { id: "2", title: "② 管理自选股票", hint: "添加 / 删除 / 列表" },
+    { id: "3", title: "③ 更新行情数据", hint: "拉取日线入库" },
+    { id: "4", title: "④ 查看信号", hint: "自选或单只" },
+    { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
+    { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" }
+  ];
+
+  function $(id) { return document.getElementById(id); }
+
+  function getApiKey() {
+    return (localStorage.getItem(LS_KEY) || "").trim();
+  }
+
+  function setApiKey(v) {
+    if (v) localStorage.setItem(LS_KEY, v);
+    else localStorage.removeItem(LS_KEY);
+  }
+
+  function authHeaders() {
+    var h = { "Content-Type": "application/json" };
+    var k = getApiKey();
+    if (k) h["X-API-Key"] = k;
+    return h;
+  }
+
+  function apiKeyRequired() {
+    return window.__apiKeyRequired === true;
+  }
+
+  function showOut(id, text, show) {
+    var el = $(id);
+    if (!el) return;
+    el.textContent = text;
+    el.hidden = !show;
+  }
+
+  async function readBody(res) {
+    var t = await res.text();
+    try { return JSON.parse(t); } catch (e) { return t; }
+  }
+
+  function detailToText(detail) {
+    if (detail == null) return "";
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail))
+      return detail.map(function (x) {
+        if (x && x.msg) return (x.loc ? x.loc.join(".") + ": " : "") + x.msg;
+        return JSON.stringify(x);
+      }).join("\n");
+    return JSON.stringify(detail, null, 2);
+  }
+
+  async function formatError(res, body) {
+    var head = "HTTP " + res.status;
+    if (res.status === 401)
+      head += "（请回到「①」检查 API Key 是否与服务器一致并已点击保存）";
+    if (res.status === 400) head += "（请求参数问题，见下方说明）";
+    if (body && typeof body === "object" && body.detail !== undefined)
+      return head + "\n\n" + detailToText(body.detail);
+    return head + "\n\n" + (typeof body === "string" ? body : JSON.stringify(body, null, 2));
+  }
+
+  function showPanel(id) {
+    modules.forEach(function (m) {
+      var p = $("panel-" + m.id);
+      var b = document.querySelector('.nav-item[data-module="' + m.id + '"]');
+      if (p) p.classList.toggle("active", m.id === id);
+      if (b) b.classList.toggle("active", m.id === id);
+    });
+    sessionStorage.setItem(SS_MOD, id);
+  }
+
+  function buildNav() {
+    var nav = $("nav");
+    modules.forEach(function (m) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "nav-item";
+      btn.setAttribute("data-module", m.id);
+      btn.innerHTML = '<span class="tag">' + m.title.split(" ")[0] + "</span>" + m.title.replace(/^[\u2460-\u2465]\s*/, "") +
+        '<span class="hint">' + m.hint + "</span>";
+      btn.addEventListener("click", function () { showPanel(m.id); });
+      nav.appendChild(btn);
+    });
+  }
+
+  async function loadAuthStatus() {
+    var banner = $("auth-banner");
+    try {
+      var res = await fetch("/meta/auth-status");
+      var data = await readBody(res);
+      window.__apiKeyRequired = !!(data && data.api_key_required);
+      if (window.__apiKeyRequired) {
+        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑤。<span class="status-pill warn">需密钥</span>';
+      } else {
+        banner.innerHTML = '当前服务器<strong>未启用</strong> API Key，可直接使用各模块（仍可在下方保存备用）。<span class="status-pill ok">无需密钥</span>';
+      }
+    } catch (e) {
+      banner.textContent = "无法获取鉴权状态，请确认服务已启动。";
+      window.__apiKeyRequired = false;
+    }
+  }
+
+  function syncKeyInput() {
+    $("apiKey").value = getApiKey();
+  }
+
+  $("btnSaveKey").addEventListener("click", function () {
+    var v = $("apiKey").value.trim();
+    setApiKey(v);
+    showOut("out-1", "已保存到本机浏览器（localStorage）。", true);
+  });
+
+  $("btnTest").addEventListener("click", async function () {
+    var btn = $("btnTest");
+    btn.disabled = true;
+    showOut("out-1", "检测中…", true);
+    try {
+      var h = await fetch("/health");
+      if (!h.ok) {
+        showOut("out-1", await formatError(h, await readBody(h)), true);
+        return;
+      }
+      if (!apiKeyRequired()) {
+        showOut("out-1", "健康检查：正常 (GET /health 200)。\n服务端未要求 API Key。", true);
+        return;
+      }
+      var k = getApiKey();
+      if (!k) {
+        showOut("out-1", "健康检查：正常。\n但服务端要求 API Key，请先填写并「保存到本机浏览器」。", true);
+        return;
+      }
+      var w = await fetch("/watchlist", { headers: authHeaders() });
+      var body = await readBody(w);
+      if (w.ok) {
+        showOut("out-1", "健康检查：正常。\nAPI Key 校验：通过 (GET /watchlist " + w.status + ")。\n\n自选列表：\n" + JSON.stringify(body, null, 2), true);
+      } else {
+        showOut("out-1", "健康检查：正常。\nAPI Key 校验：失败\n" + await formatError(w, body), true);
+      }
+    } catch (e) {
+      showOut("out-1", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnRoot").addEventListener("click", async function () {
+    var btn = $("btnRoot");
+    btn.disabled = true;
+    try {
+      var res = await fetch("/");
+      var body = await readBody(res);
+      showOut("out-1", JSON.stringify(body, null, 2), true);
+    } catch (e) {
+      showOut("out-1", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function refreshWatchlistTable() {
+    var wrap = $("wl-table-wrap");
+    var out = $("out-2");
+    if (apiKeyRequired() && !getApiKey()) {
+      wrap.innerHTML = "<p class=\"lead\">请先在「①」保存 API Key。</p>";
+      out.hidden = true;
+      return;
+    }
+    var res = await fetch("/watchlist", { headers: authHeaders() });
+    var body = await readBody(res);
+    if (!res.ok) {
+      wrap.innerHTML = "";
+      showOut("out-2", await formatError(res, body), true);
+      return;
+    }
+    showOut("out-2", "", false);
+    if (!Array.isArray(body) || body.length === 0) {
+      wrap.innerHTML = "<p class=\"lead\">暂无自选，请在上方添加。</p>";
+      return;
+    }
+    var rows = body.map(function (item) {
+      var sym = item.symbol;
+      return "<tr><td>" + sym + '</td><td><button type="button" class="link-del" data-sym="' + sym + '">删除</button></td></tr>';
+    }).join("");
+    wrap.innerHTML = "<table><thead><tr><th>代码</th><th>操作</th></tr></thead><tbody>" + rows + "</tbody></table>";
+    wrap.querySelectorAll(".link-del").forEach(function (el) {
+      el.addEventListener("click", function () { deleteWl(el.getAttribute("data-sym")); });
+    });
+  }
+
+  async function deleteWl(sym) {
+    if (!sym || !confirm("确定从自选删除 " + sym + " ？")) return;
+    if (apiKeyRequired() && !getApiKey()) {
+      showOut("out-2", "请先在「①」保存 API Key。", true);
+      return;
+    }
+    var res = await fetch("/watchlist/" + encodeURIComponent(sym), { method: "DELETE", headers: authHeaders() });
+    var body = await readBody(res);
+    if (!res.ok) showOut("out-2", await formatError(res, body), true);
+    else showOut("out-2", JSON.stringify(body, null, 2), true);
+    await refreshWatchlistTable();
+  }
+
+  $("btnAddWl").addEventListener("click", async function () {
+    var raw = $("symAdd").value.trim();
+    if (!raw) {
+      showOut("out-2", "请输入股票代码。", true);
+      return;
+    }
+    var digits = raw.replace(/\D/g, "");
+    if (digits.length !== 6) {
+      showOut("out-2", "A 股代码须为 6 位数字。您输入的内容去掉非数字后为：「" + (digits || "空") + "」（长度 " + digits.length + "）。", true);
+      return;
+    }
+    if (apiKeyRequired() && !getApiKey()) {
+      showOut("out-2", "请先在「①」保存 API Key。", true);
+      return;
+    }
+    var btn = $("btnAddWl");
+    btn.disabled = true;
+    try {
+      var res = await fetch("/watchlist", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ symbol: digits })
+      });
+      var body = await readBody(res);
+      if (!res.ok) showOut("out-2", await formatError(res, body), true);
+      else {
+        showOut("out-2", "已添加：\n" + JSON.stringify(body, null, 2), true);
+        $("symAdd").value = "";
+      }
+      await refreshWatchlistTable();
+    } catch (e) {
+      showOut("out-2", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnRefreshWl").addEventListener("click", async function () {
+    var btn = $("btnRefreshWl");
+    btn.disabled = true;
+    try { await refreshWatchlistTable(); } catch (e) { showOut("out-2", String(e), true); }
+    finally { btn.disabled = false; }
+  });
+
+  function guardKey() {
+    if (apiKeyRequired() && !getApiKey()) {
+      alert("请先在「① 入门必读」填写并保存 API Key。");
+      return false;
+    }
+    return true;
+  }
+
+  function initIngestDateInput() {
+    var max = new Date().toISOString().slice(0, 10);
+    ["ingestStartDate", "ingestEndDate"].forEach(function (id) {
+      var el = $(id);
+      if (el) el.max = max;
+    });
+  }
+
+  function getIngestDataSource() {
+    var sel = $("ingestDataSource");
+    return sel && sel.value ? sel.value : "auto";
+  }
+
+  async function loadIngestDataSourceSelect() {
+    var sel = $("ingestDataSource");
+    if (!sel) return;
+    var saved = (localStorage.getItem(LS_DS) || "").trim();
+    try {
+      var res = await fetch("/meta/data-sources");
+      var data = await readBody(res);
+      if (res.ok && data && Array.isArray(data.options) && data.options.length) {
+        sel.innerHTML = data.options
+          .map(function (o) {
+            return (
+              '<option value="' +
+              escapeHtml(String(o.value)) +
+              '">' +
+              escapeHtml(String(o.label)) +
+              "</option>"
+            );
+          })
+          .join("");
+        if (saved && data.options.some(function (o) { return String(o.value) === saved; }))
+          sel.value = saved;
+        else if (data.server_default) sel.value = String(data.server_default);
+        return;
+      }
+    } catch (e) {}
+    if (saved && ["auto", "eastmoney", "sina", "tencent", "baostock"].indexOf(saved) >= 0) sel.value = saved;
+  }
+
+  function renderIngestTestResult(data) {
+    var w = $("ingest-test-wrap");
+    if (!w) return;
+    var ok = data && data.ok === true;
+    var cls = ok ? "ingest-test-box ok" : "ingest-test-box fail";
+    var title = ok ? "连接正常" : "连接失败";
+    var msg = (data && data.user_message) ? escapeHtml(data.user_message) : "";
+    var meta = "";
+    if (data) {
+      meta =
+        "路线：" + escapeHtml(String(data.data_source || "—")) +
+        " · 实际源：" + escapeHtml(data.provider != null && data.provider !== "" ? String(data.provider) : "—") +
+        " · 探测代码：" + escapeHtml(String(data.probe_symbol || "—")) +
+        " · 耗时：" + escapeHtml(String(data.latency_ms != null ? data.latency_ms : "—")) + " ms" +
+        " · 区间：" + escapeHtml(String(data.range || "—")) +
+        (data.rows_received != null ? " · 收到行数：" + escapeHtml(String(data.rows_received)) : "");
+    }
+    if (!ok && data && data.detail)
+      meta += "<br><span style=\"opacity:0.85\">技术详情：" + escapeHtml(String(data.detail)) + "</span>";
+    w.innerHTML = "<div class=\"" + cls + "\"><strong>" + title + "</strong><p style=\"margin:0.4rem 0\">" + msg + "</p><p style=\"margin:0;font-size:0.8rem;color:var(--muted)\">" + meta + "</p></div>";
+    w.hidden = false;
+  }
+
+  $("btnIngestTest").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var btn = $("btnIngestTest");
+    var w = $("ingest-test-wrap");
+    btn.disabled = true;
+    if (w) {
+      w.hidden = false;
+      w.innerHTML = "<div class=\"ingest-test-box\"><span style=\"color:var(--muted)\">正在探测数据源…</span></div>";
+    }
+    try {
+      var ds = encodeURIComponent(getIngestDataSource());
+      var res = await fetch("/ingest/test-connection?data_source=" + ds, { headers: authHeaders() });
+      var body = await readBody(res);
+      if (res.ok && body && typeof body === "object") renderIngestTestResult(body);
+      else if (w) w.innerHTML = "<div class=\"ingest-test-box fail\"><pre class=\"out\" style=\"margin:0;border:none;max-height:200px\">" + escapeHtml(await formatError(res, body)) + "</pre></div>";
+    } catch (e) {
+      if (w) w.innerHTML = "<div class=\"ingest-test-box fail\">" + escapeHtml(String(e)) + "</div>";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function clearFundamentalsResult() {
+    var w = $("fundamentals-result-wrap");
+    if (!w) return;
+    w.innerHTML = "";
+    w.hidden = true;
+  }
+
+  function renderFundamentalsResult(body) {
+    clearFundamentalsResult();
+    var wrap = $("fundamentals-result-wrap");
+    if (!wrap) return;
+    if (!body || typeof body !== "object" || !Array.isArray(body.results)) {
+      showOut("out-3", "扩展因子返回格式异常：缺少 results。", true);
+      return;
+    }
+    var trs = body.results.map(function (r) {
+      var sym = escapeHtml(r.symbol || "—");
+      if (!r.ok) {
+        return (
+          "<tr><td>" +
+          sym +
+          '</td><td class="cell-err cell-pre"><span class="pill err">失败</span> ' +
+          escapeHtml(String(r.error || "未知错误")) +
+          "</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"
+        );
+      }
+      var snap = r.snapshot && typeof r.snapshot === "object" ? r.snapshot : {};
+      var pe = snap.pe_dynamic != null ? escapeHtml(String(snap.pe_dynamic)) : "—";
+      var pb = snap.pb != null ? escapeHtml(String(snap.pb)) : "—";
+      var py = snap.profit_yoy_pct != null ? escapeHtml(String(snap.profit_yoy_pct)) : "—";
+      var fd = snap.fund_flow_date != null ? escapeHtml(String(snap.fund_flow_date)) : "—";
+      return (
+        "<tr><td>" +
+        sym +
+        '</td><td><span class="pill ok">成功</span></td><td>' +
+        pe +
+        "</td><td>" +
+        pb +
+        "</td><td>" +
+        py +
+        "</td><td>" +
+        fd +
+        "</td></tr>"
+      );
+    }).join("");
+    var html = '<h3 class="ingest-h3">扩展因子拉取结果</h3>';
+    if (body.note) html += '<p class="lead" style="margin:0 0 0.5rem;font-size:0.82rem;">' + escapeHtml(body.note) + "</p>";
+    html +=
+      '<table class="ingest-table"><thead><tr><th>代码</th><th>状态</th><th>市盈率(动)</th><th>市净率</th><th>净利润同比%</th><th>资金流日期</th></tr></thead><tbody>';
+    html += trs + "</tbody></table>";
+    html += '<details class="ingest-raw"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:240px">' + escapeHtml(JSON.stringify(body, null, 2)) + "</pre></details>";
+    wrap.innerHTML = html;
+    wrap.hidden = false;
+    showOut("out-3", "", false);
+  }
+
+  $("btnFundamentals").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var btn = $("btnFundamentals");
+    btn.disabled = true;
+    clearFundamentalsResult();
+    showOut("out-3", "正在拉取扩展因子，请稍候…", true);
+    try {
+      var res = await fetch("/ingest/fundamentals", { method: "POST", headers: authHeaders(), body: "{}" });
+      var body = await readBody(res);
+      if (res.ok) renderFundamentalsResult(body);
+      else {
+        clearFundamentalsResult();
+        showOut("out-3", await formatError(res, body), true);
+      }
+    } catch (e) {
+      clearFundamentalsResult();
+      showOut("out-3", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnIngest").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var btn = $("btnIngest");
+    btn.disabled = true;
+    clearIngestResult();
+    clearFundamentalsResult();
+    showOut("out-3", "正在拉取，请稍候…", true);
+    try {
+      var startVal = $("ingestStartDate").value.trim();
+      var endVal = $("ingestEndDate").value.trim();
+      var payload = { data_source: getIngestDataSource() };
+      if (startVal) payload.start_date = startVal;
+      if (endVal) payload.end_date = endVal;
+      var res = await fetch("/ingest/update", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      var body = await readBody(res);
+      if (res.ok) {
+        renderIngestResult(body);
+        await appendBarsPreviews(body.results);
+      } else showOut("out-3", await formatError(res, body), true);
+    } catch (e) {
+      clearIngestResult();
+      showOut("out-3", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnQuoteBars").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var raw = ($("quoteSym").value || "").replace(/\D/g, "");
+    if (raw.length !== 6) {
+      showOut("out-3", "请输入 6 位股票代码。", true);
+      return;
+    }
+    var lim = parseInt($("quoteLimit").value, 10);
+    if (!isFinite(lim) || lim < 1) lim = 30;
+    if (lim > 500) lim = 500;
+    var btn = $("btnQuoteBars");
+    var box = $("quotes-manual-wrap");
+    btn.disabled = true;
+    box.hidden = false;
+    box.innerHTML = "<p class=\"lead\" style=\"margin:0\">加载中…</p>";
+    showOut("out-3", "", false);
+    try {
+      var res = await fetch(
+        "/quotes/" + encodeURIComponent(raw) + "/bars?limit=" + encodeURIComponent(String(lim)),
+        { headers: authHeaders() }
+      );
+      var bars = await readBody(res);
+      if (!res.ok) {
+        box.innerHTML = "<pre class=\"out\" style=\"margin:0;border:none\">" + escapeHtml(await formatError(res, bars)) + "</pre>";
+        return;
+      }
+      box.innerHTML = barsTableHtml(raw, bars);
+    } catch (e) {
+      box.innerHTML = "<p class=\"lead\" style=\"color:var(--err)\">" + escapeHtml(String(e)) + "</p>";
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnSignalsAll").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var btn = $("btnSignalsAll");
+    btn.disabled = true;
+    showOut("out-4", "计算中…", true);
+    try {
+      var res = await fetch("/signals", { headers: authHeaders() });
+      var body = await readBody(res);
+      showOut("out-4", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+    } catch (e) {
+      showOut("out-4", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnSignalOne").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var raw = $("symOne").value.replace(/\D/g, "");
+    if (raw.length !== 6) {
+      showOut("out-4", "请输入 6 位数字代码。", true);
+      return;
+    }
+    var btn = $("btnSignalOne");
+    btn.disabled = true;
+    showOut("out-4", "查询中…", true);
+    try {
+      var res = await fetch("/signals/" + encodeURIComponent(raw), { headers: authHeaders() });
+      var body = await readBody(res);
+      showOut("out-4", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+    } catch (e) {
+      showOut("out-4", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnAlerts").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var btn = $("btnAlerts");
+    btn.disabled = true;
+    showOut("out-5", "处理中…", true);
+    try {
+      var res = await fetch("/alerts/preview", { method: "POST", headers: authHeaders(), body: "{}" });
+      var body = await readBody(res);
+      showOut("out-5", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+    } catch (e) {
+      showOut("out-5", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnDisclaimer").addEventListener("click", async function () {
+    var btn = $("btnDisclaimer");
+    var box = $("disclaimer-render");
+    btn.disabled = true;
+    box.innerHTML = "";
+    showOut("out-6", "", false);
+    try {
+      var res = await fetch("/meta/disclaimer");
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-6", await formatError(res, body), true);
+        return;
+      }
+      box.innerHTML =
+        '<div class="disclaimer-box"><h3>免责声明</h3><p>' + escapeHtml(body.disclaimer || "") + "</p></div>" +
+        '<div class="disclaimer-box"><h3>数据来源说明</h3><p>' + escapeHtml(body.data_source_note || "") + "</p></div>" +
+        '<div class="disclaimer-box"><h3>延时说明</h3><p>' + escapeHtml(body.data_delay_note || "") + "</p></div>" +
+        "<details><summary>原始 JSON</summary><pre class=\"out\" style=\"max-height:240px\">" +
+        escapeHtml(JSON.stringify(body, null, 2)) + "</pre></details>";
+    } catch (e) {
+      showOut("out-6", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function escapeHtml(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function formatYmdCompact(ymd) {
+    if (ymd == null || ymd === "") return "—";
+    var t = String(ymd).replace(/\D/g, "");
+    if (t.length === 8) return t.slice(0, 4) + "-" + t.slice(4, 6) + "-" + t.slice(6, 8);
+    return escapeHtml(String(ymd));
+  }
+
+  function clearIngestResult() {
+    var w = $("ingest-result-wrap");
+    w.innerHTML = "";
+    w.hidden = true;
+    var qp = $("ingest-quotes-preview");
+    if (qp) {
+      qp.innerHTML = "";
+      qp.remove();
+    }
+  }
+
+  function formatFixed(n, digits) {
+    if (n == null || n === "" || (typeof n === "number" && !isFinite(n))) return "—";
+    return Number(n).toLocaleString("zh-CN", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  }
+
+  function formatVolume(n) {
+    if (n == null || n === "" || (typeof n === "number" && !isFinite(n))) return "—";
+    return Number(n).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+  }
+
+  function barsTableHtml(symbol, bars) {
+    if (!bars || !bars.length) {
+      return (
+        '<p class="lead" style="margin:0.35rem 0 0;font-size:0.85rem;">代码 <strong>' +
+        escapeHtml(symbol) +
+        "</strong> 在本地暂无 K 线，请先执行上方「开始更新自选行情」。</p>"
+      );
+    }
+    var trs = bars
+      .map(function (b) {
+        var pct = b.change_pct;
+        var pctStr = pct != null && isFinite(pct) ? formatFixed(pct, 2) + "%" : "—";
+        var pctStyle = "";
+        if (pct != null && isFinite(pct)) {
+          if (pct > 0) pctStyle = ' style="color:var(--ok)"';
+          else if (pct < 0) pctStyle = ' style="color:var(--err)"';
+        }
+        return (
+          "<tr><td>" +
+          escapeHtml(String(b.trade_date || "—")) +
+          "</td><td>" +
+          formatFixed(b.open, 2) +
+          "</td><td>" +
+          formatFixed(b.high, 2) +
+          "</td><td>" +
+          formatFixed(b.low, 2) +
+          "</td><td>" +
+          formatFixed(b.close, 2) +
+          "</td><td" +
+          pctStyle +
+          ">" +
+          escapeHtml(pctStr) +
+          "</td><td>" +
+          formatVolume(b.volume) +
+          "</td><td>" +
+          formatFixed(b.amount, 0) +
+          "</td></tr>"
+        );
+      })
+      .join("");
+    return (
+      '<h4 class="ingest-h3" style="margin-bottom:0.35rem;">' +
+      escapeHtml(symbol) +
+      " · 最近 " +
+      bars.length +
+      ' 根日线 <span style="font-size:0.78rem;color:var(--muted);font-weight:normal;">（前复权，涨跌%相对前一交易日收盘）</span></h4>' +
+      '<table class="ingest-table"><thead><tr><th>交易日</th><th>开盘</th><th>最高</th><th>最低</th><th>收盘</th><th>涨跌%</th><th>成交量</th><th>成交额(元)</th></tr></thead><tbody>' +
+      trs +
+      "</tbody></table>"
+    );
+  }
+
+  async function appendBarsPreviews(results) {
+    var wrap = $("ingest-result-wrap");
+    if (!wrap || !results || !results.length) return;
+    var old = $("ingest-quotes-preview");
+    if (old) old.remove();
+    var host = document.createElement("div");
+    host.id = "ingest-quotes-preview";
+    host.innerHTML =
+      '<h3 class="ingest-h3" style="margin-top:1rem;">写入后的本地行情</h3><p class="lead" style="margin-top:0;font-size:0.82rem;">以下为数据库中各标的最近若干根日线；表格按日期从旧到新排列。</p>';
+    wrap.appendChild(host);
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      if (!r || r.error) continue;
+      var lim = 30;
+      if (r.rows_upserted != null && r.rows_upserted > 0) {
+        lim = Math.min(120, Math.max(Number(r.rows_upserted), 15));
+      }
+      try {
+        var res = await fetch(
+          "/quotes/" + encodeURIComponent(r.symbol) + "/bars?limit=" + encodeURIComponent(String(lim)),
+          { headers: authHeaders() }
+        );
+        var bars = await readBody(res);
+        if (res.ok && Array.isArray(bars)) {
+          var block = document.createElement("div");
+          block.className = "ingest-notes";
+          block.style.marginTop = "0.65rem";
+          block.innerHTML = barsTableHtml(r.symbol, bars);
+          host.appendChild(block);
+        }
+      } catch (e) {
+        var err = document.createElement("p");
+        err.className = "lead";
+        err.style.color = "var(--err)";
+        err.textContent = r.symbol + " 行情加载失败: " + String(e);
+        host.appendChild(err);
+      }
+    }
+  }
+
+  function renderIngestResult(body) {
+    clearIngestResult();
+    $("out-3").hidden = true;
+    if (!body || typeof body !== "object" || !Array.isArray(body.results)) {
+      showOut("out-3", "返回数据格式异常：缺少 results 列表。", true);
+      return;
+    }
+    var trs = body.results.map(function (r) {
+      var sym = escapeHtml(r.symbol || "—");
+      if (r.error) {
+        return (
+          "<tr><td>" +
+          sym +
+          '</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="cell-err cell-pre"><span class="pill err">失败</span>\n' +
+          escapeHtml(String(r.error)) +
+          "</td></tr>"
+        );
+      }
+      var n = r.rows_upserted != null ? escapeHtml(String(r.rows_upserted)) : "—";
+      var range = formatYmdCompact(r.start) + " ~ " + formatYmdCompact(r.end);
+      var mode = escapeHtml(String(r.mode || "—"));
+      var dsrc = escapeHtml(r.data_source != null ? String(r.data_source) : "—");
+      var prov = escapeHtml(r.provider != null && r.provider !== "" ? String(r.provider) : "—");
+      return (
+        "<tr><td>" +
+        sym +
+        "</td><td>" +
+        n +
+        "</td><td>" +
+        range +
+        "</td><td>" +
+        mode +
+        "</td><td>" +
+        dsrc +
+        "</td><td>" +
+        prov +
+        '</td><td><span class="pill ok">成功</span></td></tr>'
+      );
+    }).join("");
+    var batchDs = body.ingest_data_source != null ? escapeHtml(String(body.ingest_data_source)) : "—";
+    var html = '<h3 class="ingest-h3">拉取结果（表单）</h3><p class="lead" style="margin:0 0 0.5rem;font-size:0.85rem;">本次请求路线：<strong>' + batchDs + "</strong></p>";
+    html +=
+      '<table class="ingest-table"><thead><tr><th>股票代码</th><th>写入 / 更新行数</th><th>数据区间（起 ~ 止）</th><th>模式</th><th>路线</th><th>实际源</th><th>状态</th></tr></thead><tbody>';
+    html += trs + "</tbody></table>";
+    var disc = body.disclaimer;
+    if (disc && typeof disc === "object") {
+      html += '<h3 class="ingest-h3">说明与免责（只读）</h3><div class="ingest-notes">';
+      if (disc.disclaimer)
+        html += '<div class="note-field"><label>免责声明</label><div class="note-val">' + escapeHtml(disc.disclaimer) + "</div></div>";
+      if (disc.data_source_note)
+        html += '<div class="note-field"><label>数据来源</label><div class="note-val">' + escapeHtml(disc.data_source_note) + "</div></div>";
+      if (disc.data_delay_note)
+        html += '<div class="note-field"><label>延时说明</label><div class="note-val">' + escapeHtml(disc.data_delay_note) + "</div></div>";
+      html += "</div>";
+    }
+    html += '<details class="ingest-raw"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:280px">' + escapeHtml(JSON.stringify(body, null, 2)) + "</pre></details>";
+    $("ingest-result-wrap").innerHTML = html;
+    $("ingest-result-wrap").hidden = false;
+  }
+
+  buildNav();
+  var initial = sessionStorage.getItem(SS_MOD) || "1";
+  if (!modules.some(function (m) { return m.id === initial; })) initial = "1";
+  showPanel(initial);
+  syncKeyInput();
+  loadAuthStatus();
+  initIngestDateInput();
+  loadIngestDataSourceSelect();
+
+  var selDs = $("ingestDataSource");
+  if (selDs)
+    selDs.addEventListener("change", function () {
+      localStorage.setItem(LS_DS, getIngestDataSource());
+    });
+
+  document.querySelector('.nav-item[data-module="2"]').addEventListener("click", function () {
+    setTimeout(function () { refreshWatchlistTable(); }, 0);
+  });
+})();
+  </script>
+</body>
+</html>

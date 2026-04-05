@@ -27,9 +27,12 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- 交互文档：<http://127.0.0.1:8000/docs>（Swagger UI）
-- 服务信息（JSON）：<http://127.0.0.1:8000/>
+- **图形控制台（推荐日常使用）**：<http://127.0.0.1:8000/ui> — 按 ①～⑥ 模块分步填写、测试连接与调用接口，无需在 Swagger 里拼 JSON。
+- 交互文档：<http://127.0.0.1:8000/docs>（Swagger UI，面向开发者）
+- 服务信息（JSON）：<http://127.0.0.1:8000/>（含 `ui`、`docs` 等字段）
 - 探活：<http://127.0.0.1:8000/health>
+
+控制台会将 **API Key 存在浏览器 localStorage**（本机），请勿在不可信设备上使用；生产环境请配合 HTTPS。
 
 ## 配置（可选）
 
@@ -77,13 +80,16 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/` | 服务名、`/docs` 链接、简要免责 |
+| GET | `/ui` | 图形控制台（HTML，不在 OpenAPI 中列出） |
+| GET | `/` | 服务名、`ui`、`docs`、简要免责 |
 | GET | `/health` | 健康检查 |
+| GET | `/meta/auth-status` | 是否要求 API Key（`api_key_required`，供控制台探测） |
 | GET | `/meta/disclaimer` | 免责与数据源说明 |
 | GET | `/watchlist` | 列出自选 |
 | POST | `/watchlist` | 添加自选 |
 | DELETE | `/watchlist/{symbol}` | 删除自选 |
-| POST | `/ingest/update` | 更新自选标的日线数据 |
+| GET | `/ingest/test-connection` | 测试本机与 AkShare 数据源连通性（短区间探测） |
+| POST | `/ingest/update` | 更新自选日线；Body 可选 `start_date` / `end_date`（区间或增量规则见 `/docs`） |
 | GET | `/signals` | 批量信号 |
 | GET | `/signals/{symbol}` | 单标的信号 |
 | POST | `/alerts/preview` | 信号变更预览并更新缓存 |
@@ -108,6 +114,8 @@ quant-monitor/
     signals.py   # 信号计算
     alerts.py    # 变更检测与 Webhook 占位
     schemas.py   # Pydantic 模型
+    static/
+      console.html  # /ui 图形控制台静态页
   data/          # 默认数据目录（含 SQLite）
   requirements.txt
   README.md

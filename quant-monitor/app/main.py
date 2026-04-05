@@ -9,11 +9,17 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, HTTPException, Request, Security
+from pathlib import Path
+
+from datetime import date
+
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Security
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -21,10 +27,13 @@ from sqlalchemy import delete, select
 
 from app.config import get_settings
 from app.db import SignalCacheRow, WatchlistRow, init_db, session_scope
-from app.ingest import incremental_refresh, normalize_symbol
-from app.schemas import DisclaimerOut, SignalOut, WatchlistIn, WatchlistItem
+from app.fundamentals import upsert_fundamental_snapshot
+from app.ingest import ingest_symbol_range, list_bars_from_db, normalize_symbol, test_akshare_connectivity
+from app.schemas import DailyBarOut, DisclaimerOut, IngestDataSource, IngestUpdateIn, SignalOut, WatchlistIn, WatchlistItem
 from app.signals import compute_signal
 from app.alerts import detect_changes, signal_to_snapshot
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,6 +41,8 @@ logger = logging.getLogger(__name__)
 # ---------- OpenAPI / Swagger：面向小白的说明与分组 ----------
 OPENAPI_DESCRIPTION = """
 ## 这个页面是干什么的？
+
+**普通用户**请优先打开图形控制台：**[/ui](/ui)**（分步表单，不必懂接口细节）。
 
 这是 **在线试用说明**：不用写代码，在浏览器里就能「点一点」调用接口，看返回的 JSON。
 
@@ -52,6 +63,9 @@ OPENAPI_DESCRIPTION = """
 
 4. **看系统算出的信号**  
    打开 **「④ 查看信号」** → `GET /signals` 或 `GET /signals/{symbol}` → **Execute**。
+
+4b. **（可选 Demo）拉扩展因子**  
+   `POST /ingest/fundamentals`：把估值、财报同比、主力净流入等写入本地，再查信号时会与技术面分数合成（有界调整）。
 
 5. **（可选）看和上次比有没有变化**  
    打开 **「⑤ 变动预览」** → `POST /alerts/preview`。
@@ -76,11 +90,11 @@ OPENAPI_TAGS = [
     },
     {
         "name": "③ 更新行情数据",
-        "description": "从网络拉日线写入本机数据库；自选里有多少只股票，就会更新多少只。",
+        "description": "从网络拉日线写入本机数据库；自选里有多少只股票，就会更新多少只。含扩展因子（估值/财报同比/资金流）入库接口。",
     },
     {
         "name": "④ 查看信号",
-        "description": "根据已有日线计算趋势、强度、评分等说明字段；需已拉取过足够历史 K 线。",
+        "description": "根据已有日线计算趋势、强度、评分等；若已执行扩展因子入库，会展示 fundamentals 并与技术面分合成总分。",
     },
     {
         "name": "⑤ 变动预览",
@@ -164,6 +178,36 @@ def health():
 
 
 @app.get(
+    "/meta/auth-status",
+    tags=["① 入门必读"],
+    summary="是否需要 API Key（给控制台探测用）",
+    description="返回 `api_key_required`，**不**暴露密钥本身。图形控制台 `/ui` 会调用本接口。",
+)
+def meta_auth_status():
+    """公开：告知客户端服务端是否配置了 API_KEY（布尔值，不泄露密钥）。"""
+    return {"api_key_required": bool(get_settings().api_key)}
+
+
+@app.get(
+    "/meta/data-sources",
+    tags=["① 入门必读"],
+    summary="行情拉取路线列表（控制台下拉用）",
+    description="返回服务端默认 `server_default` 与各选项的 `value`/`label`；不需 API Key。",
+)
+def meta_data_sources():
+    return {
+        "server_default": get_settings().ingest_data_source,
+        "options": [
+            {"value": "auto", "label": "自动（东财 → 新浪 → 腾讯 → Baostock）"},
+            {"value": "eastmoney", "label": "仅东方财富（AkShare）"},
+            {"value": "sina", "label": "仅新浪财经（AkShare）"},
+            {"value": "tencent", "label": "仅腾讯（AkShare，无成交量则记 0）"},
+            {"value": "baostock", "label": "仅 Baostock（开源证券数据）"},
+        ],
+    }
+
+
+@app.get(
     "/meta/disclaimer",
     response_model=DisclaimerOut,
     tags=["⑥ 说明与免责"],
@@ -193,7 +237,9 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
     """列出自选池全部标的（按 id 升序）。"""
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all()
-    return [WatchlistItem(symbol=r.symbol) for r in rows]
+        # 须在会话内读出标量，否则关闭 Session 后会触发 DetachedInstanceError → 500
+        symbols = [r.symbol for r in rows]
+    return [WatchlistItem(symbol=sym) for sym in symbols]
 
 
 @app.post(
@@ -214,7 +260,10 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
 @limiter.limit(get_settings().rate_limit_default)
 def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optional_api_key)):
     """添加自选；代码规范化后若已存在则幂等返回该标的。"""
-    sym = normalize_symbol(body.symbol)
+    try:
+        sym = normalize_symbol(body.symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     with session_scope() as s:
         existing = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
         if existing:
@@ -236,7 +285,10 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
 @limiter.limit(get_settings().rate_limit_default)
 def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_api_key)):
     """按路径中的代码删除自选（规范化后匹配）。"""
-    sym = normalize_symbol(symbol)
+    try:
+        sym = normalize_symbol(symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     with session_scope() as s:
         s.execute(delete(WatchlistRow).where(WatchlistRow.symbol == sym))
     return {"ok": True, "symbol": sym}
@@ -249,7 +301,10 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
     description="""
 **添加自选后必做的一步**（否则后面算信号会提示数据不够）。
 
-- **Body 留空即可**，系统会按自选列表自动拉取。
+- **Body 可留空**（增量更新到今天）。
+- 传 **`start_date` + `end_date`**：按该闭区间拉取；仅 **`start_date`**：从该日拉到今日；仅 **`end_date`**：增量更新到该日。
+- **`data_source`**：行情路线（`auto` / `eastmoney` / `sina` / `tencent` / `baostock`）；不传则用环境变量 **`INGEST_DATA_SOURCE`**（默认 `auto`）。
+- **`GET /ingest/test-connection`**：探测本机能否访问数据源（短区间测试，需 API Key 时同上）；可带 Query **`data_source`**。
 - 需要能访问外网（通过 AkShare 拉公开数据）。
 - 自选为空时会返回错误，请先用 `POST /watchlist` 添加股票。
 - 某一只股票拉取失败时，结果里该条会带 `error`，其它股票仍会继续。
@@ -258,23 +313,138 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
 """,
 )
 @limiter.limit("20/minute")
-def ingest_update(request: Request, _: None = Depends(optional_api_key)):
+def ingest_update(
+    request: Request,
+    body: IngestUpdateIn = Body(default_factory=IngestUpdateIn),
+    _: None = Depends(optional_api_key),
+):
     """
-    对自选池每个标的执行 incremental_refresh（拉取日线并 upsert）。
+    对自选池每个标的执行 ingest_symbol_range（按 Body 日期规则拉取日线并 upsert）。
 
     自选为空返回 400；单个标的失败时该条结果带 error 字段，不整批失败。
     """
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow)).scalars().all()
-    if not rows:
+        symbols = [r.symbol for r in rows]
+    if not symbols:
         raise HTTPException(status_code=400, detail="自选池为空，请先 POST /watchlist 添加标的")
+    st, en = body.start_date, body.end_date
+    if en and en > date.today():
+        raise HTTPException(status_code=400, detail="结束日期不能晚于今天")
+    if st and st > date.today():
+        raise HTTPException(status_code=400, detail="开始日期不能晚于今天")
+    ds = body.data_source.value if body.data_source is not None else None
+    resolved_ds = ds if ds is not None else get_settings().ingest_data_source
+    pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
     results = []
-    for r in rows:
+    for i, sym in enumerate(symbols):
+        if i > 0 and pause > 0:
+            time.sleep(pause)
         try:
-            results.append(incremental_refresh(r.symbol))
+            results.append(
+                ingest_symbol_range(sym, range_start=st, range_end=en, data_source=ds),
+            )
+        except ValueError as e:
+            results.append({"symbol": sym, "error": str(e)})
         except Exception as e:
-            results.append({"symbol": r.symbol, "error": str(e)})
-    return {"results": results, "disclaimer": _disclaimer_payload().model_dump()}
+            results.append({"symbol": sym, "error": str(e)})
+    return {
+        "results": results,
+        "ingest_data_source": resolved_ds,
+        "disclaimer": _disclaimer_payload().model_dump(),
+    }
+
+
+@app.post(
+    "/ingest/fundamentals",
+    tags=["③ 更新行情数据"],
+    summary="拉取扩展因子并写入本地（Demo）",
+    description="""
+对自选池**每一只**拉取并入库：
+
+- **估值**：东财沪深京 A 股列表中的市盈率(动)、市净率（全表有短 TTL 内存缓存，减轻限流）。
+- **成长**：最近一期财报的营业收入/归属净利润**同比 %**（`stock_financial_analysis_indicator_em`）。
+- **资金流**：最近交易日**主力净流入净额**（东财日级）。
+
+完成后 `GET /signals` 会读取本地快照，在技术面得分上做 **有界** 合成（通常 ±15 分）。**非投资建议**；接口有频率限制，勿连续狂点。
+""",
+)
+@limiter.limit("12/minute")
+def ingest_fundamentals(request: Request, _: None = Depends(optional_api_key)):
+    """自选批量扩展因子 upsert；单条失败体现在该条 `error` 字段。"""
+    with session_scope() as s:
+        rows = s.execute(select(WatchlistRow)).scalars().all()
+        symbols = [r.symbol for r in rows]
+    if not symbols:
+        raise HTTPException(status_code=400, detail="自选池为空，请先 POST /watchlist 添加标的")
+    pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
+    results: list[dict] = []
+    for i, sym in enumerate(symbols):
+        if i > 0 and pause > 0:
+            time.sleep(pause)
+        results.append(upsert_fundamental_snapshot(sym))
+    return {
+        "results": results,
+        "disclaimer": _disclaimer_payload().model_dump(),
+        "note": "扩展因子为 Demo 合成规则；数据源为东财/AkShare 聚合接口，可能存在延时或缺项。",
+    }
+
+
+@app.get(
+    "/ingest/test-connection",
+    tags=["③ 更新行情数据"],
+    summary="测试与行情数据源的连接",
+    description="""
+用极短日期区间请求一只探测股票（默认 000001，可用环境变量 `AKSHARE_TEST_SYMBOL` 修改），**不依赖自选列表**。
+
+返回 `ok`、`user_message`、`latency_ms`、`data_source`、`provider` 等；若 `ok` 为 false，`user_message` 为中文原因说明。
+
+**Query `data_source`**：与 `POST /ingest/update` 相同枚举；不传则用 `INGEST_DATA_SOURCE`。
+""",
+)
+@limiter.limit("30/minute")
+def ingest_test_connection(
+    request: Request,
+    data_source: IngestDataSource | None = Query(
+        None,
+        description="探测使用的路线；不传则使用服务端 INGEST_DATA_SOURCE",
+    ),
+    _: None = Depends(optional_api_key),
+):
+    ds = data_source.value if data_source is not None else None
+    return test_akshare_connectivity(data_source=ds)
+
+
+@app.get(
+    "/quotes/{symbol}/bars",
+    response_model=list[DailyBarOut],
+    tags=["④ 查看信号"],
+    summary="本地日线行情（OHLCV）",
+    description="""
+读取 **已写入 SQLite** 的日线（前复权），按交易日**从旧到新**排列。
+
+- **limit**：最近多少根 K 线（1～500，默认 30）。
+- **change_pct**：相对**上一交易日收盘**的涨跌幅（%）；返回区间内第一根为 `null`。
+- 若库里尚无该代码数据，返回空列表 `[]`（请先 `POST /ingest/update`）。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def quotes_daily_bars(
+    symbol: str,
+    request: Request,
+    limit: int = Query(30, ge=1, le=500, description="最近几根日线"),
+    _: None = Depends(optional_api_key),
+):
+    """规范化代码后读库；无行则返回空列表。"""
+    try:
+        sym = normalize_symbol(symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        rows = list_bars_from_db(sym, limit=limit)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return rows
 
 
 @app.get(
@@ -295,14 +465,15 @@ def signals_batch(request: Request, _: None = Depends(optional_api_key)):
     """对自选池逐个 compute_signal；失败标的打日志并跳过，不中断其它标的。"""
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow)).scalars().all()
-    if not rows:
+        symbols = [r.symbol for r in rows]
+    if not symbols:
         return []
     out: list[SignalOut] = []
-    for r in rows:
+    for sym in symbols:
         try:
-            out.append(compute_signal(r.symbol))
+            out.append(compute_signal(sym))
         except Exception as e:
-            logger.warning("signal failed %s: %s", r.symbol, e)
+            logger.warning("signal failed %s: %s", sym, e)
     return out
 
 
@@ -353,11 +524,12 @@ def alerts_preview(request: Request, _: None = Depends(optional_api_key)):
     with session_scope() as s:
         cached = s.execute(select(SignalCacheRow)).scalars().all()
         watch = s.execute(select(WatchlistRow)).scalars().all()
-    prev_map = {row.symbol: json.loads(row.payload_json) for row in cached}
+        prev_map = {row.symbol: json.loads(row.payload_json) for row in cached}
+        watch_symbols = [w.symbol for w in watch]
     current: dict[str, SignalOut] = {}
-    for w in watch:
+    for sym in watch_symbols:
         try:
-            current[w.symbol] = compute_signal(w.symbol)
+            current[sym] = compute_signal(sym)
         except Exception:
             continue
     events = detect_changes(prev_map, current)
@@ -381,7 +553,7 @@ def alerts_preview(request: Request, _: None = Depends(optional_api_key)):
     tags=["① 入门必读"],
     summary="服务信息（给程序看的 JSON）",
     description="""
-返回服务名称、文档路径、一句免责摘要。**不是** 可视化页面；人类用户请直接打开 **/docs** 本页。
+返回服务名称、文档路径、一句免责摘要。**人类用户**请用 **[/ui](/ui)** 图形控制台；开发者用 **/docs**。
 
 无需 API Key。
 """,
@@ -392,8 +564,21 @@ def root():
     return JSONResponse(
         {
             "service": "quant-monitor",
+            "ui": "/ui",
             "docs": "/docs",
             "disclaimer": d.disclaimer,
             "data_source_note": d.data_source_note,
         }
     )
+
+
+@app.get("/ui", include_in_schema=False)
+def ui_console():
+    """图形控制台（静态页）；不参与 OpenAPI，避免与 Swagger 重复。"""
+    path = STATIC_DIR / "console.html"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="控制台页面未找到")
+    return FileResponse(path)
+
+
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

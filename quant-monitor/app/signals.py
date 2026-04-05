@@ -1,8 +1,9 @@
 """
-信号计算：基于库内日线计算趋势、强度、0–100 评分、仓位提示文案与风险标签。
+信号计算：基于库内日线计算趋势、强度、技术面 0–100 分；若存在 fundamental_snapshots，
+再叠加扩展因子有界调整（估值/财报同比/主力净流入，Demo 规则），得到合成总分。
 
 依赖 ingest.load_bars_df（数据不足时会触发拉取）；名称展示用 fetch_stock_name。
-规则以均线排列、斜率、短期涨跌、量能比、回撤等启发式组合，非投资建议。
+非投资建议。
 """
 
 from __future__ import annotations
@@ -13,6 +14,10 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from app.fundamentals import (
+    fundamental_score_delta,
+    load_fundamental_panel_from_db,
+)
 from app.ingest import fetch_stock_name, load_bars_df, normalize_symbol
 from app.schemas import PositionHint, SignalOut, SignalReason, StrengthRegime, TrendRegime
 
@@ -155,18 +160,39 @@ def compute_signal(symbol: str) -> SignalOut:
         score -= 8
         reasons.append(SignalReason(code="risk_dd", text="价格相对阶段高点回撤明显"))
 
-    score = int(max(0, min(100, score)))
+    technical_score = int(max(0, min(100, score)))
 
-    # --- 仓位提示：与评分、趋势、强度联动；文案为模型提示非交易指令 ---
+    fund_panel = load_fundamental_panel_from_db(sym)
+    fund_adj = 0
+    if fund_panel is None:
+        reasons.append(
+            SignalReason(
+                code="fund_missing",
+                text="扩展因子未缓存：请对自选执行 POST /ingest/fundamentals 后再看合成得分",
+            )
+        )
+    else:
+        fund_adj, fund_reasons = fundamental_score_delta(
+            fund_panel.pe_dynamic,
+            fund_panel.pb,
+            fund_panel.revenue_yoy_pct,
+            fund_panel.profit_yoy_pct,
+            fund_panel.main_net_inflow,
+        )
+        reasons.extend(fund_reasons)
+
+    combined = int(max(0, min(100, technical_score + fund_adj)))
+
+    # --- 仓位提示：与合成评分、趋势、强度联动；文案为模型提示非交易指令 ---
     position_hint: PositionHint
     position_range_text: str
-    if score >= 72 and trend == "bullish" and strength != "weak":
+    if combined >= 72 and trend == "bullish" and strength != "weak":
         position_hint = "moderate"
         position_range_text = "模型提示：可结合自身风险承受能力考虑中等以下试错仓位（示例区间 10%–30% 总资金）"
-    elif score >= 55 and trend != "bearish":
+    elif combined >= 55 and trend != "bearish":
         position_hint = "trial"
         position_range_text = "模型提示：轻仓试错更合适（示例区间 0%–10% 总资金）"
-    elif score >= 40:
+    elif combined >= 40:
         position_hint = "cautious"
         position_range_text = "模型提示：信号一般，建议观望或极低仓观察"
     else:
@@ -182,6 +208,8 @@ def compute_signal(symbol: str) -> SignalOut:
         "vol_ratio_1d_vs_20d": round(vol_ratio, 4),
         "drawdown_from_60d_high": round(float(dd_from_high), 6),
         "realized_vol_20d": None if np.isnan(vol_sigma) else round(float(vol_sigma), 6),
+        "technical_score": technical_score,
+        "fundamental_adjustment": fund_adj,
     }
 
     return SignalOut(
@@ -191,7 +219,10 @@ def compute_signal(symbol: str) -> SignalOut:
         close=round(last_close, 4),
         trend=trend,
         strength=strength,
-        buy_suitability_score=score,
+        buy_suitability_score=combined,
+        technical_score=technical_score,
+        fundamental_adjustment=fund_adj,
+        fundamentals=fund_panel,
         position_hint=position_hint,
         position_range_text=position_range_text,
         risk_tags=risk_tags,
