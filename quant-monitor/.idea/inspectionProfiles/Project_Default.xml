@@ -1,0 +1,101 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyCompatibilityInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ourVersions">
+        <value>
+          <list size="2">
+            <item index="0" class="java.lang.String" itemvalue="2.7" />
+            <item index="1" class="java.lang.String" itemvalue="3.11" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="78">
+            <item index="0" class="java.lang.String" itemvalue="protobuf" />
+            <item index="1" class="java.lang.String" itemvalue="colorlog" />
+            <item index="2" class="java.lang.String" itemvalue="pydivert" />
+            <item index="3" class="java.lang.String" itemvalue="PyYAML" />
+            <item index="4" class="java.lang.String" itemvalue="atomicwrites" />
+            <item index="5" class="java.lang.String" itemvalue="python-dateutil" />
+            <item index="6" class="java.lang.String" itemvalue="h11" />
+            <item index="7" class="java.lang.String" itemvalue="MarkupSafe" />
+            <item index="8" class="java.lang.String" itemvalue="httptools" />
+            <item index="9" class="java.lang.String" itemvalue="redis" />
+            <item index="10" class="java.lang.String" itemvalue="Faker" />
+            <item index="11" class="java.lang.String" itemvalue="certifi" />
+            <item index="12" class="java.lang.String" itemvalue="PyQRCode" />
+            <item index="13" class="java.lang.String" itemvalue="pyparsing" />
+            <item index="14" class="java.lang.String" itemvalue="passlib" />
+            <item index="15" class="java.lang.String" itemvalue="xlrd" />
+            <item index="16" class="java.lang.String" itemvalue="pywin32" />
+            <item index="17" class="java.lang.String" itemvalue="xlwings" />
+            <item index="18" class="java.lang.String" itemvalue="pydantic" />
+            <item index="19" class="java.lang.String" itemvalue="pyperclip" />
+            <item index="20" class="java.lang.String" itemvalue="Werkzeug" />
+            <item index="21" class="java.lang.String" itemvalue="iniconfig" />
+            <item index="22" class="java.lang.String" itemvalue="asgiref" />
+            <item index="23" class="java.lang.String" itemvalue="cryptography" />
+            <item index="24" class="java.lang.String" itemvalue="pyDes" />
+            <item index="25" class="java.lang.String" itemvalue="wsproto" />
+            <item index="26" class="java.lang.String" itemvalue="attrs" />
+            <item index="27" class="java.lang.String" itemvalue="crypto" />
+            <item index="28" class="java.lang.String" itemvalue="urwid" />
+            <item index="29" class="java.lang.String" itemvalue="execnet" />
+            <item index="30" class="java.lang.String" itemvalue="charset-normalizer" />
+            <item index="31" class="java.lang.String" itemvalue="allure-python-commons" />
+            <item index="32" class="java.lang.String" itemvalue="PyMySQL" />
+            <item index="33" class="java.lang.String" itemvalue="itchat" />
+            <item index="34" class="java.lang.String" itemvalue="msgpack" />
+            <item index="35" class="java.lang.String" itemvalue="idna" />
+            <item index="36" class="java.lang.String" itemvalue="sanic-routing" />
+            <item index="37" class="java.lang.String" itemvalue="cffi" />
+            <item index="38" class="java.lang.String" itemvalue="mitmproxy" />
+            <item index="39" class="java.lang.String" itemvalue="h2" />
+            <item index="40" class="java.lang.String" itemvalue="pytest-xdist" />
+            <item index="41" class="java.lang.String" itemvalue="pyasn1" />
+            <item index="42" class="java.lang.String" itemvalue="requests" />
+            <item index="43" class="java.lang.String" itemvalue="ldap3" />
+            <item index="44" class="java.lang.String" itemvalue="pytest-forked" />
+            <item index="45" class="java.lang.String" itemvalue="pyOpenSSL" />
+            <item index="46" class="java.lang.String" itemvalue="ruamel.yaml.clib" />
+            <item index="47" class="java.lang.String" itemvalue="jsonpath" />
+            <item index="48" class="java.lang.String" itemvalue="urllib3" />
+            <item index="49" class="java.lang.String" itemvalue="websockets" />
+            <item index="50" class="java.lang.String" itemvalue="Flask" />
+            <item index="51" class="java.lang.String" itemvalue="blinker" />
+            <item index="52" class="java.lang.String" itemvalue="kaitaistruct" />
+            <item index="53" class="java.lang.String" itemvalue="pypng" />
+            <item index="54" class="java.lang.String" itemvalue="hyperframe" />
+            <item index="55" class="java.lang.String" itemvalue="tornado" />
+            <item index="56" class="java.lang.String" itemvalue="xlutils" />
+            <item index="57" class="java.lang.String" itemvalue="pytest" />
+            <item index="58" class="java.lang.String" itemvalue="text-unidecode" />
+            <item index="59" class="java.lang.String" itemvalue="aiofiles" />
+            <item index="60" class="java.lang.String" itemvalue="ruamel.yaml" />
+            <item index="61" class="java.lang.String" itemvalue="xlwt" />
+            <item index="62" class="java.lang.String" itemvalue="packaging" />
+            <item index="63" class="java.lang.String" itemvalue="publicsuffix2" />
+            <item index="64" class="java.lang.String" itemvalue="allure-pytest" />
+            <item index="65" class="java.lang.String" itemvalue="et-xmlfile" />
+            <item index="66" class="java.lang.String" itemvalue="hpack" />
+            <item index="67" class="java.lang.String" itemvalue="toml" />
+            <item index="68" class="java.lang.String" itemvalue="zstandard" />
+            <item index="69" class="java.lang.String" itemvalue="sortedcontainers" />
+            <item index="70" class="java.lang.String" itemvalue="chardet" />
+            <item index="71" class="java.lang.String" itemvalue="colorama" />
+            <item index="72" class="java.lang.String" itemvalue="sanic" />
+            <item index="73" class="java.lang.String" itemvalue="multidict" />
+            <item index="74" class="java.lang.String" itemvalue="DingtalkChatbot" />
+            <item index="75" class="java.lang.String" itemvalue="openpyxl" />
+            <item index="76" class="java.lang.String" itemvalue="requests-toolbelt" />
+            <item index="77" class="java.lang.String" itemvalue="google.generativeai" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
