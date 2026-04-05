@@ -55,7 +55,7 @@ def parse_timestr_to_timestamp(time_str, flag=True):
         return time.mktime(struct_time)
 
 
-def tiem_ago(n):
+def time_age(n):
     """
     n：时间天数   int
     获取几天前的时间
@@ -68,7 +68,7 @@ def tiem_ago(n):
     return timeAgo
 
 
-def tiem_future(n):
+def time_future(n):
     """
     n：时间天数  int
     获取几天前的时间

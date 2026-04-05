@@ -1,5 +1,6 @@
+import json
+
 import yaml
-from common.path_util import *
 
 
 class File_Method:
@@ -36,4 +37,4 @@ class File_Method:
 rf = File_Method()
 
 if __name__ == '__main__':
-    print(rf.read_yaml(examine_path_url(), "audit_policy", "examine_url"))
+    passd

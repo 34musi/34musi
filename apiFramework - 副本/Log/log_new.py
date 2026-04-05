@@ -21,8 +21,8 @@ log = logging.getLogger('logconfig')
 log.setLevel(LOG_LEVEL)
 log.addHandler(stream)
 
-def Logging(name):
 
+def Logging(name):
     log = logging.getLogger(name)
     log.setLevel(LOG_LEVEL)
     log.addHandler(stream)
@@ -30,8 +30,9 @@ def Logging(name):
 
 
 if __name__ == '__main__':
-    pass
-    # logger = Logging("test")
+    # pass
+    logger = Logging("test")
+    print(logger)
     # logger.info(123123)
     # logger.warning(123123)
     # logger.debug(123123)

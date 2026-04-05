@@ -155,13 +155,19 @@ post:
         默认：Content-Type: application/x-www-form-urlencoded
     json(有嵌套的字典)：
         默认 ：Content-Type: application/json
-    files（文件上传）： 注释----一般是通过数据流去上传的直接上传不行
+    files（文件上传）： 注释----一般是通过数据流去上传的直 接上传不行
         默认：Content-Type: multipart/from-data
+
+cookeie关联，基本上所有的web项目的接口都需要做cookie关联
+
+因为session就表示同一个会话，同一个会话里面的cookie会自动关联
+
 
 
 一：自动化接口请求封装
 把所有的请求集中到一个方法，目录：方便维护，加日志，异常处理
-没有办法实现cookie的关联
+
+没有办法实现cookie的关联，就可以使用session关联（res.session）
 
 
 最终的目的： 不用写代码也能执行用例
