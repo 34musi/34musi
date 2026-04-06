@@ -6,13 +6,14 @@
 - watchlist：用户监控的 6 位 A 股代码列表。
 - signal_cache：告警预览用的「上一版信号」JSON 快照。
 - fundamental_snapshots：自选扩展因子快照（估值、财务同比、主力净流入等），供信号合成使用。
+- decision_journal：自用决策与执行记录（复盘、仓位、是否按计划）。
 """
 
 import logging
 from contextlib import contextmanager
 from typing import Generator
 
-from sqlalchemy import Float, Integer, String, Text, UniqueConstraint, create_engine
+from sqlalchemy import Boolean, Float, Integer, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.config import get_database_url
@@ -78,6 +79,58 @@ class FundamentalSnapshotRow(Base):
     financial_report_date: Mapped[str | None] = mapped_column(String(24), nullable=True)
     main_net_inflow: Mapped[float | None] = mapped_column(Float, nullable=True)
     fund_flow_date: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    # 东财主要财务指标（最近一期报告期，与 revenue_yoy 等同表）
+    roe_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    roa_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    net_margin_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gross_margin_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    debt_to_assets_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    quick_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ocf_per_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+_FUNDAMENTAL_SNAPSHOT_SQLITE_ALTER: tuple[tuple[str, str], ...] = (
+    ("roe_pct", "REAL"),
+    ("roa_pct", "REAL"),
+    ("net_margin_pct", "REAL"),
+    ("gross_margin_pct", "REAL"),
+    ("debt_to_assets_pct", "REAL"),
+    ("current_ratio", "REAL"),
+    ("quick_ratio", "REAL"),
+    ("ocf_per_share", "REAL"),
+)
+
+
+def _ensure_sqlite_fundamental_snapshot_columns(engine) -> None:
+    """已有库文件升级：为 fundamental_snapshots 追加列（create_all 不会改旧表）。"""
+    url = str(engine.url)
+    if not url.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        cur = conn.execute(text("PRAGMA table_info(fundamental_snapshots)"))
+        existing = {row[1] for row in cur.fetchall()}
+        for col, sqlt in _FUNDAMENTAL_SNAPSHOT_SQLITE_ALTER:
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE fundamental_snapshots ADD COLUMN {col} {sqlt}"))
+                conn.commit()
+
+
+class DecisionJournalRow(Base):
+    """自用决策日志：标题/正文、可选标的、信号快照、计划仓位与执行一致性。"""
+
+    __tablename__ = "decision_journal"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[str] = mapped_column(String(32), index=True)
+    symbol: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text)
+    signal_snapshot_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    planned_action: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    planned_position_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    executed_as_planned: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    actual_action: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
 
 _engine = None
@@ -94,6 +147,7 @@ def init_db() -> None:
         connect_args["check_same_thread"] = False
     _engine = create_engine(url, connect_args=connect_args)
     Base.metadata.create_all(_engine)
+    _ensure_sqlite_fundamental_snapshot_columns(_engine)
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
     logger.info("Database initialized at %s", url)
 

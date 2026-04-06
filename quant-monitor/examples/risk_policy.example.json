@@ -1,0 +1,12 @@
+{
+  "tool_mode": "assist_only",
+  "tool_mode_note": "仅辅助决策，本工具不执行自动下单",
+  "max_loss_per_trade_pct": 2.0,
+  "max_single_symbol_position_pct": 15.0,
+  "max_total_equity_position_pct": 60.0,
+  "kill_switch_stop_after_losing_trades": 5,
+  "kill_switch_daily_drawdown_pct": 5.0,
+  "weekly_review_weekday": "周日或周一盘前",
+  "decision_horizon": "约一周（5 个交易日）判断趋势",
+  "remarks": "请复制本文件为 risk_policy.json 并改成你自己的数字；勿提交真实资金数据到公开仓库"
+}

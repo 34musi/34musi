@@ -1,25 +1,29 @@
 """
 行情摄取：通过 AkShare / Baostock 拉 A 股前复权日线，规范化后写入 SQLite（bars 表）。
 
-路线 `auto`：东财 → 新浪 → 腾讯 → Baostock；亦可固定单一源（见 resolve_data_source）。
+路线 `auto`：新浪 → 腾讯 → Baostock；`eastmoney`：仅东财日线（`stock_zh_a_hist`），
+相邻请求全局随机间隔约 3–5 秒（可配置）以防限流；亦可固定其它单一源（见 resolve_data_source）。
 
 职责划分：
 - normalize_symbol：统一为 6 位数字代码。
 - fetch_ak_daily：单次区间拉取并转为内部列名（支持 data_source 覆盖）。
 - incremental_refresh：相对库内最新日期做增量（带重叠窗口防漏日）。
 - load_bars_df：给信号模块读库；不足 min_bars 时自动触发一次刷新。
+- load_bars_from_db：仅读库、不联网刷新；供 walk-forward 验证等可复现研究使用。
 - list_bars_from_db：按日期倒序取最近 limit 根再转为升序，供行情展示 API 使用。
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import random
 import re
 import threading
 import time
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, Iterator
 
 import akshare as ak
 import pandas as pd
@@ -34,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_DATA_SOURCES = frozenset({"auto", "eastmoney", "sina", "tencent", "baostock"})
 _baostock_lock = threading.Lock()
+_eastmoney_throttle_lock = threading.Lock()
+_eastmoney_next_monotonic: float = 0.0
 
 
 def resolve_data_source(explicit: str | None) -> str:
@@ -90,9 +96,13 @@ def _is_transient_http_error(exc: BaseException) -> bool:
         "502",
         "503",
         "429",
+        "unable to connect to proxy",
+        "proxyerror",
     ):
         if needle in msg:
             return True
+    if isinstance(exc, requests.exceptions.ProxyError):
+        return True
     return False
 
 
@@ -100,13 +110,23 @@ def explain_ingest_failure(exc: BaseException) -> str:
     """面向操作者的中文说明（与日志中的完整堆栈配合使用）。"""
     low = str(exc).lower()
     parts: list[str] = []
-    if (
+    if isinstance(exc, requests.exceptions.ProxyError) or "unable to connect to proxy" in low:
+        parts.append(
+            "【原因】本机或环境变量配置了 HTTP/HTTPS **代理**，但代理无法连通或提前断开，"
+            "导致访问东财等地址失败（常见于公司代理失效、Clash/VPN 未启动、系统代理残留）。"
+        )
+        parts.append(
+            "【建议】① 在系统设置里关闭代理，或清空环境变量 HTTP_PROXY / HTTPS_PROXY 后重启 uvicorn；"
+            "② 若本机可直连外网、仅代理损坏，可在 .env 设置 INGEST_EASTMONEY_BYPASS_PROXY=true，"
+            "让东财日线请求临时不走代理；③ 或改用行情路线 sina / tencent / auto，避开东财。"
+        )
+    elif (
         "remote end closed" in low
         or "connection aborted" in low
         or "remote disconnected" in low
     ):
         parts.append(
-            "【原因】数据源接口（如东方财富）在返回内容前主动断开了 TCP 连接，本程序没有收到完整 HTTP 响应。"
+            "【原因】数据源接口在返回内容前主动断开了 TCP 连接，本程序没有收到完整 HTTP 响应。"
         )
         parts.append(
             "【常见触发】请求过于频繁被限流/反爬；对方服务器短暂故障；本机网络、公司防火墙或代理不稳定。"
@@ -151,18 +171,6 @@ def _fetch_and_upsert(
         raise RuntimeError(_format_ingest_error(e)) from e
 
 
-# AkShare 返回的中文列名 → 内部统一英文列名
-_AK_COL_MAP = {
-    "日期": "trade_date",
-    "开盘": "open",
-    "收盘": "close",
-    "最高": "high",
-    "最低": "low",
-    "成交量": "volume",
-    "成交额": "amount",
-}
-
-
 def normalize_symbol(symbol: str) -> str:
     """去掉非数字字符，校验长度为 6；否则抛 ValueError。"""
     s = re.sub(r"\D", "", symbol.strip())
@@ -185,6 +193,17 @@ def _empty_daily_df() -> pd.DataFrame:
     return pd.DataFrame(columns=["trade_date", "open", "high", "low", "close", "volume", "amount"])
 
 
+_AK_COL_MAP = {
+    "日期": "trade_date",
+    "开盘": "open",
+    "收盘": "close",
+    "最高": "high",
+    "最低": "low",
+    "成交量": "volume",
+    "成交额": "amount",
+}
+
+
 def _normalize_chinese_hist_df(df: pd.DataFrame, sym: str) -> pd.DataFrame:
     """东财 stock_zh_a_hist 中文列 → 内部标准列。"""
     ren = {c: _AK_COL_MAP[c] for c in df.columns if c in _AK_COL_MAP}
@@ -202,6 +221,91 @@ def _normalize_chinese_hist_df(df: pd.DataFrame, sym: str) -> pd.DataFrame:
     return df[["symbol", "trade_date", "open", "high", "low", "close", "volume", "amount"]]
 
 
+_PROXY_ENV_KEYS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+)
+
+
+@contextmanager
+def _temporary_clear_proxy_env(*, enabled: bool) -> Iterator[None]:
+    """临时移除常见代理环境变量，便于 AkShare/requests 直连（用毕恢复）。"""
+    if not enabled:
+        yield
+        return
+    saved: dict[str, str] = {}
+    for k in _PROXY_ENV_KEYS:
+        if k in os.environ:
+            saved[k] = os.environ.pop(k)
+    try:
+        yield
+    finally:
+        for k, v in saved.items():
+            os.environ[k] = v
+
+
+def _eastmoney_schedule_next_gap() -> None:
+    """在锁内调用：根据配置设定下一次允许发起东财日线请求的时间点。"""
+    global _eastmoney_next_monotonic
+    s = get_settings()
+    lo = max(0.0, float(s.eastmoney_request_min_interval_sec))
+    hi = max(lo, float(s.eastmoney_request_max_interval_sec))
+    _eastmoney_next_monotonic = time.monotonic() + (
+        random.uniform(lo, hi) if hi > lo else lo
+    )
+
+
+def _fetch_eastmoney_hist(sym: str, start_yyyymmdd: str, end_yyyymmdd: str) -> pd.DataFrame:
+    """
+    东财日线；全局串行，相邻两次请求间隔随机落在 [min, max] 秒。
+
+    短暂网络错误时按 Settings 重试；每次尝试均遵守间隔。
+    """
+    s = get_settings()
+    max_retries = max(0, s.akshare_fetch_retries)
+    base_delay = max(0.1, float(s.akshare_retry_base_delay_sec))
+    last_err: Exception | None = None
+    for attempt in range(max_retries + 1):
+        with _eastmoney_throttle_lock:
+            now = time.monotonic()
+            if now < _eastmoney_next_monotonic:
+                time.sleep(_eastmoney_next_monotonic - now)
+            try:
+                with _temporary_clear_proxy_env(
+                    enabled=bool(s.ingest_eastmoney_bypass_proxy),
+                ):
+                    df = ak.stock_zh_a_hist(
+                        symbol=sym,
+                        period="daily",
+                        start_date=start_yyyymmdd,
+                        end_date=end_yyyymmdd,
+                        adjust="qfq",
+                    )
+                _eastmoney_schedule_next_gap()
+                return df
+            except Exception as e:
+                last_err = e
+                _eastmoney_schedule_next_gap()
+        if attempt < max_retries and _is_transient_http_error(last_err):
+            delay = base_delay * (2**attempt) + random.uniform(0, 0.4)
+            logger.warning(
+                "stock_zh_a_hist %s 短暂失败 (%s)，第 %s/%s 次重试，%.2fs 后再试",
+                sym,
+                last_err,
+                attempt + 1,
+                max_retries,
+                delay,
+            )
+            time.sleep(delay)
+            continue
+        raise last_err  # type: ignore[misc]
+    raise RuntimeError("unreachable")
+
+
 def _normalize_english_hist_df(df: pd.DataFrame, sym: str, *, volume_if_missing: float | None) -> pd.DataFrame:
     """stock_zh_a_daily / stock_zh_a_hist_tx 等英文列 → 内部标准列。"""
     if "date" in df.columns:
@@ -217,36 +321,6 @@ def _normalize_english_hist_df(df: pd.DataFrame, sym: str, *, volume_if_missing:
     df["trade_date"] = pd.to_datetime(df["trade_date"]).dt.strftime("%Y-%m-%d")
     df["symbol"] = sym
     return df[["symbol", "trade_date", "open", "high", "low", "close", "volume", "amount"]]
-
-
-def _fetch_eastmoney_hist(sym: str, start_yyyymmdd: str, end_yyyymmdd: str) -> pd.DataFrame:
-    """东财日线；带短暂错误重试。成功但无行则返回空表。"""
-    s = get_settings()
-    max_retries = max(0, s.akshare_fetch_retries)
-    base_delay = max(0.1, float(s.akshare_retry_base_delay_sec))
-    for attempt in range(max_retries + 1):
-        try:
-            return ak.stock_zh_a_hist(
-                symbol=sym,
-                period="daily",
-                start_date=start_yyyymmdd,
-                end_date=end_yyyymmdd,
-                adjust="qfq",
-            )
-        except Exception as e:
-            if attempt < max_retries and _is_transient_http_error(e):
-                delay = base_delay * (2**attempt) + random.uniform(0, 0.4)
-                logger.warning(
-                    "stock_zh_a_hist %s 短暂失败 (%s)，第 %s/%s 次重试，%.2fs 后再试",
-                    sym,
-                    e,
-                    attempt + 1,
-                    max_retries,
-                    delay,
-                )
-                time.sleep(delay)
-                continue
-            raise
 
 
 def _fetch_baostock_daily(sym: str, start_yyyymmdd: str, end_yyyymmdd: str) -> pd.DataFrame:
@@ -313,51 +387,44 @@ def _single_source_daily(
 
 
 def _fetch_auto_chain(sym: str, start_y: str, end_y: str) -> tuple[pd.DataFrame, str | None]:
-    """东财优先；异常则新浪 → 腾讯 → Baostock。东财成功但空表则不再切换。"""
+    """新浪优先；失败或无行则腾讯 → Baostock。"""
+    leg = _legacy_sh_sz_symbol(sym)
+    errs: list[str] = []
+
     try:
-        df = _fetch_eastmoney_hist(sym, start_y, end_y)
-        if df is None or df.empty:
-            return _empty_daily_df(), None
-        return _normalize_chinese_hist_df(df, sym), "eastmoney"
-    except Exception as em_err:
-        logger.warning("东财日线失败 %s，尝试备选数据源: %s", sym, em_err)
-        errs: list[str] = [f"东方财富(stock_zh_a_hist): {type(em_err).__name__}: {em_err}"]
-        leg = _legacy_sh_sz_symbol(sym)
+        df2 = ak.stock_zh_a_daily(symbol=leg, start_date=start_y, end_date=end_y, adjust="qfq")
+        if df2 is not None and not df2.empty:
+            logger.info("ingest %s: 使用数据源 新浪财经(stock_zh_a_daily)", sym)
+            return _normalize_english_hist_df(df2, sym, volume_if_missing=None), "sina"
+        errs.append("新浪财经(stock_zh_a_daily): 区间内无数据行")
+    except Exception as e2:
+        errs.append(f"新浪财经(stock_zh_a_daily): {type(e2).__name__}: {e2}")
+        logger.warning("新浪失败 %s: %s", sym, e2)
 
-        try:
-            df2 = ak.stock_zh_a_daily(symbol=leg, start_date=start_y, end_date=end_y, adjust="qfq")
-            if df2 is not None and not df2.empty:
-                logger.info("ingest %s: 使用备选数据源 新浪财经(stock_zh_a_daily)", sym)
-                return _normalize_english_hist_df(df2, sym, volume_if_missing=None), "sina"
-            errs.append("新浪财经(stock_zh_a_daily): 区间内无数据行")
-        except Exception as e2:
-            errs.append(f"新浪财经(stock_zh_a_daily): {type(e2).__name__}: {e2}")
-            logger.warning("新浪备选失败 %s: %s", sym, e2)
+    try:
+        df3 = ak.stock_zh_a_hist_tx(symbol=leg, start_date=start_y, end_date=end_y, adjust="qfq")
+        if df3 is not None and not df3.empty:
+            logger.info(
+                "ingest %s: 使用数据源 腾讯(stock_zh_a_hist_tx)；成交量字段缺失已填 0",
+                sym,
+            )
+            return _normalize_english_hist_df(df3, sym, volume_if_missing=0.0), "tencent"
+        errs.append("腾讯(stock_zh_a_hist_tx): 区间内无数据行")
+    except Exception as e3:
+        errs.append(f"腾讯(stock_zh_a_hist_tx): {type(e3).__name__}: {e3}")
+        logger.warning("腾讯失败 %s: %s", sym, e3)
 
-        try:
-            df3 = ak.stock_zh_a_hist_tx(symbol=leg, start_date=start_y, end_date=end_y, adjust="qfq")
-            if df3 is not None and not df3.empty:
-                logger.info(
-                    "ingest %s: 使用备选数据源 腾讯(stock_zh_a_hist_tx)；成交量字段缺失已填 0",
-                    sym,
-                )
-                return _normalize_english_hist_df(df3, sym, volume_if_missing=0.0), "tencent"
-            errs.append("腾讯(stock_zh_a_hist_tx): 区间内无数据行")
-        except Exception as e3:
-            errs.append(f"腾讯(stock_zh_a_hist_tx): {type(e3).__name__}: {e3}")
-            logger.warning("腾讯备选失败 %s: %s", sym, e3)
+    try:
+        df4 = _fetch_baostock_daily(sym, start_y, end_y)
+        if df4 is not None and not df4.empty:
+            logger.info("ingest %s: 使用数据源 baostock", sym)
+            return df4, "baostock"
+        errs.append("baostock: 区间内无数据行")
+    except Exception as e4:
+        errs.append(f"baostock: {type(e4).__name__}: {e4}")
+        logger.warning("baostock 失败 %s: %s", sym, e4)
 
-        try:
-            df4 = _fetch_baostock_daily(sym, start_y, end_y)
-            if df4 is not None and not df4.empty:
-                logger.info("ingest %s: 使用备选数据源 baostock", sym)
-                return df4, "baostock"
-            errs.append("baostock: 区间内无数据行")
-        except Exception as e4:
-            errs.append(f"baostock: {type(e4).__name__}: {e4}")
-            logger.warning("baostock 备选失败 %s: %s", sym, e4)
-
-        raise RuntimeError("日线拉取失败，东财与备选源均未成功:\n" + "\n".join(errs)) from em_err
+    raise RuntimeError("日线拉取失败，新浪与备选源均未成功:\n" + "\n".join(errs))
 
 
 def fetch_daily_with_provider(
@@ -379,8 +446,8 @@ def fetch_ak_daily(
     """
     拉取指定区间前复权日线。
 
-    data_source 不传则用 Settings.ingest_data_source。auto：东财→新浪→腾讯→Baostock；
-    单一源时仅走该线路。auto 下东财成功但返回空表时不再切换。
+    data_source 不传则用 Settings.ingest_data_source。auto：新浪→腾讯→Baostock；
+    eastmoney：东财日线（请求间隔见 Settings）；单一源时仅走该线路。
 
     start_date / end_date：可为 YYYY-MM-DD 或 YYYYMMDD（内部会去掉横线）。
     返回列：symbol, trade_date, open, high, low, close, volume, amount；空则返回空表结构。
@@ -607,11 +674,14 @@ def test_akshare_connectivity(*, data_source: str | None = None) -> dict:
         }
 
 
-def load_bars_df(symbol: str, min_bars: int = 80) -> pd.DataFrame:
+def load_bars_df(
+    symbol: str, min_bars: int = 80, *, data_source: str | None = None
+) -> pd.DataFrame:
     """
     从库中读出该标的全部日线为 DataFrame（按日期升序）。
 
     若行数 < min_bars，先调用 incremental_refresh 再读一次（仍不足则返回当前能读到的行）。
+    data_source：传给 incremental_refresh；None 时用 Settings.ingest_data_source。
     """
     sym = normalize_symbol(symbol)
 
@@ -639,24 +709,67 @@ def load_bars_df(symbol: str, min_bars: int = 80) -> pd.DataFrame:
 
     data = _load_records()
     if len(data) < min_bars:
-        incremental_refresh(sym)
+        incremental_refresh(sym, data_source=data_source)
         data = _load_records()
     return pd.DataFrame(data)
 
 
+def load_bars_from_db(symbol: str) -> pd.DataFrame:
+    """
+    仅从 SQLite 读取该标的全部日线（日期升序），不触发 incremental_refresh。
+
+    用于可复现的回测 / 预测验证；若行数为 0，请先 POST /ingest/update。
+    """
+    sym = normalize_symbol(symbol)
+
+    with session_scope() as s:
+        q = select(BarRow).where(BarRow.symbol == sym).order_by(BarRow.trade_date.asc())
+        rows = s.execute(q).scalars().all()
+        data = [
+            {
+                "trade_date": r.trade_date,
+                "open": r.open,
+                "high": r.high,
+                "low": r.low,
+                "close": r.close,
+                "volume": r.volume,
+                "amount": r.amount,
+            }
+            for r in rows
+        ]
+    return pd.DataFrame(data)
+
+
 def fetch_stock_name(symbol: str) -> str | None:
-    """东财个股信息页解析简称；失败返回 None。"""
+    """
+    证券简称：优先东财个股信息接口；失败则用沪深京 A 股代码表（交易所源，AkShare 聚合）。
+
+    与行情路线（新浪/Baostock 等）无关；仅展示用。
+    """
     sym = normalize_symbol(symbol)
     try:
         df = ak.stock_individual_info_em(symbol=sym)
-        if df is None or df.empty:
-            return None
-        # 列名通常为 item / value
-        m = dict(zip(df.iloc[:, 0].astype(str), df.iloc[:, 1].astype(str)))
-        return m.get("股票简称") or m.get("证券简称")
+        if df is not None and not df.empty:
+            m = dict(zip(df.iloc[:, 0].astype(str), df.iloc[:, 1].astype(str)))
+            n = m.get("股票简称") or m.get("证券简称")
+            if n and str(n).strip():
+                return str(n).strip()
     except Exception:
-        logger.debug("name lookup failed for %s", sym, exc_info=True)
-        return None
+        logger.debug("name EM lookup failed for %s", sym, exc_info=True)
+    try:
+        tab = ak.stock_info_a_code_name()
+        if tab is None or tab.empty or "code" not in tab.columns:
+            return None
+        codes = tab["code"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+        hit = tab.loc[codes == sym]
+        if hit.empty or "name" not in hit.columns:
+            return None
+        n2 = hit.iloc[0]["name"]
+        if n2 is not None and pd.notna(n2) and str(n2).strip():
+            return str(n2).strip()
+    except Exception:
+        logger.debug("name code_name fallback failed for %s", sym, exc_info=True)
+    return None
 
 
 def is_trade_day(d: date | None = None) -> bool:

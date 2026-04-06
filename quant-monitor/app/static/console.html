@@ -157,6 +157,10 @@
     .ingest-table th { background: var(--panel); color: var(--muted); font-weight: 500; white-space: nowrap; }
     .ingest-table .cell-err { color: var(--err); font-size: 0.82rem; }
     .ingest-table .cell-pre { white-space: pre-wrap; word-break: break-word; }
+    .ingest-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .ingest-table td.trend-bull { color: var(--ok); }
+    .ingest-table td.trend-bear { color: var(--err); }
+    .ingest-table td.trend-side { color: #c9b87c; }
     .ingest-test-box {
       margin-top: 0.75rem;
       padding: 0.75rem 1rem;
@@ -170,6 +174,7 @@
     .ingest-test-box.fail { border-color: rgba(248, 113, 113, 0.35); }
     .pill { display: inline-block; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; }
     .pill.ok { background: rgba(62, 207, 142, 0.2); color: var(--ok); }
+    .pill.warn { background: rgba(201, 184, 124, 0.2); color: #c9b87c; }
     .pill.err { background: rgba(248, 113, 113, 0.15); color: var(--err); }
     .ingest-notes { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 0.5rem; }
     .note-field { margin-bottom: 0.75rem; }
@@ -177,6 +182,125 @@
     .note-field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; }
     .note-val { font-size: 0.85rem; line-height: 1.45; white-space: pre-wrap; }
     .ingest-raw { margin-top: 0.75rem; }
+    .signals-out-wrap { margin-top: 1rem; }
+    .signals-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--panel);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .signals-table-wrap { overflow-x: auto; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; }
+    .signals-main-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 720px; }
+    .signals-main-table th, .signals-main-table td {
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.5rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    .signals-main-table th { background: #141c28; color: var(--muted); font-weight: 500; white-space: nowrap; }
+    .signals-main-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .signals-main-table .trend-bull { color: var(--ok); }
+    .signals-main-table .trend-bear { color: var(--err); }
+    .signals-main-table .trend-side { color: #c9b87c; }
+    .signals-detail-wrap { margin-top: 1rem; }
+    .signals-detail-block {
+      margin-bottom: 0.85rem;
+      padding: 0.75rem 1rem;
+      background: var(--panel);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .signals-detail-block h4 { margin: 0 0 0.5rem; font-size: 0.92rem; color: var(--text); }
+    .signals-detail-block .pos-range { font-size: 0.84rem; color: var(--muted); margin: 0 0 0.5rem; }
+    .signals-detail-block ul { margin: 0.35rem 0 0 1rem; padding: 0; font-size: 0.82rem; line-height: 1.5; }
+    .signals-detail-block .reason-code { color: var(--muted); font-size: 0.78rem; margin-right: 0.35rem; }
+    .ingest-table th.signal-th-buy {
+      background: rgba(62, 207, 142, 0.14);
+      color: #8ee5b8;
+      border-color: rgba(62, 207, 142, 0.28);
+    }
+    .ingest-table th.signal-th-exit {
+      background: rgba(245, 158, 11, 0.14);
+      color: #fbbf77;
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+    .ingest-table td.signal-cell-buy {
+      background: rgba(62, 207, 142, 0.05);
+      border-color: rgba(62, 207, 142, 0.2);
+    }
+    .ingest-table td.signal-cell-exit {
+      background: rgba(245, 158, 11, 0.07);
+      border-color: rgba(245, 158, 11, 0.22);
+      font-size: 0.82rem;
+      line-height: 1.4;
+      vertical-align: top;
+    }
+    .pill.signal-buy { background: rgba(62, 207, 142, 0.22); color: #7ddeb0; }
+    .pill.signal-exit { background: rgba(245, 158, 11, 0.22); color: #fbbf77; }
+    .signal-hint-card {
+      margin: 0.45rem 0;
+      padding: 0.55rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    .signal-hint-card .hint-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      letter-spacing: 0.02em;
+    }
+    .signal-hint-card.signal-hint-buy {
+      border-color: rgba(62, 207, 142, 0.35);
+      background: rgba(62, 207, 142, 0.07);
+    }
+    .signal-hint-card.signal-hint-buy .hint-label { color: #8ee5b8; }
+    .signal-hint-card.signal-hint-exit {
+      border-color: rgba(245, 158, 11, 0.38);
+      background: rgba(245, 158, 11, 0.09);
+    }
+    .signal-hint-card.signal-hint-exit .hint-label { color: #fbbf77; }
+    .signals-glossary-dl dt { font-weight: 600; color: var(--text); margin-top: 0.55rem; font-size: 0.84rem; }
+    .signals-glossary-dl dd { margin: 0.2rem 0 0 0; color: var(--muted); font-size: 0.8rem; line-height: 1.5; padding-left: 0; }
+    .signals-glossary-dl dd.sub { margin-left: 0.75rem; font-size: 0.78rem; }
+    .forecast-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      margin-top: 1rem;
+    }
+    .forecast-card h4 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--text); }
+    .forecast-steps { margin: 0 0 0.85rem; padding-left: 1.2rem; font-size: 0.82rem; color: var(--muted); line-height: 1.55; }
+    .forecast-steps li { margin-bottom: 0.25rem; }
+    .forecast-form-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin-top: 0.5rem; }
+    .forecast-stat-row { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.75rem 0; }
+    .forecast-stat-box {
+      flex: 1 1 140px;
+      background: #141c28;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      text-align: center;
+    }
+    .forecast-stat-box .lbl { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 0.2rem; }
+    .forecast-stat-box .val { font-size: 1.35rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .forecast-stat-box .sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.2rem; }
+    .forecast-ret-pos { color: var(--ok); }
+    .forecast-ret-neg { color: var(--err); }
+    .forecast-open-leg {
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.65rem;
+      background: rgba(201, 184, 124, 0.12);
+      border: 1px solid rgba(201, 184, 124, 0.35);
+      border-radius: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
     @media (max-width: 720px) {
       .layout { flex-direction: column; }
       nav { width: 100%; border-right: none; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem; }
@@ -208,6 +332,14 @@
           <button type="button" class="secondary" id="btnTest">测试连接</button>
           <button type="button" class="secondary" id="btnRoot">刷新服务信息</button>
         </div>
+        <div class="ingest-notes" style="margin-top:1rem;">
+          <h3 class="ingest-h3">自用功能（与路线图对齐）</h3>
+          <p class="lead" style="margin-top:0;font-size:0.82rem;">
+            <strong>⑦ 决策日志</strong>：周趋势结论、计划仓位、是否按计划执行。<strong>扩展因子</strong>在③拉取。<strong>预测验证（walk-forward）</strong>在③「预测验证」区块；命令行仍可用 <code>scripts/run_forecast_validate.py</code>。
+          </p>
+          <button type="button" class="secondary" id="btnSelfUseFromHome">加载自用定位摘要（GET /meta/self-use）</button>
+          <pre class="out" id="out-1-selfuse" style="max-height:240px;margin-top:0.5rem" hidden></pre>
+        </div>
         <pre class="out" id="out-1" hidden></pre>
       </section>
 
@@ -232,14 +364,14 @@
         <div class="row">
           <label for="ingestDataSource">行情路线</label>
           <select id="ingestDataSource">
-            <option value="auto">自动（东财 → 新浪 → 腾讯 → Baostock）</option>
-            <option value="eastmoney">仅东方财富（AkShare）</option>
+            <option value="auto">自动（新浪 → 腾讯 → Baostock）</option>
+            <option value="eastmoney">仅东方财富日线（AkShare，约 3–5 秒/请求）</option>
             <option value="sina">仅新浪财经（AkShare）</option>
             <option value="tencent">仅腾讯（AkShare，无成交量则记 0）</option>
             <option value="baostock">仅 Baostock</option>
           </select>
         </div>
-        <p class="lead" style="margin-top:0;font-size:0.82rem;">路线会保存到本机浏览器；与接口 Body 字段 <code>data_source</code> 一致。默认自动链式 failover；固定单一源便于排查网络问题。</p>
+        <p class="lead" style="margin-top:0;font-size:0.82rem;">路线会保存到本机浏览器；与接口 Body 字段 <code>data_source</code> 一致。默认自动链式 failover；固定单一源便于排查网络问题。<strong>东财日线</strong>在服务端对相邻请求有 <strong>约 3–5 秒</strong>随机间隔（防限流），自选多只时更新会较慢，可用环境变量 <code>EASTMONEY_REQUEST_MIN_INTERVAL_SEC</code> / <code>MAX</code> 调整。若日志出现 <code>ProxyError</code> / 无法连接代理，请关闭系统代理或设 <code>INGEST_EASTMONEY_BYPASS_PROXY=true</code>（可直连时）后重启服务。</p>
         <div class="row">
           <label for="ingestStartDate">开始日期（含当日）</label>
           <input type="date" id="ingestStartDate" />
@@ -281,12 +413,74 @@
           <button type="button" class="secondary" id="btnQuoteBars">查询本地 K 线</button>
         </div>
         <div id="quotes-manual-wrap" class="ingest-result-wrap" hidden></div>
+        <h3 class="ingest-h3">简易回测（本地日线 · 教学演示）</h3>
+        <div class="forecast-card">
+          <h4>学习路线（与常见 Python 量化笔记一致）</h4>
+          <p class="lead" style="margin:0 0 0.5rem;font-size:0.78rem;color:var(--muted);line-height:1.55">
+            思路：<strong>策略假设 → pandas/numpy 算信号 → 历史回测 → 再上仿真平台</strong>。本页只做前两步的<strong>本地迷你版</strong>（SQLite 存日线，与
+            <a href="https://www.cnblogs.com/yxiaodao/p/10732824.html" target="_blank" rel="noopener noreferrer">《python 数据分析与量化交易》</a>
+            中 NumPy、pandas、双均线与回测流程叙述同类，非商业背书）。
+          </p>
+          <h4>怎么用（三步）</h4>
+          <ol class="forecast-steps">
+            <li>先用本页最上方<strong>「开始更新自选行情」</strong>把该股票的日线拉进本机数据库（数据越多越好）。</li>
+            <li>填<strong>6 位代码</strong>；「预测天数 H」用于检验<strong>未来 H 个交易日累计涨跌方向</strong>是否猜对（与各策略的买卖示意是两套口径，见结果区说明）。</li>
+            <li>点<strong>「开始回测」</strong>：优先看<strong>双均线</strong>与 <strong>Logistic</strong>（仅用<strong>历史 K 线</strong>推出来的特征；扩展因子见结果区「基本面与回测」说明）。</li>
+          </ol>
+          <p class="lead" style="margin:0 0 0.5rem;font-size:0.78rem;color:var(--muted);">
+            只读本地库、不联网。<strong>买入点</strong>：信号从「空」变「多」的收盘；<strong>卖出点</strong>：从「多」变「空」的收盘。
+            两价之间算一笔区间涨跌%。<strong>不构成投资建议。</strong>
+          </p>
+          <div class="forecast-form-row">
+            <div>
+              <label for="forecastSym">股票代码（6 位）</label>
+              <input type="text" id="forecastSym" placeholder="如 600519" maxlength="16" style="max-width:140px;" />
+            </div>
+            <div>
+              <label for="forecastHorizon">预测天数 H</label>
+              <input type="number" id="forecastHorizon" value="5" min="1" max="60" style="max-width:88px;" title="模型判断的是未来 H 个交易日累计涨跌方向" />
+            </div>
+            <button type="button" class="primary" id="btnForecastValidate">开始回测</button>
+          </div>
+          <details style="margin-top:0.75rem;font-size:0.82rem;color:var(--muted);">
+            <summary style="cursor:pointer;color:var(--accent);">高级参数（一般不用改）</summary>
+            <div class="forecast-form-row" style="margin-top:0.5rem;">
+              <div>
+                <label for="forecastMinTrain">最小训练样本</label>
+                <input type="number" id="forecastMinTrain" value="120" min="80" max="2500" style="max-width:100px;" title="越大越稳，但可回测的最近区间越短" />
+              </div>
+              <div>
+                <label for="forecastRetrain">Logistic 重训间隔</label>
+                <input type="number" id="forecastRetrain" value="20" min="1" max="500" style="max-width:88px;" />
+              </div>
+              <div>
+                <label for="forecastTradeLimit">列表最多展示笔数</label>
+                <input type="number" id="forecastTradeLimit" value="25" min="1" max="200" style="max-width:88px;" title="完整统计仍用全部成交笔，仅表格截取最近若干笔" />
+              </div>
+              <div>
+                <label for="forecastMaShort">双均线：短周期</label>
+                <input type="number" id="forecastMaShort" value="5" min="2" max="120" style="max-width:72px;" />
+              </div>
+              <div>
+                <label for="forecastMaLong">双均线：长周期</label>
+                <input type="number" id="forecastMaLong" value="10" min="3" max="250" style="max-width:72px;" title="须大于短周期；最小训练样本建议 ≥ 长周期+5" />
+              </div>
+            </div>
+          </details>
+        </div>
+        <div id="forecast-validate-wrap" class="ingest-result-wrap" hidden></div>
         <pre class="out" id="out-3" hidden></pre>
       </section>
 
       <section id="panel-4" class="panel" data-module="4">
         <h2>④ 查看信号</h2>
-        <p class="lead">需已拉取足够 K 线。可先完成「③ 更新行情数据」。</p>
+        <p class="lead">需已拉取足够 K 线。可与「③ 更新行情数据」使用<strong>同一条行情路线</strong>：下方选项会把 <code>data_source</code> 传给接口，并在勾选时先增量更新再计算。</p>
+        <p class="lead" style="margin-top:0;font-size:0.82rem;">
+          当前路线（与③下拉框联动）：<strong id="routeEchoSignals">—</strong>
+        </p>
+        <div class="row">
+          <label><input type="checkbox" id="chkPreRefreshSignals" checked /> 计算前先按上述路线增量更新日线（较慢，标的间有间隔防限流）</label>
+        </div>
         <div class="btns">
           <button type="button" class="primary" id="btnSignalsAll">查看自选全部信号</button>
         </div>
@@ -297,16 +491,22 @@
         <div class="btns">
           <button type="button" class="secondary" id="btnSignalOne">查询该只</button>
         </div>
-        <pre class="out" id="out-4" hidden></pre>
+        <div id="signals-out-wrap" class="signals-out-wrap ingest-result-wrap" hidden></div>
       </section>
 
       <section id="panel-5" class="panel" data-module="5">
         <h2>⑤ 变动预览</h2>
-        <p class="lead">对比「上一次缓存」与当前计算结果，看趋势或评分十位档是否变化。</p>
+        <p class="lead">对比「上一次缓存」与当前计算结果，看趋势或评分十位档是否变化。可与③使用<strong>相同行情路线</strong>：请求体携带 <code>data_source</code>，勾选后先增量更新再对比。</p>
+        <p class="lead" style="margin-top:0;font-size:0.82rem;">
+          当前路线：<strong id="routeEchoAlerts">—</strong>
+        </p>
+        <div class="row">
+          <label><input type="checkbox" id="chkPreRefreshAlerts" checked /> 对比前先按上述路线增量更新自选日线</label>
+        </div>
         <div class="btns">
           <button type="button" class="primary" id="btnAlerts">对比上次缓存</button>
         </div>
-        <pre class="out" id="out-5" hidden></pre>
+        <div id="alerts-out-wrap" class="signals-out-wrap" hidden></div>
       </section>
 
       <section id="panel-6" class="panel" data-module="6">
@@ -317,6 +517,56 @@
         </div>
         <div id="disclaimer-render"></div>
         <pre class="out" id="out-6" hidden></pre>
+      </section>
+
+      <section id="panel-7" class="panel" data-module="7">
+        <h2>⑦ 决策日志（自用）</h2>
+        <p class="lead">记录一周趋势判断与实盘复盘（计划仓位、是否按计划）。详见仓库 <code>docs/SELF_USE_GUIDE.md</code>。非投资建议。</p>
+        <div class="btns">
+          <button type="button" class="secondary" id="btnSelfUseMeta">加载自用定位摘要</button>
+        </div>
+        <pre class="out" id="out-7a" hidden></pre>
+        <h3 class="ingest-h3" style="margin-top:1rem;">新增记录</h3>
+        <div class="row">
+          <label for="jrTitle">标题</label>
+          <input type="text" id="jrTitle" placeholder="如：本周 600519 趋势结论" maxlength="200" />
+        </div>
+        <div class="row">
+          <label for="jrBody">正文（依据与计划）</label>
+          <textarea id="jrBody" rows="4" style="width:100%;max-width:520px;padding:0.5rem;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;"></textarea>
+        </div>
+        <div class="row">
+          <label for="jrSym">股票代码（可选）</label>
+          <input type="text" id="jrSym" placeholder="6 位" maxlength="16" style="max-width:140px;" />
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="jrAttachSig" /> 附加当前信号快照（需填代码且本地 K 线足够）</label>
+        </div>
+        <div class="row">
+          <label for="jrPlanned">计划动作（可选）</label>
+          <input type="text" id="jrPlanned" placeholder="观望 / 试错 / 减仓…" maxlength="128" style="max-width:320px;" />
+        </div>
+        <div class="row">
+          <label for="jrPos">计划仓位 %（可选）</label>
+          <input type="number" id="jrPos" placeholder="0-100" min="0" max="100" step="0.1" style="max-width:120px;" />
+        </div>
+        <div class="row">
+          <label for="jrExec">是否按计划执行（事后填）</label>
+          <select id="jrExec" style="max-width:160px;background:var(--panel);color:var(--text);border:1px solid var(--border);">
+            <option value="">未填</option>
+            <option value="true">是</option>
+            <option value="false">否</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="jrActual">实际动作（可选）</label>
+          <input type="text" id="jrActual" maxlength="256" style="max-width:360px;" />
+        </div>
+        <div class="btns">
+          <button type="button" class="primary" id="btnJournalSave">保存日志</button>
+          <button type="button" class="secondary" id="btnJournalList">列出最近 20 条</button>
+        </div>
+        <pre class="out" id="out-7" hidden></pre>
       </section>
     </main>
   </div>
@@ -330,10 +580,11 @@
   var modules = [
     { id: "1", title: "① 入门必读", hint: "密钥、测试连接、服务信息" },
     { id: "2", title: "② 管理自选股票", hint: "添加 / 删除 / 列表" },
-    { id: "3", title: "③ 更新行情数据", hint: "拉取日线入库" },
+    { id: "3", title: "③ 更新行情数据", hint: "拉取日线 / 查K线 / 简易回测" },
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
     { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
-    { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" }
+    { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" },
+    { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" }
   ];
 
   function $(id) { return document.getElementById(id); }
@@ -399,6 +650,7 @@
       if (b) b.classList.toggle("active", m.id === id);
     });
     sessionStorage.setItem(SS_MOD, id);
+    updateRouteEchoSpans();
   }
 
   function buildNav() {
@@ -408,7 +660,7 @@
       btn.type = "button";
       btn.className = "nav-item";
       btn.setAttribute("data-module", m.id);
-      btn.innerHTML = '<span class="tag">' + m.title.split(" ")[0] + "</span>" + m.title.replace(/^[\u2460-\u2465]\s*/, "") +
+      btn.innerHTML = '<span class="tag">' + m.title.split(" ")[0] + "</span>" + m.title.replace(/^[\u2460-\u2469]\s*/, "") +
         '<span class="hint">' + m.hint + "</span>";
       btn.addEventListener("click", function () { showPanel(m.id); });
       nav.appendChild(btn);
@@ -422,7 +674,7 @@
       var data = await readBody(res);
       window.__apiKeyRequired = !!(data && data.api_key_required);
       if (window.__apiKeyRequired) {
-        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑤。<span class="status-pill warn">需密钥</span>';
+        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑦。<span class="status-pill warn">需密钥</span>';
       } else {
         banner.innerHTML = '当前服务器<strong>未启用</strong> API Key，可直接使用各模块（仍可在下方保存备用）。<span class="status-pill ok">无需密钥</span>';
       }
@@ -597,6 +849,580 @@
     return sel && sel.value ? sel.value : "auto";
   }
 
+  function updateRouteEchoSpans() {
+    var sel = $("ingestDataSource");
+    if (!sel) return;
+    var opt = sel.options[sel.selectedIndex];
+    var label = opt ? opt.text : "";
+    var line = sel.value + (label ? " — " + label : "");
+    var a = $("routeEchoSignals");
+    var b = $("routeEchoAlerts");
+    if (a) a.textContent = line;
+    if (b) b.textContent = line;
+  }
+
+  function signalsQuerySuffix() {
+    var ds = encodeURIComponent(getIngestDataSource());
+    var pr =
+      $("chkPreRefreshSignals") && $("chkPreRefreshSignals").checked ? "true" : "false";
+    return "?pre_refresh=" + pr + "&data_source=" + ds;
+  }
+
+  var SIGNAL_TREND_ZH = { bullish: "偏多", sideways: "震荡", bearish: "偏空" };
+  var SIGNAL_STRENGTH_ZH = { strong: "偏强", neutral: "中性", weak: "偏弱" };
+  var SIGNAL_POSITION_ZH = { avoid: "回避", cautious: "谨慎", trial: "试错", moderate: "适度" };
+
+  function signalTrendClass(t) {
+    if (t === "bullish") return "trend-bull";
+    if (t === "bearish") return "trend-bear";
+    return "trend-side";
+  }
+
+  function signalFmtCell(v) {
+    if (v == null || v === "") return "—";
+    if (typeof v === "number" && !isFinite(v)) return "—";
+    return String(v);
+  }
+
+  function signalFmtNum(v, digits) {
+    if (v == null || typeof v !== "number" || !isFinite(v)) return "—";
+    if (digits != null) return v.toFixed(digits);
+    return String(v);
+  }
+
+  function signalFmtMoneyYuan(v) {
+    if (v == null || typeof v !== "number" || !isFinite(v)) return "—";
+    var abs = Math.abs(v);
+    if (abs >= 1e8) return (v / 1e8).toFixed(2) + " 亿";
+    if (abs >= 1e4) return (v / 1e4).toFixed(2) + " 万";
+    return v.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) + " 元";
+  }
+
+  function signalsFieldGlossaryHtml() {
+    return (
+      '<details class="ingest-raw" style="margin-top:1rem"><summary>字段说明（点击展开）</summary>' +
+      '<dl class="signals-glossary-dl">' +
+      "<dt>symbol（代码）</dt><dd>6 位 A 股代码。</dd>" +
+      "<dt>name（名称）</dt><dd>证券简称；依赖网络解析，失败时为「—」。</dd>" +
+      "<dt>as_of_date（截止日）</dt><dd>本信号所依据的<strong>最后一根已入库 K 线</strong>的交易日（YYYY-MM-DD）。</dd>" +
+      "<dt>close（收盘）</dt><dd>截止日收盘价；与本地前复权日线一致，非实时盘口。</dd>" +
+      "<dt>trend（趋势）</dt><dd>bullish 偏多 / sideways 震荡 / bearish 偏空；由均线关系等规则归纳，仅供参考。</dd>" +
+      "<dt>strength（强度）</dt><dd>strong 偏强 / neutral 中性 / weak 偏弱；反映动能与相对波动等。</dd>" +
+      "<dt>buy_suitability_score（买入适合度）</dt><dd>0–100 综合得分：在<strong>技术分</strong>基础上叠加<strong>扩展因子调整</strong>后的 Demo 合成结果，<strong>不构成买卖建议</strong>。</dd>" +
+      "<dt>technical_score（技术分）</dt><dd>0–100，仅技术面启发式打分（合成前）。</dd>" +
+      "<dt>fundamental_adjustment（扩展调整）</dt><dd>扩展因子对总分的有界加减（Demo，常见约 -15～+15）。</dd>" +
+      "<dt>fundamentals（扩展因子面板）</dt><dd>在「③」执行<strong>拉取扩展因子</strong>后从本地快照读取；未拉取时多项为空。</dd>" +
+      '<dd class="sub">pe_dynamic：市盈率（动）；pb：市净率；revenue_yoy_pct / profit_yoy_pct：营收、归属净利润同比 %（最近财报）；financial_report_date：对应报告期；roe_pct / roa_pct：净资产收益率、总资产净利率 %；gross_margin_pct / net_margin_pct：销售毛利率、销售净利率 %；debt_to_assets_pct：资产负债率 %；current_ratio / quick_ratio：流动比率、速动比率；ocf_per_share：每股经营活动现金流量净额；main_net_inflow：最近交易日主力净流入（元）；fund_flow_date：资金流向日期；cached_at：本地写入时间。</dd>' +
+      "<dt>position_hint（仓位提示）</dt><dd>avoid 回避 / cautious 谨慎 / trial 试错 / moderate 适度；与 position_range_text 一致，为规则标签。</dd>" +
+      "<dt>suggested_position_pct</dt><dd>与仓位提示对应的<strong>示例</strong>总资金仓位区间（low_pct～high_pct，单位 %）；与文案中 Demo 区间一致，非下单指令。</dd>" +
+      "<dt>trial_exit_guidance</dt><dd>试错/轻仓时的 <strong>Demo</strong> 离场参考：<code>stop_loss_pct_from_entry_demo</code> 为相对<strong>自建仓成本</strong>的示例止损 %（系统不记成本）；<code>reference_exit_ma20</code> 为截止日 MA20 收盘参考，可作跌破减仓参照。回避新开仓时 <code>applies</code> 多为 false。非卖出指令。</dd>" +
+      "<dt>主表配色</dt><dd><strong>绿底</strong>表头/单元格＝<strong>建仓示例%</strong>（总资金区间）；<strong>琥珀底</strong>＝<strong>试错离场 Demo</strong>（止损标签 + MA20）。与「买多少」和「错了怎么砍」两套含义对应，避免混看。</dd>" +
+      "<dt>position_range_text</dt><dd>仓位提示的简短中文说明。</dd>" +
+      "<dt>risk_tags（风险标签）</dt><dd>字符串列表，如高波动、趋势走弱等提示性标签。</dd>" +
+      "<dt>reasons（解读）</dt><dd>结构化说明：每项含 code（机器可读）与 text（人可读），便于对照逻辑。</dd>" +
+      "<dt>meta</dt><dd>预留扩展字段；一般为空对象。</dd>" +
+      "</dl></details>"
+    );
+  }
+
+  function signalsFormHeaderHtml(ds, pr) {
+    return (
+      '<h3 class="ingest-h3">信号结果（表单）</h3>' +
+      '<p class="lead" style="margin:0 0 0.5rem;font-size:0.85rem;">本次请求路线：<strong>' +
+      escapeHtml(ds || "—") +
+      "</strong> · 计算前增量更新：<strong>" +
+      (pr === "1" ? "是" : "否") +
+      "</strong></p>"
+    );
+  }
+
+  function renderSignalsPanel(res, bodyText) {
+    var wrap = $("signals-out-wrap");
+    if (!wrap) return;
+    wrap.hidden = false;
+    var ds = res.headers.get("X-Quant-Data-Source");
+    var pr = res.headers.get("X-Quant-Pre-Refresh");
+    var headHtml = signalsFormHeaderHtml(ds, pr);
+
+    var body;
+    try {
+      body = JSON.parse(bodyText);
+    } catch (e) {
+      wrap.innerHTML =
+        headHtml + '<pre class="out" style="margin-top:0">' + escapeHtml(bodyText) + "</pre>";
+      return;
+    }
+    if (!res.ok) {
+      var errTxt =
+        typeof body === "object" ? JSON.stringify(body, null, 2) : String(bodyText);
+      wrap.innerHTML =
+        headHtml + '<pre class="out" style="margin-top:0">' + escapeHtml(errTxt) + "</pre>";
+      return;
+    }
+
+    var list = Array.isArray(body) ? body : [body];
+    if (!list.length) {
+      wrap.innerHTML =
+        headHtml +
+        '<p class="lead" style="margin:0">未返回任何标的（自选可能为空，请先在「②」添加股票）。</p>' +
+        signalsFieldGlossaryHtml();
+      return;
+    }
+    var th =
+      "<thead><tr>" +
+      [
+        "股票代码",
+        "名称",
+        "截止日",
+        "收盘",
+        "趋势",
+        "强度",
+        "买入适合度",
+        "技术分",
+        "扩展调整",
+        "PE(动)",
+        "PB",
+        "营收同比%",
+        "净利同比%",
+        "财报期",
+        "ROE%",
+        "资产负债%",
+        "流动比",
+        "毛利率%",
+        "每股经营现金流",
+        "主力净流入",
+        "资金流日",
+        "仓位提示",
+        "建仓示例%",
+        "试错离场 Demo",
+        "风险标签",
+        "状态",
+      ]
+        .map(function (h, idx) {
+          var cls = "";
+          if (idx === 22) cls = ' class="signal-th-buy"';
+          if (idx === 23) cls = ' class="signal-th-exit"';
+          return "<th" + cls + ">" + escapeHtml(h) + "</th>";
+        })
+        .join("") +
+      "</tr></thead>";
+
+    var rows = list
+      .map(function (sig) {
+        var f = sig.fundamentals || {};
+        var tr = signalTrendClass(sig.trend);
+        var trendZh = SIGNAL_TREND_ZH[sig.trend] || signalFmtCell(sig.trend);
+        var strZh = SIGNAL_STRENGTH_ZH[sig.strength] || signalFmtCell(sig.strength);
+        var posZh = SIGNAL_POSITION_ZH[sig.position_hint] || signalFmtCell(sig.position_hint);
+        var sp = sig.suggested_position_pct;
+        var spStr =
+          sp && typeof sp.low_pct === "number" && typeof sp.high_pct === "number"
+            ? signalFmtNum(sp.low_pct, 0) + "–" + signalFmtNum(sp.high_pct, 0)
+            : "—";
+        var te = sig.trial_exit_guidance;
+        var teCell = "";
+        if (te && typeof te === "object") {
+          var sl = te.stop_loss_pct_from_entry_demo;
+          var ma = te.reference_exit_ma20;
+          var maStr =
+            ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 4) : "—";
+          if (te.applies && sl != null && typeof sl === "number" && isFinite(sl)) {
+            teCell =
+              '<span class="pill signal-exit">止损</span> ' +
+              escapeHtml(signalFmtNum(sl, 0)) +
+              "%<br><span style=\"color:var(--muted);font-size:0.76rem\">MA20 " +
+              escapeHtml(maStr) +
+              "</span>";
+          } else {
+            teCell =
+              '<span class="pill warn">不适用</span><br><span style="color:var(--muted);font-size:0.76rem">MA20 ' +
+              escapeHtml(maStr) +
+              "</span>";
+          }
+        } else {
+          teCell = "—";
+        }
+        var risk = Array.isArray(sig.risk_tags) ? sig.risk_tags.join("、") : "";
+        return (
+          "<tr>" +
+          "<td>" + escapeHtml(signalFmtCell(sig.symbol)) + "</td>" +
+          "<td>" + escapeHtml(signalFmtCell(sig.name)) + "</td>" +
+          "<td>" + escapeHtml(signalFmtCell(sig.as_of_date)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(sig.close, 2)) + "</td>" +
+          '<td class="' + tr + '" title="' + escapeHtml(signalFmtCell(sig.trend)) + '">' +
+          escapeHtml(trendZh) +
+          "</td>" +
+          '<td title="' + escapeHtml(signalFmtCell(sig.strength)) + '">' + escapeHtml(strZh) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtCell(sig.buy_suitability_score)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtCell(sig.technical_score)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtCell(sig.fundamental_adjustment)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.pe_dynamic, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.pb, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.revenue_yoy_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.profit_yoy_pct, 2)) + "</td>" +
+          "<td>" + escapeHtml(signalFmtCell(f.financial_report_date)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.roe_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.debt_to_assets_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.current_ratio, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.gross_margin_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.ocf_per_share, 4)) + "</td>" +
+          '<td class="num" title="' +
+          escapeHtml(f.main_net_inflow != null ? String(f.main_net_inflow) : "") +
+          '">' +
+          escapeHtml(signalFmtMoneyYuan(f.main_net_inflow)) +
+          "</td>" +
+          "<td>" + escapeHtml(signalFmtCell(f.fund_flow_date)) + "</td>" +
+          '<td title="' + escapeHtml(signalFmtCell(sig.position_hint)) + '">' +
+          escapeHtml(posZh) +
+          "</td>" +
+          '<td class="num signal-cell-buy" title="建仓方向示例仓位区间（总资金 %），非指令">' +
+          '<span class="pill signal-buy">建仓</span> ' +
+          escapeHtml(spStr) +
+          "</td>" +
+          '<td class="signal-cell-exit" title="试错错了的 Demo 止损 % 与 MA20 参考，非卖出指令">' +
+          teCell +
+          "</td>" +
+          "<td>" + escapeHtml(risk || "—") + "</td>" +
+          '<td><span class="pill ok">成功</span></td>' +
+          "</tr>"
+        );
+      })
+      .join("");
+
+    var detailsHtml = list
+      .map(function (sig) {
+        var title =
+          escapeHtml(signalFmtCell(sig.symbol)) +
+          (sig.name ? " " + escapeHtml(String(sig.name)) : "");
+        var reasons = Array.isArray(sig.reasons) ? sig.reasons : [];
+        var reasonLis = reasons
+          .map(function (r) {
+            var c = r && r.code != null ? String(r.code) : "";
+            var t = r && r.text != null ? String(r.text) : "";
+            return (
+              "<li><span class=\"reason-code\">" +
+              escapeHtml(c) +
+              "</span>" +
+              escapeHtml(t) +
+              "</li>"
+            );
+          })
+          .join("");
+        if (!reasonLis) reasonLis = "<li>（无）</li>";
+        var metaBlock = "";
+        if (sig.meta && typeof sig.meta === "object" && Object.keys(sig.meta).length) {
+          metaBlock =
+            '<p class="lead" style="margin:0.5rem 0 0;font-size:0.78rem;color:var(--muted)">meta：' +
+            escapeHtml(JSON.stringify(sig.meta)) +
+            "</p>";
+        }
+        return (
+          '<div class="signals-detail-block">' +
+          "<h4>" +
+          title +
+          "</h4>" +
+          '<p class="pos-range">' +
+          escapeHtml(signalFmtCell(sig.position_range_text)) +
+          "</p>" +
+          (function () {
+            var sp = sig.suggested_position_pct;
+            if (!sp || typeof sp.low_pct !== "number" || typeof sp.high_pct !== "number") return "";
+            return (
+              '<div class="signal-hint-card signal-hint-buy">' +
+              '<div class="hint-label">建仓示例（总资金 · 非指令）</div>' +
+              "<div><strong>" +
+              escapeHtml(String(sp.low_pct)) +
+              "% – " +
+              escapeHtml(String(sp.high_pct)) +
+              "%</strong>，与 <code>position_hint</code> 对应。</div>" +
+              "</div>"
+            );
+          })() +
+          (function () {
+            var te = sig.trial_exit_guidance;
+            if (!te || typeof te !== "object") return "";
+            var sl = te.stop_loss_pct_from_entry_demo;
+            var ma = te.reference_exit_ma20;
+            var slStr =
+              sl != null && typeof sl === "number" && isFinite(sl) ? "约 " + signalFmtNum(sl, 0) + "%（相对建仓成本）" : "—";
+            var maStr =
+              ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 4) : "—";
+            return (
+              '<div class="signal-hint-card signal-hint-exit">' +
+              '<div class="hint-label">试错离场（Demo · 非卖出指令）</div>' +
+              '<p class="lead" style="margin:0;font-size:0.8rem;line-height:1.55">' +
+              escapeHtml(te.note != null ? String(te.note) : "") +
+              "</p>" +
+              '<p class="lead" style="margin:0.35rem 0 0;font-size:0.76rem;color:var(--muted)">示例止损：' +
+              escapeHtml(slStr) +
+              " · MA20 参考收盘：" +
+              escapeHtml(maStr) +
+              "</p>" +
+              "</div>"
+            );
+          })() +
+          "<strong style=\"font-size:0.8rem;color:var(--muted)\">解读（reasons）</strong>" +
+          "<ul>" +
+          reasonLis +
+          "</ul>" +
+          metaBlock +
+          "</div>"
+        );
+      })
+      .join("");
+
+    var notesHtml =
+      '<h3 class="ingest-h3">说明与免责（只读）</h3><div class="ingest-notes">' +
+      '<div class="note-field"><label>提示</label><div class="note-val">本表为基于历史日线与 Demo 规则的信号摘要，非实时行情，<strong>不构成投资建议</strong>。完整免责与数据源说明请打开「⑥ 说明与免责」。主表中<strong style="color:#8ee5b8">绿色列</strong>为建仓示例%、<strong style="color:#fbbf77">琥珀列</strong>为试错离场 Demo，便于区分「买侧区间」与「错侧止损参考」。</div></div>' +
+      "</div>";
+
+    wrap.innerHTML =
+      headHtml +
+      '<div class="signals-table-wrap" style="margin-bottom:1rem"><table class="ingest-table">' +
+      th +
+      "<tbody>" +
+      rows +
+      "</tbody></table></div>" +
+      notesHtml +
+      '<div class="signals-detail-wrap"><h3 class="ingest-h3">解读 · 建仓与试错离场</h3>' +
+      detailsHtml +
+      "</div>" +
+      signalsFieldGlossaryHtml() +
+      '<details class="ingest-raw" style="margin-top:0.75rem"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:360px">' +
+      escapeHtml(JSON.stringify(body, null, 2)) +
+      "</pre></details>";
+  }
+
+  function alertsFieldGlossaryHtml() {
+    return (
+      '<details class="ingest-raw" style="margin-top:1rem"><summary>字段说明（点击展开）</summary>' +
+      '<dl class="signals-glossary-dl">' +
+      "<dt>events（事件列表）</dt><dd>本次点击「对比」时，相对<strong>服务端上次缓存</strong>筛出的变动；执行成功后缓存会被当前信号覆盖，下次再点会与本次结果比较。</dd>" +
+      "<dt>type = new（首次记录）</dt><dd>该代码上一次没有可对比的快照（例如第一次跑预览，或缓存被清空）。</dd>" +
+      "<dt>type = shift（信号变化）</dt><dd><strong>趋势（trend）</strong>与上次不同，或<strong>买入适合度（score）</strong>的<strong>十位档</strong>发生变化（例如 59→61 算变档，50→59 不算）。</dd>" +
+      "<dt>snapshot / before / after</dt><dd>均为精简快照：trend、strength、score、technical_score、fundamental_adjustment、position_hint、<strong>suggested_position_pct_low / high</strong>、<strong>trial_exit_applies / trial_stop_loss_pct_demo / reference_exit_ma20</strong>、as_of_date。</dd>" +
+      "<dt>disclaimer</dt><dd>接口一并返回的免责与数据源说明摘要，与「⑥」一致。</dd>" +
+      "<dt>request</dt><dd>回显本次请求体中的 pre_refresh、data_source（与③路线联动）。</dd>" +
+      "</dl></details>"
+    );
+  }
+
+  function alertsPairZh(b, a, map) {
+    var bz = b != null && b !== "" ? map[b] || String(b) : "—";
+    var az = a != null && a !== "" ? map[a] || String(a) : "—";
+    return escapeHtml(bz + " → " + az);
+  }
+
+  function alertsPosRangeRaw(s) {
+    if (!s || typeof s !== "object") return "—";
+    var lo = s.suggested_position_pct_low;
+    var hi = s.suggested_position_pct_high;
+    if (typeof lo !== "number" || typeof hi !== "number") return "—";
+    return String(lo) + "–" + String(hi);
+  }
+
+  function alertsPosRangeStr(s) {
+    return escapeHtml(alertsPosRangeRaw(s));
+  }
+
+  /** 告警快照里的试错离场一行（HTML，与信号表配色一致） */
+  function alertsTrialExitSnapshotHtml(s) {
+    if (!s || typeof s !== "object") return "—";
+    var applies = s.trial_exit_applies === true;
+    var sl = s.trial_stop_loss_pct_demo;
+    var ma = s.reference_exit_ma20;
+    var maStr =
+      ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 4) : "—";
+    if (applies && sl != null && typeof sl === "number" && isFinite(sl)) {
+      return (
+        '<span class="pill signal-exit">止损</span> ' +
+        escapeHtml(signalFmtNum(sl, 0)) +
+        "%<br><span style=\"color:var(--muted);font-size:0.76rem\">MA20 " +
+        escapeHtml(maStr) +
+        "</span>"
+      );
+    }
+    return (
+      '<span class="pill warn">不适用</span><br><span style=\"color:var(--muted);font-size:0.76rem\">MA20 ' +
+      escapeHtml(maStr) +
+      "</span>"
+    );
+  }
+
+  function alertsTrialExitSummaryPlain(s) {
+    if (!s || typeof s !== "object") return "—";
+    var ma = s.reference_exit_ma20;
+    var maStr =
+      ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 2) : "—";
+    if (s.trial_exit_applies === true && s.trial_stop_loss_pct_demo != null && typeof s.trial_stop_loss_pct_demo === "number") {
+      return signalFmtNum(s.trial_stop_loss_pct_demo, 0) + "% / MA20 " + maStr;
+    }
+    return "不适用 / MA20 " + maStr;
+  }
+
+  function alertsEventRow(ev) {
+    var t = ev && ev.type;
+    var sym = ev && ev.symbol ? String(ev.symbol) : "—";
+    if (t === "new") {
+      var s = ev.snapshot || {};
+      var typeLabel = "首次记录（new）";
+      return (
+        "<tr>" +
+        "<td>" + escapeHtml(typeLabel) + "</td>" +
+        "<td>" + escapeHtml(sym) + "</td>" +
+        '<td class="' + signalTrendClass(s.trend) + '">' +
+        escapeHtml(SIGNAL_TREND_ZH[s.trend] || signalFmtCell(s.trend)) +
+        "</td>" +
+        "<td>" + escapeHtml(SIGNAL_STRENGTH_ZH[s.strength] || signalFmtCell(s.strength)) + "</td>" +
+        '<td class="num">' + escapeHtml(signalFmtCell(s.score)) + "</td>" +
+        '<td class="num">' + escapeHtml(signalFmtCell(s.technical_score)) + "</td>" +
+        '<td class="num">' + escapeHtml(signalFmtCell(s.fundamental_adjustment)) + "</td>" +
+        "<td>" +
+        escapeHtml(SIGNAL_POSITION_ZH[s.position_hint] || signalFmtCell(s.position_hint)) +
+        "</td>" +
+        '<td class="num signal-cell-buy">' +
+        '<span class="pill signal-buy">建仓</span> ' +
+        alertsPosRangeStr(s) +
+        "</td>" +
+        '<td class="signal-cell-exit">' +
+        alertsTrialExitSnapshotHtml(s) +
+        "</td>" +
+        "<td>" + escapeHtml(signalFmtCell(s.as_of_date)) + "</td>" +
+        "</tr>"
+      );
+    }
+    if (t === "shift") {
+      var bef = ev.before || {};
+      var aft = ev.after || {};
+      var typeLabel2 = "信号变化（shift）";
+      return (
+        "<tr>" +
+        "<td>" + escapeHtml(typeLabel2) + "</td>" +
+        "<td>" + escapeHtml(sym) + "</td>" +
+        "<td>" + alertsPairZh(bef.trend, aft.trend, SIGNAL_TREND_ZH) + "</td>" +
+        "<td>" + alertsPairZh(bef.strength, aft.strength, SIGNAL_STRENGTH_ZH) + "</td>" +
+        '<td class="num">' +
+        escapeHtml(signalFmtCell(bef.score) + " → " + signalFmtCell(aft.score)) +
+        "</td>" +
+        '<td class="num">' +
+        escapeHtml(signalFmtCell(bef.technical_score) + " → " + signalFmtCell(aft.technical_score)) +
+        "</td>" +
+        '<td class="num">' +
+        escapeHtml(
+          signalFmtCell(bef.fundamental_adjustment) +
+            " → " +
+            signalFmtCell(aft.fundamental_adjustment)
+        ) +
+        "</td>" +
+        "<td>" + alertsPairZh(bef.position_hint, aft.position_hint, SIGNAL_POSITION_ZH) + "</td>" +
+        '<td class="num signal-cell-buy">' +
+        '<span class="pill signal-buy">建仓</span> ' +
+        escapeHtml(alertsPosRangeRaw(bef) + " → " + alertsPosRangeRaw(aft)) +
+        "</td>" +
+        '<td class="signal-cell-exit" style="font-size:0.8rem">' +
+        escapeHtml(alertsTrialExitSummaryPlain(bef) + " → " + alertsTrialExitSummaryPlain(aft)) +
+        "</td>" +
+        "<td>" + escapeHtml(signalFmtCell(aft.as_of_date)) + "</td>" +
+        "</tr>"
+      );
+    }
+    return (
+      "<tr><td colspan=\"11\">" +
+      escapeHtml("未知事件类型：" + signalFmtCell(t)) +
+      "</td></tr>"
+    );
+  }
+
+  function renderAlertsPanel(body) {
+    var wrap = $("alerts-out-wrap");
+    if (!wrap) return;
+    wrap.hidden = false;
+    if (!body || typeof body !== "object") {
+      wrap.innerHTML =
+        '<pre class="out" style="margin-top:0">' + escapeHtml(String(body)) + "</pre>";
+      return;
+    }
+    var req = body.request || {};
+    var metaHtml =
+      '<div class="signals-meta">【本次请求】行情路线：' +
+      escapeHtml(req.data_source != null ? String(req.data_source) : "—") +
+      " · 计算前增量更新：" +
+      (req.pre_refresh ? "是" : "否") +
+      " · 说明：成功后已用当前信号<strong>刷新服务端对比缓存</strong>，下次将与本次结果对比。</div>";
+
+    var events = Array.isArray(body.events) ? body.events : [];
+    var summary =
+      events.length === 0
+        ? '<p class="lead" style="margin:0 0 0.75rem">与上次缓存相比，<strong>无 new / shift 事件</strong>（无首次记录、且无趋势或适合度十位档变化）。自选各标的缓存仍已更新为当前快照。</p>'
+        : '<p class="lead" style="margin:0 0 0.75rem">共 <strong>' +
+          events.length +
+          "</strong> 条变动事件（new=首次进入对比；shift=趋势或适合度十位档变化）。</p>";
+
+    var th =
+      "<thead><tr>" +
+      [
+        "类型",
+        "代码",
+        "趋势",
+        "强度",
+        "买入适合度",
+        "技术分",
+        "扩展调整",
+        "仓位提示",
+        "建仓示例%",
+        "试错离场 Demo",
+        "截止日",
+      ]
+        .map(function (h, idx) {
+          var cls = "";
+          if (idx === 8) cls = ' class="signal-th-buy"';
+          if (idx === 9) cls = ' class="signal-th-exit"';
+          return "<th" + cls + ">" + escapeHtml(h) + "</th>";
+        })
+        .join("") +
+      "</tr></thead>";
+    var rows =
+      events.length === 0
+        ? '<tr><td colspan="11" style="color:var(--muted);text-align:center">（无事件行）</td></tr>'
+        : events.map(alertsEventRow).join("");
+
+    var disc = body.disclaimer || {};
+    var discHtml = "";
+    if (disc.disclaimer || disc.data_source_note || disc.data_delay_note) {
+      discHtml =
+        '<div style="margin-top:1rem">' +
+        '<h3 class="ingest-h3" style="margin-top:0">免责与数据源摘要</h3>' +
+        (disc.disclaimer
+          ? '<div class="disclaimer-box"><h3>免责声明</h3><p>' +
+            escapeHtml(disc.disclaimer) +
+            "</p></div>"
+          : "") +
+        (disc.data_source_note
+          ? '<div class="disclaimer-box"><h3>数据来源说明</h3><p>' +
+            escapeHtml(disc.data_source_note) +
+            "</p></div>"
+          : "") +
+        (disc.data_delay_note
+          ? '<div class="disclaimer-box"><h3>延时说明</h3><p>' +
+            escapeHtml(disc.data_delay_note) +
+            "</p></div>"
+          : "") +
+        "</div>";
+    }
+
+    wrap.innerHTML =
+      metaHtml +
+      summary +
+      '<div class="signals-table-wrap"><table class="signals-main-table ingest-table">' +
+      th +
+      "<tbody>" + rows + "</tbody></table></div>" +
+      discHtml +
+      alertsFieldGlossaryHtml() +
+      '<details class="ingest-raw" style="margin-top:0.75rem"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:360px">' +
+      escapeHtml(JSON.stringify(body, null, 2)) +
+      "</pre></details>";
+  }
+
   async function loadIngestDataSourceSelect() {
     var sel = $("ingestDataSource");
     if (!sel) return;
@@ -619,10 +1445,13 @@
         if (saved && data.options.some(function (o) { return String(o.value) === saved; }))
           sel.value = saved;
         else if (data.server_default) sel.value = String(data.server_default);
+        updateRouteEchoSpans();
         return;
       }
     } catch (e) {}
-    if (saved && ["auto", "eastmoney", "sina", "tencent", "baostock"].indexOf(saved) >= 0) sel.value = saved;
+    if (saved && ["auto", "eastmoney", "sina", "tencent", "baostock"].indexOf(saved) >= 0)
+      sel.value = saved;
+    updateRouteEchoSpans();
   }
 
   function renderIngestTestResult(data) {
@@ -677,6 +1506,354 @@
     w.hidden = true;
   }
 
+  function clearForecastValidateResult() {
+    var w = $("forecast-validate-wrap");
+    if (!w) return;
+    w.innerHTML = "";
+    w.hidden = true;
+  }
+
+  var FORECAST_METHOD_LABELS = {
+    dual_ma_cross: "双均线",
+    majority_causal: "因果多数类",
+    rule_trend: "趋势规则",
+    logistic_walkforward: "Logistic 走步",
+  };
+
+  function forecastPedagogyHtml(p) {
+    if (!p || typeof p !== "object") return "";
+    var title = p.title != null ? String(p.title) : "学习路线";
+    var steps = Array.isArray(p.workflow_steps) ? p.workflow_steps : [];
+    var lis = steps
+      .map(function (s) {
+        return "<li>" + escapeHtml(String(s)) + "</li>";
+      })
+      .join("");
+    var stack = p.stack_note != null ? "<p class=\"lead\" style=\"margin:0.5rem 0 0;font-size:0.78rem;color:var(--muted);line-height:1.5\">" + escapeHtml(String(p.stack_note)) + "</p>" : "";
+    var read = "";
+    if (p.reading && typeof p.reading === "object" && p.reading.url) {
+      var ah = p.reading.anchor_hint != null ? " " + escapeHtml(String(p.reading.anchor_hint)) : "";
+      read =
+        '<p class="lead" style="margin:0.45rem 0 0;font-size:0.76rem">' +
+        '<a href="' +
+        escapeHtml(String(p.reading.url)) +
+        "\" target=\"_blank\" rel=\"noopener noreferrer\">" +
+        escapeHtml(String(p.reading.title || "外部阅读")) +
+        "</a>" +
+        ah +
+        "</p>";
+    }
+    return (
+      '<div class="forecast-card" style="margin-top:0.75rem">' +
+      "<h4 style=\"margin-top:0\">" +
+      escapeHtml(title) +
+      "</h4>" +
+      "<ol class=\"forecast-steps\" style=\"margin-bottom:0\">" +
+      lis +
+      "</ol>" +
+      stack +
+      read +
+      "</div>"
+    );
+  }
+
+  function forecastFindMethod(methods, key) {
+    if (!Array.isArray(methods)) return null;
+    for (var i = 0; i < methods.length; i++) {
+      if (methods[i] && methods[i].method === key) return methods[i];
+    }
+    return null;
+  }
+
+  function forecastPct01(x) {
+    if (x == null || typeof x !== "number" || !isFinite(x)) return "—";
+    return (x * 100).toFixed(2) + "%";
+  }
+
+  function forecastRetTdClass(pct) {
+    if (pct == null || typeof pct !== "number" || !isFinite(pct)) return "num";
+    return "num " + (pct >= 0 ? "forecast-ret-pos" : "forecast-ret-neg");
+  }
+
+  function forecastTradeSummaryHtml(ts) {
+    if (!ts || typeof ts !== "object") return "";
+    var wr = ts.win_rate;
+    var wrStr = wr != null && typeof wr === "number" && isFinite(wr) ? forecastPct01(wr) : "—";
+    return (
+      '<p class="lead" style="margin:0.35rem 0 0;font-size:0.82rem">' +
+      "示意交易：共 <strong>" +
+      escapeHtml(String(ts.completed_trades != null ? ts.completed_trades : "—")) +
+      "</strong> 笔完整买卖 · 胜率 " +
+      escapeHtml(wrStr) +
+      " · 单笔均值 " +
+      escapeHtml(ts.avg_return_pct != null ? signalFmtNum(ts.avg_return_pct, 2) + "%" : "—") +
+      " · 各笔%简单相加 " +
+      escapeHtml(ts.total_simple_return_pct != null ? signalFmtNum(ts.total_simple_return_pct, 2) + "%" : "—") +
+      "（非复利）</p>"
+    );
+  }
+
+  function forecastOpenLegHtml(leg) {
+    if (!leg || leg.buy_date == null) return "";
+    return (
+      '<div class="forecast-open-leg">' +
+      "<strong>未平仓示意：</strong>" +
+      escapeHtml(String(leg.buy_date)) +
+      " 收盘价买入 " +
+      escapeHtml(String(leg.buy_close)) +
+      " — " +
+      escapeHtml(String(leg.note || "")) +
+      "</div>"
+    );
+  }
+
+  function forecastTradesTableHtml(trades, totalCompleted) {
+    if (!Array.isArray(trades) || !trades.length) {
+      return '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted)">没有「先买后卖」的完整笔（例如全程只看涨或只看跌）。可改「预测天数 H」或换更长历史。</p>';
+    }
+    var note = "";
+    if (totalCompleted != null && totalCompleted > trades.length) {
+      note =
+        '<p class="lead" style="margin:0 0 0.5rem;font-size:0.78rem;color:var(--muted)">共 <strong>' +
+        escapeHtml(String(totalCompleted)) +
+        "</strong> 笔，下表显示最近 <strong>" +
+        escapeHtml(String(trades.length)) +
+        "</strong> 笔。</p>";
+    }
+    var heads = ["买入日", "买入价", "卖出日", "卖出价", "区间涨跌%"];
+    var th =
+      "<thead><tr>" +
+      heads
+        .map(function (h) {
+          return "<th>" + escapeHtml(h) + "</th>";
+        })
+        .join("") +
+      "</tr></thead>";
+    var rows = trades
+      .map(function (t) {
+        var r = t && t.return_pct;
+        var rv = r != null && typeof r === "number" && isFinite(r) ? signalFmtNum(r, 2) : "—";
+        return (
+          "<tr>" +
+          "<td>" +
+          escapeHtml(t && t.buy_date != null ? String(t.buy_date) : "—") +
+          "</td>" +
+          '<td class="num">' +
+          escapeHtml(t && t.buy_close != null ? String(t.buy_close) : "—") +
+          "</td>" +
+          "<td>" +
+          escapeHtml(t && t.sell_date != null ? String(t.sell_date) : "—") +
+          "</td>" +
+          '<td class="num">' +
+          escapeHtml(t && t.sell_close != null ? String(t.sell_close) : "—") +
+          "</td>" +
+          '<td class="' +
+          forecastRetTdClass(r) +
+          '">' +
+          escapeHtml(rv) +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+    return (
+      note + '<div class="signals-table-wrap" style="overflow-x:auto"><table class="ingest-table">' + th + "<tbody>" + rows + "</tbody></table></div>"
+    );
+  }
+
+  function forecastMethodBlock(title, m, baseline) {
+    if (!m) return "";
+    var key = m.method != null ? String(m.method) : "";
+    var name = FORECAST_METHOD_LABELS[key] || key;
+    var h4Title = title ? String(title) + "（" + name + "）" : name;
+    var acc = forecastPct01(m.accuracy);
+    var bal = forecastPct01(m.balanced_accuracy);
+    var auc =
+      m.auc_roc != null && typeof m.auc_roc === "number" && isFinite(m.auc_roc) ? signalFmtNum(m.auc_roc, 4) : "—";
+    var tc = m.trade_summary && m.trade_summary.completed_trades != null ? m.trade_summary.completed_trades : null;
+    return (
+      '<div class="forecast-card">' +
+      "<h4 style=\"margin-top:0\">" +
+      escapeHtml(h4Title) +
+      "</h4>" +
+      '<p class="lead" style="margin:0;font-size:0.78rem;color:var(--muted)">' +
+      escapeHtml(m.description != null ? String(m.description) : "") +
+      "</p>" +
+      '<div class="forecast-stat-row">' +
+      '<div class="forecast-stat-box"><span class="lbl">方向准确率</span><span class="val">' +
+      escapeHtml(acc) +
+      '</span><span class="sub">相对未来 H 日涨跌</span></div>' +
+      '<div class="forecast-stat-box"><span class="lbl">平衡准确率</span><span class="val">' +
+      escapeHtml(bal) +
+      '</span><span class="sub">涨跌对称</span></div>' +
+      '<div class="forecast-stat-box"><span class="lbl">对比：猜多数类</span><span class="val">' +
+      escapeHtml(baseline != null ? forecastPct01(baseline) : "—") +
+      '</span><span class="sub">基线</span></div>' +
+      '<div class="forecast-stat-box"><span class="lbl">AUC</span><span class="val">' +
+      escapeHtml(auc) +
+      '</span><span class="sub">Logistic 以外常为 —</span></div>' +
+      "</div>" +
+      forecastTradeSummaryHtml(m.trade_summary) +
+      "<h4 class=\"ingest-h3\" style=\"margin:1rem 0 0.5rem\">买入点 → 卖出点（收盘价示意）</h4>" +
+      forecastTradesTableHtml(m.trades, tc) +
+      forecastOpenLegHtml(m.open_leg) +
+      "</div>"
+    );
+  }
+
+  function forecastValidateGlossaryHtml() {
+    return (
+      '<details class="ingest-raw" style="margin-top:0.75rem"><summary>名词解释（点击展开）</summary>' +
+      '<dl class="signals-glossary-dl">' +
+      "<dt>方向准确率</dt><dd>每个交易日，模型先猜「往后 H 个交易日累计涨跌是否为正」，再和真实结果比对。</dd>" +
+      "<dt>买入点 / 卖出点</dt><dd>预测从看跌变看涨 → 当日收盘记为买入；从看涨变看跌 → 当日收盘记为卖出。下一笔买入必在上一笔卖出之后。</dd>" +
+      "<dt>区间涨跌%</dt><dd>（卖出收盘 ÷ 买入收盘 − 1）×100；未扣手续费。</dd>" +
+      "<dt>双均线</dt><dd>收盘时短均线 > 长均线 → 当日信号为「多」，否则「空」；买卖点仍由空/多切换产生。</dd>" +
+      "<dt>样本外</dt><dd>前面若干根 K 线用于估计特征与训练 Logistic，之后日期才计入分数，且<strong>严格按时间推进</strong>。</dd>" +
+      "</dl></details>"
+    );
+  }
+
+  function renderForecastValidateResult(body) {
+    clearForecastValidateResult();
+    var wrap = $("forecast-validate-wrap");
+    if (!wrap) return;
+    if (!body || typeof body !== "object" || !Array.isArray(body.methods)) {
+      showOut("out-3", "预测验证返回格式异常。", true);
+      return;
+    }
+    var sym = escapeHtml(String(body.symbol || "—"));
+    var hz = body.horizon != null ? String(body.horizon) : "—";
+    var nOos = body.n_oos != null ? String(body.n_oos) : "—";
+    var d0 = escapeHtml(String(body.first_oos_trade_date || "—"));
+    var d1 = escapeHtml(String(body.last_oos_trade_date || "—"));
+    var baseline = body.baseline_always_majority_oos;
+    var dualM = forecastFindMethod(body.methods, "dual_ma_cross");
+    var logistic = forecastFindMethod(body.methods, "logistic_walkforward");
+    var ruleM = forecastFindMethod(body.methods, "rule_trend");
+    var majM = forecastFindMethod(body.methods, "majority_causal");
+
+    var sp = body.strategy_params && typeof body.strategy_params === "object" ? body.strategy_params : null;
+    var spLine = "";
+    if (sp) {
+      spLine =
+        '<p class="lead" style="margin:0.35rem 0 0;font-size:0.76rem;color:var(--muted)">本次参数：双均线 ' +
+        escapeHtml(String(sp.ma_short != null ? sp.ma_short : "—")) +
+        " / " +
+        escapeHtml(String(sp.ma_long != null ? sp.ma_long : "—")) +
+        " · 最小训练样本 " +
+        escapeHtml(String(sp.min_train_rows != null ? sp.min_train_rows : "—")) +
+        " · 展示笔数 ≤ " +
+        escapeHtml(String(sp.trade_limit != null ? sp.trade_limit : "—")) +
+        "</p>";
+    }
+
+    var fbHtml = "";
+    var fb = body.fundamentals_backtest;
+    if (fb && typeof fb === "object") {
+      var cached = fb.snapshot_cached === true;
+      var pill = cached
+        ? '<span class="pill ok">已缓存扩展因子</span>'
+        : '<span class="pill warn">未缓存扩展因子</span>';
+      fbHtml =
+        '<div class="ingest-notes" style="margin-bottom:0.75rem;border-left:3px solid var(--accent)">' +
+        "<p class=\"lead\" style=\"margin:0 0 0.35rem;font-size:0.88rem\"><strong>基本面与本案回测</strong> " +
+        pill +
+        "</p>" +
+        '<p class="lead" style="margin:0;font-size:0.8rem;line-height:1.55">' +
+        escapeHtml(fb.note != null ? String(fb.note) : "") +
+        "</p>" +
+        '<p class="lead" style="margin:0.35rem 0 0;font-size:0.72rem;color:var(--muted)">历史 walk-forward 是否并入基本面：' +
+        escapeHtml(fb.merged_into_walkforward ? "是" : "否（当前恒为否，见上文）") +
+        "</p></div>";
+    }
+
+    var headNote =
+      '<div class="ingest-notes" style="margin-bottom:0.75rem">' +
+      "<p class=\"lead\" style=\"margin:0 0 0.35rem;font-size:0.9rem\"><strong>" +
+      sym +
+      "</strong> · 预测天数 <strong>H=" +
+      escapeHtml(hz) +
+      "</strong> 个交易日 · 有效回测日数 <strong>" +
+      escapeHtml(nOos) +
+      "</strong></p>" +
+      '<p class="lead" style="margin:0;font-size:0.8rem">回测区间（样本外）：<code>' +
+      d0 +
+      "</code> ~ <code>" +
+      d1 +
+      "</code></p>" +
+      spLine +
+      "</div>" +
+      fbHtml;
+
+    var readBox =
+      body.how_to_read != null
+        ? '<div class="ingest-notes" style="margin-bottom:0.75rem"><p class="lead" style="margin:0;font-size:0.82rem;line-height:1.55">' +
+          escapeHtml(String(body.how_to_read)) +
+          "</p></div>"
+        : "";
+
+    var compareRows = body.methods
+      .map(function (m) {
+        if (!m) return "";
+        var key = m.method != null ? String(m.method) : "";
+        var name = FORECAST_METHOD_LABELS[key] || key;
+        return (
+          "<tr><td>" +
+          escapeHtml(name) +
+          '</td><td class="num">' +
+          escapeHtml(forecastPct01(m.accuracy)) +
+          '</td><td class="num">' +
+          escapeHtml(forecastPct01(m.balanced_accuracy)) +
+          '</td><td class="num">' +
+          escapeHtml(
+            m.auc_roc != null && typeof m.auc_roc === "number" && isFinite(m.auc_roc) ? signalFmtNum(m.auc_roc, 4) : "—"
+          ) +
+          "</td></tr>"
+        );
+      })
+      .join("");
+
+    var compareTable =
+      '<details class="ingest-raw" style="margin-top:0.75rem"><summary>全部方法准确率对比</summary>' +
+      '<div class="signals-table-wrap" style="overflow-x:auto;margin-top:0.5rem"><table class="ingest-table"><thead><tr><th>方法</th><th>准确率</th><th>平衡准确率</th><th>AUC</th></tr></thead><tbody>' +
+      compareRows +
+      "</tbody></table></div></details>";
+
+    var disc =
+      body.disclaimer != null
+        ? '<p class="lead" style="margin:0.75rem 0 0;font-size:0.78rem;color:var(--muted)">' +
+          escapeHtml(String(body.disclaimer)) +
+          "</p>"
+        : "";
+
+    var pedBox = body.pedagogy ? forecastPedagogyHtml(body.pedagogy) : "";
+
+    wrap.innerHTML =
+      '<h3 class="ingest-h3" style="margin-top:0">回测结果</h3>' +
+      headNote +
+      pedBox +
+      readBox +
+      (dualM ? forecastMethodBlock("经典双均线（入门笔记常见）", dualM, baseline) : "") +
+      (logistic ? forecastMethodBlock("多因子 + Logistic（walk-forward）", logistic, baseline) : "") +
+      '<details class="ingest-raw" style="margin-top:0.75rem"><summary>展开：简单趋势规则（无训练）</summary>' +
+      (ruleM ? forecastMethodBlock("简单趋势规则", ruleM, baseline) : "") +
+      "</details>" +
+      (majM
+        ? '<details class="ingest-raw" style="margin-top:0.5rem"><summary>展开：因果多数类（对照基线）</summary>' +
+          forecastMethodBlock("因果多数类", majM, baseline) +
+          "</details>"
+        : "") +
+      compareTable +
+      disc +
+      forecastValidateGlossaryHtml() +
+      '<details class="ingest-raw"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:280px">' +
+      escapeHtml(JSON.stringify(body, null, 2)) +
+      "</pre></details>";
+    wrap.hidden = false;
+    showOut("out-3", "", false);
+  }
+
   function renderFundamentalsResult(body) {
     clearFundamentalsResult();
     var wrap = $("fundamentals-result-wrap");
@@ -685,31 +1862,67 @@
       showOut("out-3", "扩展因子返回格式异常：缺少 results。", true);
       return;
     }
+    var fundColspanErr = 15;
     var trs = body.results.map(function (r) {
       var sym = escapeHtml(r.symbol || "—");
       if (!r.ok) {
         return (
           "<tr><td>" +
           sym +
-          '</td><td class="cell-err cell-pre"><span class="pill err">失败</span> ' +
+          '</td><td class="cell-err cell-pre" colspan="' +
+          fundColspanErr +
+          '"><span class="pill err">失败</span> ' +
           escapeHtml(String(r.error || "未知错误")) +
-          "</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>"
+          "</td></tr>"
         );
       }
       var snap = r.snapshot && typeof r.snapshot === "object" ? r.snapshot : {};
-      var pe = snap.pe_dynamic != null ? escapeHtml(String(snap.pe_dynamic)) : "—";
-      var pb = snap.pb != null ? escapeHtml(String(snap.pb)) : "—";
-      var py = snap.profit_yoy_pct != null ? escapeHtml(String(snap.profit_yoy_pct)) : "—";
+      function fundCellNum(v, digits) {
+        return escapeHtml(signalFmtNum(v, digits));
+      }
+      var pe = fundCellNum(snap.pe_dynamic, 2);
+      var pb = fundCellNum(snap.pb, 2);
+      var ry = fundCellNum(snap.revenue_yoy_pct, 2);
+      var py = fundCellNum(snap.profit_yoy_pct, 2);
+      var roe = fundCellNum(snap.roe_pct, 2);
+      var roa = fundCellNum(snap.roa_pct, 2);
+      var gm = fundCellNum(snap.gross_margin_pct, 2);
+      var nm = fundCellNum(snap.net_margin_pct, 2);
+      var da = fundCellNum(snap.debt_to_assets_pct, 2);
+      var cr = fundCellNum(snap.current_ratio, 2);
+      var qr = fundCellNum(snap.quick_ratio, 2);
+      var ocf = fundCellNum(snap.ocf_per_share, 4);
+      var frd = snap.financial_report_date != null ? escapeHtml(String(snap.financial_report_date)) : "—";
       var fd = snap.fund_flow_date != null ? escapeHtml(String(snap.fund_flow_date)) : "—";
       return (
         "<tr><td>" +
         sym +
-        '</td><td><span class="pill ok">成功</span></td><td>' +
+        '</td><td><span class="pill ok">成功</span></td><td class="num">' +
         pe +
-        "</td><td>" +
+        '</td><td class="num">' +
         pb +
-        "</td><td>" +
+        '</td><td class="num">' +
+        ry +
+        '</td><td class="num">' +
         py +
+        '</td><td class="num">' +
+        roe +
+        '</td><td class="num">' +
+        roa +
+        '</td><td class="num">' +
+        gm +
+        '</td><td class="num">' +
+        nm +
+        '</td><td class="num">' +
+        da +
+        '</td><td class="num">' +
+        cr +
+        '</td><td class="num">' +
+        qr +
+        '</td><td class="num">' +
+        ocf +
+        "</td><td>" +
+        frd +
         "</td><td>" +
         fd +
         "</td></tr>"
@@ -718,8 +1931,11 @@
     var html = '<h3 class="ingest-h3">扩展因子拉取结果</h3>';
     if (body.note) html += '<p class="lead" style="margin:0 0 0.5rem;font-size:0.82rem;">' + escapeHtml(body.note) + "</p>";
     html +=
-      '<table class="ingest-table"><thead><tr><th>代码</th><th>状态</th><th>市盈率(动)</th><th>市净率</th><th>净利润同比%</th><th>资金流日期</th></tr></thead><tbody>';
-    html += trs + "</tbody></table>";
+      '<div class="signals-table-wrap" style="overflow-x:auto"><table class="ingest-table"><thead><tr>' +
+      "<th>代码</th><th>状态</th><th>市盈率(动)</th><th>市净率</th><th>营收同比%</th><th>净利同比%</th>" +
+      "<th>ROE%</th><th>ROA%</th><th>毛利率%</th><th>净利率%</th><th>资产负债%</th><th>流动比</th><th>速动比</th><th>每股经营现金流</th><th>财报期</th><th>资金流日</th>" +
+      "</tr></thead><tbody>";
+    html += trs + "</tbody></table></div>";
     html += '<details class="ingest-raw"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:240px">' + escapeHtml(JSON.stringify(body, null, 2)) + "</pre></details>";
     wrap.innerHTML = html;
     wrap.hidden = false;
@@ -779,6 +1995,80 @@
     }
   });
 
+  $("btnForecastValidate").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var raw = ($("forecastSym").value || "").replace(/\D/g, "");
+    if (raw.length !== 6) {
+      var q = ($("quoteSym").value || "").replace(/\D/g, "");
+      if (q.length === 6) raw = q;
+    }
+    if (raw.length !== 6) {
+      showOut("out-3", "请输入 6 位股票代码（或先在上文「查询本地 K 线」填好代码）。", true);
+      return;
+    }
+    var hz = parseInt($("forecastHorizon").value, 10);
+    if (!isFinite(hz) || hz < 1) hz = 5;
+    if (hz > 60) hz = 60;
+    var mt = parseInt($("forecastMinTrain").value, 10);
+    if (!isFinite(mt) || mt < 80) mt = 120;
+    if (mt > 2500) mt = 2500;
+    var rt = parseInt($("forecastRetrain").value, 10);
+    if (!isFinite(rt) || rt < 1) rt = 20;
+    if (rt > 500) rt = 500;
+    var tl = parseInt($("forecastTradeLimit").value, 10);
+    if (!isFinite(tl) || tl < 1) tl = 25;
+    if (tl > 200) tl = 200;
+    var mas = parseInt($("forecastMaShort").value, 10);
+    var mal = parseInt($("forecastMaLong").value, 10);
+    if (!isFinite(mas) || mas < 2) mas = 5;
+    if (!isFinite(mal) || mal < 3) mal = 10;
+    if (mas >= mal) {
+      showOut("out-3", "双均线要求：长周期必须大于短周期（可在「高级参数」中修改）。", true);
+      return;
+    }
+    if (mt < mal + 5) {
+      showOut(
+        "out-3",
+        "最小训练样本须 ≥ 长均线周期+5（当前至少 " + (mal + 5) + "）。请提高「最小训练样本」或缩短长周期。",
+        true
+      );
+      return;
+    }
+    var btn = $("btnForecastValidate");
+    btn.disabled = true;
+    clearForecastValidateResult();
+    showOut("out-3", "正在计算 walk-forward 回测（仅读本地库，可能需要数秒）…", true);
+    var qs =
+      "symbol=" +
+      encodeURIComponent(raw) +
+      "&horizon=" +
+      encodeURIComponent(String(hz)) +
+      "&min_train_rows=" +
+      encodeURIComponent(String(mt)) +
+      "&retrain_every=" +
+      encodeURIComponent(String(rt)) +
+      "&trade_limit=" +
+      encodeURIComponent(String(tl)) +
+      "&ma_short=" +
+      encodeURIComponent(String(mas)) +
+      "&ma_long=" +
+      encodeURIComponent(String(mal));
+    try {
+      var res = await fetch("/research/forecast-validate?" + qs, { headers: authHeaders() });
+      var body = await readBody(res);
+      if (res.ok) renderForecastValidateResult(body);
+      else {
+        clearForecastValidateResult();
+        showOut("out-3", await formatError(res, body), true);
+      }
+    } catch (e) {
+      clearForecastValidateResult();
+      showOut("out-3", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   $("btnQuoteBars").addEventListener("click", async function () {
     if (!guardKey()) return;
     var raw = ($("quoteSym").value || "").replace(/\D/g, "");
@@ -806,6 +2096,8 @@
         return;
       }
       box.innerHTML = barsTableHtml(raw, bars);
+      var fs = $("forecastSym");
+      if (fs && !(fs.value || "").trim()) fs.value = raw;
     } catch (e) {
       box.innerHTML = "<p class=\"lead\" style=\"color:var(--err)\">" + escapeHtml(String(e)) + "</p>";
     } finally {
@@ -817,13 +2109,20 @@
     if (!guardKey()) return;
     var btn = $("btnSignalsAll");
     btn.disabled = true;
-    showOut("out-4", "计算中…", true);
+    var w = $("signals-out-wrap");
+    if (w) {
+      w.hidden = false;
+      w.innerHTML = '<p class="lead" style="margin:0">计算中（若勾选增量更新可能较慢）…</p>';
+    }
     try {
-      var res = await fetch("/signals", { headers: authHeaders() });
-      var body = await readBody(res);
-      showOut("out-4", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+      var res = await fetch("/signals" + signalsQuerySuffix(), { headers: authHeaders() });
+      var t = await res.text();
+      renderSignalsPanel(res, t);
     } catch (e) {
-      showOut("out-4", String(e), true);
+      if (w) {
+        w.hidden = false;
+        w.innerHTML = '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
+      }
     } finally {
       btn.disabled = false;
     }
@@ -833,18 +2132,31 @@
     if (!guardKey()) return;
     var raw = $("symOne").value.replace(/\D/g, "");
     if (raw.length !== 6) {
-      showOut("out-4", "请输入 6 位数字代码。", true);
+      var w0 = $("signals-out-wrap");
+      if (w0) {
+        w0.hidden = false;
+        w0.innerHTML = '<p class="lead" style="margin:0;color:var(--err)">请输入 6 位数字代码。</p>';
+      }
       return;
     }
     var btn = $("btnSignalOne");
     btn.disabled = true;
-    showOut("out-4", "查询中…", true);
+    var w1 = $("signals-out-wrap");
+    if (w1) {
+      w1.hidden = false;
+      w1.innerHTML = '<p class="lead" style="margin:0">查询中…</p>';
+    }
     try {
-      var res = await fetch("/signals/" + encodeURIComponent(raw), { headers: authHeaders() });
-      var body = await readBody(res);
-      showOut("out-4", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+      var res = await fetch("/signals/" + encodeURIComponent(raw) + signalsQuerySuffix(), {
+        headers: authHeaders(),
+      });
+      var t = await res.text();
+      renderSignalsPanel(res, t);
     } catch (e) {
-      showOut("out-4", String(e), true);
+      if (w1) {
+        w1.hidden = false;
+        w1.innerHTML = '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
+      }
     } finally {
       btn.disabled = false;
     }
@@ -854,15 +2166,52 @@
     if (!guardKey()) return;
     var btn = $("btnAlerts");
     btn.disabled = true;
-    showOut("out-5", "处理中…", true);
+    var aw = $("alerts-out-wrap");
+    if (aw) {
+      aw.hidden = false;
+      aw.innerHTML = '<p class="lead" style="margin:0">处理中（若勾选增量更新可能较慢）…</p>';
+    }
     try {
-      var res = await fetch("/alerts/preview", { method: "POST", headers: authHeaders(), body: "{}" });
+      var payload = {
+        pre_refresh: !!($("chkPreRefreshAlerts") && $("chkPreRefreshAlerts").checked),
+        data_source: getIngestDataSource(),
+      };
+      var res = await fetch("/alerts/preview", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
       var body = await readBody(res);
-      showOut("out-5", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+      if (!res.ok) {
+        if (aw)
+          aw.innerHTML =
+            '<pre class="out" style="margin-top:0">' +
+            escapeHtml(await formatError(res, body)) +
+            "</pre>";
+        return;
+      }
+      renderAlertsPanel(body);
     } catch (e) {
-      showOut("out-5", String(e), true);
+      if (aw) {
+        aw.hidden = false;
+        aw.innerHTML = '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
+      }
     } finally {
       btn.disabled = false;
+    }
+  });
+
+  $("btnSelfUseFromHome").addEventListener("click", async function () {
+    var pre = $("out-1-selfuse");
+    if (!pre) return;
+    pre.hidden = false;
+    pre.textContent = "加载中…";
+    try {
+      var res = await fetch("/meta/self-use");
+      var body = await readBody(res);
+      pre.textContent = res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body);
+    } catch (e) {
+      pre.textContent = String(e);
     }
   });
 
@@ -892,6 +2241,77 @@
     }
   });
 
+  $("btnSelfUseMeta").addEventListener("click", async function () {
+    var pre = $("out-7a");
+    pre.hidden = false;
+    pre.textContent = "加载中…";
+    try {
+      var res = await fetch("/meta/self-use");
+      var body = await readBody(res);
+      pre.textContent = res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body);
+    } catch (e) {
+      pre.textContent = String(e);
+    }
+  });
+
+  $("btnJournalSave").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var title = ($("jrTitle").value || "").trim();
+    var bodyTxt = ($("jrBody").value || "").trim();
+    if (!title || !bodyTxt) {
+      showOut("out-7", "请填写标题与正文。", true);
+      return;
+    }
+    var rawSym = ($("jrSym").value || "").replace(/\D/g, "");
+    var sym = rawSym.length === 6 ? rawSym : null;
+    var exec = $("jrExec").value;
+    var execBool = exec === "" ? null : exec === "true";
+    var posRaw = ($("jrPos").value || "").trim();
+    var posNum = posRaw === "" ? null : parseFloat(posRaw);
+    if (posNum != null && (!isFinite(posNum) || posNum < 0 || posNum > 100)) {
+      showOut("out-7", "计划仓位须在 0～100。", true);
+      return;
+    }
+    var btn = $("btnJournalSave");
+    btn.disabled = true;
+    showOut("out-7", "保存中…", true);
+    try {
+      var payload = {
+        title: title,
+        body: bodyTxt,
+        symbol: sym,
+        attach_current_signal: !!$("jrAttachSig").checked,
+        planned_action: ($("jrPlanned").value || "").trim() || null,
+        planned_position_pct: posNum,
+        executed_as_planned: execBool,
+        actual_action: ($("jrActual").value || "").trim() || null,
+      };
+      var res = await fetch("/journal", { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) });
+      var body = await readBody(res);
+      showOut("out-7", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+    } catch (e) {
+      showOut("out-7", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $("btnJournalList").addEventListener("click", async function () {
+    if (!guardKey()) return;
+    var btn = $("btnJournalList");
+    btn.disabled = true;
+    showOut("out-7", "加载中…", true);
+    try {
+      var res = await fetch("/journal?limit=20", { headers: authHeaders() });
+      var body = await readBody(res);
+      showOut("out-7", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
+    } catch (e) {
+      showOut("out-7", String(e), true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   function escapeHtml(s) {
     var d = document.createElement("div");
     d.textContent = s;
@@ -914,6 +2334,7 @@
       qp.innerHTML = "";
       qp.remove();
     }
+    clearForecastValidateResult();
   }
 
   function formatFixed(n, digits) {
@@ -1094,6 +2515,7 @@
   if (selDs)
     selDs.addEventListener("change", function () {
       localStorage.setItem(LS_DS, getIngestDataSource());
+      updateRouteEchoSpans();
     });
 
   document.querySelector('.nav-item[data-module="2"]').addEventListener("click", function () {

@@ -9,7 +9,7 @@
 
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,13 +31,18 @@ class Settings(BaseSettings):
     # AkShare 拉日线：对连接被远端断开、超时等做重试（指数退避）
     akshare_fetch_retries: int = 4
     akshare_retry_base_delay_sec: float = 1.0
-    # 批量 ingest 时两只标的之间的间隔，减轻东方财富等源限流概率
+    # 批量 ingest 时两只标的之间的间隔，减轻数据源限流概率
     akshare_pause_between_symbols_sec: float = 1.5
+    # 东财日线 stock_zh_a_hist：相邻两次请求之间的随机间隔（秒），全局串行，减轻限流
+    eastmoney_request_min_interval_sec: float = 3.0
+    eastmoney_request_max_interval_sec: float = 5.0
+    # 为 True 时，调用东财日线前临时清除 HTTP(S)_PROXY 等环境变量，尝试直连（仅当本机可直连外网且代理损坏时使用）
+    ingest_eastmoney_bypass_proxy: bool = False
     # 东财全 A spot 估值表内存缓存秒数（扩展基本面批量更新时共用）
     fundamentals_spot_cache_ttl_sec: float = 90.0
     # /ingest/test-connection 探测用的 6 位代码（默认平安银行，仅测连通性）
     akshare_test_symbol: str = "000001"
-    # 行情路线：auto=东财失败后依次新浪/腾讯/Baostock；亦可固定单一源（见 IngestDataSource）
+    # 行情路线：auto=新浪失败后依次腾讯/Baostock；eastmoney=仅东财日线（带请求间隔）；亦可固定其它单一源
     ingest_data_source: str = "auto"
 
     @field_validator("ingest_data_source")
@@ -48,6 +53,12 @@ class Settings(BaseSettings):
         if x not in allowed:
             raise ValueError(f"ingest_data_source / INGEST_DATA_SOURCE 须为 {sorted(allowed)} 之一")
         return x
+
+    @model_validator(mode="after")
+    def _eastmoney_interval_order(self):
+        if self.eastmoney_request_max_interval_sec < self.eastmoney_request_min_interval_sec:
+            raise ValueError("eastmoney_request_max_interval_sec 须 >= eastmoney_request_min_interval_sec")
+        return self
     # AkShare 聚合公开页，非交易所实时推送，可能有延迟或缺数
     data_source_note: str = "AkShare 聚合公开数据源，非交易所实时行情，可能存在延时与缺失。"
     disclaimer_short: str = (

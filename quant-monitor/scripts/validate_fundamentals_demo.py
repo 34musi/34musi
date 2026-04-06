@@ -26,13 +26,33 @@ from app.fundamentals import (  # noqa: E402
     fundamental_score_delta,
 )
 from app.ingest import normalize_symbol  # noqa: E402
+from app.schemas import FundamentalPanel  # noqa: E402
 
 
 def _test_delta_offline() -> None:
-    d, reasons = fundamental_score_delta(pe=12, pb=2.5, revenue_yoy_pct=12, profit_yoy_pct=20, main_net_inflow=1e6)
+    p1 = FundamentalPanel(
+        pe_dynamic=12,
+        pb=2.5,
+        revenue_yoy_pct=12,
+        profit_yoy_pct=20,
+        main_net_inflow=1e6,
+        roe_pct=18,
+        debt_to_assets_pct=40,
+        current_ratio=1.5,
+    )
+    d, reasons = fundamental_score_delta(p1)
     assert -15 <= d <= 15, d
     assert any(r.code == "fund_profit_yoy_strong" for r in reasons)
-    d2, _ = fundamental_score_delta(pe=100, pb=12, revenue_yoy_pct=-10, profit_yoy_pct=-20, main_net_inflow=-1e6)
+    p2 = FundamentalPanel(
+        pe_dynamic=100,
+        pb=12,
+        revenue_yoy_pct=-10,
+        profit_yoy_pct=-20,
+        main_net_inflow=-1e6,
+        debt_to_assets_pct=75,
+        current_ratio=0.8,
+    )
+    d2, _ = fundamental_score_delta(p2)
     assert d2 <= 0
     assert -15 <= d2 <= 15
     print("[ok] fundamental_score_delta 有界与符号离线检查通过")
@@ -41,13 +61,7 @@ def _test_delta_offline() -> None:
 def _test_remote(sym: str) -> None:
     sym = normalize_symbol(sym)
     panel = build_fundamental_panel(sym)
-    d, reasons = fundamental_score_delta(
-        panel.pe_dynamic,
-        panel.pb,
-        panel.revenue_yoy_pct,
-        panel.profit_yoy_pct,
-        panel.main_net_inflow,
-    )
+    d, reasons = fundamental_score_delta(panel)
     print(f"[remote] {sym} panel:", panel.model_dump())
     print(f"[remote] 合成调整分 fundamental_adjustment={d}，理由条数={len(reasons)}")
 

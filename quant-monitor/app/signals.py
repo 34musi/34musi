@@ -19,7 +19,15 @@ from app.fundamentals import (
     load_fundamental_panel_from_db,
 )
 from app.ingest import fetch_stock_name, load_bars_df, normalize_symbol
-from app.schemas import PositionHint, SignalOut, SignalReason, StrengthRegime, TrendRegime
+from app.schemas import (
+    PositionHint,
+    SignalOut,
+    SignalReason,
+    StrengthRegime,
+    SuggestedPositionPctOut,
+    TrialExitGuidanceOut,
+    TrendRegime,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +55,15 @@ def _rolling_vol(close: pd.Series, n: int = 20) -> float:
     return float(r.iloc[-n:].std(ddof=0) or 0.0)
 
 
-def compute_signal(symbol: str) -> SignalOut:
+def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
     """
     对单标的计算完整 SignalOut。
 
     要求至少约 30 根有效 K 线；不足则 ValueError（需先 ingest）。
+    data_source：与 ingest 路线一致时传入，便于 load_bars_df 内自动补拉使用同一路线。
     """
     sym = normalize_symbol(symbol)
-    df = load_bars_df(sym)
+    df = load_bars_df(sym, data_source=data_source)
     if df.empty or len(df) < 30:
         raise ValueError("K 线数据不足，请先执行更新 ingest")
 
@@ -172,13 +181,7 @@ def compute_signal(symbol: str) -> SignalOut:
             )
         )
     else:
-        fund_adj, fund_reasons = fundamental_score_delta(
-            fund_panel.pe_dynamic,
-            fund_panel.pb,
-            fund_panel.revenue_yoy_pct,
-            fund_panel.profit_yoy_pct,
-            fund_panel.main_net_inflow,
-        )
+        fund_adj, fund_reasons = fundamental_score_delta(fund_panel)
         reasons.extend(fund_reasons)
 
     combined = int(max(0, min(100, technical_score + fund_adj)))
@@ -189,15 +192,62 @@ def compute_signal(symbol: str) -> SignalOut:
     if combined >= 72 and trend == "bullish" and strength != "weak":
         position_hint = "moderate"
         position_range_text = "模型提示：可结合自身风险承受能力考虑中等以下试错仓位（示例区间 10%–30% 总资金）"
+        suggested_position_pct = SuggestedPositionPctOut(low_pct=10.0, high_pct=30.0)
     elif combined >= 55 and trend != "bearish":
         position_hint = "trial"
         position_range_text = "模型提示：轻仓试错更合适（示例区间 0%–10% 总资金）"
+        suggested_position_pct = SuggestedPositionPctOut(low_pct=0.0, high_pct=10.0)
     elif combined >= 40:
         position_hint = "cautious"
         position_range_text = "模型提示：信号一般，建议观望或极低仓观察"
+        suggested_position_pct = SuggestedPositionPctOut(low_pct=0.0, high_pct=5.0)
     else:
         position_hint = "avoid"
         position_range_text = "模型提示：当前信号偏弱，不建议新开仓（非指令）"
+        suggested_position_pct = SuggestedPositionPctOut(low_pct=0.0, high_pct=0.0)
+
+    ma20_exit_ref = round(ma20_now, 4)
+    if position_hint == "trial":
+        trial_exit_guidance = TrialExitGuidanceOut(
+            applies=True,
+            stop_loss_pct_from_entry_demo=8.0,
+            reference_exit_ma20=ma20_exit_ref,
+            note=(
+                "轻仓试错若方向看错：Demo 可在**建仓成本**下方约 **8%** 设纪律止损；"
+                "或价格**有效跌破 MA20**（参考收盘约见 reference_exit_ma20）时考虑减仓/离场。"
+                "系统不记录您的买入价，请自行对照成本执行。**非卖出指令。**"
+            ),
+        )
+    elif position_hint == "moderate":
+        trial_exit_guidance = TrialExitGuidanceOut(
+            applies=True,
+            stop_loss_pct_from_entry_demo=10.0,
+            reference_exit_ma20=ma20_exit_ref,
+            note=(
+                "中等试错：可放宽至成本下方约 **10%** 止损；若**持续走弱并跌破 MA20**（参考价见 reference_exit_ma20），宜收紧风控。"
+                "**非卖出指令。**"
+            ),
+        )
+    elif position_hint == "cautious":
+        trial_exit_guidance = TrialExitGuidanceOut(
+            applies=True,
+            stop_loss_pct_from_entry_demo=6.0,
+            reference_exit_ma20=ma20_exit_ref,
+            note=(
+                "极低仓观察：错判宜快认错，Demo 参考成本下方约 **6%**，或跌破 **MA20** 时离场。"
+                "**非卖出指令。**"
+            ),
+        )
+    else:
+        trial_exit_guidance = TrialExitGuidanceOut(
+            applies=False,
+            stop_loss_pct_from_entry_demo=None,
+            reference_exit_ma20=ma20_exit_ref,
+            note=(
+                "当前为**回避**为主：不建议新开仓，故不提供「试错卖出位」。"
+                "若您仍有历史持仓，请按自有止损规则；MA20 参考收盘见 reference_exit_ma20，仅作结构参照。"
+            ),
+        )
 
     name = fetch_stock_name(sym)
     meta: dict[str, Any] = {
@@ -224,6 +274,8 @@ def compute_signal(symbol: str) -> SignalOut:
         fundamental_adjustment=fund_adj,
         fundamentals=fund_panel,
         position_hint=position_hint,
+        suggested_position_pct=suggested_position_pct,
+        trial_exit_guidance=trial_exit_guidance,
         position_range_text=position_range_text,
         risk_tags=risk_tags,
         reasons=reasons,

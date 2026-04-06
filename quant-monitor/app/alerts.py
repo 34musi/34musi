@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 def signal_to_snapshot(sig: SignalOut) -> dict[str, Any]:
     """提取用于告警对比的核心字段（避免整份 reasons/meta 过大）。"""
+    sp = sig.suggested_position_pct
+    te = sig.trial_exit_guidance
     return {
         "symbol": sig.symbol,
         "trend": sig.trend,
@@ -29,6 +31,11 @@ def signal_to_snapshot(sig: SignalOut) -> dict[str, Any]:
         "technical_score": sig.technical_score,
         "fundamental_adjustment": sig.fundamental_adjustment,
         "position_hint": sig.position_hint,
+        "suggested_position_pct_low": sp.low_pct,
+        "suggested_position_pct_high": sp.high_pct,
+        "trial_exit_applies": te.applies,
+        "trial_stop_loss_pct_demo": te.stop_loss_pct_from_entry_demo,
+        "reference_exit_ma20": te.reference_exit_ma20,
         "as_of_date": sig.as_of_date,
     }
 
