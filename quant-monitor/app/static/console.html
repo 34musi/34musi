@@ -366,9 +366,12 @@
           <select id="ingestDataSource">
             <option value="auto">自动（新浪 → 腾讯 → Baostock）</option>
             <option value="eastmoney">仅东方财富日线（AkShare，约 3–5 秒/请求）</option>
+            <option value="akshare">AkShare 东财日线（与 eastmoney 等价）</option>
             <option value="sina">仅新浪财经（AkShare）</option>
             <option value="tencent">仅腾讯（AkShare，无成交量则记 0）</option>
             <option value="baostock">仅 Baostock</option>
+            <option value="mootdx">mootdx 通达信日线</option>
+            <option value="tushare">TuShare 日线（需 TOKEN）</option>
           </select>
         </div>
         <p class="lead" style="margin-top:0;font-size:0.82rem;">路线会保存到本机浏览器；与接口 Body 字段 <code>data_source</code> 一致。默认自动链式 failover；固定单一源便于排查网络问题。<strong>东财日线</strong>在服务端对相邻请求有 <strong>约 3–5 秒</strong>随机间隔（防限流），自选多只时更新会较慢，可用环境变量 <code>EASTMONEY_REQUEST_MIN_INTERVAL_SEC</code> / <code>MAX</code> 调整。若日志出现 <code>ProxyError</code> / 无法连接代理，请关闭系统代理或设 <code>INGEST_EASTMONEY_BYPASS_PROXY=true</code>（可直连时）后重启服务。</p>
@@ -1449,7 +1452,10 @@
         return;
       }
     } catch (e) {}
-    if (saved && ["auto", "eastmoney", "sina", "tencent", "baostock"].indexOf(saved) >= 0)
+    if (
+      saved &&
+      ["auto", "eastmoney", "akshare", "sina", "tencent", "baostock", "mootdx", "tushare"].indexOf(saved) >= 0
+    )
       sel.value = saved;
     updateRouteEchoSpans();
   }

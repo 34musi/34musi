@@ -2,7 +2,8 @@
 信号计算：基于库内日线计算趋势、强度、技术面 0–100 分；若存在 fundamental_snapshots，
 再叠加扩展因子有界调整（估值/财报同比/主力净流入，Demo 规则），得到合成总分。
 
-依赖 ingest.load_bars_df（数据不足时会触发拉取）；名称展示用 fetch_stock_name。
+依赖 ingest.load_bars_df（数据不足时会触发拉取）；`data_source` 与 ingest 枚举一致（含 mootdx/tushare 等），
+K 线入库路径可与核心包 app.quant_stock_selector 对齐。名称展示用 fetch_stock_name。
 非投资建议。
 """
 

@@ -4,7 +4,8 @@
 - data_dir：本地数据目录（默认项目根下 data/），SQLite 文件默认落在此目录。
 - database_url：显式数据库连接串；未设置时使用 SQLite 文件。
 - api_key：非空时，受保护路由需请求头 X-API-Key 与之完全一致。
-- ingest_data_source：默认行情路线（auto / eastmoney / sina / tencent / baostock），可由请求 Body 覆盖。
+- ingest_data_source：默认行情路线（含 akshare / mootdx / tushare 等），可由请求 Body 覆盖。
+- tushare_token：可选；与 TUSHARE_TOKEN 环境变量一起供 ingest 路线 tushare 使用。
 """
 
 from pathlib import Path
@@ -42,13 +43,17 @@ class Settings(BaseSettings):
     fundamentals_spot_cache_ttl_sec: float = 90.0
     # /ingest/test-connection 探测用的 6 位代码（默认平安银行，仅测连通性）
     akshare_test_symbol: str = "000001"
-    # 行情路线：auto=新浪失败后依次腾讯/Baostock；eastmoney=仅东财日线（带请求间隔）；亦可固定其它单一源
+    # 行情路线：auto=新浪失败后依次腾讯/Baostock；eastmoney=仅东财日线（带请求间隔）；akshare 与 eastmoney 等价；mootdx / tushare 见文档
     ingest_data_source: str = "auto"
+    # TuShare ingest 路线用；亦可仅设环境变量 TUSHARE_TOKEN
+    tushare_token: str = ""
 
     @field_validator("ingest_data_source")
     @classmethod
     def _validate_ingest_data_source(cls, v: str) -> str:
-        allowed = frozenset({"auto", "eastmoney", "sina", "tencent", "baostock"})
+        allowed = frozenset(
+            {"auto", "eastmoney", "akshare", "sina", "tencent", "baostock", "mootdx", "tushare"}
+        )
         x = (v or "auto").strip().lower()
         if x not in allowed:
             raise ValueError(f"ingest_data_source / INGEST_DATA_SOURCE 须为 {sorted(allowed)} 之一")

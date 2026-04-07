@@ -1,8 +1,8 @@
 """
 行情摄取：通过 AkShare / Baostock 拉 A 股前复权日线，规范化后写入 SQLite（bars 表）。
 
-路线 `auto`：新浪 → 腾讯 → Baostock；`eastmoney`：仅东财日线（`stock_zh_a_hist`），
-相邻请求全局随机间隔约 3–5 秒（可配置）以防限流；亦可固定其它单一源（见 resolve_data_source）。
+路线 `auto`：新浪 → 腾讯 → Baostock；`eastmoney` / `akshare`：东财日线（`stock_zh_a_hist`），
+相邻请求全局随机间隔约 3–5 秒（可配置）以防限流；`mootdx` / `tushare` 经 `app.quant_stock_selector` 核心拉取后转入库格式；亦可固定其它单一源（见 resolve_data_source）。
 
 职责划分：
 - normalize_symbol：统一为 6 位数字代码。
@@ -36,7 +36,9 @@ from app.db import BarRow, session_scope
 
 logger = logging.getLogger(__name__)
 
-ALLOWED_DATA_SOURCES = frozenset({"auto", "eastmoney", "sina", "tencent", "baostock"})
+ALLOWED_DATA_SOURCES = frozenset(
+    {"auto", "eastmoney", "akshare", "sina", "tencent", "baostock", "mootdx", "tushare"}
+)
 _baostock_lock = threading.Lock()
 _eastmoney_throttle_lock = threading.Lock()
 _eastmoney_next_monotonic: float = 0.0
@@ -358,16 +360,67 @@ def _fetch_baostock_daily(sym: str, start_yyyymmdd: str, end_yyyymmdd: str) -> p
     return _normalize_english_hist_df(df, sym, volume_if_missing=None)
 
 
+def _tushare_token_resolved() -> str | None:
+    s = get_settings()
+    raw = (getattr(s, "tushare_token", None) or os.getenv("TUSHARE_TOKEN") or "").strip()
+    return raw or None
+
+
+def _selector_core_df_to_bars(df: pd.DataFrame, sym: str) -> pd.DataFrame:
+    """quant_stock_selector 标准行情列 → 与 _normalize_chinese_hist_df 一致的入库列。"""
+    if df is None or df.empty:
+        return _empty_daily_df()
+    work = df.copy()
+    if "date" not in work.columns:
+        raise RuntimeError("核心数据源返回的 DataFrame 缺少 date 列")
+    work["trade_date"] = pd.to_datetime(work["date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    work["symbol"] = sym
+    if "turnover" in work.columns:
+        work["amount"] = pd.to_numeric(work["turnover"], errors="coerce").fillna(0.0)
+    elif "amount" in work.columns:
+        work["amount"] = pd.to_numeric(work["amount"], errors="coerce").fillna(0.0)
+    else:
+        work["amount"] = 0.0
+    for col in ("open", "high", "low", "close", "volume"):
+        if col not in work.columns:
+            raise RuntimeError(f"核心数据源 DataFrame 缺少列 {col}")
+        work[col] = pd.to_numeric(work[col], errors="coerce")
+    out = work[["symbol", "trade_date", "open", "high", "low", "close", "volume", "amount"]].dropna(
+        subset=["trade_date", "open", "high", "low", "close"]
+    )
+    return out
+
+
+def _fetch_quant_selector_daily(
+    sym: str, start_y: str, end_y: str, route: str
+) -> tuple[pd.DataFrame, str | None]:
+    """经 quant_stock_selector 包拉取 mootdx / tushare 日线并转为入库格式。"""
+    from app.quant_stock_selector import DataSourceError, get_data_source
+
+    token = _tushare_token_resolved() if route == "tushare" else None
+    try:
+        ds = get_data_source(route, tushare_token=token)
+        frame = ds.get_price_history(sym, start_y, end_y, adjust="qfq")
+    except DataSourceError as e:
+        raise RuntimeError(str(e)) from e
+    if frame is None or frame.empty:
+        return _empty_daily_df(), None
+    bars = _selector_core_df_to_bars(frame, sym)
+    if bars.empty:
+        return _empty_daily_df(), None
+    return bars, route
+
+
 def _single_source_daily(
     sym: str, start_y: str, end_y: str, route: str
 ) -> tuple[pd.DataFrame, str | None]:
     """固定单一数据源；无行时返回空表且 provider 为 None。"""
     leg = _legacy_sh_sz_symbol(sym)
-    if route == "eastmoney":
+    if route in ("eastmoney", "akshare"):
         df = _fetch_eastmoney_hist(sym, start_y, end_y)
         if df is None or df.empty:
             return _empty_daily_df(), None
-        return _normalize_chinese_hist_df(df, sym), "eastmoney"
+        return _normalize_chinese_hist_df(df, sym), route
     if route == "sina":
         df2 = ak.stock_zh_a_daily(symbol=leg, start_date=start_y, end_date=end_y, adjust="qfq")
         if df2 is None or df2.empty:
@@ -383,6 +436,10 @@ def _single_source_daily(
         if df4.empty:
             return _empty_daily_df(), None
         return df4, "baostock"
+    if route == "mootdx":
+        return _fetch_quant_selector_daily(sym, start_y, end_y, "mootdx")
+    if route == "tushare":
+        return _fetch_quant_selector_daily(sym, start_y, end_y, "tushare")
     raise ValueError(f"未知路线: {route}")
 
 

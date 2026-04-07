@@ -20,9 +20,12 @@ class IngestDataSource(str, Enum):
 
     auto = "auto"
     eastmoney = "eastmoney"
+    akshare = "akshare"
     sina = "sina"
     tencent = "tencent"
     baostock = "baostock"
+    mootdx = "mootdx"
+    tushare = "tushare"
 
 
 class AlertsPreviewIn(BaseModel):
@@ -51,7 +54,11 @@ class IngestUpdateIn(BaseModel):
     )
     data_source: IngestDataSource | None = Field(
         None,
-        description="行情路线：不传则用服务端默认（INGEST_DATA_SOURCE）。auto=新浪→腾讯→Baostock；eastmoney=东财日线（带请求间隔）；其余为仅使用该源。",
+        description=(
+            "行情路线：不传则用服务端默认（INGEST_DATA_SOURCE）。auto=新浪→腾讯→Baostock；"
+            "eastmoney 与 akshare 等价（均为东财日线，带请求间隔）；mootdx=通达信协议；"
+            "tushare=TuShare 日线（需 TUSHARE_TOKEN 或配置 tushare_token）；其余为仅使用该源。"
+        ),
     )
 
 

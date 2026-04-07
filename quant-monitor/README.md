@@ -2,6 +2,19 @@
 
 A 股日线趋势监控与信号 API：通过 [AkShare](https://github.com/akfamily/akshare) 拉取公开前复权日线，写入本地数据库，再基于均线、动量、波动等规则输出结构化信号（**不构成投资建议**）。
 
+## 架构：核心流水线与辅助层
+
+- **核心**：`app/quant_stock_selector/` — A 股热门板块 → 选股 → 双均线回测 → 导出的完整脚本流水线；数据源抽象（AkShare / TuShare / mootdx）以该包为准。
+- **辅助**：`ingest`、`signals`、`main`、控制台等 — 负责入库、API、展示；ingest 在 `mootdx` / `tushare`（及与东财等价的 `akshare`）路线上 **import 核心包** 拉日线再写入 SQLite，避免两套拉取逻辑。核心包**不**依赖 FastAPI。
+
+命令行（在 **`quant-monitor` 项目根目录** 执行，与 `uvicorn app.main:app` 一致）：
+
+```bash
+python -m app.quant_stock_selector --help
+```
+
+（若 `PYTHONPATH` 仅含 `app` 子目录，则可用 `python -m quant_stock_selector`。）
+
 ## 环境要求
 
 - Python 3.10+（推荐）
@@ -51,7 +64,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### ③ 更新行情数据（K 线从哪里来）
 
-- **行情路线**下拉框：决定调用 AkShare / Baostock 时走哪条数据源（`auto` 为新浪→腾讯→Baostock 链式尝试；可选 **仅东方财富日线**，服务端对相邻东财请求有约 **3–5 秒**随机间隔防限流；也可固定「仅新浪」等）。所选值会写入本机并与 **④⑤** 的 `data_source` 联动。
+- **行情路线**下拉框：决定入库走哪条数据源（`auto` 链式；`eastmoney` / `akshare` 均为东财日线；`mootdx`、`tushare` 经核心 `quant_stock_selector` 拉取；另有新浪/腾讯/Baostock）。东财路线有约 **3–5 秒**随机间隔防限流。所选值会写入本机并与 **④⑤** 的 `data_source` 联动。TuShare 需配置 `TUSHARE_TOKEN` 或环境变量同名；`mootdx` 需安装依赖。
 - **K 线落库位置**：拉取成功后写入本机 SQLite（默认 `data/quant_monitor.db` 的 `bars` 表），之后 **④ 信号**、**③ 底部「查询本地 K 线」** 都读这份库。
 - **开始 / 结束日期**（均可空）：
   - **都不填**：从库里已有最后交易日增量更新到今天；

@@ -258,9 +258,18 @@ def meta_data_sources():
                 "value": "eastmoney",
                 "label": "仅东方财富日线（AkShare，请求间隔约 3–5 秒防限流）",
             },
+            {
+                "value": "akshare",
+                "label": "AkShare 东财日线（与 eastmoney 等价，与选股脚本 --data-source akshare 对齐）",
+            },
             {"value": "sina", "label": "仅新浪财经（AkShare）"},
             {"value": "tencent", "label": "仅腾讯（AkShare，无成交量则记 0）"},
             {"value": "baostock", "label": "仅 Baostock（开源证券数据）"},
+            {"value": "mootdx", "label": "mootdx 通达信协议日线（需 pip install mootdx）"},
+            {
+                "value": "tushare",
+                "label": "TuShare 日线（需 tushare 包与 TUSHARE_TOKEN / 配置 tushare_token）",
+            },
         ],
     }
 
@@ -390,7 +399,7 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
 
 - **Body 可留空**（增量更新到今天）。
 - 传 **`start_date` + `end_date`**：按该闭区间拉取；仅 **`start_date`**：从该日拉到今日；仅 **`end_date`**：增量更新到该日。
-- **`data_source`**：行情路线（`auto` / `eastmoney` / `sina` / `tencent` / `baostock`）；不传则用环境变量 **`INGEST_DATA_SOURCE`**（默认 `auto`）。`eastmoney` 为东财日线，服务端对相邻请求有 **3–5 秒随机间隔**（可用 `EASTMONEY_REQUEST_MIN_INTERVAL_SEC` / `MAX` 调整）。
+- **`data_source`**：行情路线（`auto` / `eastmoney` / `akshare` / `sina` / `tencent` / `baostock` / `mootdx` / `tushare`）；不传则用 **`INGEST_DATA_SOURCE`**（默认 `auto`）。`eastmoney` 与 `akshare` 均为东财日线（后者与选股脚本命名对齐），东财路线有 **3–5 秒随机间隔**；`mootdx` / `tushare` 经 `quant_stock_selector` 核心拉取（需依赖与 TuShare token）。
 - **`GET /ingest/test-connection`**：探测本机能否访问数据源（短区间测试，需 API Key 时同上）；可带 Query **`data_source`**。
 - 需要能访问外网（通过 AkShare 拉公开数据）。
 - 自选为空时会返回错误，请先用 `POST /watchlist` 添加股票。
