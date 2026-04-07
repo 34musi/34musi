@@ -5,7 +5,8 @@ from __future__ import annotations
 import abc
 import os
 import time
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from datetime import date, timedelta
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -226,6 +227,41 @@ class TushareDataSource(BaseAShareDataSource):
             raise DataSourceError("未安装 tushare，请先安装该依赖后再运行脚本") from exc
         ts.set_token(token)
         self.pro = ts.pro_api(token)
+        self._sector_key_to_ts_code: Dict[Tuple[str, str], str] = {}
+
+    def _fetch_ths_daily_latest(self) -> Tuple[pd.DataFrame, str]:
+        """同花顺板块指数一日全市场截面（ths_daily 不传 ts_code 时按 trade_date 拉取）。"""
+        end = date.today()
+        start = end - timedelta(days=45)
+        try:
+            cal = self.pro.trade_cal(
+                exchange="SSE",
+                start_date=start.strftime("%Y%m%d"),
+                end_date=end.strftime("%Y%m%d"),
+                is_open="1",
+            )
+        except Exception as exc:
+            raise DataSourceError(f"TuShare 获取交易日历失败: {exc}") from exc
+        dates: List[str] = []
+        if cal is not None and not cal.empty and "cal_date" in cal.columns:
+            for x in cal["cal_date"].tolist():
+                dates.append(str(x).replace("-", ""))
+        if not dates:
+            dates = [end.strftime("%Y%m%d")]
+        last_err: Optional[Exception] = None
+        for td in reversed(dates):
+            try:
+                df = self.pro.ths_daily(trade_date=td)
+            except Exception as exc:
+                last_err = exc
+                continue
+            if df is not None and not df.empty:
+                return df, td
+        msg = "TuShare 未取到同花顺板块指数日线（ths_daily）"
+        if last_err:
+            msg += f": {last_err}"
+        msg += "；请检查积分（ths_index/ths_daily/ths_member 通常需 6000 分）与网络。"
+        raise DataSourceError(msg)
 
     def get_stock_universe(self) -> pd.DataFrame:
         try:
@@ -239,10 +275,106 @@ class TushareDataSource(BaseAShareDataSource):
         return result[["code", "name"]].drop_duplicates("code")
 
     def get_sector_rankings(self, board_types: str = "all") -> pd.DataFrame:
-        raise DataSourceError("第一版暂未通过 TuShare 实现热门板块排序，请优先使用 akshare")
+        """
+        同花顺概念/行业指数：ths_index + 最近交易日 ths_daily 涨跌幅排序。
+        版权与积分要求见 TuShare 文档（通常 6000 积分）。
+        """
+        self._sector_key_to_ts_code.clear()
+        frames: List[pd.DataFrame] = []
+        try:
+            if board_types in {"all", "concept"}:
+                idx_c = self.pro.ths_index(exchange="A", type="N")
+                if idx_c is not None and not idx_c.empty:
+                    ic = idx_c.copy()
+                    ic["board_type"] = "concept"
+                    frames.append(ic)
+            if board_types in {"all", "industry"}:
+                idx_i = self.pro.ths_index(exchange="A", type="I")
+                if idx_i is not None and not idx_i.empty:
+                    ii = idx_i.copy()
+                    ii["board_type"] = "industry"
+                    frames.append(ii)
+        except Exception as exc:
+            raise DataSourceError(f"TuShare 获取同花顺板块列表失败: {exc}") from exc
+        if not frames:
+            raise DataSourceError(f"不支持的板块类型: {board_types}")
+        indices = pd.concat(frames, ignore_index=True)
+        if indices.empty:
+            raise DataSourceError("TuShare ths_index 返回空表")
+
+        daily, _trade_d = self._fetch_ths_daily_latest()
+        if "ts_code" not in daily.columns or "pct_change" not in daily.columns:
+            raise DataSourceError("TuShare ths_daily 返回格式异常（需含 ts_code、pct_change）")
+        dcols = ["ts_code", "pct_change"]
+        if "turnover_rate" in daily.columns:
+            dcols.append("turnover_rate")
+        dsub = daily[dcols].drop_duplicates(subset=["ts_code"], keep="last")
+        merged = indices.merge(dsub, on="ts_code", how="inner")
+        if merged.empty:
+            raise DataSourceError("TuShare 板块指数（ths_index）与当日行情（ths_daily）无交集，请换交易日重试")
+
+        merged = merged.rename(columns={"name": "sector_name", "pct_change": "change_pct"})
+        merged["change_pct"] = pd.to_numeric(merged["change_pct"], errors="coerce").fillna(0.0)
+        if "turnover_rate" in merged.columns:
+            merged["turnover_rate"] = pd.to_numeric(merged["turnover_rate"], errors="coerce").fillna(0.0)
+        else:
+            merged["turnover_rate"] = 0.0
+        merged["advancers_ratio"] = 0.5
+        merged["leader_change_pct"] = merged["change_pct"]
+        merged["hot_score"] = (
+            normalize_score(merged["change_pct"]) * 0.45
+            + normalize_score(merged["advancers_ratio"]) * 0.20
+            + normalize_score(merged["leader_change_pct"]) * 0.20
+            + normalize_score(merged["turnover_rate"]) * 0.15
+        ).round(2)
+        merged["source"] = self.source_name
+        merged = merged.sort_values(["hot_score", "change_pct"], ascending=False).reset_index(drop=True)
+
+        for _, row in merged.iterrows():
+            sn = str(row["sector_name"]).strip()
+            bt = str(row["board_type"]).strip().lower()
+            self._sector_key_to_ts_code[(sn, bt)] = str(row["ts_code"])
+
+        out_cols = [
+            "sector_name",
+            "board_type",
+            "change_pct",
+            "advancers_ratio",
+            "leader_change_pct",
+            "turnover_rate",
+            "hot_score",
+            "source",
+            "ts_code",
+        ]
+        if "count" in merged.columns:
+            merged = merged.rename(columns={"count": "constituent_count"})
+            out_cols.insert(-1, "constituent_count")
+        return merged[[c for c in out_cols if c in merged.columns]].copy()
 
     def get_sector_constituents(self, sector_name: str, board_type: Optional[str] = None) -> pd.DataFrame:
-        raise DataSourceError("第一版暂未通过 TuShare 实现板块成分查询，请优先使用 akshare")
+        name = str(sector_name).strip()
+        ts_code: Optional[str] = None
+        if board_type:
+            ts_code = self._sector_key_to_ts_code.get((name, str(board_type).lower()))
+        if not ts_code:
+            for bt in ("concept", "industry"):
+                ts_code = self._sector_key_to_ts_code.get((name, bt))
+                if ts_code:
+                    break
+        if not ts_code:
+            raise DataSourceError(
+                f"TuShare 未找到板块「{sector_name}」的指数代码，请先拉取热门排名再取成分（名称需与 ths_index 一致）"
+            )
+        try:
+            mem = self.pro.ths_member(ts_code=ts_code)
+        except Exception as exc:
+            raise DataSourceError(f"TuShare 获取板块成分失败: {exc}") from exc
+        if mem is None or mem.empty:
+            return pd.DataFrame(columns=["code", "name"])
+        out = mem.copy()
+        out["code"] = out["con_code"].map(lambda x: normalize_code(str(x)))
+        out["name"] = out["con_name"].astype(str)
+        return out[["code", "name"]].drop_duplicates(subset=["code"], keep="first").reset_index(drop=True)
 
     def get_price_history(self, code: str, start_date: str, end_date: str, adjust: str = "qfq") -> pd.DataFrame:
         _ = adjust

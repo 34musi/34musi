@@ -59,7 +59,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### ② 管理自选股票
 
-- 输入 6 位 A 股代码（如 `600519`），**确定添加**；**刷新列表**查看当前自选。
+- 输入 6 位 A 股代码（如 `600519`），**确定添加**；**刷新列表**查看当前自选。列表中 **来源** 列区分 **手动** 与 **热门自动**（`origin`）。
+- **热门板块自动填充**：按 `akshare`、`mootdx` 或 **`tushare`**（同花顺 ths_index / ths_daily / ths_member，通常需 TuShare **6000 积分**）拉取热门板块排名，每板块过滤 ST、科创板（688/689）后取前若干只写入自选。**再次填充会先清空上一次「热门自动」条目，不会删除手动自选**；若某代码已是手动，自动列表会跳过。完整东财板块建议 **`akshare`**；`mootdx` 板块覆盖较少。控制台选 TuShare 时会提示填写 **Token**（也可在服务端配置 `TUSHARE_TOKEN`）。预览：`POST /watchlist/hot-sectors/preview`（推荐，Body 可带 `tushare_token`）或 `GET`（Query 亦可传 token，不推荐）；填充：`POST /watchlist/fill-hot-sectors`。
 - **③ 批量更新行情**、**⑤ 变动预览** 只处理自选里的标的；单只股票在 **④** 也可直接查信号（仍需本地有足够 K 线）。
 
 ### ③ 更新行情数据（K 线从哪里来）
@@ -174,9 +175,12 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | GET | `/meta/disclaimer` | 免责与数据源说明 |
 | GET | `/meta/self-use` | 自用工具定位与风控检查摘要（无需 Key） |
 | POST / GET / DELETE | `/journal` … | 决策日志（需 Key 时同其它受保护接口） |
-| GET | `/watchlist` | 列出自选 |
-| POST | `/watchlist` | 添加自选 |
+| GET | `/watchlist` | 列出自选（含 `origin`：手动 / 热门自动） |
+| POST | `/watchlist` | 添加自选（`manual`；若原为热门自动则升级为手动） |
 | DELETE | `/watchlist/{symbol}` | 删除自选 |
+| POST | `/watchlist/fill-hot-sectors` | 按热门板块写入 `auto_hot`（`akshare` / `mootdx` / `tushare`）；响应含 `sectors_detail` |
+| GET | `/watchlist/hot-sectors/preview` | 只读预览（Query）；TuShare 建议改用下方 POST |
+| POST | `/watchlist/hot-sectors/preview` | 只读预览（Body 与填充一致，便于传 `tushare_token`） |
 | GET | `/ingest/test-connection` | 测试本机与 AkShare 数据源连通性（短区间探测） |
 | POST | `/ingest/update` | 更新自选日线；Body 可选 `start_date` / `end_date`（区间或增量规则见 `/docs`） |
 | POST | `/ingest/fundamentals` | （可选）扩展因子入库 |

@@ -62,6 +62,17 @@ class IngestUpdateIn(BaseModel):
     )
 
 
+WatchlistOrigin = Literal["manual", "auto_hot"]
+
+
+class SelectorSectorDataSource(str, Enum):
+    """热门板块/成分股选股路线。"""
+
+    akshare = "akshare"
+    mootdx = "mootdx"
+    tushare = "tushare"
+
+
 class WatchlistIn(BaseModel):
     """POST /watchlist 请求体：原始代码字符串，服务端会规范为 6 位数字。"""
 
@@ -76,6 +87,53 @@ class WatchlistItem(BaseModel):
     """自选列表单项输出。"""
 
     symbol: str
+    origin: WatchlistOrigin = Field(
+        "manual",
+        description="manual=手动添加（刷新热门不会删）；auto_hot=热门板块自动填充（再次填充会先清空此类）",
+    )
+
+
+class FillHotSectorsIn(BaseModel):
+    """POST /watchlist/fill-hot-sectors：按热门板块写入自选（仅新增 auto_hot，不覆盖手动）。"""
+
+    top_sectors: int = Field(5, ge=1, le=200, description="取排名前多少板块（按 get_sector_rankings 行序）")
+    stocks_per_sector: int = Field(5, ge=1, le=50, description="每板块过滤 ST/科创板后至多几只")
+    board_type: str = Field(
+        "all",
+        description="板块类型：all / concept / industry（与核心数据源一致）",
+    )
+    exclude_st: bool = Field(True, description="排除名称含 ST/*ST 的成分股")
+    exclude_kcb: bool = Field(True, description="排除科创板 688/689")
+    selector_data_source: SelectorSectorDataSource = Field(
+        ...,
+        description="akshare（东财板块较全）、mootdx（通达信板块较少）或 tushare（同花顺 ths_index/ths_daily/ths_member，通常需 6000 积分）",
+    )
+    tushare_token: str | None = Field(
+        None,
+        description="selector_data_source=tushare 时必填（除非服务端已配置 TUSHARE_TOKEN / tushare_token）；请勿写入版本库",
+    )
+
+
+class FillHotSectorsSummary(BaseModel):
+    """热门填充结果摘要。"""
+
+    added: int = Field(..., description="本次新写入的 auto_hot 条数")
+    skipped_existing_manual: int = Field(
+        ...,
+        description="已在自选且为手动的代码数（自动列表跳过，不覆盖）",
+    )
+    removed_auto: int = Field(..., description="填充前删除的旧 auto_hot 条数")
+    warnings: list[str] = Field(default_factory=list, description="选股过程中的提示（如某板块成分不足）")
+
+
+class FillHotSectorsOut(BaseModel):
+    """热门板块填充或预览的完整响应。"""
+
+    sectors_detail: list[dict[str, Any]] = Field(
+        ...,
+        description="按热度顺序的板块列表；每项含 sector_rank、sector_metrics、stocks（全列字典）",
+    )
+    summary: FillHotSectorsSummary
 
 
 class DailyBarOut(BaseModel):

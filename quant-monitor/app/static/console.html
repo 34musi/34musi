@@ -176,6 +176,74 @@
     .pill.ok { background: rgba(62, 207, 142, 0.2); color: var(--ok); }
     .pill.warn { background: rgba(201, 184, 124, 0.2); color: #c9b87c; }
     .pill.err { background: rgba(248, 113, 113, 0.15); color: var(--err); }
+    .hot-fill-box {
+      margin: 1rem 0;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .hot-fill-box h3 { margin: 0 0 0.75rem; font-size: 1rem; color: var(--text); }
+    .hot-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.75rem 1rem;
+      align-items: end;
+      margin-bottom: 0.75rem;
+    }
+    .hot-form-grid label { margin-bottom: 0.15rem; }
+    .hot-form-grid input[type="number"], .hot-form-grid select {
+      width: 100%;
+      max-width: none;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .hot-check-row { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.5rem 0 0.75rem; font-size: 0.85rem; color: var(--muted); }
+    .hot-check-row label { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; margin: 0; }
+    .hot-sectors-wrap { margin-top: 1rem; max-height: 560px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem; background: var(--bg); }
+    .hot-sector-d { margin-bottom: 0.65rem; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+    .hot-sector-d > summary {
+      cursor: pointer;
+      padding: 0.5rem 0.65rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      list-style: none;
+    }
+    .hot-sector-d > summary::-webkit-details-marker { display: none; }
+    .hot-sector-body { padding: 0 0.65rem 0.65rem; font-size: 0.82rem; }
+    .hot-metrics-kv { color: var(--muted); line-height: 1.5; margin-bottom: 0.5rem; word-break: break-word; }
+    .hot-kv-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-bottom: 0.75rem; }
+    .hot-kv-table th, .hot-kv-table td { border: 1px solid var(--border); padding: 0.25rem 0.4rem; text-align: left; vertical-align: top; }
+    .hot-kv-table th { color: var(--muted); font-weight: 500; width: 38%; }
+    .hot-stock-block { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border); }
+    .hot-stock-block h5 { margin: 0 0 0.35rem; font-size: 0.82rem; color: var(--text); }
+    dialog.hot-dlg {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 1.25rem;
+      max-width: 440px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+    dialog.hot-dlg::backdrop { background: rgba(0, 0, 0, 0.55); }
+    dialog.hot-dlg label { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted); }
+    dialog.hot-dlg input[type="password"], dialog.hot-dlg input[type="text"] {
+      width: 100%;
+      max-width: none;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .hot-tushare-row { display: none; margin-top: 0.75rem; padding: 0.75rem; border: 1px dashed var(--border); border-radius: 8px; background: rgba(0, 0, 0, 0.12); }
+    .hot-tushare-row.visible { display: block; }
     .ingest-notes { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 0.5rem; }
     .note-field { margin-bottom: 0.75rem; }
     .note-field:last-child { margin-bottom: 0; }
@@ -345,7 +413,64 @@
 
       <section id="panel-2" class="panel" data-module="2">
         <h2>② 管理自选股票</h2>
-        <p class="lead">告诉系统要关注哪些 6 位 A 股代码；拉数据、算信号都基于自选列表。</p>
+        <p class="lead">告诉系统要关注哪些 6 位 A 股代码；拉数据、算信号都基于自选列表。可<strong>手动添加</strong>，也可用下方<strong>热门板块自动填充</strong>：再次填充会<strong>只清空上一次「热门自动」</strong>条目，<strong>不会删除手动添加</strong>。</p>
+        <div class="hot-fill-box">
+          <h3>热门板块自动填充</h3>
+          <p class="lead" style="margin-top:0;font-size:0.8rem;">按核心数据源的热门板块排名，每板块取过滤后前若干只写入自选（来源列为「热门自动」）。<strong>akshare</strong> 东财板块较全；<strong>mootdx</strong> 通达信板块较少；<strong>TuShare</strong> 走同花顺指数（ths_index / ths_daily / ths_member，通常需 <strong>6000 积分</strong>），选后会提示填写 Token。需联网，耗时可较长。</p>
+          <div class="hot-form-grid">
+            <div>
+              <label for="hotTopSectors">热门板块个数</label>
+              <input type="number" id="hotTopSectors" value="5" min="1" max="200" />
+            </div>
+            <div>
+              <label for="hotStocksPerSector">每板块只数</label>
+              <input type="number" id="hotStocksPerSector" value="5" min="1" max="50" />
+            </div>
+            <div>
+              <label for="hotBoardType">板块类型</label>
+              <select id="hotBoardType">
+                <option value="all">全部（概念+行业）</option>
+                <option value="concept">概念</option>
+                <option value="industry">行业</option>
+              </select>
+            </div>
+            <div>
+              <label for="hotSelectorDs">热门数据路线</label>
+              <select id="hotSelectorDs">
+                <option value="akshare" selected>akshare（推荐）</option>
+                <option value="mootdx">mootdx</option>
+                <option value="tushare">TuShare（同花顺板块 · 需 Token）</option>
+              </select>
+            </div>
+          </div>
+          <div id="hotTushareTokenRow" class="hot-tushare-row" aria-live="polite">
+            <label for="hotTushareToken">TuShare Pro Token</label>
+            <input type="password" id="hotTushareToken" placeholder="从 tushare.pro 获取；仅提交到本机服务" autocomplete="off" style="max-width:420px;" />
+            <div class="btns" style="margin-top:0.5rem;">
+              <button type="button" class="secondary" id="btnHotTushareSaveToken">保存 Token 到本机浏览器</button>
+            </div>
+            <p class="lead" style="margin:0.5rem 0 0;font-size:0.75rem;">若已在服务器配置 <code>TUSHARE_TOKEN</code>，可留空。</p>
+          </div>
+          <div class="hot-check-row">
+            <label><input type="checkbox" id="hotExcludeSt" checked /> 排除 ST</label>
+            <label><input type="checkbox" id="hotExcludeKcb" checked /> 排除科创板（688/689）</label>
+          </div>
+          <div class="btns" style="margin-top:0;">
+            <button type="button" class="secondary" id="btnHotPreview">预览热门选股（不写库）</button>
+            <button type="button" class="primary" id="btnHotFill">从热门板块填充自选</button>
+          </div>
+          <p class="lead" id="hotSummaryLine" style="margin-top:0.75rem;font-size:0.8rem;" hidden></p>
+          <div id="hotSectorsWrap" class="hot-sectors-wrap" hidden></div>
+        </div>
+        <dialog id="hotTushareDlg" class="hot-dlg">
+          <p class="lead" style="margin-top:0;font-size:0.88rem;">已选择 <strong>TuShare</strong> 热门路线：请输入 <strong>TuShare Pro Token</strong>（同花顺板块接口，一般需 6000 积分）。Token 只发往当前访问的本机/局域网 API，不会显示在 Swagger URL 里。</p>
+          <label for="hotTushareDlgInput">TuShare Token</label>
+          <input type="password" id="hotTushareDlgInput" autocomplete="off" />
+          <div class="btns" style="margin-top:0.75rem;">
+            <button type="button" class="primary" id="hotTushareDlgOk">确定</button>
+            <button type="button" class="secondary" id="hotTushareDlgCancel">稍后再说</button>
+          </div>
+        </dialog>
         <div class="row">
           <label for="symAdd">股票代码</label>
           <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
@@ -582,7 +707,7 @@
 
   var modules = [
     { id: "1", title: "① 入门必读", hint: "密钥、测试连接、服务信息" },
-    { id: "2", title: "② 管理自选股票", hint: "添加 / 删除 / 列表" },
+    { id: "2", title: "② 管理自选股票", hint: "手动添加 / 热门填充 / 列表" },
     { id: "3", title: "③ 更新行情数据", hint: "拉取日线 / 查K线 / 简易回测" },
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
     { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
@@ -744,6 +869,238 @@
     }
   });
 
+  function escHtml(s) {
+    if (s == null || s === "") return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function hotBuildFillBody() {
+    var tok = ($("hotTushareToken") && $("hotTushareToken").value || "").trim();
+    var body = {
+      top_sectors: parseInt($("hotTopSectors").value, 10) || 5,
+      stocks_per_sector: parseInt($("hotStocksPerSector").value, 10) || 5,
+      board_type: $("hotBoardType").value,
+      exclude_st: $("hotExcludeSt").checked,
+      exclude_kcb: $("hotExcludeKcb").checked,
+      selector_data_source: $("hotSelectorDs").value
+    };
+    if (tok) body.tushare_token = tok;
+    return body;
+  }
+
+  var LS_TUSHARE = "quant_monitor_tushare_token";
+
+  function syncHotTushareTokenRow() {
+    var sel = $("hotSelectorDs");
+    var row = $("hotTushareTokenRow");
+    if (!sel || !row) return;
+    var isTs = sel.value === "tushare";
+    row.classList.toggle("visible", isTs);
+  }
+
+  function openHotTushareDialog() {
+    var dlg = $("hotTushareDlg");
+    var inp = $("hotTushareDlgInput");
+    var main = $("hotTushareToken");
+    if (!dlg || !inp) return;
+    try {
+      var ls = localStorage.getItem(LS_TUSHARE);
+      inp.value = (main && main.value) || ls || "";
+    } catch (e) {
+      inp.value = (main && main.value) || "";
+    }
+    if (typeof dlg.showModal === "function") dlg.showModal();
+  }
+
+  function closeHotTushareDialog() {
+    var dlg = $("hotTushareDlg");
+    if (dlg && typeof dlg.close === "function") dlg.close();
+  }
+
+  function initHotTushareUi() {
+    try {
+      var ls = localStorage.getItem(LS_TUSHARE);
+      if (ls && $("hotTushareToken")) $("hotTushareToken").value = ls;
+    } catch (e) {}
+    syncHotTushareTokenRow();
+    var sel = $("hotSelectorDs");
+    if (sel && !sel._hotTsBound) {
+      sel._hotTsBound = true;
+      sel.addEventListener("change", function () {
+        syncHotTushareTokenRow();
+        if (sel.value === "tushare") {
+          var t = ($("hotTushareToken").value || "").trim();
+          if (!t) openHotTushareDialog();
+        }
+      });
+    }
+    var btnSave = $("btnHotTushareSaveToken");
+    if (btnSave && !btnSave._bound) {
+      btnSave._bound = true;
+      btnSave.addEventListener("click", function () {
+        var t = ($("hotTushareToken").value || "").trim();
+        try {
+          if (t) localStorage.setItem(LS_TUSHARE, t);
+          else localStorage.removeItem(LS_TUSHARE);
+          showOut("out-2", t ? "TuShare Token 已保存到本机浏览器。" : "已清除本机保存的 TuShare Token。", true);
+        } catch (e) {
+          showOut("out-2", "无法写入本地存储：" + String(e), true);
+        }
+      });
+    }
+    var dlgOk = $("hotTushareDlgOk");
+    var dlgCancel = $("hotTushareDlgCancel");
+    if (dlgOk && !dlgOk._bound) {
+      dlgOk._bound = true;
+      dlgOk.addEventListener("click", function () {
+        var v = ($("hotTushareDlgInput").value || "").trim();
+        if ($("hotTushareToken")) $("hotTushareToken").value = v;
+        closeHotTushareDialog();
+      });
+    }
+    if (dlgCancel && !dlgCancel._bound) {
+      dlgCancel._bound = true;
+      dlgCancel.addEventListener("click", closeHotTushareDialog);
+    }
+  }
+
+  function renderHotSectorsDetail(payload) {
+    var wrap = $("hotSectorsWrap");
+    var sumLine = $("hotSummaryLine");
+    if (!wrap || !sumLine) return;
+    var detail = payload.sectors_detail || [];
+    var summ = payload.summary || {};
+    sumLine.hidden = false;
+    var parts = [];
+    if (summ.added != null) {
+      parts.push("新增热门自动：" + summ.added);
+      parts.push("跳过（已是手动）：" + summ.skipped_existing_manual);
+      parts.push("删除旧热门自动：" + summ.removed_auto);
+    }
+    if (summ.warnings && summ.warnings.length) parts.push("提示：" + summ.warnings.join("；"));
+    sumLine.textContent = parts.length ? parts.join(" · ") : "（无摘要）";
+    if (!detail.length) {
+      wrap.innerHTML = "<p class=\"lead\" style=\"margin:0\">暂无板块明细。</p>";
+      wrap.hidden = false;
+      return;
+    }
+    var html = "";
+    detail.forEach(function (block) {
+      var rank = block.sector_rank;
+      var metrics = block.sector_metrics || {};
+      var stocks = block.stocks || [];
+      var name = metrics.sector_name != null ? String(metrics.sector_name) : "（未命名板块）";
+      var sub = [];
+      ["hot_score", "change_pct", "advancers_ratio", "board_type"].forEach(function (k) {
+        if (metrics[k] != null && metrics[k] !== "") sub.push(k + "=" + metrics[k]);
+      });
+      var subLine = sub.length ? escHtml(sub.join(" · ")) : "";
+      html += '<details class="hot-sector-d" open>';
+      html += "<summary>#" + escHtml(rank) + " " + escHtml(name);
+      if (subLine) html += ' <span style="font-weight:400;color:var(--muted);">' + subLine + "</span>";
+      html += "</summary><div class=\"hot-sector-body\">";
+      var mkeys = Object.keys(metrics).filter(function (k) {
+        return metrics[k] != null && metrics[k] !== "";
+      }).sort();
+      if (mkeys.length) {
+        html += '<div class="hot-metrics-kv"><strong>板块指标（全字段）</strong></div>';
+        html += '<table class="hot-kv-table"><tbody>';
+        mkeys.forEach(function (k) {
+          var v = metrics[k];
+          var cell = typeof v === "object" && v !== null ? JSON.stringify(v) : v;
+          html += "<tr><th>" + escHtml(k) + "</th><td>" + escHtml(cell) + "</td></tr>";
+        });
+        html += "</tbody></table>";
+      }
+      stocks.forEach(function (st, idx) {
+        var code = st.code != null ? st.code : st["代码"];
+        var nm = st.name != null ? st.name : st["名称"];
+        var sr = st.stock_rank_in_sector != null ? st.stock_rank_in_sector : idx + 1;
+        var title = "#" + sr + " " + escHtml(code) + " " + escHtml(nm || "");
+        html += '<div class="hot-stock-block"><h5>' + title + "</h5>";
+        html += '<table class="hot-kv-table"><tbody>';
+        Object.keys(st).sort().forEach(function (k) {
+          var v = st[k];
+          var cell = typeof v === "object" && v !== null ? JSON.stringify(v) : v;
+          html += "<tr><th>" + escHtml(k) + "</th><td>" + escHtml(cell) + "</td></tr>";
+        });
+        html += "</tbody></table></div>";
+      });
+      html += "</div></details>";
+    });
+    wrap.innerHTML = html;
+    wrap.hidden = false;
+  }
+
+  async function runHotPreview() {
+    if (!guardKey()) return;
+    var b0 = hotBuildFillBody();
+    if (b0.selector_data_source === "tushare" && !(b0.tushare_token || "").trim()) {
+      openHotTushareDialog();
+      showOut("out-2", "请先填写 TuShare Token（弹窗或下方输入框），或在服务器配置 TUSHARE_TOKEN。", true);
+      return;
+    }
+    var btn = $("btnHotPreview");
+    if (btn) btn.disabled = true;
+    showOut("out-2", "正在预览热门板块…", true);
+    try {
+      var b = hotBuildFillBody();
+      var res = await fetch("/watchlist/hot-sectors/preview", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify(b)
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-2", await formatError(res, body), true);
+        return;
+      }
+      showOut("out-2", "预览成功（未写入数据库）。", true);
+      renderHotSectorsDetail(body);
+    } catch (e) {
+      showOut("out-2", String(e), true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function runHotFill() {
+    if (!guardKey()) return;
+    var bf = hotBuildFillBody();
+    if (bf.selector_data_source === "tushare" && !(bf.tushare_token || "").trim()) {
+      openHotTushareDialog();
+      showOut("out-2", "请先填写 TuShare Token（弹窗或下方输入框），或在服务器配置 TUSHARE_TOKEN。", true);
+      return;
+    }
+    if (!confirm("将删除当前所有「热门自动」自选，并按本次参数重新写入；手动自选会保留。确定？")) return;
+    var btn = $("btnHotFill");
+    if (btn) btn.disabled = true;
+    showOut("out-2", "正在拉取热门板块并写入自选…", true);
+    try {
+      var res = await fetch("/watchlist/fill-hot-sectors", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify(hotBuildFillBody())
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-2", await formatError(res, body), true);
+        return;
+      }
+      showOut("out-2", "填充完成。\n" + JSON.stringify(body.summary, null, 2), true);
+      renderHotSectorsDetail(body);
+      await refreshWatchlistTable();
+    } catch (e) {
+      showOut("out-2", String(e), true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   async function refreshWatchlistTable() {
     var wrap = $("wl-table-wrap");
     var out = $("out-2");
@@ -761,16 +1118,30 @@
     }
     showOut("out-2", "", false);
     if (!Array.isArray(body) || body.length === 0) {
-      wrap.innerHTML = "<p class=\"lead\">暂无自选，请在上方添加。</p>";
+      wrap.innerHTML = "<p class=\"lead\">暂无自选，请在上方添加或尝试热门填充。</p>";
       return;
     }
     var rows = body.map(function (item) {
       var sym = item.symbol;
-      return "<tr><td>" + sym + '</td><td><button type="button" class="link-del" data-sym="' + sym + '">删除</button></td></tr>';
+      var origin = item.origin === "auto_hot" ? "热门自动" : "手动";
+      return (
+        "<tr><td>" +
+        escHtml(sym) +
+        "</td><td>" +
+        origin +
+        '</td><td><button type="button" class="link-del" data-sym="' +
+        escHtml(sym) +
+        '">删除</button></td></tr>'
+      );
     }).join("");
-    wrap.innerHTML = "<table><thead><tr><th>代码</th><th>操作</th></tr></thead><tbody>" + rows + "</tbody></table>";
+    wrap.innerHTML =
+      "<table><thead><tr><th>代码</th><th>来源</th><th>操作</th></tr></thead><tbody>" +
+      rows +
+      "</tbody></table>";
     wrap.querySelectorAll(".link-del").forEach(function (el) {
-      el.addEventListener("click", function () { deleteWl(el.getAttribute("data-sym")); });
+      el.addEventListener("click", function () {
+        deleteWl(el.getAttribute("data-sym"));
+      });
     });
   }
 
@@ -830,6 +1201,11 @@
     try { await refreshWatchlistTable(); } catch (e) { showOut("out-2", String(e), true); }
     finally { btn.disabled = false; }
   });
+
+  var btnHotPreview = $("btnHotPreview");
+  if (btnHotPreview) btnHotPreview.addEventListener("click", runHotPreview);
+  var btnHotFill = $("btnHotFill");
+  if (btnHotFill) btnHotFill.addEventListener("click", runHotFill);
 
   function guardKey() {
     if (apiKeyRequired() && !getApiKey()) {
@@ -2525,8 +2901,13 @@
     });
 
   document.querySelector('.nav-item[data-module="2"]').addEventListener("click", function () {
-    setTimeout(function () { refreshWatchlistTable(); }, 0);
+    setTimeout(function () {
+      initHotTushareUi();
+      refreshWatchlistTable();
+    }, 0);
   });
+
+  initHotTushareUi();
 })();
   </script>
 </body>

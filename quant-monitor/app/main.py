@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,7 +27,15 @@ from slowapi.util import get_remote_address
 from sqlalchemy import delete, select
 
 from app.config import get_settings
-from app.db import DecisionJournalRow, SignalCacheRow, WatchlistRow, init_db, session_scope
+from app.db import (
+    WATCHLIST_ORIGIN_AUTO_HOT,
+    WATCHLIST_ORIGIN_MANUAL,
+    DecisionJournalRow,
+    SignalCacheRow,
+    WatchlistRow,
+    init_db,
+    session_scope,
+)
 from app.fundamentals import upsert_fundamental_snapshot
 from app.ingest import (
     incremental_refresh,
@@ -35,15 +44,20 @@ from app.ingest import (
     normalize_symbol,
     test_akshare_connectivity,
 )
+from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
 from app.schemas import (
     AlertsPreviewIn,
     DailyBarOut,
     DisclaimerOut,
+    FillHotSectorsIn,
+    FillHotSectorsOut,
+    FillHotSectorsSummary,
     ForecastValidateOut,
     IngestDataSource,
     IngestUpdateIn,
     JournalIn,
     JournalOut,
+    SelectorSectorDataSource,
     SelfUseMetaOut,
     SignalOut,
     WatchlistIn,
@@ -211,6 +225,94 @@ def _pre_refresh_symbols(symbols: list[str], *, route: str, pre_refresh: bool) -
             logger.warning("pre_refresh before signal %s route=%s: %s", sym, route, e)
 
 
+def _hot_tushare_token(explicit: str | None) -> str | None:
+    """热门接口用 TuShare token：请求体/Query 优先，其次服务端配置与环境变量。"""
+    raw = (explicit or "").strip()
+    if raw:
+        return raw
+    s = get_settings()
+    cfg = (getattr(s, "tushare_token", None) or "").strip()
+    if cfg:
+        return cfg
+    return (os.getenv("TUSHARE_TOKEN") or "").strip() or None
+
+
+def _resolve_sector_datasource(name: str, *, tushare_token: str | None = None):
+    """热门板块：akshare / mootdx / tushare（同花顺指数，需 token 与积分）。"""
+    key = (name or "").strip().lower()
+    if key == "tushare":
+        token = _hot_tushare_token(tushare_token)
+        if not token:
+            raise HTTPException(
+                status_code=400,
+                detail="使用 TuShare 热门板块请在请求体中传入 tushare_token，或配置环境变量 TUSHARE_TOKEN / 服务端 tushare_token。",
+            )
+        try:
+            return get_data_source("tushare", tushare_token=token)
+        except DataSourceError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+    if key not in ("akshare", "mootdx"):
+        raise HTTPException(
+            status_code=400,
+            detail="热门板块 selector_data_source 须为 akshare、mootdx 或 tushare。",
+        )
+    try:
+        return get_data_source(key)
+    except DataSourceError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+def _run_hot_pick_common(
+    *,
+    top_sectors: int,
+    stocks_per_sector: int,
+    board_type: str,
+    exclude_st: bool,
+    exclude_kcb: bool,
+    selector_data_source: str,
+    tushare_token: str | None = None,
+):
+    ds = _resolve_sector_datasource(selector_data_source, tushare_token=tushare_token)
+    return pick_from_hot_sectors(
+        ds,
+        top_sectors=top_sectors,
+        stocks_per_sector=stocks_per_sector,
+        board_type=board_type,
+        exclude_st=exclude_st,
+        exclude_kcb=exclude_kcb,
+    )
+
+
+def _hot_sectors_preview_payload(
+    *,
+    top_sectors: int,
+    stocks_per_sector: int,
+    board_type: str,
+    exclude_st: bool,
+    exclude_kcb: bool,
+    selector_data_source: str,
+    tushare_token: str | None,
+) -> FillHotSectorsOut:
+    hot = _run_hot_pick_common(
+        top_sectors=top_sectors,
+        stocks_per_sector=stocks_per_sector,
+        board_type=(board_type or "all").strip().lower(),
+        exclude_st=exclude_st,
+        exclude_kcb=exclude_kcb,
+        selector_data_source=selector_data_source,
+        tushare_token=tushare_token,
+    )
+    return FillHotSectorsOut(
+        sectors_detail=hot.sectors_detail,
+        summary=FillHotSectorsSummary(
+            added=0,
+            skipped_existing_manual=0,
+            removed_auto=0,
+            warnings=list(hot.warnings),
+        ),
+    )
+
+
 def _disclaimer_payload() -> DisclaimerOut:
     """组装免责与数据源说明（部分接口与根路径 JSON 复用）。"""
     s = get_settings()
@@ -333,9 +435,8 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
     """列出自选池全部标的（按 id 升序）。"""
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all()
-        # 须在会话内读出标量，否则关闭 Session 后会触发 DetachedInstanceError → 500
-        symbols = [r.symbol for r in rows]
-    return [WatchlistItem(symbol=sym) for sym in symbols]
+        pairs = [(r.symbol, r.origin or WATCHLIST_ORIGIN_MANUAL) for r in rows]
+    return [WatchlistItem(symbol=sym, origin=orig) for sym, orig in pairs]
 
 
 @app.post(
@@ -363,9 +464,11 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
     with session_scope() as s:
         existing = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
         if existing:
-            return WatchlistItem(symbol=sym)
-        s.add(WatchlistRow(symbol=sym))
-    return WatchlistItem(symbol=sym)
+            if existing.origin != WATCHLIST_ORIGIN_MANUAL:
+                existing.origin = WATCHLIST_ORIGIN_MANUAL
+            return WatchlistItem(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL)
+        s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL))
+    return WatchlistItem(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL)
 
 
 @app.delete(
@@ -388,6 +491,138 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
     with session_scope() as s:
         s.execute(delete(WatchlistRow).where(WatchlistRow.symbol == sym))
     return {"ok": True, "symbol": sym}
+
+
+@app.post(
+    "/watchlist/fill-hot-sectors",
+    response_model=FillHotSectorsOut,
+    tags=["② 管理自选股票"],
+    summary="按热门板块自动填充自选（保留手动）",
+    description="""
+按 **get_sector_rankings** 的热度顺序取前 N 个板块，每板块在成分股表行序上过滤 ST/科创板后取前 M 只，写入自选 **origin=auto_hot**。
+
+- **会先删除** 当前所有 `auto_hot` 记录，再写入本次结果；**手动添加**（`manual`）**不会**被删。
+- 若某代码已在自选且为手动，本次自动列表**跳过**（不覆盖、不重复）。
+- **selector_data_source**：**akshare**（东财板块较全）、**mootdx**（通达信板块较少）、**tushare**（同花顺 ths_index / ths_daily / ths_member，通常需 TuShare **6000 积分**）。选 **tushare** 时请在 Body 传 **tushare_token**（或服务端配置 `TUSHARE_TOKEN` / `tushare_token`）。
+
+响应含 **sectors_detail**（板块指标 + 每只股票成分表全列字典），便于核对。
+""",
+)
+@limiter.limit("6/minute")
+def watchlist_fill_hot_sectors(
+    request: Request,
+    body: FillHotSectorsIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    bt = (body.board_type or "all").strip().lower()
+    try:
+        hot = _run_hot_pick_common(
+            top_sectors=body.top_sectors,
+            stocks_per_sector=body.stocks_per_sector,
+            board_type=bt,
+            exclude_st=body.exclude_st,
+            exclude_kcb=body.exclude_kcb,
+            selector_data_source=body.selector_data_source.value,
+            tushare_token=body.tushare_token,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("hot_pick failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"热门板块选股失败：{e}") from e
+
+    warnings = list(hot.warnings)
+    skipped_existing_manual = 0
+    added = 0
+    removed_auto = 0
+    with session_scope() as s:
+        res = s.execute(delete(WatchlistRow).where(WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_HOT))
+        try:
+            removed_auto = int(res.rowcount or 0)
+        except (TypeError, ValueError):
+            removed_auto = 0
+        for sym in hot.symbols_for_watchlist:
+            row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
+            if row is not None:
+                if row.origin == WATCHLIST_ORIGIN_MANUAL:
+                    skipped_existing_manual += 1
+                continue
+            s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT))
+            added += 1
+
+    summary = FillHotSectorsSummary(
+        added=added,
+        skipped_existing_manual=skipped_existing_manual,
+        removed_auto=removed_auto,
+        warnings=warnings,
+    )
+    return FillHotSectorsOut(sectors_detail=hot.sectors_detail, summary=summary)
+
+
+@app.get(
+    "/watchlist/hot-sectors/preview",
+    response_model=FillHotSectorsOut,
+    tags=["② 管理自选股票"],
+    summary="预览热门板块选股（不写库，Query）",
+    description="参数与 POST `/watchlist/fill-hot-sectors` 一致（Query）。**TuShare** 时建议改用 **POST** `/watchlist/hot-sectors/preview` 在 Body 传 `tushare_token`，避免 token 出现在 URL。",
+)
+@limiter.limit("12/minute")
+def watchlist_hot_sectors_preview(
+    request: Request,
+    top_sectors: int = Query(5, ge=1, le=200),
+    stocks_per_sector: int = Query(5, ge=1, le=50),
+    board_type: str = Query("all"),
+    exclude_st: bool = Query(True),
+    exclude_kcb: bool = Query(True),
+    selector_data_source: SelectorSectorDataSource = Query(..., description="akshare、mootdx 或 tushare"),
+    tushare_token: str | None = Query(None, description="TuShare 时可选；优先于服务端环境变量"),
+    _: None = Depends(optional_api_key),
+):
+    try:
+        return _hot_sectors_preview_payload(
+            top_sectors=top_sectors,
+            stocks_per_sector=stocks_per_sector,
+            board_type=board_type,
+            exclude_st=exclude_st,
+            exclude_kcb=exclude_kcb,
+            selector_data_source=selector_data_source.value,
+            tushare_token=tushare_token,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("hot_pick preview failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"热门板块预览失败：{e}") from e
+
+
+@app.post(
+    "/watchlist/hot-sectors/preview",
+    response_model=FillHotSectorsOut,
+    tags=["② 管理自选股票"],
+    summary="预览热门板块选股（不写库，Body）",
+    description="请求体与 `POST /watchlist/fill-hot-sectors` 相同字段；**不写库**。控制台与 TuShare 推荐走本接口以便安全传递 `tushare_token`。",
+)
+@limiter.limit("12/minute")
+def watchlist_hot_sectors_preview_post(
+    request: Request,
+    body: FillHotSectorsIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    try:
+        return _hot_sectors_preview_payload(
+            top_sectors=body.top_sectors,
+            stocks_per_sector=body.stocks_per_sector,
+            board_type=body.board_type,
+            exclude_st=body.exclude_st,
+            exclude_kcb=body.exclude_kcb,
+            selector_data_source=body.selector_data_source.value,
+            tushare_token=body.tushare_token,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("hot_pick preview post failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"热门板块预览失败：{e}") from e
 
 
 @app.post(

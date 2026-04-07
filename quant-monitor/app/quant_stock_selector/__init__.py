@@ -18,6 +18,7 @@ from .datasources import (
 )
 from .evaluation import evaluate_stock
 from .exceptions import DataSourceError
+from .hot_pick import HotPickResult, pick_from_hot_sectors
 from .export_io import export_results, print_stock_rankings
 from .histories import collect_histories
 from .market_utils import (
@@ -63,7 +64,9 @@ __all__ = [
     "evaluate_screen",
     "evaluate_stock",
     "export_results",
+    "HotPickResult",
     "get_data_source",
+    "pick_from_hot_sectors",
     "load_local_history",
     "load_sector_constituents",
     "main",
