@@ -696,6 +696,84 @@
         </div>
         <pre class="out" id="out-7" hidden></pre>
       </section>
+
+      <section id="panel-9" class="panel" data-module="9">
+        <h2>⑨ 量化选股（脚本同构）</h2>
+        <p class="lead">
+          对应仓库根目录 <code>quant_stock_selector.py</code> 与包 <code>app.quant_stock_selector</code>：<strong>热门板块</strong>（或指定板块 / 自定义代码）→ 拉日线 →
+          <strong>技术面初筛</strong> + <strong>双均线回测</strong> → <strong>综合分</strong>。会<strong>大量联网请求</strong>，耗时长，请勿频繁点击。非投资建议。
+        </p>
+        <div class="hot-fill-box" style="margin-top:0;">
+          <div class="hot-form-grid">
+            <div>
+              <label for="qssDataSource">数据源</label>
+              <select id="qssDataSource">
+                <option value="mootdx">mootdx（通达信，较稳）</option>
+                <option value="akshare" selected>akshare（东财，板块更全）</option>
+                <option value="tushare">tushare（需 Token）</option>
+              </select>
+            </div>
+            <div>
+              <label for="qssBoardType">板块类型</label>
+              <select id="qssBoardType">
+                <option value="all" selected>全部</option>
+                <option value="concept">概念</option>
+                <option value="industry">行业</option>
+              </select>
+            </div>
+            <div>
+              <label for="qssTopSectors">热门板块数</label>
+              <input type="number" id="qssTopSectors" value="5" min="1" max="60" />
+            </div>
+            <div>
+              <label for="qssMaxPerSector">每板块最多分析只数</label>
+              <input type="number" id="qssMaxPerSector" value="8" min="1" max="100" />
+            </div>
+            <div>
+              <label for="qssStart">开始日期</label>
+              <input type="date" id="qssStart" />
+            </div>
+            <div>
+              <label for="qssEnd">结束日期</label>
+              <input type="date" id="qssEnd" />
+            </div>
+            <div>
+              <label for="qssFast">快均线</label>
+              <input type="number" id="qssFast" value="10" min="2" max="120" />
+            </div>
+            <div>
+              <label for="qssSlow">慢均线</label>
+              <input type="number" id="qssSlow" value="30" min="3" max="250" />
+            </div>
+            <div>
+              <label for="qssTopLimit">返回股票条数上限</label>
+              <input type="number" id="qssTopLimit" value="40" min="1" max="500" />
+            </div>
+          </div>
+          <div id="qssTushareRow" class="hot-tushare-row" style="display:none;">
+            <label for="qssTushareToken">TuShare Token（可与②共用本机保存）</label>
+            <input type="password" id="qssTushareToken" placeholder="可选；未填则试服务端环境变量" autocomplete="off" style="max-width:420px;" />
+          </div>
+          <div class="row" style="margin-top:0.75rem;">
+            <label for="qssSector">仅分析指定板块（可选，与下方自定义代码二选一）</label>
+            <input type="text" id="qssSector" placeholder="留空则按热门板块模式" style="max-width:360px;" />
+          </div>
+          <div class="row">
+            <label for="qssSymbols">自定义代码（可选，每行或逗号分隔 6 位）</label>
+            <textarea id="qssSymbols" rows="3" placeholder="例如：600519&#10;000001,300750" style="width:100%;max-width:520px;padding:0.5rem;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:0.88rem;"></textarea>
+          </div>
+          <div class="hot-check-row">
+            <label><input type="checkbox" id="qssOnlyPassed" /> 仅返回技术面初筛通过</label>
+          </div>
+          <div class="btns">
+            <button type="button" class="primary" id="btnSectorScreen">运行选股评估</button>
+          </div>
+        </div>
+        <p class="lead" id="qssNoteLine" style="font-size:0.8rem;margin-top:0.5rem;" hidden></p>
+        <div id="qssSectorsWrap" class="signals-table-wrap" style="display:none;margin-top:0.75rem;"></div>
+        <div id="qssStocksWrap" class="signals-table-wrap" style="display:none;margin-top:0.75rem;"></div>
+        <pre class="out" id="out-9" hidden></pre>
+      </section>
     </main>
   </div>
 
@@ -712,7 +790,8 @@
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
     { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
     { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" },
-    { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" }
+    { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" },
+    { id: "9", title: "⑨ 量化选股", hint: "quant_stock_selector 脚本流水线" }
   ];
 
   function $(id) { return document.getElementById(id); }
@@ -802,7 +881,7 @@
       var data = await readBody(res);
       window.__apiKeyRequired = !!(data && data.api_key_required);
       if (window.__apiKeyRequired) {
-        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑦。<span class="status-pill warn">需密钥</span>';
+        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑨。<span class="status-pill warn">需密钥</span>';
       } else {
         banner.innerHTML = '当前服务器<strong>未启用</strong> API Key，可直接使用各模块（仍可在下方保存备用）。<span class="status-pill ok">无需密钥</span>';
       }
@@ -878,6 +957,169 @@
       .replace(/"/g, "&quot;");
   }
 
+  var LS_TUSHARE = "quant_monitor_tushare_token";
+
+  function initQssDates() {
+    var end = $("qssEnd");
+    var start = $("qssStart");
+    if (!end || !start) return;
+    var t = new Date().toISOString().slice(0, 10);
+    end.max = t;
+    start.max = t;
+    if (!end.value) end.value = t;
+    if (!start.value) start.value = "2023-01-01";
+  }
+
+  function syncQssTushareRow() {
+    var row = $("qssTushareRow");
+    var ds = $("qssDataSource");
+    if (!row || !ds) return;
+    row.style.display = ds.value === "tushare" ? "block" : "none";
+  }
+
+  function parseQssSymbols(raw) {
+    if (!raw || !String(raw).trim()) return null;
+    var out = [];
+    var seen = {};
+    String(raw).split(/[\r\n,;，；\s]+/).forEach(function (chunk) {
+      var d = String(chunk).replace(/\D/g, "");
+      if (d.length >= 6) {
+        var c = d.slice(-6);
+        if (!seen[c]) {
+          seen[c] = true;
+          out.push(c);
+        }
+      }
+    });
+    return out.length ? out : null;
+  }
+
+  function buildSectorScreenPayload() {
+    var sector = ($("qssSector") && $("qssSector").value || "").trim();
+    var syms = $("qssSymbols") ? parseQssSymbols($("qssSymbols").value) : null;
+    var body = {
+      data_source: $("qssDataSource").value,
+      board_type: $("qssBoardType").value,
+      top_sectors: parseInt($("qssTopSectors").value, 10) || 5,
+      max_stocks_per_sector: parseInt($("qssMaxPerSector").value, 10) || 8,
+      start_date: ($("qssStart").value || "").replace(/-/g, ""),
+      end_date: ($("qssEnd").value || "").replace(/-/g, ""),
+      fast_period: parseInt($("qssFast").value, 10) || 10,
+      slow_period: parseInt($("qssSlow").value, 10) || 30,
+      only_passed: $("qssOnlyPassed").checked,
+      top_stocks_limit: parseInt($("qssTopLimit").value, 10) || 40
+    };
+    if (sector) body.sector = sector;
+    if (syms) body.symbols = syms;
+    if (body.data_source === "tushare") {
+      var tok = ($("qssTushareToken").value || "").trim();
+      if (tok) body.tushare_token = tok;
+    }
+    return body;
+  }
+
+  function buildQssHtmlTable(rows, keys, headers) {
+    var th = keys.map(function (k) {
+      return "<th>" + escHtml(headers[k] || k) + "</th>";
+    }).join("");
+    var trs = rows.map(function (row) {
+      return (
+        "<tr>" +
+        keys
+          .map(function (k) {
+            var v = row[k];
+            if (v === true || v === false) v = v ? "是" : "否";
+            if (v == null) v = "—";
+            return "<td>" + escHtml(String(v)) + "</td>";
+          })
+          .join("") +
+        "</tr>"
+      );
+    }).join("");
+    return (
+      '<div style="overflow-x:auto"><table class="signals-main-table"><thead><tr>' +
+      th +
+      "</tr></thead><tbody>" +
+      trs +
+      "</tbody></table></div>"
+    );
+  }
+
+  function renderSectorScreenOut(data) {
+    var secW = $("qssSectorsWrap");
+    var stW = $("qssStocksWrap");
+    var note = $("qssNoteLine");
+    var nSt = (data.stocks && data.stocks.length) || 0;
+    var tot = data.stocks_total != null ? data.stocks_total : nSt;
+    if (note) {
+      note.textContent =
+        (data.note || "") + " 共 " + tot + " 只股票；表格展示 " + nSt + " 条。" + (data.disclaimer ? " " + data.disclaimer : "");
+      note.hidden = false;
+    }
+    if (secW) {
+      var ss = data.sectors || [];
+      if (!ss.length) secW.innerHTML = "<p class=\"lead\">无板块数据。</p>";
+      else {
+        var cols = [
+          "sector_name",
+          "board_type",
+          "hot_score",
+          "change_pct",
+          "advancers_ratio",
+          "leader_change_pct",
+          "turnover_rate",
+          "source"
+        ];
+        var headers = {
+          sector_name: "板块",
+          board_type: "类型",
+          hot_score: "热度",
+          change_pct: "涨跌%",
+          advancers_ratio: "上涨占比%",
+          leader_change_pct: "龙头%",
+          turnover_rate: "流动性",
+          source: "来源"
+        };
+        secW.innerHTML = '<h3 class="ingest-h3">板块列表</h3>' + buildQssHtmlTable(ss, cols, headers);
+      }
+      secW.style.display = "block";
+    }
+    if (stW) {
+      var st = data.stocks || [];
+      if (!st.length) stW.innerHTML = "<p class=\"lead\">无股票结果（行情不足或未通过筛选）。</p>";
+      else {
+        var c2 = [
+          "code",
+          "name",
+          "sector_name",
+          "screen_passed",
+          "final_score",
+          "screen_score",
+          "annual_return_pct",
+          "max_drawdown_pct",
+          "sharpe_ratio",
+          "trade_count",
+          "win_rate_pct"
+        ];
+        var h2 = {
+          code: "代码",
+          name: "名称",
+          sector_name: "板块",
+          screen_passed: "初筛",
+          final_score: "综合分",
+          screen_score: "技术分",
+          annual_return_pct: "年化%",
+          max_drawdown_pct: "回撤%",
+          sharpe_ratio: "夏普",
+          trade_count: "交易次数",
+          win_rate_pct: "胜率%"
+        };
+        stW.innerHTML = '<h3 class="ingest-h3">候选股票</h3>' + buildQssHtmlTable(st, c2, h2);
+      }
+      stW.style.display = "block";
+    }
+  }
+
   function hotBuildFillBody() {
     var tok = ($("hotTushareToken") && $("hotTushareToken").value || "").trim();
     var body = {
@@ -891,8 +1133,6 @@
     if (tok) body.tushare_token = tok;
     return body;
   }
-
-  var LS_TUSHARE = "quant_monitor_tushare_token";
 
   function syncHotTushareTokenRow() {
     var sel = $("hotSelectorDs");
@@ -1123,10 +1363,13 @@
     }
     var rows = body.map(function (item) {
       var sym = item.symbol;
+      var nm = item.name != null && String(item.name).trim() ? escHtml(String(item.name).trim()) : "—";
       var origin = item.origin === "auto_hot" ? "热门自动" : "手动";
       return (
         "<tr><td>" +
         escHtml(sym) +
+        "</td><td>" +
+        nm +
         "</td><td>" +
         origin +
         '</td><td><button type="button" class="link-del" data-sym="' +
@@ -1135,7 +1378,7 @@
       );
     }).join("");
     wrap.innerHTML =
-      "<table><thead><tr><th>代码</th><th>来源</th><th>操作</th></tr></thead><tbody>" +
+      "<table><thead><tr><th>代码</th><th>名称</th><th>来源</th><th>操作</th></tr></thead><tbody>" +
       rows +
       "</tbody></table>";
     wrap.querySelectorAll(".link-del").forEach(function (el) {
@@ -1206,6 +1449,59 @@
   if (btnHotPreview) btnHotPreview.addEventListener("click", runHotPreview);
   var btnHotFill = $("btnHotFill");
   if (btnHotFill) btnHotFill.addEventListener("click", runHotFill);
+
+  var qssDs = $("qssDataSource");
+  if (qssDs)
+    qssDs.addEventListener("change", function () {
+      syncQssTushareRow();
+    });
+
+  var btnSectorScreen = $("btnSectorScreen");
+  if (btnSectorScreen) {
+    btnSectorScreen.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      var btn = $("btnSectorScreen");
+      var payload = buildSectorScreenPayload();
+      if (payload.data_source === "tushare" && !payload.tushare_token) {
+        try {
+          var ls = localStorage.getItem(LS_TUSHARE);
+          if (ls && $("qssTushareToken")) $("qssTushareToken").value = ls;
+        } catch (e) {}
+        payload = buildSectorScreenPayload();
+      }
+      if (payload.data_source === "tushare" && !payload.tushare_token) {
+        showOut("out-9", "TuShare 需要 Token：请填写上方输入框，或在②保存 Token 到本机，或服务器配置 TUSHARE_TOKEN。", true);
+        return;
+      }
+      if (!payload.start_date || !payload.end_date) {
+        showOut("out-9", "请选择开始与结束日期。", true);
+        return;
+      }
+      btn.disabled = true;
+      showOut("out-9", "运行中（可能较慢，请稍候）…", true);
+      $("qssSectorsWrap").style.display = "none";
+      $("qssStocksWrap").style.display = "none";
+      $("qssNoteLine").hidden = true;
+      try {
+        var res = await fetch("/research/sector-screen", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+          body: JSON.stringify(payload)
+        });
+        var body = await readBody(res);
+        if (!res.ok) {
+          showOut("out-9", await formatError(res, body), true);
+          return;
+        }
+        showOut("out-9", "", false);
+        renderSectorScreenOut(body);
+      } catch (e) {
+        showOut("out-9", String(e), true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
 
   function guardKey() {
     if (apiKeyRequired() && !getApiKey()) {
@@ -2907,7 +3203,23 @@
     }, 0);
   });
 
+  var nav9 = document.querySelector('.nav-item[data-module="9"]');
+  if (nav9) {
+    nav9.addEventListener("click", function () {
+      setTimeout(function () {
+        initQssDates();
+        syncQssTushareRow();
+        try {
+          var ls = localStorage.getItem(LS_TUSHARE);
+          if (ls && $("qssTushareToken") && !$("qssTushareToken").value) $("qssTushareToken").value = ls;
+        } catch (e) {}
+      }, 0);
+    });
+  }
+
   initHotTushareUi();
+  initQssDates();
+  syncQssTushareRow();
 })();
   </script>
 </body>

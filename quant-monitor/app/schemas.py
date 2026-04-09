@@ -8,7 +8,7 @@ from datetime import date
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 TrendRegime = Literal["bullish", "sideways", "bearish"]
 StrengthRegime = Literal["strong", "neutral", "weak"]
@@ -87,6 +87,7 @@ class WatchlistItem(BaseModel):
     """自选列表单项输出。"""
 
     symbol: str
+    name: str = Field("", description="证券简称；未知或未解析时为空字符串")
     origin: WatchlistOrigin = Field(
         "manual",
         description="manual=手动添加（刷新热门不会删）；auto_hot=热门板块自动填充（再次填充会先清空此类）",
@@ -134,6 +135,91 @@ class FillHotSectorsOut(BaseModel):
         description="按热度顺序的板块列表；每项含 sector_rank、sector_metrics、stocks（全列字典）",
     )
     summary: FillHotSectorsSummary
+
+
+class SectorScreenDataSource(str, Enum):
+    """与命令行 `quant_stock_selector.py --data-source` 一致。"""
+
+    akshare = "akshare"
+    tushare = "tushare"
+    mootdx = "mootdx"
+
+
+class SectorScreenIn(BaseModel):
+    """
+    对应仓库根目录 `quant_stock_selector.py` / 包 `app.quant_stock_selector` 的流水线：
+    热门板块或指定板块/代码列表 → 拉行情 → 技术面初筛 + 双均线回测 → 综合分。
+    """
+
+    data_source: SectorScreenDataSource = Field(
+        SectorScreenDataSource.mootdx,
+        description="行情与板块数据源；akshare 板块最全，mootdx 更稳，tushare 需 token",
+    )
+    tushare_token: str | None = Field(None, description="data_source=tushare 时使用，或服务端已配置 TUSHARE_TOKEN")
+    board_type: Literal["all", "concept", "industry"] = "all"
+    top_sectors: int = Field(5, ge=1, le=60, description="热门板块模式下取前 N 个板块")
+    max_stocks_per_sector: int = Field(
+        8,
+        ge=1,
+        le=100,
+        description="每板块（或自定义列表视为单池）最多分析几只，宜小以免超时",
+    )
+    start_date: str = Field(
+        "20230101",
+        description="历史行情起始 YYYYMMDD（可传 YYYY-MM-DD，服务端会规范化）",
+    )
+    end_date: str = Field(
+        default_factory=lambda: date.today().strftime("%Y%m%d"),
+        description="历史行情结束 YYYYMMDD",
+    )
+    sector: str | None = Field(
+        None,
+        max_length=128,
+        description="若填写则只分析该板块（与热门模式互斥）；与 symbols 互斥",
+    )
+    symbols: list[str] | None = Field(
+        None,
+        description="自定义 6 位代码列表（与 sector、默认热门模式互斥）；等价于 --codes CSV",
+    )
+    adjust: str = Field("qfq", description="复权方式，AkShare 常用 qfq")
+    fast_period: int = Field(10, ge=2, le=120)
+    slow_period: int = Field(30, ge=3, le=250)
+    initial_cash: float = Field(100_000.0, gt=0)
+    commission: float = Field(0.001, ge=0, le=0.05)
+    stop_loss: float = Field(0.08, gt=0, le=0.5)
+    only_passed: bool = Field(False, description="为 true 时仅保留技术面初筛通过的股票")
+    top_stocks_limit: int = Field(40, ge=1, le=500, description="响应中最多返回多少条股票结果")
+
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
+    def _norm_ymd(cls, v: object) -> str:
+        if v is None:
+            return date.today().strftime("%Y%m%d")
+        s = str(v).strip().replace("-", "")
+        if len(s) != 8 or not s.isdigit():
+            raise ValueError("start_date/end_date 须为 YYYYMMDD 或 YYYY-MM-DD")
+        return s
+
+    @model_validator(mode="after")
+    def _exclusive_modes(self):
+        if self.symbols and self.sector:
+            raise ValueError("不能同时指定 symbols 与 sector")
+        if self.symbols is not None and len(self.symbols) > 500:
+            raise ValueError("symbols 最多 500 条")
+        return self
+
+
+class SectorScreenOut(BaseModel):
+    """选股流水线 JSON 结果。"""
+
+    sectors: list[dict[str, Any]]
+    stocks: list[dict[str, Any]]
+    stocks_total: int
+    disclaimer: str
+    note: str = Field(
+        "",
+        description="与命令行脚本差异说明（若有）",
+    )
 
 
 class DailyBarOut(BaseModel):

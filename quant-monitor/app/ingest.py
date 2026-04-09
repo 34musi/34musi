@@ -829,6 +829,40 @@ def fetch_stock_name(symbol: str) -> str | None:
     return None
 
 
+def fetch_stock_names_map(symbols: list[str]) -> dict[str, str]:
+    """
+    批量解析证券简称：一次拉取 A 股代码表，再筛出 symbols 子集。
+
+    失败或缺列时返回空 dict；与 fetch_stock_name 的第二段逻辑一致，避免列表页 N 次请求。
+    """
+    wanted: set[str] = set()
+    for raw in symbols:
+        try:
+            wanted.add(normalize_symbol(raw))
+        except ValueError:
+            continue
+    if not wanted:
+        return {}
+    try:
+        tab = ak.stock_info_a_code_name()
+        if tab is None or tab.empty or "code" not in tab.columns or "name" not in tab.columns:
+            return {}
+        codes = tab["code"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+        names = tab["name"]
+        out: dict[str, str] = {}
+        for i in range(len(tab)):
+            c = str(codes.iloc[i])
+            if c not in wanted:
+                continue
+            n2 = names.iloc[i]
+            if n2 is not None and pd.notna(n2) and str(n2).strip():
+                out[c] = str(n2).strip()
+        return out
+    except Exception:
+        logger.debug("fetch_stock_names_map failed", exc_info=True)
+        return {}
+
+
 def is_trade_day(d: date | None = None) -> bool:
     """
     使用新浪交易日历近似判断某日是否交易日（依赖 akshare 内部请求）。

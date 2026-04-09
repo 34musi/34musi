@@ -7,11 +7,15 @@ FastAPI 应用入口：健康检查、自选池、行情摄取、信号查询、
 
 from __future__ import annotations
 
+import argparse
+import csv
 import json
 import logging
 import os
+import tempfile
 import time
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from pathlib import Path
 
 from datetime import date, datetime, timezone
@@ -38,6 +42,8 @@ from app.db import (
 )
 from app.fundamentals import upsert_fundamental_snapshot
 from app.ingest import (
+    fetch_stock_name,
+    fetch_stock_names_map,
     incremental_refresh,
     ingest_symbol_range,
     list_bars_from_db,
@@ -45,6 +51,8 @@ from app.ingest import (
     test_akshare_connectivity,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
+from app.quant_stock_selector.cli import validate_args
+from app.quant_stock_selector.pipeline import run_analysis
 from app.schemas import (
     AlertsPreviewIn,
     DailyBarOut,
@@ -57,6 +65,9 @@ from app.schemas import (
     IngestUpdateIn,
     JournalIn,
     JournalOut,
+    SectorScreenDataSource,
+    SectorScreenIn,
+    SectorScreenOut,
     SelectorSectorDataSource,
     SelfUseMetaOut,
     SignalOut,
@@ -151,6 +162,10 @@ OPENAPI_TAGS = [
     {
         "name": "⑧ 研究：预测验证",
         "description": "本地日线 walk-forward：双均线 + Logistic + 规则 + 基线；附学习路线说明（pandas/numpy 回测叙事）。非投资建议。",
+    },
+    {
+        "name": "⑨ 量化选股（脚本）",
+        "description": "与仓库 `quant_stock_selector.py` / `app.quant_stock_selector` 同构：热门板块或指定板块/代码 → 拉行情 → 技术面 + 双均线回测 → 综合分。联网多、耗时长。非投资建议。",
     },
 ]
 
@@ -260,6 +275,29 @@ def _resolve_sector_datasource(name: str, *, tushare_token: str | None = None):
         return get_data_source(key)
     except DataSourceError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+def _names_from_hot_sectors_detail(sectors_detail: list[dict]) -> dict[str, str]:
+    """从热门选股明细里汇总 code→name（同代码保留首次）。"""
+    out: dict[str, str] = {}
+    for bundle in sectors_detail:
+        for st in bundle.get("stocks") or []:
+            if not isinstance(st, dict):
+                continue
+            raw = st.get("code") if st.get("code") is not None else st.get("代码")
+            if raw is None:
+                continue
+            try:
+                code = normalize_symbol(str(raw))
+            except ValueError:
+                continue
+            nm_raw = st.get("name") if st.get("name") is not None else st.get("名称")
+            nm = str(nm_raw).strip() if nm_raw is not None else ""
+            if nm.lower() == "nan":
+                nm = ""
+            if code not in out and nm:
+                out[code] = nm
+    return out
 
 
 def _run_hot_pick_common(
@@ -435,8 +473,21 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
     """列出自选池全部标的（按 id 升序）。"""
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all()
-        pairs = [(r.symbol, r.origin or WATCHLIST_ORIGIN_MANUAL) for r in rows]
-    return [WatchlistItem(symbol=sym, origin=orig) for sym, orig in pairs]
+        missing = [r.symbol for r in rows if not (r.name or "").strip()]
+        if missing:
+            by_sym = {r.symbol: r for r in rows}
+            for sym, nm in fetch_stock_names_map(missing).items():
+                r = by_sym.get(sym)
+                if r is not None and not (r.name or "").strip():
+                    r.name = nm
+        return [
+            WatchlistItem(
+                symbol=r.symbol,
+                name=(r.name or "").strip(),
+                origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
+            )
+            for r in rows
+        ]
 
 
 @app.post(
@@ -466,9 +517,16 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
         if existing:
             if existing.origin != WATCHLIST_ORIGIN_MANUAL:
                 existing.origin = WATCHLIST_ORIGIN_MANUAL
-            return WatchlistItem(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL)
-        s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL))
-    return WatchlistItem(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL)
+            if not (existing.name or "").strip():
+                existing.name = fetch_stock_name(sym) or ""
+            return WatchlistItem(
+                symbol=sym,
+                name=(existing.name or "").strip(),
+                origin=WATCHLIST_ORIGIN_MANUAL,
+            )
+        nm = fetch_stock_name(sym) or ""
+        s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL, name=nm))
+        return WatchlistItem(symbol=sym, name=nm.strip(), origin=WATCHLIST_ORIGIN_MANUAL)
 
 
 @app.delete(
@@ -535,6 +593,7 @@ def watchlist_fill_hot_sectors(
     skipped_existing_manual = 0
     added = 0
     removed_auto = 0
+    hot_names = _names_from_hot_sectors_detail(hot.sectors_detail)
     with session_scope() as s:
         res = s.execute(delete(WatchlistRow).where(WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_HOT))
         try:
@@ -547,7 +606,8 @@ def watchlist_fill_hot_sectors(
                 if row.origin == WATCHLIST_ORIGIN_MANUAL:
                     skipped_existing_manual += 1
                 continue
-            s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT))
+            nm = (hot_names.get(sym) or "").strip()
+            s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT, name=nm))
             added += 1
 
     summary = FillHotSectorsSummary(
@@ -936,6 +996,129 @@ def research_forecast_validate(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
+    """执行选股流水线；symbols 模式写临时 CSV，等价命令行 --codes。"""
+    tmp_codes: Path | None = None
+    try:
+        if body.data_source == SectorScreenDataSource.tushare:
+            tok = _hot_tushare_token(body.tushare_token)
+            if not tok:
+                raise HTTPException(
+                    status_code=400,
+                    detail="data_source=tushare 时请传 tushare_token，或配置 TUSHARE_TOKEN / 服务端 tushare_token。",
+                )
+            tushare_token_resolved = tok
+        else:
+            tushare_token_resolved = body.tushare_token
+
+        if body.symbols:
+            norm: list[str] = []
+            seen: set[str] = set()
+            for raw in body.symbols:
+                if raw is None or not str(raw).strip():
+                    continue
+                try:
+                    c = normalize_symbol(str(raw))
+                except ValueError:
+                    continue
+                if c not in seen:
+                    seen.add(c)
+                    norm.append(c)
+            if not norm:
+                raise HTTPException(status_code=400, detail="symbols 中无有效 A 股代码")
+            fd, tpath = tempfile.mkstemp(suffix=".csv", text=True)
+            os.close(fd)
+            tmp_codes = Path(tpath)
+            with tmp_codes.open("w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["code"])
+                for c in norm:
+                    w.writerow([c])
+            hot_sectors = False
+            sector_name = None
+            codes_arg = tmp_codes
+        elif body.sector and body.sector.strip():
+            hot_sectors = False
+            sector_name = body.sector.strip()
+            codes_arg = None
+        else:
+            hot_sectors = True
+            sector_name = None
+            codes_arg = None
+
+        ns = argparse.Namespace(
+            data_source=body.data_source.value,
+            tushare_token=tushare_token_resolved,
+            hot_sectors=hot_sectors,
+            sector=sector_name,
+            codes=codes_arg,
+            data_dir=None,
+            board_type=body.board_type,
+            top_sectors=body.top_sectors,
+            max_stocks_per_sector=body.max_stocks_per_sector,
+            start_date=body.start_date,
+            end_date=body.end_date,
+            adjust=body.adjust,
+            fast_period=body.fast_period,
+            slow_period=body.slow_period,
+            initial_cash=body.initial_cash,
+            commission=body.commission,
+            stop_loss=body.stop_loss,
+            only_passed=body.only_passed,
+            top_stocks=body.top_stocks_limit,
+            output=None,
+        )
+        validate_args(ns)
+        sectors, stocks = run_analysis(ns)
+    except HTTPException:
+        raise
+    except DataSourceError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("sector-screen failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"选股流水线失败：{e}") from e
+    finally:
+        if tmp_codes is not None and tmp_codes.is_file():
+            tmp_codes.unlink(missing_ok=True)
+
+    d = _disclaimer_payload()
+    lim = max(1, body.top_stocks_limit)
+    stock_rows = [asdict(s) for s in stocks[:lim]]
+    return SectorScreenOut(
+        sectors=[asdict(s) for s in sectors],
+        stocks=stock_rows,
+        stocks_total=len(stocks),
+        disclaimer=d.disclaimer,
+        note="与根目录 `quant_stock_selector.py` 及包 `app.quant_stock_selector` 流水线一致（技术面初筛 + 双均线回测 + 综合分）。请求会大量拉取行情，请勿频繁触发。",
+    )
+
+
+@app.post(
+    "/research/sector-screen",
+    response_model=SectorScreenOut,
+    tags=["⑨ 量化选股（脚本）"],
+    summary="热门板块选股（脚本同款流水线）",
+    description="""
+对应命令行 **`quant_stock_selector.py`** / 包 **`app.quant_stock_selector`**：
+
+1. 拉取热门板块（或指定 **sector**、或 **symbols** 自定义列表）；
+2. 取成分股，按 `start_date`～`end_date` 拉日线（优先本地 `data_dir` 在 CLI 中有，API 固定仅走网络数据源）；
+3. 技术面初筛（`evaluate_screen`）+ 双均线回测（`run_sma_backtest`）合成 **final_score**。
+
+**注意**：会对多只股票依次请求行情，**耗时长**、易受数据源限流；请将 `max_stocks_per_sector`、`top_sectors` 控制在合理范围。
+
+**TuShare** 须 `tushare_token` 或服务端 token 配置。**不构成投资建议**。
+""",
+)
+@limiter.limit("3/minute")
+def research_sector_screen(
+    request: Request,
+    body: SectorScreenIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    return _run_sector_screen(body)
+
+
 @app.post(
     "/alerts/preview",
     tags=["⑤ 变动预览"],
@@ -1141,6 +1324,7 @@ def root():
             "self_use": "/meta/self-use",
             "journal": "/journal",
             "research_forecast_validate": "/research/forecast-validate",
+            "research_sector_screen": "/research/sector-screen",
             "disclaimer": d.disclaimer,
             "data_source_note": d.data_source_note,
         }

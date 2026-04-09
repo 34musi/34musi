@@ -3,7 +3,7 @@
 
 表含义：
 - bars：按 symbol + trade_date 唯一的日线 OHLCV。
-- watchlist：用户监控的 6 位 A 股代码列表；origin=manual 为手动保留，auto_hot 为热门板块自动填充（刷新热门时只删后者）。
+- watchlist：用户监控的 6 位 A 股代码列表；name 为证券简称（展示用）；origin=manual 为手动保留，auto_hot 为热门板块自动填充（刷新热门时只删后者）。
 - signal_cache：告警预览用的「上一版信号」JSON 快照。
 - fundamental_snapshots：自选扩展因子快照（估值、财务同比、主力净流入等），供信号合成使用。
 - decision_journal：自用决策与执行记录（复盘、仓位、是否按计划）。
@@ -56,6 +56,7 @@ class WatchlistRow(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     symbol: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     origin: Mapped[str] = mapped_column(String(24), default=WATCHLIST_ORIGIN_MANUAL, server_default=WATCHLIST_ORIGIN_MANUAL)
+    name: Mapped[str] = mapped_column(String(64), default="", server_default="")
 
 
 class SignalCacheRow(Base):
@@ -124,6 +125,19 @@ def _ensure_sqlite_watchlist_origin_column(engine) -> None:
             conn.commit()
 
 
+def _ensure_sqlite_watchlist_name_column(engine) -> None:
+    """已有 SQLite 库为 watchlist 追加 name（create_all 不会改旧表）。"""
+    url = str(engine.url)
+    if not url.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        cur = conn.execute(text("PRAGMA table_info(watchlist)"))
+        existing = {row[1] for row in cur.fetchall()}
+        if "name" not in existing:
+            conn.execute(text("ALTER TABLE watchlist ADD COLUMN name TEXT DEFAULT ''"))
+            conn.commit()
+
+
 def _ensure_sqlite_fundamental_snapshot_columns(engine) -> None:
     """已有库文件升级：为 fundamental_snapshots 追加列（create_all 不会改旧表）。"""
     url = str(engine.url)
@@ -170,6 +184,7 @@ def init_db() -> None:
     _engine = create_engine(url, connect_args=connect_args)
     Base.metadata.create_all(_engine)
     _ensure_sqlite_watchlist_origin_column(_engine)
+    _ensure_sqlite_watchlist_name_column(_engine)
     _ensure_sqlite_fundamental_snapshot_columns(_engine)
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
     logger.info("Database initialized at %s", url)
