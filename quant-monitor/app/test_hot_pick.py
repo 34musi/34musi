@@ -2,8 +2,8 @@
 
 import pandas as pd
 
-from quant_stock_selector.datasources import BaseAShareDataSource
-from quant_stock_selector.hot_pick import (
+from app.quant_stock_selector.datasources import BaseAShareDataSource
+from app.quant_stock_selector.hot_pick import (
     is_st_stock_name,
     is_star_board_code,
     pick_from_hot_sectors,
@@ -28,6 +28,46 @@ class _MockHotDS(BaseAShareDataSource):
 
     def get_price_history(self, code: str, start_date: str, end_date: str, adjust: str = "qfq") -> pd.DataFrame:
         return pd.DataFrame()
+
+
+class _MockHotTechDS(_MockHotDS):
+    def __init__(
+        self,
+        rankings: pd.DataFrame,
+        constituents_map: dict[str, pd.DataFrame],
+        histories: dict[str, pd.DataFrame],
+    ) -> None:
+        super().__init__(rankings, constituents_map)
+        self._histories = histories
+
+    def get_price_history(self, code: str, start_date: str, end_date: str, adjust: str = "qfq") -> pd.DataFrame:
+        frame = self._histories.get(code)
+        if frame is None:
+            raise RuntimeError(f"missing history for {code}")
+        return frame.copy()
+
+
+def _make_hist(
+    closes: list[float],
+    *,
+    volume: float = 1_000_000,
+    turnover: float = 200_000_000,
+) -> pd.DataFrame:
+    dates = pd.date_range("2024-01-01", periods=len(closes), freq="B")
+    rows = []
+    for d, c in zip(dates, closes):
+        rows.append(
+            {
+                "date": d,
+                "open": c * 0.99,
+                "high": c * 1.01,
+                "low": c * 0.985,
+                "close": c,
+                "volume": volume,
+                "turnover": turnover,
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def test_is_star_board_code_688_689():
@@ -61,7 +101,12 @@ def test_pick_preserves_sector_order_stock_rank_and_full_columns():
     }
     ds = _MockHotDS(rankings, cons)
     out = pick_from_hot_sectors(
-        ds, top_sectors=2, stocks_per_sector=2, exclude_st=True, exclude_kcb=True
+        ds,
+        top_sectors=2,
+        stocks_per_sector=2,
+        exclude_st=True,
+        exclude_kcb=True,
+        sort_by_trend_strength=False,
     )
     assert [b["sector_rank"] for b in out.sectors_detail] == [1, 2]
     assert out.sectors_detail[0]["sector_metrics"]["sector_name"] == "Alpha"
@@ -90,6 +135,64 @@ def test_pick_dedup_symbols_across_sectors():
         ),
     }
     ds = _MockHotDS(rankings, cons)
-    out = pick_from_hot_sectors(ds, top_sectors=2, stocks_per_sector=5)
+    out = pick_from_hot_sectors(ds, top_sectors=2, stocks_per_sector=5, sort_by_trend_strength=False)
     assert out.symbols_for_watchlist == ["600001", "600002"]
     assert len(out.sectors_detail[1]["stocks"]) == 2
+
+
+def test_pick_sorts_by_trend_strength_inside_sector():
+    rankings = pd.DataFrame([{"sector_name": "Alpha", "hot_score": 10.0, "change_pct": 3.0}])
+    cons = {
+        "Alpha": pd.DataFrame(
+            [
+                {"code": "000001", "name": "平安银行"},
+                {"code": "000002", "name": "万科A"},
+            ]
+        )
+    }
+    histories = {
+        "000001": _make_hist([10 + i * 0.03 for i in range(140)], turnover=120_000_000),
+        "000002": _make_hist([10 + i * 0.12 for i in range(140)], turnover=500_000_000),
+    }
+    ds = _MockHotTechDS(rankings, cons, histories)
+    out = pick_from_hot_sectors(ds, top_sectors=1, stocks_per_sector=2, sort_by_trend_strength=True)
+    got = [s["code"] for s in out.sectors_detail[0]["stocks"]]
+    assert got == ["000002", "000001"]
+    assert out.sectors_detail[0]["stocks"][0]["stock_rank_in_sector"] == 1
+
+
+def test_pick_can_filter_by_technical_pass_overextended_and_liquidity():
+    rankings = pd.DataFrame([{"sector_name": "Alpha", "hot_score": 10.0, "change_pct": 3.0}])
+    cons = {
+        "Alpha": pd.DataFrame(
+            [
+                {"code": "000001", "name": "趋势合格"},
+                {"code": "000002", "name": "涨幅过大"},
+                {"code": "000003", "name": "成交额太低"},
+                {"code": "000004", "name": "技术不通过"},
+            ]
+        )
+    }
+    histories = {
+        "000001": _make_hist([10 + i * 0.04 for i in range(140)], turnover=250_000_000),
+        "000002": _make_hist([10 + i * 0.02 for i in range(120)] + [20 + i * 1.0 for i in range(20)], turnover=800_000_000),
+        "000003": _make_hist([10 + i * 0.05 for i in range(140)], turnover=20_000_000),
+        "000004": _make_hist([10 - i * 0.03 for i in range(140)], turnover=250_000_000),
+    }
+    ds = _MockHotTechDS(rankings, cons, histories)
+    out = pick_from_hot_sectors(
+        ds,
+        top_sectors=1,
+        stocks_per_sector=5,
+        sort_by_trend_strength=True,
+        require_technical_pass=True,
+        exclude_overextended=True,
+        max_return_20d_pct=25.0,
+        enable_liquidity_filter=True,
+        min_avg_turnover_20d_100m=1.0,
+    )
+    assert out.symbols_for_watchlist == ["000001"]
+    warnings = " ".join(out.warnings)
+    assert "涨幅过大" in warnings
+    assert "流动性不足" in warnings
+    assert "技术面未通过" in warnings

@@ -93,12 +93,14 @@ python -m app.quant_stock_selector --help
 python -m app.quant_stock_selector --data-source akshare --hot-sectors --top-sectors 5
 ```
 
-根目录另有历史单文件 **[quant_stock_selector.py](../quant_stock_selector.py)**，等价入口一般为：
+根目录另有历史单文件 **[quant_stock_selector.py](../quant_stock_selector.py)**，但它和当前包入口的参数集不完全一致；日常使用请优先以上面的模块入口为准。
+
+如果你确实要运行那个历史单文件，入口一般为：
 
 ```bash
 python quant_stock_selector.py --help
 ```
 
-更完整的参数说明见 **[quant_stock_selector_commands.md](../quant_stock_selector_commands.md)**。与控制台 **⑨ 量化选股** 对应的 HTTP 接口为 **`POST /research/sector-screen`**（需服务已启动且按需配置 API Key）。
+当前 `app/quant_stock_selector` 包入口的完整参数说明见 **[quant_stock_selector_commands.md](../quant_stock_selector_commands.md)**。与控制台 **⑨ 量化选股** 对应的 HTTP 接口为 **`POST /research/sector-screen`**（需服务已启动且按需配置 API Key）。
 
 市场有风险，决策需谨慎。

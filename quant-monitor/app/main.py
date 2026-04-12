@@ -48,9 +48,16 @@ from app.ingest import (
     ingest_symbol_range,
     list_bars_from_db,
     normalize_symbol,
+    strength_snapshot_for_symbol,
     test_akshare_connectivity,
+    watchlist_bar_fields_for_session,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
+from app.quant_stock_selector.datasources import (
+    default_sector_snapshot_path,
+    load_sector_rankings_snapshot,
+    save_sector_rankings_snapshot,
+)
 from app.quant_stock_selector.cli import validate_args
 from app.quant_stock_selector.pipeline import run_analysis
 from app.schemas import (
@@ -308,16 +315,46 @@ def _run_hot_pick_common(
     exclude_st: bool,
     exclude_kcb: bool,
     selector_data_source: str,
+    use_sector_snapshot: bool,
     tushare_token: str | None = None,
+    sort_by_trend_strength: bool = True,
+    require_technical_pass: bool = False,
+    exclude_overextended: bool = False,
+    max_return_20d_pct: float = 25.0,
+    enable_liquidity_filter: bool = False,
+    min_avg_turnover_20d_100m: float = 1.0,
 ):
     ds = _resolve_sector_datasource(selector_data_source, tushare_token=tushare_token)
+    board_key = (board_type or "all").strip().lower() or "all"
+    snapshot_path = default_sector_snapshot_path(
+        get_settings().data_dir, selector_data_source, board_key
+    )
+    rankings_override = None
+    if use_sector_snapshot and snapshot_path.exists():
+        try:
+            rankings_override = load_sector_rankings_snapshot(snapshot_path)
+        except Exception as exc:
+            logger.warning("sector snapshot load failed, fallback to live fetch: %s", exc)
+    if rankings_override is None:
+        rankings_override = ds.get_sector_rankings(board_key)
+        try:
+            save_sector_rankings_snapshot(rankings_override, snapshot_path)
+        except Exception as exc:
+            logger.warning("sector snapshot save failed: %s", exc)
     return pick_from_hot_sectors(
         ds,
         top_sectors=top_sectors,
         stocks_per_sector=stocks_per_sector,
-        board_type=board_type,
+        board_type=board_key,
         exclude_st=exclude_st,
         exclude_kcb=exclude_kcb,
+        rankings_override=rankings_override,
+        sort_by_trend_strength=sort_by_trend_strength,
+        require_technical_pass=require_technical_pass,
+        exclude_overextended=exclude_overextended,
+        max_return_20d_pct=max_return_20d_pct,
+        enable_liquidity_filter=enable_liquidity_filter,
+        min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
     )
 
 
@@ -329,7 +366,14 @@ def _hot_sectors_preview_payload(
     exclude_st: bool,
     exclude_kcb: bool,
     selector_data_source: str,
+    use_sector_snapshot: bool,
     tushare_token: str | None,
+    sort_by_trend_strength: bool,
+    require_technical_pass: bool,
+    exclude_overextended: bool,
+    max_return_20d_pct: float,
+    enable_liquidity_filter: bool,
+    min_avg_turnover_20d_100m: float,
 ) -> FillHotSectorsOut:
     hot = _run_hot_pick_common(
         top_sectors=top_sectors,
@@ -338,7 +382,14 @@ def _hot_sectors_preview_payload(
         exclude_st=exclude_st,
         exclude_kcb=exclude_kcb,
         selector_data_source=selector_data_source,
+        use_sector_snapshot=use_sector_snapshot,
         tushare_token=tushare_token,
+        sort_by_trend_strength=sort_by_trend_strength,
+        require_technical_pass=require_technical_pass,
+        exclude_overextended=exclude_overextended,
+        max_return_20d_pct=max_return_20d_pct,
+        enable_liquidity_filter=enable_liquidity_filter,
+        min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
     )
     return FillHotSectorsOut(
         sectors_detail=hot.sectors_detail,
@@ -462,13 +513,23 @@ def meta_self_use():
     tags=["② 管理自选股票"],
     summary="列出当前已添加的股票",
     description="""
-返回自选池里**所有**股票代码列表。
+返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_last_ingested_at**（最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明）。
 
 - 若配置了 `API_KEY`，请先点右上角 **Authorize**。
 - 若列表为空，下一步请用 `POST /watchlist` 添加。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
+def _watchlist_item_with_bars(s, r: WatchlistRow) -> WatchlistItem:
+    meta = watchlist_bar_fields_for_session(s, [r.symbol]).get(r.symbol, {})
+    return WatchlistItem(
+        symbol=r.symbol,
+        name=(r.name or "").strip(),
+        origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
+        **meta,
+    )
+
+
 def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
     """列出自选池全部标的（按 id 升序）。"""
     with session_scope() as s:
@@ -480,14 +541,7 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
                 r = by_sym.get(sym)
                 if r is not None and not (r.name or "").strip():
                     r.name = nm
-        return [
-            WatchlistItem(
-                symbol=r.symbol,
-                name=(r.name or "").strip(),
-                origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
-            )
-            for r in rows
-        ]
+        return [_watchlist_item_with_bars(s, r) for r in rows]
 
 
 @app.post(
@@ -519,14 +573,12 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
                 existing.origin = WATCHLIST_ORIGIN_MANUAL
             if not (existing.name or "").strip():
                 existing.name = fetch_stock_name(sym) or ""
-            return WatchlistItem(
-                symbol=sym,
-                name=(existing.name or "").strip(),
-                origin=WATCHLIST_ORIGIN_MANUAL,
-            )
+            return _watchlist_item_with_bars(s, existing)
         nm = fetch_stock_name(sym) or ""
         s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL, name=nm))
-        return WatchlistItem(symbol=sym, name=nm.strip(), origin=WATCHLIST_ORIGIN_MANUAL)
+        s.flush()
+        row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one()
+        return _watchlist_item_with_bars(s, row)
 
 
 @app.delete(
@@ -557,11 +609,12 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
     tags=["② 管理自选股票"],
     summary="按热门板块自动填充自选（保留手动）",
     description="""
-按 **get_sector_rankings** 的热度顺序取前 N 个板块，每板块在成分股表行序上过滤 ST/科创板后取前 M 只，写入自选 **origin=auto_hot**。
+按 **get_sector_rankings** 的热度顺序取前 N 个板块；可选对板块内成分股拉日线并按**趋势强度**重排，再叠加“过热涨幅”“流动性”“技术面通过”过滤后，写入自选 **origin=auto_hot**。
 
 - **会先删除** 当前所有 `auto_hot` 记录，再写入本次结果；**手动添加**（`manual`）**不会**被删。
 - 若某代码已在自选且为手动，本次自动列表**跳过**（不覆盖、不重复）。
 - **selector_data_source**：**akshare**（东财板块较全）、**mootdx**（通达信板块较少）、**tushare**（同花顺 ths_index / ths_daily / ths_member，通常需 TuShare **6000 积分**）。选 **tushare** 时请在 Body 传 **tushare_token**（或服务端配置 `TUSHARE_TOKEN` / `tushare_token`）。
+- **use_sector_snapshot**：为 true 时优先读取本地板块热度快照；为 false 时强制重新请求最新板块排名，并刷新快照文件。
 
 响应含 **sectors_detail**（板块指标 + 每只股票成分表全列字典），便于核对。
 """,
@@ -581,7 +634,14 @@ def watchlist_fill_hot_sectors(
             exclude_st=body.exclude_st,
             exclude_kcb=body.exclude_kcb,
             selector_data_source=body.selector_data_source.value,
+            use_sector_snapshot=body.use_sector_snapshot,
             tushare_token=body.tushare_token,
+            sort_by_trend_strength=body.sort_by_trend_strength,
+            require_technical_pass=body.require_technical_pass,
+            exclude_overextended=body.exclude_overextended,
+            max_return_20d_pct=body.max_return_20d_pct,
+            enable_liquidity_filter=body.enable_liquidity_filter,
+            min_avg_turnover_20d_100m=body.min_avg_turnover_20d_100m,
         )
     except HTTPException:
         raise
@@ -635,7 +695,14 @@ def watchlist_hot_sectors_preview(
     exclude_st: bool = Query(True),
     exclude_kcb: bool = Query(True),
     selector_data_source: SelectorSectorDataSource = Query(..., description="akshare、mootdx 或 tushare"),
+    use_sector_snapshot: bool = Query(True, description="true=优先使用本地板块快照；false=强制请求最新板块数据"),
     tushare_token: str | None = Query(None, description="TuShare 时可选；优先于服务端环境变量"),
+    sort_by_trend_strength: bool = Query(True),
+    require_technical_pass: bool = Query(False),
+    exclude_overextended: bool = Query(False),
+    max_return_20d_pct: float = Query(25.0, ge=0, le=500),
+    enable_liquidity_filter: bool = Query(False),
+    min_avg_turnover_20d_100m: float = Query(1.0, ge=0, le=10000),
     _: None = Depends(optional_api_key),
 ):
     try:
@@ -646,7 +713,14 @@ def watchlist_hot_sectors_preview(
             exclude_st=exclude_st,
             exclude_kcb=exclude_kcb,
             selector_data_source=selector_data_source.value,
+            use_sector_snapshot=use_sector_snapshot,
             tushare_token=tushare_token,
+            sort_by_trend_strength=sort_by_trend_strength,
+            require_technical_pass=require_technical_pass,
+            exclude_overextended=exclude_overextended,
+            max_return_20d_pct=max_return_20d_pct,
+            enable_liquidity_filter=enable_liquidity_filter,
+            min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
         )
     except HTTPException:
         raise
@@ -676,7 +750,14 @@ def watchlist_hot_sectors_preview_post(
             exclude_st=body.exclude_st,
             exclude_kcb=body.exclude_kcb,
             selector_data_source=body.selector_data_source.value,
+            use_sector_snapshot=body.use_sector_snapshot,
             tushare_token=body.tushare_token,
+            sort_by_trend_strength=body.sort_by_trend_strength,
+            require_technical_pass=body.require_technical_pass,
+            exclude_overextended=body.exclude_overextended,
+            max_return_20d_pct=body.max_return_20d_pct,
+            enable_liquidity_filter=body.enable_liquidity_filter,
+            min_avg_turnover_20d_100m=body.min_avg_turnover_20d_100m,
         )
     except HTTPException:
         raise
@@ -699,6 +780,7 @@ def watchlist_hot_sectors_preview_post(
 - 需要能访问外网（通过 AkShare 拉公开数据）。
 - 自选为空时会返回错误，请先用 `POST /watchlist` 添加股票。
 - 某一只股票拉取失败时，结果里该条会带 `error`，其它股票仍会继续。
+- 成功条目中附带 **`watchlist_name`**（自选里存的简称，可能为空）与 **`strength`**（基于拉取后本地 K 线的简要强弱摘要：约 5/20 日涨跌与相对 MA20，仅供自览）。
 
 **注意**：接口有「每分钟次数」限制，不要连续狂点。
 """,
@@ -717,6 +799,7 @@ def ingest_update(
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow)).scalars().all()
         symbols = [r.symbol for r in rows]
+        wl_name_by_sym = {r.symbol: (r.name or "").strip() for r in rows}
     if not symbols:
         raise HTTPException(status_code=400, detail="自选池为空，请先 POST /watchlist 添加标的")
     st, en = body.start_date, body.end_date
@@ -731,14 +814,18 @@ def ingest_update(
     for i, sym in enumerate(symbols):
         if i > 0 and pause > 0:
             time.sleep(pause)
+        nm = wl_name_by_sym.get(sym, "").strip() or None
         try:
-            results.append(
-                ingest_symbol_range(sym, range_start=st, range_end=en, data_source=ds),
-            )
+            rec = ingest_symbol_range(sym, range_start=st, range_end=en, data_source=ds)
+            rec["watchlist_name"] = nm
+            snap = strength_snapshot_for_symbol(sym)
+            if snap is not None:
+                rec["strength"] = snap
+            results.append(rec)
         except ValueError as e:
-            results.append({"symbol": sym, "error": str(e)})
+            results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
         except Exception as e:
-            results.append({"symbol": sym, "error": str(e)})
+            results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
     return {
         "results": results,
         "ingest_data_source": resolved_ds,
@@ -931,9 +1018,10 @@ def signals_one(
 仅用 **SQLite 已存日线**（不触发联网增量），按时间顺序做 **walk-forward** 样本外评估（与常见「pandas 算信号 → 回测验证」入门路径一致）：
 
 - **标签**：t 日收盘至 t+H 日收盘累计收益是否大于 0（H 默认 5 个交易日）。
-- **策略**：**双均线**（短/长周期可配，默认 5/10）、趋势规则、周期性重训 **Logistic**（NumPy）、因果多数类基线。
+- **策略**：**双均线**（短/长周期可配，默认 5/10）、趋势规则、周期性重训 **Logistic**（NumPy）、因果多数类基线；可用查询参数 **methods** 逗号分隔子集，仅计算所选。
+- **行情**：默认仅读 SQLite；**live_bars=true** 时先联网拉 incremental 窗口（**data_source** 与 ingest 一致）；**live_as_of** 为截止日期 YYYY-MM-DD（省略用服务器当天）；**live_persist** 控制是否写库。响应 **bars_last_trade_date** 为实际用到的最后一根 K 线，若仍早于预期多为数据源未更新到该日。
 - **特征**（Logistic 用）：ret5/ret20、MA20 斜率、量比、距 60 日高回撤、20 日实现波动（均仅用 t 及以前数据）。
-- **买卖示意**：信号由空转多记买入收盘、由多转空记卖出收盘；返回最近若干笔区间涨跌与汇总（非实盘、未扣费）。
+- **买卖示意**：信号由空转多记买入收盘、由多转空记卖出收盘；返回最近若干笔区间涨跌与汇总（默认已计入佣金/印花税/滑点估算，仍非逐笔撮合）。
 - **pedagogy**：响应内附学习路线说明与参考阅读链接（博客园公开笔记，非商业背书）。
 - **fundamentals_backtest**：说明扩展因子快照是否已缓存，以及**为何未**并入历史 walk-forward（避免用「最新财务」冒充历史每一天的可知信息）。
 
@@ -975,12 +1063,61 @@ def research_forecast_validate(
         le=250,
         description="双均线：长周期（须大于 ma_short）",
     ),
+    commission_bps: float = Query(
+        3.0,
+        ge=0,
+        le=100,
+        description="单边佣金/过户等估算成本，单位 bps；默认 3",
+    ),
+    sell_tax_bps: float = Query(
+        5.0,
+        ge=0,
+        le=100,
+        description="卖出印花税估算，单位 bps；默认 5",
+    ),
+    slippage_bps: float = Query(
+        2.0,
+        ge=0,
+        le=100,
+        description="单边滑点估算，单位 bps；默认 2",
+    ),
+    oos_from: str | None = Query(
+        None,
+        description="样本外区间起始日（含）YYYY-MM-DD；与 oos_to 联用可只看某段（如 2025 起），训练仍用此前全部历史",
+    ),
+    oos_to: str | None = Query(
+        None,
+        description="样本外区间结束日（含）YYYY-MM-DD",
+    ),
+    methods: str | None = Query(
+        None,
+        description="逗号分隔方法键名，仅计算并返回所选：dual_ma_cross,logistic_walkforward,rule_trend,majority_causal；省略则四种全开",
+    ),
+    live_bars: bool = Query(
+        False,
+        description="为 true 时先对该标的联网 incremental_refresh 再回测（写入本地库，与③同源 data_source）",
+    ),
+    data_source: str | None = Query(
+        None,
+        description="仅在 live_bars=true 时生效：行情路线，与 POST /ingest/update 的 data_source 一致；省略用服务端默认",
+    ),
+    live_persist: bool = Query(
+        True,
+        description="live_bars=true 时：true=拉取后写入 SQLite 再读库；false=仅内存合并（不写库）",
+    ),
+    live_as_of: str | None = Query(
+        None,
+        description="live_bars=true 时：联网增量截止日期（含）YYYY-MM-DD，与③结束日期对齐；省略用服务器当天",
+    ),
     _: None = Depends(optional_api_key),
 ):
     try:
         sym = normalize_symbol(symbol)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    method_list: list[str] | None = None
+    if methods and methods.strip():
+        method_list = [p.strip() for p in methods.split(",") if p.strip()]
     try:
         raw = run_forecast_validate(
             sym,
@@ -990,6 +1127,16 @@ def research_forecast_validate(
             trade_limit=trade_limit,
             ma_short=ma_short,
             ma_long=ma_long,
+            commission_bps=commission_bps,
+            sell_tax_bps=sell_tax_bps,
+            slippage_bps=slippage_bps,
+            oos_from=oos_from,
+            oos_to=oos_to,
+            methods=method_list,
+            live_bars=live_bars,
+            live_persist=live_persist,
+            data_source=data_source if live_bars else None,
+            live_as_of=live_as_of if live_bars else None,
         )
         return ForecastValidateOut.model_validate(raw)
     except ValueError as e:

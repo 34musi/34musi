@@ -10,6 +10,7 @@
 - incremental_refresh：相对库内最新日期做增量（带重叠窗口防漏日）。
 - load_bars_df：给信号模块读库；不足 min_bars 时自动触发一次刷新。
 - load_bars_from_db：仅读库、不联网刷新；供 walk-forward 验证等可复现研究使用。
+- load_bars_for_forecast：可选先联网拉取 incremental 窗口并与本地行合并（可不写库），供行内回测。
 - list_bars_from_db：按日期倒序取最近 limit 根再转为升序，供行情展示 API 使用。
 """
 
@@ -22,13 +23,14 @@ import re
 import threading
 import time
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterator
 
 import akshare as ak
 import pandas as pd
 import requests
 from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.config import get_settings
@@ -563,6 +565,50 @@ def list_bars_from_db(symbol: str, *, limit: int = 30) -> list[dict[str, Any]]:
     return out
 
 
+def strength_snapshot_for_symbol(symbol: str, *, bar_limit: int = 120) -> dict[str, Any] | None:
+    """
+    基于本地已入库日线做简要强弱摘要（教学/自览用，非投资建议）。
+
+    使用最近约 5 / 20 个交易日的收盘涨跌与收盘相对 MA20 位置打标签。
+    """
+    try:
+        bars = list_bars_from_db(symbol, limit=bar_limit)
+    except ValueError:
+        return None
+    if len(bars) < 2:
+        return None
+    closes = [float(b["close"]) for b in bars]
+    last = closes[-1]
+    out: dict[str, Any] = {}
+    if len(closes) >= 6:
+        base5 = closes[-6]
+        if abs(base5) > 1e-12:
+            out["ret_5d_pct"] = round((last / base5 - 1) * 100, 2)
+    if len(closes) >= 21:
+        base20 = closes[-21]
+        if abs(base20) > 1e-12:
+            out["ret_20d_pct"] = round((last / base20 - 1) * 100, 2)
+    if len(closes) >= 20:
+        ma20 = sum(closes[-20:]) / 20.0
+        out["ma20"] = round(ma20, 4)
+        if abs(ma20) > 1e-12:
+            out["vs_ma20_pct"] = round((last / ma20 - 1) * 100, 2)
+    r20 = out.get("ret_20d_pct")
+    vs = out.get("vs_ma20_pct")
+    if r20 is not None and vs is not None:
+        if r20 >= 0 and vs >= 0:
+            out["strength_label"] = "相对偏强"
+        elif r20 <= 0 and vs <= 0:
+            out["strength_label"] = "相对偏弱"
+        else:
+            out["strength_label"] = "分化/震荡"
+    elif vs is not None:
+        out["strength_label"] = "站上MA20" if vs >= 0 else "跌破MA20"
+    else:
+        out["strength_label"] = "数据不足"
+    return out
+
+
 def upsert_bars(df: pd.DataFrame) -> int:
     """
     将 DataFrame 行写入 bars；SQLite 下用 INSERT ... ON CONFLICT DO UPDATE 实现按日覆盖。
@@ -572,6 +618,7 @@ def upsert_bars(df: pd.DataFrame) -> int:
         return 0
     rows = df.to_dict(orient="records")
     n = 0
+    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     with session_scope() as s:
         for r in rows:
             stmt = sqlite_insert(BarRow.__table__).values(
@@ -583,6 +630,7 @@ def upsert_bars(df: pd.DataFrame) -> int:
                 close=float(r["close"]),
                 volume=float(r["volume"] or 0),
                 amount=float(r.get("amount") or 0),
+                ingested_at=now_iso,
             )
             stmt = stmt.on_conflict_do_update(
                 index_elements=["symbol", "trade_date"],
@@ -593,11 +641,81 @@ def upsert_bars(df: pd.DataFrame) -> int:
                     "close": stmt.excluded.close,
                     "volume": stmt.excluded.volume,
                     "amount": stmt.excluded.amount,
+                    "ingested_at": stmt.excluded.ingested_at,
                 },
             )
             s.execute(stmt)
             n += 1
     return n
+
+
+def watchlist_bar_fields_for_session(session: Session, symbols: list[str]) -> dict[str, dict[str, Any]]:
+    """
+    自选表展示用：每标的在本地 bars 中的最新一行收盘价、最后交易日、
+    以及该标的任意 K 线最近一次入库时间（max ingested_at）。
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for sym in symbols:
+        row = (
+            session.execute(
+                select(BarRow).where(BarRow.symbol == sym).order_by(BarRow.trade_date.desc()).limit(1)
+            )
+            .scalars()
+            .first()
+        )
+        max_ing = session.execute(select(func.max(BarRow.ingested_at)).where(BarRow.symbol == sym)).scalar_one_or_none()
+        if row is None:
+            out[sym] = {
+                "bars_last_ingested_at": None,
+                "bars_last_trade_date": None,
+                "last_close": None,
+                "last_daily_close_label": None,
+            }
+            continue
+        td = row.trade_date
+        close_v = round(float(row.close), 4)
+        label = f"{td} 交易日日线收盘（A 股常规 15:00 北京时间）"
+        out[sym] = {
+            "bars_last_ingested_at": max_ing,
+            "bars_last_trade_date": td,
+            "last_close": close_v,
+            "last_daily_close_label": label,
+        }
+    return out
+
+
+def incremental_fetch_window_yyyymmdd(
+    symbol: str,
+    lookback_years: int = 5,
+    *,
+    as_of_date: date | None = None,
+) -> tuple[str, str]:
+    """
+    与 incremental_refresh 相同的闭区间起止（YYYYMMDD 字符串，含首尾）。
+
+    用于「只拉不写库」时与 fetch_daily_with_provider 对齐的窗口。
+    """
+    sym = normalize_symbol(symbol)
+    today = date.today()
+    end_d = as_of_date if as_of_date is not None else today
+    if end_d > today:
+        raise ValueError("截止日期不能晚于今天")
+    end = end_d.strftime("%Y%m%d")
+    last = max_stored_date(sym)
+    if last:
+        last_d = datetime.strptime(last, "%Y-%m-%d").date()
+        if last_d <= end_d:
+            start_d = last_d - timedelta(days=14)
+        else:
+            start_d = end_d - timedelta(days=365 * lookback_years)
+    else:
+        start_d = end_d - timedelta(days=365 * lookback_years)
+    if start_d > end_d:
+        start_d = end_d
+    start = start_d.strftime("%Y%m%d")
+    if start > end:
+        start = end
+    return start, end
 
 
 def incremental_refresh(
@@ -618,28 +736,53 @@ def incremental_refresh(
     data_source：None 时用 Settings.ingest_data_source。
     """
     sym = normalize_symbol(symbol)
-    today = date.today()
-    end_d = as_of_date if as_of_date is not None else today
-    if end_d > today:
-        raise ValueError("截止日期不能晚于今天")
-    end = end_d.strftime("%Y%m%d")
-    last = max_stored_date(sym)
-    if last:
-        last_d = datetime.strptime(last, "%Y-%m-%d").date()
-        if last_d <= end_d:
-            # 重叠窗口：覆盖停牌、复权修正等导致的尾部修正
-            start_d = last_d - timedelta(days=14)
-        else:
-            # 库里已比目标日新：按目标日回溯一段，避免 start 落在 end 之后
-            start_d = end_d - timedelta(days=365 * lookback_years)
-    else:
-        start_d = end_d - timedelta(days=365 * lookback_years)
-    if start_d > end_d:
-        start_d = end_d
-    start = start_d.strftime("%Y%m%d")
-    if start > end:
-        start = end
+    start, end = incremental_fetch_window_yyyymmdd(sym, lookback_years, as_of_date=as_of_date)
     return _fetch_and_upsert(sym, start, end, "incremental", data_source=data_source)
+
+
+def load_bars_for_forecast(
+    symbol: str,
+    *,
+    live_bars: bool,
+    live_persist: bool = True,
+    data_source: str | None = None,
+    as_of_date: date | None = None,
+) -> pd.DataFrame:
+    """
+    供 walk-forward 回测取日线 DataFrame（列与 load_bars_from_db 一致，按 trade_date 升序）。
+
+    - live_bars=False：仅 SQLite。
+    - live_bars=True 且 live_persist=True：incremental_refresh 后读库（写入本地）。
+    - live_bars=True 且 live_persist=False：按 incremental 窗口联网拉取，与当前库内数据按 trade_date 合并（远程覆盖同日），**不写库**。
+    as_of_date：联网时的行情截止日期（含当日）；None 表示今天。应与用户③结束日期或期望样本外终点一致。
+    """
+    sym = normalize_symbol(symbol)
+    if not live_bars:
+        return load_bars_from_db(sym)
+    if live_persist:
+        incremental_refresh(sym, data_source=data_source, as_of_date=as_of_date)
+        return load_bars_from_db(sym)
+    df_db = load_bars_from_db(sym)
+    start_y, end_y = incremental_fetch_window_yyyymmdd(sym, as_of_date=as_of_date)
+    df_new, _ = fetch_daily_with_provider(sym, start_y, end_y, data_source=data_source)
+    cols = ["symbol", "trade_date", "open", "high", "low", "close", "volume", "amount"]
+    if df_db.empty:
+        if df_new is None or df_new.empty:
+            raise RuntimeError("联网拉取无数据且本地库无该标的日线，无法回测")
+        return df_new.drop(columns=["symbol"])
+    if df_new is None or df_new.empty:
+        return df_db
+    db2 = df_db.copy()
+    if "symbol" not in db2.columns:
+        db2["symbol"] = sym
+    for c in cols:
+        if c not in db2.columns:
+            raise RuntimeError(f"本地 bars 缺少列 {c!r}")
+    db2 = db2[cols]
+    new2 = df_new.reindex(columns=cols)
+    out = pd.concat([db2, new2], ignore_index=True)
+    out = out.drop_duplicates(subset=["trade_date"], keep="last").sort_values("trade_date").reset_index(drop=True)
+    return out.drop(columns=["symbol"])
 
 
 def ingest_symbol_range(

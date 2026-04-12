@@ -1,632 +1,353 @@
-# `quant_stock_selector.py` 执行命令手册
+# `app.quant_stock_selector` 用法手册
 
-本文档整理了 `quant_stock_selector.py` 的常用执行命令，覆盖：
+本文档按当前代码实现整理，基于：
 
-- 热门板块分析
-- 指定板块分析
-- 自定义股票池分析
-- 本地文件 / API 历史行情切换
-- 结果导出
-- 企业微信通知
-- iTick 订阅
+- `app/quant_stock_selector/cli.py`
+- `app/quant_stock_selector/pipeline.py`
+- `app/quant_stock_selector/histories.py`
+- `app/quant_stock_selector/evaluation.py`
 
-默认在当前目录执行：
+也就是说，以下内容以当前包入口 `python -m app.quant_stock_selector` 为准，不再混入旧版独立脚本里那些已经不在这个包中生效的参数。
 
-```bash
-python quant_stock_selector.py
-```
+## 1. 推荐入口
 
-## 1. 最基础命令
-
-### 1.1 默认运行
-
-不传 `--hot-sectors`、`--sector`、`--codes` 时，脚本默认启用热门板块分析。
+在仓库根目录 `quant-monitor` 下执行：
 
 ```bash
-python quant_stock_selector.py
+python -m app.quant_stock_selector --help
 ```
 
-### 1.2 查看帮助
+如果你的 `PYTHONPATH` 只包含 `app/`，也可以这样执行：
 
 ```bash
-python quant_stock_selector.py --help
+python -m quant_stock_selector --help
 ```
 
-## 2. 历史行情来源模式
+## 2. 当前代码的实际执行流程
 
-脚本支持 3 种历史行情来源模式：
+当前包的运行链路是：
 
-- `auto`：优先读取本地文件，找不到时再走 API
-- `local`：只使用本地文件
-- `api`：忽略本地文件，直接通过 API 拉取最新数据
+1. 解析参数。
+2. 根据 `--hot-sectors`、`--sector`、`--codes` 选择分析对象。
+3. 拉取板块成分股。
+4. 对每只股票优先尝试读取本地历史数据；如果没命中本地文件，再走数据源接口拉历史行情。
+5. 对每只股票执行技术面初筛与双均线回测。
+6. 在终端打印板块排名与股票排名。
+7. 如果传了 `--output`，导出 Excel。
 
-### 2.1 自动模式，优先本地
+这里最容易和旧文档混淆的一点是：
+
+- 当前包 **没有** `--history-source`
+- 当前包 **没有** `--leader-stocks-per-sector`
+- 当前包 **没有** `--slippage`
+- 当前包 **没有** `--allow-st`
+- 当前包 **没有** 企业微信通知、iTick、次日统计、板块快照等增强参数
+
+## 3. 默认行为
+
+如果你没有传 `--hot-sectors`、`--sector`、`--codes` 中任何一个，程序会自动启用：
 
 ```bash
-python quant_stock_selector.py --data-dir "D:\stock_data" --history-source auto
+--hot-sectors
 ```
 
-### 2.2 只使用本地文件
+也就是默认跑“热门板块分析”。
 
-注意：`local` 模式必须配合 `--data-dir`。
+## 4. 当前版本支持的参数
 
-```bash
-python quant_stock_selector.py --data-dir "D:\stock_data" --history-source local
-```
+### 4.1 入口选择
 
-### 2.3 忽略本地文件，直接走 API
+- `--hot-sectors`：分析热门板块
+- `--sector`：分析指定板块
+- `--codes`：分析自定义股票池文件，支持 `csv/xlsx`
 
-这是你现在需要的“不要本地文件，直接拉最新数据展示”的模式。
+### 4.2 数据源与行情
 
-```bash
-python quant_stock_selector.py --history-source api
-```
-
-即使传了本地目录，也会忽略：
-
-```bash
-python quant_stock_selector.py --data-dir "D:\stock_data" --history-source api
-```
-
-## 3. 热门板块分析
-
-### 3.1 分析热门板块
-
-```bash
-python quant_stock_selector.py --hot-sectors
-```
-
-### 3.2 分析前 10 个热门板块
-
-```bash
-python quant_stock_selector.py --hot-sectors --top-sectors 10
-```
-
-### 3.3 每个板块只分析前 30 只股票
-
-```bash
-python quant_stock_selector.py --hot-sectors --max-stocks-per-sector 30
-```
-
-### 3.4 每个板块只保留前 3 只龙头
-
-```bash
-python quant_stock_selector.py --hot-sectors --leader-stocks-per-sector 3
-```
-
-### 3.5 指定板块类型
-
-分析概念板块：
-
-```bash
-python quant_stock_selector.py --hot-sectors --board-type concept
-```
-
-分析行业板块：
-
-```bash
-python quant_stock_selector.py --hot-sectors --board-type industry
-```
-
-## 4. 指定板块分析
-
-### 4.1 分析指定板块
-
-```bash
-python quant_stock_selector.py --sector "机器人"
-```
-
-### 4.2 指定板块并强制走 API
-
-```bash
-python quant_stock_selector.py --sector "机器人" --history-source api
-```
-
-### 4.3 指定板块并限制股票数量
-
-```bash
-python quant_stock_selector.py --sector "算力" --max-stocks-per-sector 15
-```
-
-## 5. 自定义股票池分析
-
-### 5.1 使用 CSV 股票池
-
-```bash
-python quant_stock_selector.py --codes "my_codes.csv"
-```
-
-### 5.2 使用 Excel 股票池
-
-```bash
-python quant_stock_selector.py --codes "my_codes.xlsx"
-```
-
-### 5.3 自定义股票池 + 只走 API
-
-```bash
-python quant_stock_selector.py --codes "my_codes.csv" --history-source api
-```
-
-### 5.4 自定义股票池 + 本地文件优先
-
-```bash
-python quant_stock_selector.py --codes "my_codes.csv" --data-dir "D:\stock_data" --history-source auto
-```
-
-## 6. 数据源切换
-
-### 6.1 使用默认数据源 `mootdx`
-
-```bash
-python quant_stock_selector.py --history-source api
-```
-
-### 6.2 使用 `akshare`
-
-```bash
-python quant_stock_selector.py --data-source akshare --history-source api
-```
-
-### 6.3 使用 `tushare`
-
-```bash
-python quant_stock_selector.py --data-source tushare --tushare-token "你的token" --history-source api
-```
-
-### 6.4 使用环境变量方式提供 `tushare` token
-
-PowerShell：
-
-```powershell
-$env:TUSHARE_TOKEN="你的token"
-python quant_stock_selector.py --data-source tushare --history-source api
-```
-
-## 7. 时间范围和回测参数
-
-### 7.1 指定历史区间
-
-```bash
-python quant_stock_selector.py --start-date 20240101 --end-date 20241231 --history-source api
-```
-
-### 7.2 调整双均线周期
-
-```bash
-python quant_stock_selector.py --fast-period 5 --slow-period 20 --history-source api
-```
-
-### 7.3 调整止损和滑点
-
-```bash
-python quant_stock_selector.py --stop-loss 0.06 --slippage 0.002 --commission 0.001 --history-source api
-```
-
-### 7.4 调整次日策略参数
-
-```bash
-python quant_stock_selector.py --next-day-stop-loss 0.015 --next-day-target-pct 0.025 --history-source api
-```
-
-## 8. 技术筛选参数
-
-### 8.1 调整成交额门槛
-
-```bash
-python quant_stock_selector.py --min-avg-turnover-20d 50000000 --history-source api
-```
-
-### 8.2 调整近 5 日涨幅容忍度
-
-```bash
-python quant_stock_selector.py --max-5d-return 0.12 --history-source api
-```
-
-### 8.3 调整股价偏离 20 日线的容忍度
-
-```bash
-python quant_stock_selector.py --max-close-above-ma20 0.08 --history-source api
-```
-
-### 8.4 允许 ST 股票
-
-```bash
-python quant_stock_selector.py --allow-st --history-source api
-```
-
-## 9. 结果展示和导出
-
-### 9.1 只显示初筛通过的股票
-
-```bash
-python quant_stock_selector.py --only-passed --history-source api
-```
-
-### 9.2 展示前 50 只股票
-
-```bash
-python quant_stock_selector.py --top-stocks 50 --history-source api
-```
-
-### 9.3 导出结果到 Excel
-
-```bash
-python quant_stock_selector.py --output "result.xlsx" --history-source api
-```
-
-### 9.4 热门板块分析并导出
-
-```bash
-python quant_stock_selector.py --hot-sectors --top-sectors 10 --output "hot_sector_result.xlsx" --history-source api
-```
-
-### 9.5 当前结果新增的短线样本提示字段
-
-当前脚本已经在终端输出和 Excel 导出结果里加入下面 3 个字段：
-
-- `短线样本等级`
-- `是否建议参考次日统计`
-- `短线可信度提示`
-
-这些字段用于辅助判断 `next_day_pattern_count` 是否足够支撑短线参考，不需要你自己再手动估计。
-
-### 9.6 短线样本字段的含义
-
-#### `短线样本等级`
-
-按 `次日样本数` 自动分级：
-
-- `< 10`：`很低`
-- `10-19`：`偏低`
-- `20-49`：`中等`
-- `50-79`：`较高`
-- `>= 80`：`高`
-
-#### `是否建议参考次日统计`
-
-- `< 20`：`否`
-- `20-29`：`谨慎参考`
-- `>= 30`：`是`
-
-#### `短线可信度提示`
-
-脚本会自动给出中文提示，例如：
-
-- `样本过少，次日统计仅作观察`
-- `样本偏少，建议以技术面和回测为主`
-- `样本一般，可辅助参考次日统计`
-- `样本尚可，次日统计已有一定参考价值`
-- `样本较充足，次日统计参考价值较高`
-
-### 9.7 如何理解这些字段
-
-- 如果 `次日样本数 < 20`，一般不要太依赖次日上涨概率
-- 如果 `次日样本数 >= 30`，短线统计开始有一定实用性
-- 如果 `次日样本数 >= 50`，短线统计参考价值会明显更高
-- 即使样本较多，也建议和 `技术面得分`、`年化收益率`、`最大回撤`、`夏普比率` 一起看
-
-### 9.8 结果字段解释
-
-下面这些字段是终端输出和 Excel 结果里最常看的指标。
-
-#### `初筛通过`
-
-表示是否通过技术面硬门槛筛选，不是看综合分决定的。
-
-主要会检查：
-
-- 当前价格是否站上 `20 日线`
-- `20 日线` 是否站上 `60 日线`
-- 近 `20` 日收益是否为正
-- 是否离 `60 日高点` 不太远
-- 近 `60` 日最大回撤是否过大
-- 近 `20` 日平均成交额是否达到门槛
-- 近 `5` 日涨幅是否过热
-- 当前价格是否离 `20 日线` 太远
-
-如果 `初筛通过=False`，说明这只股票技术面并没有完全达到脚本定义的强势条件。
-
-#### `技术面得分`
-
-这是技术面综合评分，不是是否通过的布尔值。
-
-它综合考虑：
-
-- 趋势
-- 量能
-- 风险
-- 流动性
-- 过热惩罚
-
-一般理解：
-
-- 分数越高，当前走势结构越接近脚本偏好的形态
-- 但即使分数高，也不代表一定 `初筛通过`
-
-#### `次日样本数`
-
-不是历史总天数，而是这只股票历史里，满足“强势龙头次日打法”那组条件的次数。
-
-样本数越少，次日上涨概率、次日平均涨跌幅这些统计就越不稳定。
-
-#### `次日上涨概率(折扣后%)`
-
-表示这只股票在历史上出现相同信号后，次日上涨的概率。
-
-这里已经做过：
-
-- 次日开盘可成交口径修正
-- 手续费和滑点处理
-- 小样本折扣
-
-所以它比简单的历史胜率更保守一些。
-
-#### `次日平均涨跌幅(折扣后%)`
-
-表示历史上出现同类信号后，次日平均收益表现。
-
-同样做过小样本折扣，所以样本少的时候不会看起来过于夸张。
-
-#### `建议出票阈值(%)`
-
-这是脚本根据历史次日回撤情况给出的短线止损/出票参考阈值。
-
-可以理解成：
-
-- 如果你按这套“次日策略”去做
-- 次日盘中跌破这个比例附近
-- 脚本倾向于认为应该优先止损或出票
-
-#### `近一月走势`
-
-这是脚本根据最近约 `1` 个月（大约 `22` 个交易日）的收盘价变化，自动生成的短期走势摘要。
-
-这个字段通常会同时展示：
-
-- 最近一月涨跌幅
-- 一个简短的走势字符线
-- 当前趋势标签
-
-例如可能会看到：
-
-- `强势上行 +12.35% ._-==^^##`
-- `震荡整理 +1.28% .-~-==--__`
-- `明显下行 -16.40% ##^^=--__..`
-
-你可以把它理解成“最近一个月的压缩版 K 线走势提示”。
-
-一般理解：
-
-- `强势上行`：最近一月整体偏强，股价结构更主动
-- `震荡上行`：有上涨，但过程不是单边
-- `震荡整理`：最近一月偏横盘
-- `震荡走弱`：最近一月偏弱
-- `明显下行`：最近一月下跌趋势比较清楚
-
-这个字段适合用来快速判断：
-
-- 当前股票是不是还在延续强势
-- 最近一月是不是已经明显走弱
-- 短线尝试时，走势背景是否还算配合
-
-#### `年化收益率(%)`
-
-来自脚本内置的双均线回测结果，表示按这套回测规则跑历史后，大致折算成年化的收益水平。
-
-一般理解：
-
-- 越高越好
-- 但不能单独看，必须结合回撤和夏普率一起看
-
-#### `最大回撤(%)`
-
-表示回测过程中，从某个阶段高点回落到低点的最大跌幅。
-
-一般理解：
-
-- 越低越稳
-- 如果这个值过大，说明虽然可能赚钱，但过程会很难持有
-
-#### `夏普比率`
-
-表示单位波动风险对应的收益效率。
-
-一般理解：
-
-- 越高越好
-- 夏普率高，说明策略收益相对更稳定
-- 夏普率低，说明可能涨得不差，但过程波动太大
-
-#### `综合得分`
-
-这是最终排序时用到的重要分数，综合考虑：
-
-- 板块热度
-- 技术面得分
-- 回测得分
-- 次日统计信号分
-
-所以 `综合得分` 更像是一个最终排序值，而不是单一维度指标。
-
-### 9.9 实际看结果时的建议顺序
-
-如果你是做短线，建议按这个顺序看：
-
-1. 先看 `初筛通过`
-2. 再看 `次日样本数`
-3. 再看 `短线样本等级` 和 `是否建议参考次日统计`
-4. 再看 `近一月走势`
-5. 再看 `次日上涨概率(折扣后%)` 和 `次日平均涨跌幅(折扣后%)`
-6. 最后结合 `技术面得分`、`最大回撤(%)`、`夏普比率` 和 `综合得分`
-
-一个简单原则：
-
-- 样本不够时，优先信技术面和回测
-- 样本足够时，再提高次日统计的权重
-
-## 10. 板块快照
-
-### 10.1 使用板块快照
-
-```bash
-python quant_stock_selector.py --hot-sectors --use-sector-snapshot
-```
-
-### 10.2 指定快照文件
-
-```bash
-python quant_stock_selector.py --hot-sectors --use-sector-snapshot --sector-snapshot-path "sector_snapshot.csv"
-```
-
-### 10.3 拉取最新板块数据并更新快照
-
-```bash
-python quant_stock_selector.py --hot-sectors --sector-snapshot-path "sector_snapshot.csv"
-```
-
-## 11. 企业微信通知
-
-### 11.1 推送选股结果到企业微信
-
-```bash
-python quant_stock_selector.py --history-source api --notify-webhook-url "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key"
-```
-
-### 11.2 热门板块分析后推送通知
-
-```bash
-python quant_stock_selector.py --hot-sectors --top-sectors 10 --history-source api --notify-webhook-url "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key"
-```
-
-## 12. iTick 订阅
-
-### 12.1 开启 iTick WebSocket 订阅
-
-```bash
-python quant_stock_selector.py --subscribe-itick --itick-token "你的token" --history-source api
-```
-
-### 12.2 指定订阅股票数量和持续时间
-
-```bash
-python quant_stock_selector.py --subscribe-itick --itick-token "你的token" --itick-max-symbols 20 --itick-duration 120 --history-source api
-```
-
-### 12.3 订阅多个类型
-
-```bash
-python quant_stock_selector.py --subscribe-itick --itick-token "你的token" --itick-types "tick,quote" --history-source api
-```
-
-### 12.4 打印非 tick 原始消息
-
-```bash
-python quant_stock_selector.py --subscribe-itick --itick-token "你的token" --itick-print-raw --history-source api
-```
-
-### 12.5 iTick + 企业微信推送
-
-```bash
-python quant_stock_selector.py --subscribe-itick --itick-token "你的token" --notify-webhook-url "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key" --history-source api
-```
-
-## 13. 常用组合命令
-
-### 13.1 直接拉最新热门板块并导出结果
-
-```bash
-python quant_stock_selector.py --hot-sectors --history-source api --output "latest_hot_sectors.xlsx"
-```
-
-### 13.2 分析机器人板块，直接走 API，只显示通过初筛的股票
-
-```bash
-python quant_stock_selector.py --sector "机器人" --history-source api --only-passed
-```
-
-### 13.3 自定义股票池，本地优先，结果导出
-
-```bash
-python quant_stock_selector.py --codes "my_codes.csv" --data-dir "D:\stock_data" --history-source auto --output "my_pool_result.xlsx"
-```
-
-### 13.4 自定义股票池，只用本地数据
-
-```bash
-python quant_stock_selector.py --codes "my_codes.csv" --data-dir "D:\stock_data" --history-source local
-```
-
-### 13.5 热门板块 + API 最新数据 + 导出 + 企业微信通知
-
-```bash
-python quant_stock_selector.py --hot-sectors --top-sectors 10 --history-source api --output "result.xlsx" --notify-webhook-url "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key"
-```
-
-## 14. 参数速查
-
-### 14.1 入口选择
-
-- `--hot-sectors`：热门板块分析
-- `--sector "板块名"`：分析指定板块
-- `--codes "文件路径"`：分析自定义股票池
-
-### 14.2 数据相关
-
-- `--data-source mootdx|akshare|tushare`
-- `--data-dir "目录"`
-- `--history-source auto|local|api`
+- `--data-source akshare|tushare|mootdx`
+- `--tushare-token <token>`
+- `--data-dir <目录>`
 - `--start-date YYYYMMDD`
 - `--end-date YYYYMMDD`
 - `--adjust qfq|hfq`
 
-### 14.3 板块相关
+说明：
+
+- `--data-dir` 在当前包里的真实行为是“**启用本地优先**”。只要传了这个目录，程序会先在目录里找股票历史文件；如果找不到，再调用远端数据源。
+- 当前包 **不会** 通过参数强制切换成“只本地”或“只 API”；这和旧版独立脚本不同。
+- 使用 `tushare` 时，需要传 `--tushare-token` 或提前设置 `TUSHARE_TOKEN`。
+
+### 4.3 板块范围
 
 - `--board-type all|concept|industry`
 - `--top-sectors N`
 - `--max-stocks-per-sector N`
-- `--leader-stocks-per-sector N`
-- `--use-sector-snapshot`
-- `--sector-snapshot-path "xxx.csv"`
 
-### 14.4 筛选和回测相关
+说明：
+
+- `--top-sectors` 只在热门板块模式下生效。
+- `--max-stocks-per-sector` 用来限制每个板块最多分析多少只股票。
+
+### 4.4 回测与筛选
 
 - `--fast-period N`
 - `--slow-period N`
 - `--initial-cash 金额`
 - `--commission 比例`
-- `--slippage 比例`
 - `--stop-loss 比例`
-- `--next-day-stop-loss 比例`
-- `--next-day-target-pct 比例`
-- `--min-avg-turnover-20d 金额`
-- `--max-5d-return 比例`
-- `--max-close-above-ma20 比例`
-- `--allow-st`
-
-### 14.5 展示和导出
-
 - `--only-passed`
+
+说明：
+
+- `--fast-period` 必须小于 `--slow-period`。
+- 技术面初筛要求历史数据足够长，当前实现里建议至少准备 **120 个交易日以上** 的有效日线。
+
+### 4.5 展示与导出
+
 - `--top-stocks N`
-- `--output "结果文件.xlsx"`
+- `--output 结果文件.xlsx`
 
-### 14.6 通知和订阅
+说明：
 
-- `--notify-webhook-url "企业微信webhook"`
+- 终端默认展示综合排序前 `N` 只股票。
+- 导出时当前包会生成两个工作表：
+  - `hot_sectors`
+  - `candidate_stocks`
+
+## 5. 常用命令
+
+### 5.1 查看帮助
+
+```bash
+python -m app.quant_stock_selector --help
+```
+
+### 5.2 默认运行热门板块分析
+
+```bash
+python -m app.quant_stock_selector
+```
+
+等价于显式写法：
+
+```bash
+python -m app.quant_stock_selector --hot-sectors
+```
+
+### 5.3 分析前 10 个热门板块
+
+```bash
+python -m app.quant_stock_selector --hot-sectors --top-sectors 10
+```
+
+### 5.4 只分析概念板块
+
+```bash
+python -m app.quant_stock_selector --hot-sectors --board-type concept
+```
+
+### 5.5 分析指定板块
+
+```bash
+python -m app.quant_stock_selector --sector "机器人"
+```
+
+### 5.6 分析自定义股票池
+
+```bash
+python -m app.quant_stock_selector --codes "my_codes.csv"
+```
+
+或：
+
+```bash
+python -m app.quant_stock_selector --codes "my_codes.xlsx"
+```
+
+### 5.7 使用本地目录做历史行情补充
+
+```bash
+python -m app.quant_stock_selector --codes "my_codes.csv" --data-dir "D:\stock_data"
+```
+
+这条命令的真实含义是：
+
+- 先在 `D:\stock_data` 中查找对应股票历史文件
+- 没找到再走 `--data-source` 对应的远端接口
+
+### 5.8 使用 `akshare`
+
+```bash
+python -m app.quant_stock_selector --data-source akshare --hot-sectors
+```
+
+### 5.9 使用 `mootdx`
+
+```bash
+python -m app.quant_stock_selector --data-source mootdx --hot-sectors
+```
+
+### 5.10 使用 `tushare`
+
+```bash
+python -m app.quant_stock_selector --data-source tushare --tushare-token "你的token" --hot-sectors
+```
+
+PowerShell 也可以先设置环境变量：
+
+```powershell
+$env:TUSHARE_TOKEN="你的token"
+python -m app.quant_stock_selector --data-source tushare --hot-sectors
+```
+
+### 5.11 指定历史区间
+
+```bash
+python -m app.quant_stock_selector --start-date 20240101 --end-date 20241231
+```
+
+### 5.12 调整双均线参数
+
+```bash
+python -m app.quant_stock_selector --fast-period 5 --slow-period 20
+```
+
+### 5.13 只输出通过初筛的股票
+
+```bash
+python -m app.quant_stock_selector --only-passed
+```
+
+### 5.14 只在终端展示前 50 只股票
+
+```bash
+python -m app.quant_stock_selector --top-stocks 50
+```
+
+### 5.15 导出结果到 Excel
+
+```bash
+python -m app.quant_stock_selector --output "result.xlsx"
+```
+
+### 5.16 指定板块并导出结果
+
+```bash
+python -m app.quant_stock_selector --sector "算力" --output "sector_result.xlsx"
+```
+
+## 6. 自定义股票池文件格式
+
+`--codes` 对应的文件至少需要有一列代码。下面这些列名都可以被识别：
+
+- `code`
+- `代码`
+
+如果还带名称列，也会一起读取：
+
+- `name`
+- `名称`
+
+一个最简单的 `csv` 例子：
+
+```csv
+code,name
+600519,贵州茅台
+300750,宁德时代
+002594,比亚迪
+```
+
+## 7. 结果里会看到什么
+
+当前包的终端输出主要分两部分：
+
+### 7.1 热门板块
+
+会打印板块热度相关字段，例如：
+
+- `sector_name`
+- `board_type`
+- `hot_score`
+- `change_pct`
+- `advancers_ratio`
+- `leader_change_pct`
+- `turnover_rate`
+
+### 7.2 候选股票
+
+会打印股票评分结果，例如：
+
+- `sector_name`
+- `code`
+- `name`
+- `screen_passed`
+- `sector_hot_score`
+- `screen_score`
+- `annual_return_pct`
+- `max_drawdown_pct`
+- `sharpe_ratio`
+- `final_score`
+
+## 8. 几个重要的真实限制
+
+### 8.1 本地行情读取不是“纯本地模式”
+
+当前 `app/quant_stock_selector/histories.py` 的逻辑是：
+
+- 命中本地文件就优先使用
+- 没命中就回退到远端数据源
+
+所以传了 `--data-dir` 也不代表一定不会联网。
+
+### 8.2 `tushare` 在当前包里不是所有能力都和 `akshare` 一样
+
+当前数据源抽象允许选择 `tushare`，但实际可用性还取决于：
+
+- 是否提供了 token
+- 对应接口是否可用
+- 板块数据权限是否满足
+
+如果你主要看热门板块覆盖，通常 `akshare` 更稳妥。
+
+### 8.3 历史数据太短会被跳过
+
+当前包里：
+
+- 技术面初筛需要较长历史
+- 双均线回测也需要至少慢均线周期以上数据
+
+所以某只股票历史不足时，会被直接跳过。
+
+## 9. 当前包不支持的旧参数
+
+如果你看到旧文档或历史聊天里出现以下参数，请注意它们 **不是当前 `app/quant_stock_selector` 包入口支持的参数**：
+
+- `--history-source`
+- `--leader-stocks-per-sector`
+- `--slippage`
+- `--next-day-stop-loss`
+- `--next-day-target-pct`
+- `--allow-st`
+- `--min-avg-turnover-20d`
+- `--max-5d-return`
+- `--max-close-above-ma20`
+- `--use-sector-snapshot`
+- `--sector-snapshot-path`
+- `--notify-webhook-url`
 - `--subscribe-itick`
-- `--itick-token "token"`
-- `--itick-max-symbols N`
-- `--itick-duration 秒`
-- `--itick-types "tick,quote"`
-- `--itick-ping-interval 秒`
-- `--itick-ws-url "wss://..."`
-- `--itick-print-raw`
+- `--itick-*`
 
-## 15. 注意事项
+这些参数属于另外一套历史增强脚本能力，不能直接套到当前包入口上。
 
-- `--history-source local` 必须配合 `--data-dir`
-- `--fast-period` 必须小于 `--slow-period`
-- `--sector-snapshot-path` 必须是 `.csv`
-- `--notify-webhook-url` 必须是有效的企业微信机器人地址
-- 如果本地行情目录中同一股票命中多个同优先级文件，脚本会直接报错，避免误读错误文件
-- 如果你想强制忽略本地行情，统一拉最新数据，请始终加上 `--history-source api`
+## 10. 一句话总结
+
+如果你现在只是想按当前包代码稳定使用，最安全的记法就是：
+
+```bash
+python -m app.quant_stock_selector --data-source akshare --hot-sectors --top-sectors 5 --output result.xlsx
+```
+
+如果要混合本地行情：
+
+```bash
+python -m app.quant_stock_selector --codes "my_codes.csv" --data-dir "D:\stock_data" --output result.xlsx
+```

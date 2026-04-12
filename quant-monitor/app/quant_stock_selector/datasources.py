@@ -6,6 +6,7 @@ import abc
 import os
 import time
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import numpy as np
@@ -21,6 +22,51 @@ from .market_utils import (
 )
 
 _T = TypeVar("_T")
+
+SECTOR_SNAPSHOT_COLUMNS = [
+    "sector_name",
+    "board_type",
+    "change_pct",
+    "advancers_ratio",
+    "leader_change_pct",
+    "turnover_rate",
+    "liquidity_metric",
+    "hot_score",
+    "source",
+]
+
+
+def default_sector_snapshot_path(base_dir: Path, data_source: str, board_type: str) -> Path:
+    safe_source = (data_source or "unknown").strip().lower() or "unknown"
+    safe_board = (board_type or "all").strip().lower() or "all"
+    return base_dir / f"sector_rankings_snapshot_{safe_source}_{safe_board}.csv"
+
+
+def load_sector_rankings_snapshot(path: Path) -> pd.DataFrame:
+    frame = pd.read_csv(path)
+    if "liquidity_metric" not in frame.columns and "turnover_rate" in frame.columns:
+        frame = frame.rename(columns={"turnover_rate": "liquidity_metric"})
+    if "turnover_rate" not in frame.columns and "liquidity_metric" in frame.columns:
+        frame["turnover_rate"] = frame["liquidity_metric"]
+    missing = [column for column in SECTOR_SNAPSHOT_COLUMNS if column not in frame.columns]
+    if missing:
+        raise DataSourceError(f"板块热度快照缺少必要列: {', '.join(missing)}")
+    return frame[SECTOR_SNAPSHOT_COLUMNS].copy()
+
+
+def save_sector_rankings_snapshot(frame: pd.DataFrame, path: Path) -> None:
+    if frame is None or frame.empty:
+        return
+    out = frame.copy()
+    if "liquidity_metric" not in out.columns and "turnover_rate" in out.columns:
+        out["liquidity_metric"] = out["turnover_rate"]
+    if "turnover_rate" not in out.columns and "liquidity_metric" in out.columns:
+        out["turnover_rate"] = out["liquidity_metric"]
+    missing = [column for column in SECTOR_SNAPSHOT_COLUMNS if column not in out.columns]
+    if missing:
+        raise DataSourceError(f"板块热度结果缺少必要列，无法保存快照: {', '.join(missing)}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    out[SECTOR_SNAPSHOT_COLUMNS].to_csv(path, index=False, encoding="utf-8-sig")
 
 
 class BaseAShareDataSource(abc.ABC):
@@ -423,6 +469,8 @@ class MootdxDataSource(BaseAShareDataSource):
             raise DataSourceError("未安装 mootdx，请先执行: pip install mootdx") from exc
         self._Quotes = Quotes
         self._client: Any = None
+        self._stock_universe_cache: pd.DataFrame | None = None
+        self._stock_name_map_cache: Dict[str, str] | None = None
 
     def _get_client(self) -> Any:
         if self._client is None or getattr(self._client, "closed", False):
@@ -452,6 +500,8 @@ class MootdxDataSource(BaseAShareDataSource):
         return clean
 
     def get_stock_universe(self) -> pd.DataFrame:
+        if self._stock_universe_cache is not None:
+            return self._stock_universe_cache.copy()
         client = self._get_client()
         try:
             sz = client.stocks(market=0)
@@ -465,7 +515,11 @@ class MootdxDataSource(BaseAShareDataSource):
         combined = combined[combined["code"].str.match(r"^(0[0-9]|3[0-9]|6[0-9]|8[0-8]|4[0-9])\d{4}$")]
         if "name" not in combined.columns:
             combined["name"] = ""
-        return combined[["code", "name"]].drop_duplicates("code")
+        self._stock_universe_cache = combined[["code", "name"]].drop_duplicates("code").copy()
+        self._stock_name_map_cache = (
+            self._stock_universe_cache.set_index("code")["name"].astype(str).to_dict()
+        )
+        return self._stock_universe_cache.copy()
 
     def get_sector_rankings(self, board_types: str = "all") -> pd.DataFrame:
         frames: List[pd.DataFrame] = []
@@ -544,6 +598,14 @@ class MootdxDataSource(BaseAShareDataSource):
         if board_type == "industry" or board_type is None:
             files.append(("block.dat", "industry"))
 
+        # mootdx 的 block 文件只有板块名和代码；为支持上层 ST 过滤，这里补齐证券简称。
+        if self._stock_name_map_cache is None:
+            try:
+                self.get_stock_universe()
+            except Exception:
+                pass
+        name_map = self._stock_name_map_cache or {}
+
         for fname, btype in files:
             block_df = self._load_block_frame(fname)
             exact = block_df[block_df["blockname"].str.lower() == sector_name.lower()]
@@ -552,7 +614,7 @@ class MootdxDataSource(BaseAShareDataSource):
             if not exact.empty:
                 result = exact[["blockname", "code"]].copy()
                 result = result.rename(columns={"blockname": "sector_name"})
-                result["name"] = ""
+                result["name"] = result["code"].map(lambda c: str(name_map.get(str(c).zfill(6), "")).strip())
                 result["board_type"] = btype
                 return result[["code", "name", "sector_name", "board_type"]].drop_duplicates("code")
 

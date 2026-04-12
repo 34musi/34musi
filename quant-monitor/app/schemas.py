@@ -92,6 +92,22 @@ class WatchlistItem(BaseModel):
         "manual",
         description="manual=手动添加（刷新热门不会删）；auto_hot=热门板块自动填充（再次填充会先清空此类）",
     )
+    bars_last_ingested_at: str | None = Field(
+        None,
+        description="该标的在本地 bars 中最近一次写入/覆盖的 UTC ISO 时间（无则尚未经本服务入库）",
+    )
+    bars_last_trade_date: str | None = Field(
+        None,
+        description="本地库中最新一根日线的交易日 YYYY-MM-DD",
+    )
+    last_close: float | None = Field(
+        None,
+        description="上一字段对应交易日的收盘价（日线，非实时 tick）",
+    )
+    last_daily_close_label: str | None = Field(
+        None,
+        description="给人看的「最后收盘」说明（含交易日与 A 股常规收盘时刻）",
+    )
 
 
 class FillHotSectorsIn(BaseModel):
@@ -109,9 +125,41 @@ class FillHotSectorsIn(BaseModel):
         ...,
         description="akshare（东财板块较全）、mootdx（通达信板块较少）或 tushare（同花顺 ths_index/ths_daily/ths_member，通常需 6000 积分）",
     )
+    use_sector_snapshot: bool = Field(
+        True,
+        description="是否优先使用本地板块热度快照；为 false 时强制重新请求最新板块数据，并刷新快照",
+    )
     tushare_token: str | None = Field(
         None,
         description="selector_data_source=tushare 时必填（除非服务端已配置 TUSHARE_TOKEN / tushare_token）；请勿写入版本库",
+    )
+    sort_by_trend_strength: bool = Field(
+        True,
+        description="板块内按技术面趋势强度重新排序（会为候选股拉日线并计算 screen）",
+    )
+    require_technical_pass: bool = Field(
+        False,
+        description="仅保留技术面初筛通过（evaluate_screen.passed=true）的股票",
+    )
+    exclude_overextended: bool = Field(
+        False,
+        description="剔除近 20 日累计涨幅超过阈值的股票（用于避免短线过热追高）",
+    )
+    max_return_20d_pct: float = Field(
+        25.0,
+        ge=0,
+        le=500,
+        description="exclude_overextended=true 时使用：近 20 日累计涨幅上限（%）",
+    )
+    enable_liquidity_filter: bool = Field(
+        False,
+        description="按近 20 日平均成交额过滤流动性不足的股票",
+    )
+    min_avg_turnover_20d_100m: float = Field(
+        1.0,
+        ge=0,
+        le=10000,
+        description="enable_liquidity_filter=true 时使用：近 20 日平均成交额下限，单位亿元",
     )
 
 
@@ -399,11 +447,27 @@ class ForecastConfusionOut(BaseModel):
 class ForecastTradeLegOut(BaseModel):
     """按「翻多买入、翻空卖出」示意的一笔完整交易（收盘价，非实盘）。"""
 
+    buy_signal_date: str | None = Field(None, description="买入信号产生于哪天收盘后")
+    sell_signal_date: str | None = Field(None, description="卖出信号产生于哪天收盘后")
     buy_date: str
     sell_date: str
     buy_close: float
     sell_close: float
-    return_pct: float = Field(..., description="按卖出/买入收盘计算的区间涨跌幅 %（简单收益）")
+    buy_open_raw: float | None = Field(None, description="买入执行日原始开盘价")
+    sell_open_raw: float | None = Field(None, description="卖出执行日原始开盘价")
+    shares: int | None = Field(None, description="本笔成交股数")
+    holding_days: int | None = Field(None, description="持有了多少个交易日")
+    gross_return_pct: float | None = Field(None, description="未扣成本的区间涨跌幅 %")
+    cost_pct: float | None = Field(None, description="该笔按默认费率估算的总成本 %")
+    net_return_pct: float | None = Field(None, description="扣成本后的区间涨跌幅 %")
+    buy_fee: float | None = Field(None, description="买入佣金等费用（元）")
+    sell_fee: float | None = Field(None, description="卖出佣金+印花税等费用（元）")
+    slippage_cost_cny: float | None = Field(None, description="本笔因滑点产生的估算成本（元）")
+    fee_total_cny: float | None = Field(None, description="本笔总费用（元，不含滑点已并入则看字段说明）")
+    cash_before_buy: float | None = Field(None, description="买入前现金（元）")
+    cash_after_buy: float | None = Field(None, description="买入后现金（元）")
+    cash_after_sell: float | None = Field(None, description="卖出后现金（元）")
+    return_pct: float = Field(..., description="为兼容旧前端保留；当前等于 net_return_pct")
 
 
 class ForecastTradeSummaryOut(BaseModel):
@@ -416,14 +480,48 @@ class ForecastTradeSummaryOut(BaseModel):
         None,
         description="各笔 return_pct 相加（非复利，仅示意）",
     )
+    gross_return_pct: float | None = Field(None, description="各笔未扣成本收益简单相加 %")
+    total_net_return_pct: float | None = Field(None, description="各笔扣成本收益简单相加 %")
+    compounded_return_pct: float | None = Field(None, description="按每笔净收益复利得到的累计收益 %")
+    daily_compounded_return_pct: float | None = Field(None, description="按样本外逐日持仓收益复利得到的累计收益 %")
+    annualized_return_pct: float | None = Field(None, description="按样本外日收益折算的年化收益 %")
+    max_drawdown_pct: float | None = Field(None, description="按样本外日收益曲线计算的最大回撤 %")
+    sharpe_ratio: float | None = Field(None, description="按样本外日收益近似计算的年化夏普")
+    profit_factor: float | None = Field(None, description="总盈利 / 总亏损绝对值")
+    avg_holding_days: float | None = Field(None, description="完整交易的平均持有天数")
+    avg_win_return_pct: float | None = Field(None, description="盈利交易平均净收益 %")
+    avg_loss_return_pct: float | None = Field(None, description="亏损交易平均净收益 %")
+    total_cost_pct: float | None = Field(None, description="所有完整交易的估算总成本 %")
+    final_nav: float | None = Field(None, description="最终策略净值，如 1.1265 表示净值 1.1265")
+    ending_equity: float | None = Field(None, description="样本外结束时总权益（元）")
+    ending_cash: float | None = Field(None, description="样本外结束时现金（元）")
+    ending_shares: int | None = Field(None, description="样本外结束时持仓股数")
+    total_fee_cny: float | None = Field(None, description="样本外累计手续费与税费（元）")
+    total_slippage_cny: float | None = Field(None, description="样本外累计滑点成本（元）")
 
 
 class ForecastOpenLegOut(BaseModel):
     """样本外序列末尾仍看多、尚未出现卖出信号时返回。"""
 
+    buy_signal_date: str | None = Field(None, description="买入信号产生于哪天收盘后")
     buy_date: str
     buy_close: float
+    holding_days: int | None = Field(None, description="截至样本外末尾已持有的交易日数")
+    shares: int | None = Field(None, description="当前持仓股数")
+    unrealized_return_pct: float | None = Field(None, description="按样本外最后收盘估算的未实现收益 %")
+    market_value: float | None = Field(None, description="按样本外最后收盘估算的持仓市值（元）")
     note: str
+
+
+class ForecastEquityPointOut(BaseModel):
+    """样本外尾部净值快照。"""
+
+    trade_date: str
+    cash: float
+    shares: int
+    market_value: float
+    equity: float
+    nav: float
 
 
 class ForecastMethodOut(BaseModel):
@@ -458,6 +556,10 @@ class ForecastMethodOut(BaseModel):
         None,
         description="若样本外结束时仍「看多」则此处为未平仓示意",
     )
+    equity_curve_tail: list[ForecastEquityPointOut] = Field(
+        default_factory=list,
+        description="样本外尾部净值轨迹（最近若干点）",
+    )
 
 
 class ForecastReadingRefOut(BaseModel):
@@ -490,6 +592,55 @@ class ForecastStrategyParamsOut(BaseModel):
     min_train_rows: int
     retrain_every: int
     trade_limit: int
+    commission_bps: float = Field(..., description="佣金/过户等单边成本估算，单位 bps")
+    sell_tax_bps: float = Field(..., description="卖出印花税估算，单位 bps")
+    slippage_bps: float = Field(..., description="单边滑点估算，单位 bps")
+    initial_cash: float = Field(..., description="回测初始资金（元）")
+    lot_size: int = Field(..., description="整手股数")
+    min_commission_cny: float = Field(..., description="最低佣金（元）")
+    oos_from: str | None = Field(
+        None,
+        description="样本外统计与成交回放起始日（含），YYYY-MM-DD；null 表示自首次 OOS 起",
+    )
+    oos_to: str | None = Field(
+        None,
+        description="样本外统计与成交回放结束日（含），YYYY-MM-DD；null 表示至最后 OOS",
+    )
+    methods_included: list[str] = Field(
+        default_factory=list,
+        description="本次返回的 walk-forward 方法键名（与响应 body.methods 顺序一致）",
+    )
+    live_bars: bool = Field(
+        False,
+        description="是否在回测前对该标的联网增量更新日线（写入 SQLite 后再读库）",
+    )
+    live_data_source: str | None = Field(
+        None,
+        description="联网增量时传入的 data_source；null 表示服务端默认 ingest 路线",
+    )
+    live_persist: bool = Field(
+        False,
+        description="live_bars 时是否写入 SQLite；false 表示仅内存合并联网窗口与本地行",
+    )
+    live_as_of: str | None = Field(
+        None,
+        description="联网增量使用的截止日 YYYY-MM-DD；null 表示用服务器当天",
+    )
+    bars_last_trade_date: str | None = Field(
+        None,
+        description="本次回测实际用到的日线最后一根 trade_date（便于核对数据源是否滞后）",
+    )
+
+
+class ForecastExecutionAssumptionsOut(BaseModel):
+    """回测交易规则摘要。"""
+
+    signal_timing: str
+    order_timing: str
+    execution_price_rule: str
+    sizing_rule: str
+    position_update_rule: str
+    cost_rule: str
 
 
 class ForecastFundamentalsBacktestOut(BaseModel):
@@ -551,6 +702,10 @@ class ForecastValidateOut(BaseModel):
     strategy_params: ForecastStrategyParamsOut = Field(
         ...,
         description="本次请求的策略参数，便于复现实验",
+    )
+    execution_assumptions: ForecastExecutionAssumptionsOut = Field(
+        ...,
+        description="信号、下单、成交、仓位与成本的规则摘要",
     )
     fundamentals_backtest: ForecastFundamentalsBacktestOut = Field(
         ...,

@@ -11,15 +11,69 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from app.fundamentals import load_fundamental_panel_from_db
-from app.ingest import load_bars_from_db, normalize_symbol
+from app.ingest import load_bars_for_forecast, normalize_symbol
 
 FEATURE_NAMES = ("ret5", "ret20", "ma20_slope", "vol_ratio", "dd_from_high", "vol_sigma")
+FORECAST_METHOD_KEYS = ("dual_ma_cross", "logistic_walkforward", "rule_trend", "majority_causal")
+TRADING_DAYS_PER_YEAR = 252
+DEFAULT_COMMISSION_BPS = 3.0
+DEFAULT_SELL_TAX_BPS = 5.0
+DEFAULT_SLIPPAGE_BPS = 2.0
+DEFAULT_INITIAL_CASH = 100000.0
+DEFAULT_LOT_SIZE = 100
+DEFAULT_MIN_COMMISSION_CNY = 5.0
+
+
+def _bps_to_ratio(bps: float) -> float:
+    return float(bps) / 10000.0
+
+
+def _normalize_forecast_methods(requested: list[str] | None) -> list[str]:
+    """返回要计算并输出的方法键名列表（保序去重）；None 表示四种全部。"""
+    if requested is None:
+        return list(FORECAST_METHOD_KEYS)
+    allowed = set(FORECAST_METHOD_KEYS)
+    out: list[str] = []
+    for m in requested:
+        if m not in allowed:
+            raise ValueError(f"未知的方法 {m!r}，可选：{', '.join(FORECAST_METHOD_KEYS)}")
+        if m not in out:
+            out.append(m)
+    if not out:
+        raise ValueError("至少选择一种回测方法")
+    return out
+
+
+def _normalize_oos_bound(s: str | None, name: str) -> str | None:
+    """样本外日期边界：YYYY-MM-DD；空串视为未指定。"""
+    if s is None:
+        return None
+    t = str(s).strip()
+    if not t:
+        return None
+    if len(t) != 10 or t[4] != "-" or t[7] != "-":
+        raise ValueError(f"{name} 须为 YYYY-MM-DD")
+    date.fromisoformat(t)
+    return t
+
+
+def _parse_live_as_of_date(s: str | None) -> date | None:
+    """联网增量截止日；空则 None（由 ingest 侧用今天）。"""
+    raw = _normalize_oos_bound(s, "live_as_of")
+    return date.fromisoformat(raw) if raw else None
+
+
+def _trade_cost_ratios(*, commission_bps: float, sell_tax_bps: float, slippage_bps: float) -> tuple[float, float]:
+    buy_cost = _bps_to_ratio(commission_bps + slippage_bps)
+    sell_cost = _bps_to_ratio(commission_bps + slippage_bps + sell_tax_bps)
+    return buy_cost, sell_cost
 
 
 def _sigmoid(z: np.ndarray) -> np.ndarray:
@@ -79,6 +133,36 @@ def _auc_binary(y_true: np.ndarray, scores: np.ndarray) -> float | None:
     sum_ranks_pos = float(ranks[pos].sum())
     auc = (sum_ranks_pos - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
     return float(auc)
+
+
+def _max_drawdown_pct(returns: np.ndarray) -> float | None:
+    r = np.asarray(returns, dtype=np.float64)
+    if r.size == 0:
+        return None
+    equity = np.cumprod(1.0 + r)
+    peaks = np.maximum.accumulate(equity)
+    dd = equity / (peaks + 1e-12) - 1.0
+    return round(float(np.min(dd)) * 100.0, 4)
+
+
+def _annualized_return_pct(returns: np.ndarray) -> float | None:
+    r = np.asarray(returns, dtype=np.float64)
+    if r.size == 0:
+        return None
+    equity_end = float(np.prod(1.0 + r))
+    if equity_end <= 0:
+        return None
+    return round((equity_end ** (TRADING_DAYS_PER_YEAR / max(1, r.size)) - 1.0) * 100.0, 4)
+
+
+def _sharpe_ratio(returns: np.ndarray) -> float | None:
+    r = np.asarray(returns, dtype=np.float64)
+    if r.size < 2:
+        return None
+    sigma = float(r.std(ddof=0))
+    if sigma < 1e-12:
+        return None
+    return float(round(float(r.mean()) / sigma * np.sqrt(TRADING_DAYS_PER_YEAR), 4))
 
 
 def build_feature_matrix(df: pd.DataFrame, horizon: int) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
@@ -175,72 +259,244 @@ def _metrics_block(
     }
 
 
+def _commission_fee(trade_value: float, *, commission_bps: float, min_commission_cny: float) -> float:
+    if trade_value <= 0:
+        return 0.0
+    return max(float(min_commission_cny), float(trade_value) * _bps_to_ratio(commission_bps))
+
+
 def _trades_from_predictions(
     dates: np.ndarray,
+    opens: np.ndarray,
     closes: np.ndarray,
     preds: np.ndarray,
-) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    *,
+    initial_cash: float,
+    lot_size: int,
+    commission_bps: float,
+    sell_tax_bps: float,
+    slippage_bps: float,
+    min_commission_cny: float,
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, list[dict[str, Any]], dict[str, Any]]:
     """
-    预测 1=未来 H 日看涨、0=看跌。示意规则：
-    空仓遇 1 → 当日收盘「买入点」；持仓遇 0 → 当日收盘「卖出点」。
-    返回 (completed_trades, open_leg_or_none)。
+    预测 1=未来 H 日看涨、0=看跌。
+
+    交易近似规则：
+    - t 日收盘后根据当日可见数据产生信号；
+    - 若信号要求调仓，则在 t+1 日开盘按开盘价+/-滑点成交；
+    - 买入按 100 股整手、默认满仓；卖出一次性清仓；
+    - 佣金/印花税/滑点都计入。
     """
     dates = np.asarray(dates)
+    opens = np.asarray(opens, dtype=np.float64)
     closes = np.asarray(closes, dtype=np.float64)
     preds = np.asarray(preds, dtype=int)
     m = len(preds)
-    if m == 0 or len(closes) != m or len(dates) != m:
-        return [], None
-
-    trades: list[dict[str, Any]] = []
-    state = 0
-    buy_i: int | None = None
-
-    for i in range(m):
-        p = int(preds[i])
-        if state == 0 and p == 1:
-            state = 1
-            buy_i = i
-        elif state == 1 and p == 0:
-            if buy_i is not None:
-                bi, si = buy_i, i
-                rb = float(closes[bi])
-                rs = float(closes[si])
-                trades.append(
-                    {
-                        "buy_date": str(dates[bi]),
-                        "sell_date": str(dates[si]),
-                        "buy_close": round(rb, 4),
-                        "sell_close": round(rs, 4),
-                        "return_pct": round((rs / rb - 1.0) * 100.0, 4),
-                    }
-                )
-            state = 0
-            buy_i = None
-
-    open_leg: dict[str, Any] | None = None
-    if state == 1 and buy_i is not None:
-        rb = float(closes[buy_i])
-        open_leg = {
-            "buy_date": str(dates[buy_i]),
-            "buy_close": round(rb, 4),
-            "note": "样本外序列末尾仍为「看多」，尚未出现对应的卖出日（示意未平仓）",
+    if m == 0 or len(closes) != m or len(dates) != m or len(opens) != m:
+        return [], None, [], {
+            "completed_trades": 0,
+            "win_rate": None,
+            "avg_return_pct": None,
+            "total_simple_return_pct": None,
+            "gross_return_pct": None,
+            "total_net_return_pct": None,
+            "compounded_return_pct": None,
+            "annualized_return_pct": None,
+            "max_drawdown_pct": None,
+            "sharpe_ratio": None,
+            "profit_factor": None,
+            "avg_holding_days": None,
+            "avg_win_return_pct": None,
+            "avg_loss_return_pct": None,
+            "total_cost_pct": None,
+            "daily_compounded_return_pct": None,
+            "final_nav": None,
+            "ending_equity": None,
+            "ending_cash": None,
+            "ending_shares": 0,
+            "total_fee_cny": None,
+            "total_slippage_cny": None,
         }
 
-    return trades, open_leg
+    cash = float(initial_cash)
+    shares = 0
+    pending_signal: int | None = None
+    pending_signal_date: str | None = None
+    trades: list[dict[str, Any]] = []
+    equity_curve: list[dict[str, Any]] = []
+    current_leg: dict[str, Any] | None = None
+    slip_ratio = _bps_to_ratio(slippage_bps)
+    tax_ratio = _bps_to_ratio(sell_tax_bps)
+    total_fee_cny = 0.0
+    total_slippage_cny = 0.0
 
+    for i in range(m):
+        if pending_signal is not None:
+            raw_open = float(opens[i])
+            if pending_signal == 1 and shares == 0:
+                exec_price = raw_open * (1.0 + slip_ratio)
+                max_lots = int(cash // (exec_price * lot_size)) if exec_price > 0 else 0
+                qty = 0
+                buy_fee = 0.0
+                trade_value = 0.0
+                while max_lots > 0:
+                    qty = max_lots * lot_size
+                    trade_value = qty * exec_price
+                    buy_fee = _commission_fee(
+                        trade_value,
+                        commission_bps=commission_bps,
+                        min_commission_cny=min_commission_cny,
+                    )
+                    if trade_value + buy_fee <= cash + 1e-9:
+                        break
+                    max_lots -= 1
+                if max_lots > 0 and qty > 0:
+                    cash_before = cash
+                    cash -= trade_value + buy_fee
+                    shares = qty
+                    total_fee_cny += buy_fee
+                    total_slippage_cny += (exec_price - raw_open) * qty
+                    current_leg = {
+                        "buy_signal_date": pending_signal_date,
+                        "buy_date": str(dates[i]),
+                        "buy_close": round(exec_price, 4),
+                        "buy_open_raw": round(raw_open, 4),
+                        "shares": int(qty),
+                        "buy_fee": round(buy_fee, 4),
+                        "cash_before_buy": cash_before,
+                        "cash_after_buy": cash,
+                    }
+            elif pending_signal == 0 and shares > 0:
+                exec_price = raw_open * (1.0 - slip_ratio)
+                qty = int(shares)
+                trade_value = qty * exec_price
+                sell_commission = _commission_fee(
+                    trade_value,
+                    commission_bps=commission_bps,
+                    min_commission_cny=min_commission_cny,
+                )
+                sell_tax = trade_value * tax_ratio
+                sell_fee = sell_commission + sell_tax
+                cash_before = cash
+                cash += trade_value - sell_fee
+                total_fee_cny += sell_fee
+                total_slippage_cny += (raw_open - exec_price) * qty
+                if current_leg is not None:
+                    buy_notional = float(current_leg["buy_close"]) * qty
+                    gross_ret = exec_price / float(current_leg["buy_close"]) - 1.0
+                    total_cost = float(current_leg["buy_fee"]) + sell_fee
+                    net_ret = (trade_value - sell_fee) / (buy_notional + float(current_leg["buy_fee"])) - 1.0
+                    trades.append(
+                        {
+                            "buy_signal_date": current_leg.get("buy_signal_date"),
+                            "sell_signal_date": pending_signal_date,
+                            "buy_date": current_leg["buy_date"],
+                            "sell_date": str(dates[i]),
+                            "buy_close": current_leg["buy_close"],
+                            "sell_close": round(exec_price, 4),
+                            "buy_open_raw": current_leg.get("buy_open_raw"),
+                            "sell_open_raw": round(raw_open, 4),
+                            "shares": qty,
+                            "holding_days": int(i - np.where(dates == current_leg["buy_date"])[0][0]) if current_leg.get("buy_date") in dates else None,
+                            "gross_return_pct": round(gross_ret * 100.0, 4),
+                            "cost_pct": round(total_cost / max(1e-9, buy_notional) * 100.0, 4),
+                            "net_return_pct": round(net_ret * 100.0, 4),
+                            "return_pct": round(net_ret * 100.0, 4),
+                            "buy_fee": round(float(current_leg["buy_fee"]), 4),
+                            "sell_fee": round(sell_fee, 4),
+                            "slippage_cost_cny": round(
+                                ((float(current_leg["buy_close"]) - float(current_leg.get("buy_open_raw", current_leg["buy_close"]))) * qty)
+                                + ((raw_open - exec_price) * qty),
+                                4,
+                            ),
+                            "fee_total_cny": round(total_cost, 4),
+                            "cash_before_buy": round(float(current_leg.get("cash_before_buy", 0.0)), 4),
+                            "cash_after_buy": round(float(current_leg.get("cash_after_buy", 0.0)), 4),
+                            "cash_after_sell": round(cash, 4),
+                        }
+                    )
+                shares = 0
+                current_leg = None
+        market_value = shares * float(closes[i])
+        equity = cash + market_value
+        equity_curve.append(
+            {
+                "trade_date": str(dates[i]),
+                "cash": round(cash, 4),
+                "shares": int(shares),
+                "market_value": round(market_value, 4),
+                "equity": round(equity, 4),
+                "nav": round(equity / initial_cash, 6),
+            }
+        )
+        if i < m - 1:
+            pending_signal = int(preds[i])
+            pending_signal_date = str(dates[i])
+        else:
+            pending_signal = None
+            pending_signal_date = None
 
-def _trade_summary(trades: list[dict[str, Any]]) -> dict[str, Any] | None:
-    if not trades:
-        return None
-    rets = [float(t["return_pct"]) for t in trades]
-    wins = sum(1 for r in rets if r > 0)
-    return {
+    open_leg: dict[str, Any] | None = None
+    if shares > 0 and current_leg is not None:
+        last_close = float(closes[-1])
+        buy_px = float(current_leg["buy_close"])
+        open_leg = {
+            "buy_signal_date": current_leg.get("buy_signal_date"),
+            "buy_date": current_leg["buy_date"],
+            "buy_close": round(buy_px, 4),
+            "holding_days": int(m - np.where(dates == current_leg["buy_date"])[0][0] - 1) if current_leg.get("buy_date") in dates else None,
+            "shares": int(shares),
+            "unrealized_return_pct": round((last_close / buy_px - 1.0) * 100.0, 4),
+            "market_value": round(shares * last_close, 4),
+            "note": "样本外序列末尾仍持仓；已按当日收盘做市值估算，尚未出现下一次卖出开盘。",
+        }
+
+    equity_vals = np.array([float(x["equity"]) for x in equity_curve], dtype=np.float64)
+    daily_returns = (
+        equity_vals[1:] / np.maximum(equity_vals[:-1], 1e-9) - 1.0 if equity_vals.size >= 2 else np.array([], dtype=np.float64)
+    )
+    net_rets = np.array([float(t["return_pct"]) for t in trades], dtype=np.float64) if trades else np.array([], dtype=np.float64)
+    gross_rets = (
+        np.array([float(t.get("gross_return_pct", t["return_pct"])) for t in trades], dtype=np.float64)
+        if trades
+        else np.array([], dtype=np.float64)
+    )
+    hold_days = (
+        np.array([float(t.get("holding_days", 0)) for t in trades], dtype=np.float64)
+        if trades
+        else np.array([], dtype=np.float64)
+    )
+    wins = net_rets > 0
+    losses = net_rets < 0
+    gross_profit = float(net_rets[wins].sum()) if wins.any() else 0.0
+    gross_loss = float(-net_rets[losses].sum()) if losses.any() else 0.0
+    ending_equity = float(equity_vals[-1]) if equity_vals.size else float(initial_cash)
+    final_nav = ending_equity / float(initial_cash) if initial_cash > 1e-9 else 1.0
+    summary = {
         "completed_trades": len(trades),
-        "win_rate": round(wins / len(trades), 4),
-        "avg_return_pct": round(float(np.mean(rets)), 4),
-        "total_simple_return_pct": round(float(np.sum(rets)), 4),
+        "win_rate": round(float(wins.mean()), 4) if trades else None,
+        "avg_return_pct": round(float(net_rets.mean()), 4) if trades else None,
+        "total_simple_return_pct": round(float(net_rets.sum()), 4) if trades else None,
+        "gross_return_pct": round(float(gross_rets.sum()), 4) if trades else None,
+        "total_net_return_pct": round((final_nav - 1.0) * 100.0, 4),
+        "compounded_return_pct": round((final_nav - 1.0) * 100.0, 4),
+        "annualized_return_pct": _annualized_return_pct(daily_returns),
+        "max_drawdown_pct": _max_drawdown_pct(daily_returns),
+        "sharpe_ratio": _sharpe_ratio(daily_returns),
+        "profit_factor": round(gross_profit / gross_loss, 4) if gross_loss > 1e-12 else None,
+        "avg_holding_days": round(float(hold_days.mean()), 2) if hold_days.size else None,
+        "avg_win_return_pct": round(float(net_rets[wins].mean()), 4) if wins.any() else None,
+        "avg_loss_return_pct": round(float(net_rets[losses].mean()), 4) if losses.any() else None,
+        "total_cost_pct": round((total_fee_cny + total_slippage_cny) / max(1e-9, initial_cash) * 100.0, 4),
+        "daily_compounded_return_pct": round((final_nav - 1.0) * 100.0, 4),
+        "final_nav": round(final_nav, 6),
+        "ending_equity": round(ending_equity, 4),
+        "ending_cash": round(cash, 4),
+        "ending_shares": int(shares),
+        "total_fee_cny": round(total_fee_cny, 4),
+        "total_slippage_cny": round(total_slippage_cny, 4),
     }
+    return trades, open_leg, equity_curve, summary
 
 
 def _dual_ma_signal_series(closes: np.ndarray, short: int, long: int) -> np.ndarray:
@@ -266,15 +522,32 @@ def _dual_ma_signal_series(closes: np.ndarray, short: int, long: int) -> np.ndar
 def _attach_trades_to_method(
     base: dict[str, Any],
     dates_oos: np.ndarray,
+    opens_oos: np.ndarray,
     closes_oos: np.ndarray,
     preds: np.ndarray,
     *,
     max_trades: int,
+    initial_cash: float,
+    lot_size: int,
+    commission_bps: float,
+    sell_tax_bps: float,
+    slippage_bps: float,
+    min_commission_cny: float,
 ) -> dict[str, Any]:
-    all_trades, open_leg = _trades_from_predictions(dates_oos, closes_oos, preds)
-    summary = _trade_summary(all_trades)
+    all_trades, open_leg, equity_curve, summary = _trades_from_predictions(
+        dates_oos,
+        opens_oos,
+        closes_oos,
+        preds,
+        initial_cash=initial_cash,
+        lot_size=lot_size,
+        commission_bps=commission_bps,
+        sell_tax_bps=sell_tax_bps,
+        slippage_bps=slippage_bps,
+        min_commission_cny=min_commission_cny,
+    )
     tail = all_trades[-max_trades:] if len(all_trades) > max_trades else all_trades
-    out = {**base, "trade_summary": summary, "trades": tail, "open_leg": open_leg}
+    out = {**base, "trade_summary": summary, "trades": tail, "open_leg": open_leg, "equity_curve_tail": equity_curve[-20:]}
     return out
 
 
@@ -287,14 +560,33 @@ def run_forecast_validate(
     trade_limit: int = 25,
     ma_short: int = 5,
     ma_long: int = 10,
+    commission_bps: float = DEFAULT_COMMISSION_BPS,
+    sell_tax_bps: float = DEFAULT_SELL_TAX_BPS,
+    slippage_bps: float = DEFAULT_SLIPPAGE_BPS,
+    initial_cash: float = DEFAULT_INITIAL_CASH,
+    lot_size: int = DEFAULT_LOT_SIZE,
+    min_commission_cny: float = DEFAULT_MIN_COMMISSION_CNY,
+    oos_from: str | None = None,
+    oos_to: str | None = None,
+    methods: list[str] | None = None,
+    live_bars: bool = False,
+    live_persist: bool = True,
+    data_source: str | None = None,
+    live_as_of: str | None = None,
 ) -> dict[str, Any]:
     """
-    对单标的做 walk-forward OOS 评估；数据仅来自本地 bars。
+    对单标的做 walk-forward OOS 评估；默认数据来自本地 bars。
 
     horizon：预测未来 H 个交易日累计涨跌方向。
     min_train_rows：从该样本索引起进入 OOS（前段仅用于训练逻辑回归）。
     retrain_every：每隔多少根 OOS 步长重训一次 logistic（中间沿用上一权重）。
     ma_short / ma_long：双均线策略周期（短 < 长），与常见教材 5/10 类似。
+    oos_from / oos_to：若指定，则仅在该闭区间内做样本外指标与成交示意（训练仍使用此前全部历史，无前视）。
+    methods：要返回的方法键名子集；None 表示四种全部（dual_ma_cross / logistic_walkforward / rule_trend / majority_causal）。
+    live_bars：为 True 时先联网拉取 incremental 窗口内的日线再回测；False 则仅读库、不联网。
+    live_persist：live_bars 时 True=incremental_refresh 写入 SQLite 后读库；False=仅将联网数据与内存中的本地行合并，不写库。
+    data_source：live_bars 时传给拉取逻辑；None 时用服务端默认 ingest 路线。
+    live_as_of：live_bars 时作为 incremental 截止日期（含当日）YYYY-MM-DD；None 则用服务器当天。宜与③结束日期或样本外 oos_to 对齐。
     """
     sym = normalize_symbol(symbol)
     if horizon < 1 or horizon > 60:
@@ -305,6 +597,14 @@ def run_forecast_validate(
         raise ValueError("retrain_every 至少为 1")
     if trade_limit < 1 or trade_limit > 200:
         raise ValueError("trade_limit 应在 1～200 之间")
+    if commission_bps < 0 or sell_tax_bps < 0 or slippage_bps < 0:
+        raise ValueError("commission_bps / sell_tax_bps / slippage_bps 不能为负数")
+    if initial_cash < 1000:
+        raise ValueError("initial_cash 过小，至少应能覆盖一手股票与手续费")
+    if lot_size < 1:
+        raise ValueError("lot_size 至少为 1")
+    if min_commission_cny < 0:
+        raise ValueError("min_commission_cny 不能为负数")
     if ma_short < 2 or ma_long < 3:
         raise ValueError("ma_short 至少 2，ma_long 至少 3")
     if ma_short >= ma_long:
@@ -315,9 +615,28 @@ def run_forecast_validate(
     if min_train_rows < need_warm:
         raise ValueError(f"min_train_rows 至少应为 ma_long+5 = {need_warm}，以便双均线与特征同时有效")
 
-    df = load_bars_from_db(sym)
+    o_from = _normalize_oos_bound(oos_from, "oos_from")
+    o_to = _normalize_oos_bound(oos_to, "oos_to")
+    if o_from is not None and o_to is not None and o_from > o_to:
+        raise ValueError("oos_from 不能晚于 oos_to")
+
+    mf = _normalize_forecast_methods(methods)
+
+    live_as_of_d = _parse_live_as_of_date(live_as_of) if live_bars else None
+
+    try:
+        df = load_bars_for_forecast(
+            sym,
+            live_bars=live_bars,
+            live_persist=live_persist if live_bars else False,
+            data_source=data_source if live_bars else None,
+            as_of_date=live_as_of_d,
+        )
+    except (RuntimeError, ValueError) as e:
+        raise ValueError(str(e)) from e
     if df.empty:
         raise ValueError("本地无 K 线，请先 POST /ingest/update")
+    bars_last_trade_date = str(df["trade_date"].iloc[-1]) if len(df) else None
     need_len = min_train_rows + horizon + 65
     if len(df) < need_len:
         raise ValueError(
@@ -341,6 +660,18 @@ def run_forecast_validate(
 
     oos_start = min_train_rows
     oos_idx = np.arange(oos_start, n)
+    if o_from is not None or o_to is not None:
+        d_str = dates.iloc[oos_idx].astype(str).to_numpy()
+        keep = np.ones(len(oos_idx), dtype=bool)
+        if o_from is not None:
+            keep &= d_str >= o_from
+        if o_to is not None:
+            keep &= d_str <= o_to
+        oos_idx = oos_idx[keep]
+        if len(oos_idx) == 0:
+            raise ValueError(
+                "按 oos_from/oos_to 过滤后没有样本外交易日；请扩大区间、补充本地 K 线，或暂时去掉日期过滤"
+            )
 
     # --- 多数类基线（每个时点用历史标签的众数预测当日标签，严格因果）---
     maj_pred = np.zeros(len(oos_idx), dtype=int)
@@ -380,6 +711,8 @@ def run_forecast_validate(
     y_oos = y[oos_idx]
     fwd_oos = fwd[oos_idx]
     dates_oos = dates.iloc[oos_idx].to_numpy()
+    open_series = df.loc[valid.index, "open"].astype(float)
+    opens_oos = open_series.iloc[oos_idx].to_numpy(dtype=np.float64)
     close_series = df.loc[valid.index, "close"].astype(float)
     closes_oos = close_series.iloc[oos_idx].to_numpy(dtype=np.float64)
     close_all = close_series.to_numpy(dtype=np.float64)
@@ -391,8 +724,11 @@ def run_forecast_validate(
     how_to_read = (
         "【准确率】在样本外每个交易日，先产生一个「多空信号」（双均线 / 规则 / Logistic），"
         "再单独用同一套日期去检验「往后 H 个交易日累计涨跌是否为正」是否猜对；可与「无脑猜多数类」对比。"
-        "【双均线】收盘时若短均线 > 长均线则视为看多，否则看空（与许多入门教程中的均线排列一致）。"
-        "【买入点 / 卖出点】当看多/看空信号发生切换时：转多看多记买入收盘，转空记卖出收盘；区间涨跌%为两收盘价差，非委托价，未计手续费/滑点。"
+        "【信号何时产生】每个交易日收盘后，使用当日及以前的数据生成下一步多空信号。"
+        "【何时下单】若需要调仓，则在下一个交易日开盘挂单并成交。"
+        "【成交价】买入按 next open*(1+滑点)，卖出按 next open*(1-滑点)。"
+        "【买多少】默认初始资金 10 万、整手 100 股、单次满仓；若现金不足一手则不成交。"
+        "【持仓更新】每日收盘按 cash + shares*close 更新净值；交易费用含佣金、卖出印花税与滑点估算。"
     )
 
     m_ma = {
@@ -416,12 +752,66 @@ def run_forecast_validate(
         **_metrics_block(y_oos, log_pred, fwd_oos, scores=log_scores),
     }
 
-    methods = [
-        _attach_trades_to_method(m_ma, dates_oos, closes_oos, ma_pred, max_trades=trade_limit),
-        _attach_trades_to_method(m_log, dates_oos, closes_oos, log_pred, max_trades=trade_limit),
-        _attach_trades_to_method(m_rule, dates_oos, closes_oos, rule_pred, max_trades=trade_limit),
-        _attach_trades_to_method(m_maj, dates_oos, closes_oos, maj_pred, max_trades=trade_limit),
-    ]
+    attached: dict[str, dict[str, Any]] = {
+        "dual_ma_cross": _attach_trades_to_method(
+            m_ma,
+            dates_oos,
+            opens_oos,
+            closes_oos,
+            ma_pred,
+            max_trades=trade_limit,
+            initial_cash=initial_cash,
+            lot_size=lot_size,
+            commission_bps=commission_bps,
+            sell_tax_bps=sell_tax_bps,
+            slippage_bps=slippage_bps,
+            min_commission_cny=min_commission_cny,
+        ),
+        "logistic_walkforward": _attach_trades_to_method(
+            m_log,
+            dates_oos,
+            opens_oos,
+            closes_oos,
+            log_pred,
+            max_trades=trade_limit,
+            initial_cash=initial_cash,
+            lot_size=lot_size,
+            commission_bps=commission_bps,
+            sell_tax_bps=sell_tax_bps,
+            slippage_bps=slippage_bps,
+            min_commission_cny=min_commission_cny,
+        ),
+        "rule_trend": _attach_trades_to_method(
+            m_rule,
+            dates_oos,
+            opens_oos,
+            closes_oos,
+            rule_pred,
+            max_trades=trade_limit,
+            initial_cash=initial_cash,
+            lot_size=lot_size,
+            commission_bps=commission_bps,
+            sell_tax_bps=sell_tax_bps,
+            slippage_bps=slippage_bps,
+            min_commission_cny=min_commission_cny,
+        ),
+        "majority_causal": _attach_trades_to_method(
+            m_maj,
+            dates_oos,
+            opens_oos,
+            closes_oos,
+            maj_pred,
+            max_trades=trade_limit,
+            initial_cash=initial_cash,
+            lot_size=lot_size,
+            commission_bps=commission_bps,
+            sell_tax_bps=sell_tax_bps,
+            slippage_bps=slippage_bps,
+            min_commission_cny=min_commission_cny,
+        ),
+    }
+    methods = [attached[k] for k in mf]
+    ui_focus = mf[0] if mf else "dual_ma_cross"
 
     fp = load_fundamental_panel_from_db(sym)
     snapshot_cached = fp is not None
@@ -450,7 +840,7 @@ def run_forecast_validate(
             "扩展因子（估值/财务）需「当时可知」对齐后再做历史检验；当前快照仅用于最新信号，未混入本案回测",
             "若效果稳定，再到聚宽、米筐、优矿等平台做仿真与费用模型（本接口未替代平台回测）",
         ],
-        "stack_note": "数据：pandas DataFrame；数值：numpy；分类模型：自实现 Logistic 梯度下降。与公开笔记中「NumPy + pandas + 回测」层次一致，体量更小、便于本地实验。",
+        "stack_note": "数据：pandas DataFrame；数值：numpy；分类模型：自实现 Logistic 梯度下降。当前版本按“收盘产生信号、次日开盘成交”近似短线回放，并计入默认佣金/印花税/滑点与整手仓位限制，但仍是日线级近似。",
         "reading": {
             "title": "读书笔记：python 数据分析与量化交易（游小刀 · 博客园）",
             "url": "https://www.cnblogs.com/yxiaodao/p/10732824.html",
@@ -463,8 +853,8 @@ def run_forecast_validate(
         "horizon": horizon,
         "n_bars_db": int(len(df)),
         "n_valid_rows": int(n),
-        "first_oos_trade_date": str(dates.iloc[oos_start]) if len(dates) else None,
-        "last_oos_trade_date": str(dates.iloc[oos_idx[-1]]) if len(oos_idx) else None,
+        "first_oos_trade_date": str(dates.iloc[int(oos_idx[0])]) if len(oos_idx) else None,
+        "last_oos_trade_date": str(dates.iloc[int(oos_idx[-1])]) if len(oos_idx) else None,
         "n_oos": int(len(oos_idx)),
         "min_train_rows": min_train_rows,
         "retrain_every": retrain_every,
@@ -475,7 +865,7 @@ def run_forecast_validate(
         "methods": methods,
         "disclaimer": "历史回测不等价未来表现；短线方向噪声大，本接口为方法论演示，不构成投资建议。",
         "how_to_read": how_to_read,
-        "ui_focus_method": "dual_ma_cross",
+        "ui_focus_method": ui_focus,
         "pedagogy": pedagogy,
         "strategy_params": {
             "horizon": horizon,
@@ -484,6 +874,28 @@ def run_forecast_validate(
             "min_train_rows": min_train_rows,
             "retrain_every": retrain_every,
             "trade_limit": trade_limit,
+            "commission_bps": commission_bps,
+            "sell_tax_bps": sell_tax_bps,
+            "slippage_bps": slippage_bps,
+            "initial_cash": initial_cash,
+            "lot_size": lot_size,
+            "min_commission_cny": min_commission_cny,
+            "oos_from": o_from,
+            "oos_to": o_to,
+            "methods_included": list(mf),
+            "live_bars": bool(live_bars),
+            "live_persist": bool(live_persist) if live_bars else False,
+            "live_data_source": data_source,
+            "live_as_of": live_as_of_d.isoformat() if live_bars and live_as_of_d is not None else None,
+            "bars_last_trade_date": bars_last_trade_date,
+        },
+        "execution_assumptions": {
+            "signal_timing": "当日收盘后",
+            "order_timing": "下一交易日开盘",
+            "execution_price_rule": "买入 next open*(1+slippage)，卖出 next open*(1-slippage)",
+            "sizing_rule": f"默认初始资金 {initial_cash:.0f} 元，整手 {lot_size} 股，单次满仓，现金不足一手则不成交",
+            "position_update_rule": "每日收盘按 cash + shares*close 更新权益与净值",
+            "cost_rule": f"佣金 {commission_bps} bps，卖出印花税 {sell_tax_bps} bps，单边滑点 {slippage_bps} bps，最低佣金 {min_commission_cny:.2f} 元",
         },
         "fundamentals_backtest": {
             "merged_into_walkforward": False,

@@ -15,6 +15,8 @@ python -m app.quant_stock_selector --help
 
 （若 `PYTHONPATH` 仅含 `app` 子目录，则可用 `python -m quant_stock_selector`。）
 
+当前包入口的实际参数与示例，见 [quant_stock_selector_commands.md](quant_stock_selector_commands.md)；该文档已按 `app/quant_stock_selector` 目录下的现有代码同步。
+
 ## 环境要求
 
 - Python 3.10+（推荐）
