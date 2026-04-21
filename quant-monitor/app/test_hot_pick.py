@@ -151,14 +151,41 @@ def test_pick_sorts_by_trend_strength_inside_sector():
         )
     }
     histories = {
-        "000001": _make_hist([10 + i * 0.03 for i in range(140)], turnover=120_000_000),
-        "000002": _make_hist([10 + i * 0.12 for i in range(140)], turnover=500_000_000),
+        "000001": _make_hist([10 + i * 0.02 for i in range(140)], turnover=120_000_000),
+        # 复合上行，与 000001 的缓涨在「综合 screen_score」上易并列，故用略低波动打破同分逆序
+        "000002": _make_hist([10 * (1.004**i) for i in range(140)], turnover=500_000_000),
     }
     ds = _MockHotTechDS(rankings, cons, histories)
     out = pick_from_hot_sectors(ds, top_sectors=1, stocks_per_sector=2, sort_by_trend_strength=True)
     got = [s["code"] for s in out.sectors_detail[0]["stocks"]]
     assert got == ["000002", "000001"]
     assert out.sectors_detail[0]["stocks"][0]["stock_rank_in_sector"] == 1
+
+
+def test_pick_skips_index_and_non_equity_codes():
+    """板块成分中的指数码（如 399001）不应进入选股，避免 mootdx 等源解析失败。"""
+    rankings = pd.DataFrame([{"sector_name": "Alpha", "hot_score": 10.0, "change_pct": 3.0}])
+    cons = {
+        "Alpha": pd.DataFrame(
+            [
+                {"code": "399001", "name": "深证成指"},
+                {"code": "880001", "name": "自定义板块示例"},
+                {"code": "600000", "name": "浦发"},
+                {"code": "000002", "name": "万科A"},
+            ]
+        ),
+    }
+    ds = _MockHotDS(rankings, cons)
+    out = pick_from_hot_sectors(
+        ds,
+        top_sectors=1,
+        stocks_per_sector=2,
+        exclude_st=True,
+        exclude_kcb=True,
+        sort_by_trend_strength=False,
+    )
+    got = [s["code"] for s in out.sectors_detail[0]["stocks"]]
+    assert got == ["600000", "000002"]
 
 
 def test_pick_can_filter_by_technical_pass_overextended_and_liquidity():

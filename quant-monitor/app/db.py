@@ -3,7 +3,7 @@
 
 表含义：
 - bars：按 symbol + trade_date 唯一的日线 OHLCV。
-- watchlist：用户监控的 6 位 A 股代码列表；name 为证券简称（展示用）；origin=manual 为手动保留，auto_hot 为热门板块自动填充（刷新热门时只删后者）。
+- watchlist：用户监控的 6 位 A 股代码列表；name 为证券简称（展示用）；origin=manual 为手动保留；auto_hot 为热门板块自动填充；auto_quant 为⑨量化选股结果同步；刷新热门或同步量化会先清空 auto_hot 与 auto_quant，不删 manual。
 - signal_cache：告警预览用的「上一版信号」JSON 快照。
 - fundamental_snapshots：自选扩展因子快照（估值、财务同比、主力净流入等），供信号合成使用。
 - decision_journal：自用决策与执行记录（复盘、仓位、是否按计划）。
@@ -48,6 +48,8 @@ class BarRow(Base):
 
 WATCHLIST_ORIGIN_MANUAL = "manual"
 WATCHLIST_ORIGIN_AUTO_HOT = "auto_hot"
+# ⑨ 量化选股（sector-screen）同步写入的自选；与 auto_hot 同属「非手动」，热门填充 / 量化同步会互清这类记录
+WATCHLIST_ORIGIN_AUTO_QUANT = "auto_quant"
 
 
 class WatchlistRow(Base):

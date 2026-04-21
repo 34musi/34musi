@@ -62,7 +62,28 @@ class IngestUpdateIn(BaseModel):
     )
 
 
-WatchlistOrigin = Literal["manual", "auto_hot"]
+class WebDataPreviewIn(BaseModel):
+    """POST /ingest/web-data-preview：单标的拉取 K 线（可写库）与东财日级资金流预览。"""
+
+    symbol: str = Field(..., description="6 位 A 股代码（可带交易所前缀，服务端会规范化）", examples=["600519"])
+    data_source: IngestDataSource | None = Field(
+        None,
+        description="K 线增量写入使用的路线；不传则用服务端 INGEST_DATA_SOURCE",
+    )
+    refresh_kline: bool = Field(
+        True,
+        description="为 true 时先对该标的执行 incremental_refresh（联网写入本地 bars），再读库返回 K 线",
+    )
+    bar_limit: int = Field(60, ge=1, le=500, description="返回最近多少根已入库日线（含 OHLCV、change_pct）")
+    fund_flow_recent_days: int = Field(
+        10,
+        ge=1,
+        le=120,
+        description="资金流表返回最近多少个交易日的行（东财日级；「当日」以数据源最新行为准）",
+    )
+
+
+WatchlistOrigin = Literal["manual", "auto_hot", "auto_quant"]
 
 
 class SelectorSectorDataSource(str, Enum):
@@ -90,7 +111,7 @@ class WatchlistItem(BaseModel):
     name: str = Field("", description="证券简称；未知或未解析时为空字符串")
     origin: WatchlistOrigin = Field(
         "manual",
-        description="manual=手动添加（刷新热门不会删）；auto_hot=热门板块自动填充（再次填充会先清空此类）",
+        description="manual=手动；auto_hot=热门板块自动填充；auto_quant=⑨量化选股同步（与 auto_hot 同属自动池，会互清）",
     )
     bars_last_ingested_at: str | None = Field(
         None,
@@ -108,6 +129,33 @@ class WatchlistItem(BaseModel):
         None,
         description="给人看的「最后收盘」说明（含交易日与 A 股常规收盘时刻）",
     )
+
+
+class QuantWatchlistStockRowIn(BaseModel):
+    """单条待写入自选的量化结果行（与 sector-screen 返回的 stocks 项字段对齐）。"""
+
+    code: str = Field(..., description="股票代码，可为带前缀形式，服务端会规范为 6 位数字")
+    name: str = Field("", description="证券简称，可空")
+
+
+class QuantWatchlistSyncIn(BaseModel):
+    """POST /watchlist/sync-from-quant-screen：将⑨选股结果写入自选（origin=auto_quant）。"""
+
+    stocks: list[QuantWatchlistStockRowIn] = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="来自 POST /research/sector-screen 的 stocks；至少含 code",
+    )
+
+
+class QuantWatchlistSyncOut(BaseModel):
+    """量化选股结果写入自选的统计。"""
+
+    added: int = Field(..., description="新写入的 auto_quant 条数")
+    skipped_existing_manual: int = Field(..., description="已在自选且为手动的代码数（跳过）")
+    removed_auto: int = Field(..., description="写入前删除的 auto_hot + auto_quant 条数")
+    warnings: list[str] = Field(default_factory=list, description="如同一输入中重复代码等提示")
 
 
 class FillHotSectorsIn(BaseModel):
@@ -171,7 +219,7 @@ class FillHotSectorsSummary(BaseModel):
         ...,
         description="已在自选且为手动的代码数（自动列表跳过，不覆盖）",
     )
-    removed_auto: int = Field(..., description="填充前删除的旧 auto_hot 条数")
+    removed_auto: int = Field(..., description="填充前删除的旧 auto_hot + auto_quant 条数")
     warnings: list[str] = Field(default_factory=list, description="选股过程中的提示（如某板块成分不足）")
 
 

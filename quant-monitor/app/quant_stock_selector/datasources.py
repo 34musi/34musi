@@ -14,6 +14,7 @@ import pandas as pd
 
 from .exceptions import DataSourceError
 from .market_utils import (
+    is_listed_a_share_equity,
     normalize_code,
     normalize_score,
     safe_float,
@@ -22,6 +23,31 @@ from .market_utils import (
 )
 
 _T = TypeVar("_T")
+
+TUSHARE_PERM_DOC = "https://tushare.pro/document/1?doc_id=108"
+
+
+def _tushare_ths_error_message(what_zh: str, exc: BaseException) -> str:
+    """同花顺板块链路（ths_*）失败时拼接可读说明；积分不足时指向文档。"""
+    detail = str(exc).strip()
+    msg = f"{what_zh}：{detail}"
+    if "没有接口" in detail and "权限" in detail:
+        return (
+            f"{msg}\n"
+            "—— 原因：当前 TuShare 账号无权调用同花顺板块接口（如 ths_index / ths_daily / ths_member），"
+            "文档侧通常要求较高积分（常见说明为约 6000 分），与是否填写 Token 无关。\n"
+            "—— 处理：在「⑨ 量化选股」将数据源改为 **akshare**（东财板块）或 **mootdx**（通达信）；"
+            "若坚持使用 TuShare 板块数据，请登录 tushare.pro 提升积分或购买权限后重试。\n"
+            f"—— 权限说明：{TUSHARE_PERM_DOC}"
+        )
+    low = detail.lower()
+    if "积分" in detail or "permission" in low or "无权" in detail or "access" in low:
+        return (
+            f"{msg}\n"
+            f"—— 若为积分或接口权限不足，请改用 akshare / mootdx，或查阅 {TUSHARE_PERM_DOC}。"
+        )
+    return f"{msg}\n—— 若持续失败，请确认积分是否覆盖 ths_index、ths_daily、ths_member（见 {TUSHARE_PERM_DOC}）。"
+
 
 SECTOR_SNAPSHOT_COLUMNS = [
     "sector_name",
@@ -305,7 +331,7 @@ class TushareDataSource(BaseAShareDataSource):
                 return df, td
         msg = "TuShare 未取到同花顺板块指数日线（ths_daily）"
         if last_err:
-            msg += f": {last_err}"
+            raise DataSourceError(_tushare_ths_error_message(msg, last_err)) from last_err
         msg += "；请检查积分（ths_index/ths_daily/ths_member 通常需 6000 分）与网络。"
         raise DataSourceError(msg)
 
@@ -341,7 +367,9 @@ class TushareDataSource(BaseAShareDataSource):
                     ii["board_type"] = "industry"
                     frames.append(ii)
         except Exception as exc:
-            raise DataSourceError(f"TuShare 获取同花顺板块列表失败: {exc}") from exc
+            raise DataSourceError(
+                _tushare_ths_error_message("TuShare 获取同花顺板块列表失败", exc)
+            ) from exc
         if not frames:
             raise DataSourceError(f"不支持的板块类型: {board_types}")
         indices = pd.concat(frames, ignore_index=True)
@@ -414,7 +442,9 @@ class TushareDataSource(BaseAShareDataSource):
         try:
             mem = self.pro.ths_member(ts_code=ts_code)
         except Exception as exc:
-            raise DataSourceError(f"TuShare 获取板块成分失败: {exc}") from exc
+            raise DataSourceError(
+                _tushare_ths_error_message("TuShare 获取板块成分（ths_member）失败", exc)
+            ) from exc
         if mem is None or mem.empty:
             return pd.DataFrame(columns=["code", "name"])
         out = mem.copy()
@@ -616,13 +646,20 @@ class MootdxDataSource(BaseAShareDataSource):
                 result = result.rename(columns={"blockname": "sector_name"})
                 result["name"] = result["code"].map(lambda c: str(name_map.get(str(c).zfill(6), "")).strip())
                 result["board_type"] = btype
-                return result[["code", "name", "sector_name", "board_type"]].drop_duplicates("code")
+                out = result[["code", "name", "sector_name", "board_type"]].drop_duplicates("code")
+                out = out[out["code"].astype(str).str.zfill(6).map(is_listed_a_share_equity)].copy()
+                return out
 
         raise DataSourceError(f"mootdx 未找到板块: {sector_name}")
 
     def get_price_history(self, code: str, start_date: str, end_date: str, adjust: str = "qfq") -> pd.DataFrame:
         _ = adjust
         sym = normalize_code(code)
+        if not is_listed_a_share_equity(sym):
+            raise DataSourceError(
+                f"mootdx 日线接口仅适用于 A 股普通股等标准代码，{sym} 为指数/ETF/板块码或非个股代码，"
+                "无法稳定解析；请从板块成分中排除或换用 akshare/tushare 等源。"
+            )
         try:
             days_from_start = (pd.Timestamp.today() - pd.Timestamp(start_date)).days
         except Exception:

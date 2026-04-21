@@ -28,11 +28,12 @@ from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 
 from app.config import get_settings
 from app.db import (
     WATCHLIST_ORIGIN_AUTO_HOT,
+    WATCHLIST_ORIGIN_AUTO_QUANT,
     WATCHLIST_ORIGIN_MANUAL,
     DecisionJournalRow,
     SignalCacheRow,
@@ -40,7 +41,7 @@ from app.db import (
     init_db,
     session_scope,
 )
-from app.fundamentals import upsert_fundamental_snapshot
+from app.fundamentals import fetch_individual_fund_flow_recent_rows, upsert_fundamental_snapshot
 from app.ingest import (
     fetch_stock_name,
     fetch_stock_names_map,
@@ -72,6 +73,8 @@ from app.schemas import (
     IngestUpdateIn,
     JournalIn,
     JournalOut,
+    QuantWatchlistSyncIn,
+    QuantWatchlistSyncOut,
     SectorScreenDataSource,
     SectorScreenIn,
     SectorScreenOut,
@@ -80,6 +83,7 @@ from app.schemas import (
     SignalOut,
     WatchlistIn,
     WatchlistItem,
+    WebDataPreviewIn,
 )
 from app.forecast_validate import run_forecast_validate
 from app.signals import compute_signal
@@ -247,6 +251,14 @@ def _pre_refresh_symbols(symbols: list[str], *, route: str, pre_refresh: bool) -
             logger.warning("pre_refresh before signal %s route=%s: %s", sym, route, e)
 
 
+def _http_exception_from_datasource(e: DataSourceError) -> HTTPException:
+    """TuShare 等同花顺接口返回「无权限」时改用 403，便于控制台与客户端区分参数错误与权限不足。"""
+    msg = str(e)
+    if "没有接口" in msg and "权限" in msg:
+        return HTTPException(status_code=403, detail=msg)
+    return HTTPException(status_code=400, detail=msg)
+
+
 def _hot_tushare_token(explicit: str | None) -> str | None:
     """热门接口用 TuShare token：请求体/Query 优先，其次服务端配置与环境变量。"""
     raw = (explicit or "").strip()
@@ -272,7 +284,7 @@ def _resolve_sector_datasource(name: str, *, tushare_token: str | None = None):
         try:
             return get_data_source("tushare", tushare_token=token)
         except DataSourceError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
+            raise _http_exception_from_datasource(e) from e
     if key not in ("akshare", "mootdx"):
         raise HTTPException(
             status_code=400,
@@ -507,6 +519,16 @@ def meta_self_use():
     )
 
 
+def _watchlist_item_with_bars(s, r: WatchlistRow) -> WatchlistItem:
+    meta = watchlist_bar_fields_for_session(s, [r.symbol]).get(r.symbol, {})
+    return WatchlistItem(
+        symbol=r.symbol,
+        name=(r.name or "").strip(),
+        origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
+        **meta,
+    )
+
+
 @app.get(
     "/watchlist",
     response_model=list[WatchlistItem],
@@ -520,16 +542,6 @@ def meta_self_use():
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
-def _watchlist_item_with_bars(s, r: WatchlistRow) -> WatchlistItem:
-    meta = watchlist_bar_fields_for_session(s, [r.symbol]).get(r.symbol, {})
-    return WatchlistItem(
-        symbol=r.symbol,
-        name=(r.name or "").strip(),
-        origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
-        **meta,
-    )
-
-
 def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
     """列出自选池全部标的（按 id 升序）。"""
     with session_scope() as s:
@@ -604,6 +616,68 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
 
 
 @app.post(
+    "/watchlist/sync-from-quant-screen",
+    response_model=QuantWatchlistSyncOut,
+    tags=["② 管理自选股票"],
+    summary="将⑨量化选股结果写入自选（origin=auto_quant）",
+    description="""
+将 **`POST /research/sector-screen`** 返回的 **stocks** 列表写入自选：**origin=auto_quant**。
+
+- **会先删除** 当前所有 `auto_hot` 与 `auto_quant` 记录，再写入本次结果；**手动**（`manual`）**不会**被删。
+- 若某代码已在自选且为手动，本次列表**跳过**（不覆盖）。
+- 控制台在「使用量化选股结果」模式下，⑨ 运行成功后会自动调用本接口；也可在②手动点「同步缓存的量化结果」。
+""",
+)
+@limiter.limit("6/minute")
+def watchlist_sync_from_quant_screen(
+    request: Request,
+    body: QuantWatchlistSyncIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    warnings: list[str] = []
+    skipped_existing_manual = 0
+    added = 0
+    removed_auto = 0
+    seen_codes: set[str] = set()
+    with session_scope() as s:
+        res = s.execute(
+            delete(WatchlistRow).where(
+                or_(
+                    WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_HOT,
+                    WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_QUANT,
+                )
+            )
+        )
+        try:
+            removed_auto = int(res.rowcount or 0)
+        except (TypeError, ValueError):
+            removed_auto = 0
+        for row in body.stocks:
+            try:
+                sym = normalize_symbol(row.code)
+            except ValueError:
+                warnings.append(f"跳过无效代码：{row.code!r}")
+                continue
+            if sym in seen_codes:
+                continue
+            seen_codes.add(sym)
+            existing = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
+            if existing is not None:
+                if existing.origin == WATCHLIST_ORIGIN_MANUAL:
+                    skipped_existing_manual += 1
+                continue
+            nm = (row.name or "").strip()
+            s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_QUANT, name=nm))
+            added += 1
+    return QuantWatchlistSyncOut(
+        added=added,
+        skipped_existing_manual=skipped_existing_manual,
+        removed_auto=removed_auto,
+        warnings=warnings,
+    )
+
+
+@app.post(
     "/watchlist/fill-hot-sectors",
     response_model=FillHotSectorsOut,
     tags=["② 管理自选股票"],
@@ -611,7 +685,7 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
     description="""
 按 **get_sector_rankings** 的热度顺序取前 N 个板块；可选对板块内成分股拉日线并按**趋势强度**重排，再叠加“过热涨幅”“流动性”“技术面通过”过滤后，写入自选 **origin=auto_hot**。
 
-- **会先删除** 当前所有 `auto_hot` 记录，再写入本次结果；**手动添加**（`manual`）**不会**被删。
+- **会先删除** 当前所有 `auto_hot` 与 `auto_quant` 记录，再写入本次结果；**手动添加**（`manual`）**不会**被删。
 - 若某代码已在自选且为手动，本次自动列表**跳过**（不覆盖、不重复）。
 - **selector_data_source**：**akshare**（东财板块较全）、**mootdx**（通达信板块较少）、**tushare**（同花顺 ths_index / ths_daily / ths_member，通常需 TuShare **6000 积分**）。选 **tushare** 时请在 Body 传 **tushare_token**（或服务端配置 `TUSHARE_TOKEN` / `tushare_token`）。
 - **use_sector_snapshot**：为 true 时优先读取本地板块热度快照；为 false 时强制重新请求最新板块排名，并刷新快照文件。
@@ -655,7 +729,14 @@ def watchlist_fill_hot_sectors(
     removed_auto = 0
     hot_names = _names_from_hot_sectors_detail(hot.sectors_detail)
     with session_scope() as s:
-        res = s.execute(delete(WatchlistRow).where(WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_HOT))
+        res = s.execute(
+            delete(WatchlistRow).where(
+                or_(
+                    WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_HOT,
+                    WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_QUANT,
+                )
+            )
+        )
         try:
             removed_auto = int(res.rowcount or 0)
         except (TypeError, ValueError):
@@ -891,6 +972,60 @@ def ingest_test_connection(
 ):
     ds = data_source.value if data_source is not None else None
     return test_akshare_connectivity(data_source=ds)
+
+
+@app.post(
+    "/ingest/web-data-preview",
+    tags=["③ 更新行情数据"],
+    summary="单标的：K 线 + 日级资金流（网页数据预览）",
+    description="""
+针对**单只**标的（**不必**在自选池中）：
+
+- **K 线**：默认先 `incremental_refresh` 联网写入本地 `bars`，再返回最近 `bar_limit` 根日线（与 `GET /quotes/{symbol}/bars` 同结构）。
+- **资金流**：东财个股日级表（AkShare `stock_individual_fund_flow`），返回最近 `fund_flow_recent_days` 行；**非** tick 级「实时主力」，盘中请以交易所与券商行情为准。
+
+用于 `/ui/web-crawler` 配置页预览；有频率限制，请勿连续狂点。**非投资建议**。
+""",
+)
+@limiter.limit("20/minute")
+def ingest_web_data_preview(
+    request: Request,
+    body: WebDataPreviewIn,
+    _: None = Depends(optional_api_key),
+):
+    try:
+        sym = normalize_symbol(body.symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    route = _resolve_ingest_route(body.data_source)
+    refresh: dict[str, object] = {"attempted": body.refresh_kline, "ok": None, "detail": None, "result": None}
+    if body.refresh_kline:
+        try:
+            refresh["result"] = incremental_refresh(sym, data_source=route)
+            refresh["ok"] = True
+        except Exception as e:
+            refresh["ok"] = False
+            refresh["detail"] = f"{type(e).__name__}: {e}"
+            logger.warning("web_data_preview refresh %s: %s", sym, e)
+    try:
+        bars = list_bars_from_db(sym, limit=body.bar_limit)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    fund_rows = fetch_individual_fund_flow_recent_rows(sym, limit_rows=body.fund_flow_recent_days)
+    fund_latest = fund_rows[-1] if fund_rows else None
+    return {
+        "symbol": sym,
+        "data_source": route,
+        "kline_refresh": refresh,
+        "bars": bars,
+        "fund_flow_recent": fund_rows,
+        "fund_flow_latest": fund_latest,
+        "disclaimer": _disclaimer_payload().model_dump(),
+        "note": (
+            "实现上通过 AkShare 聚合公开页面接口，非浏览器自动化爬虫；"
+            "资金流为日级汇总，「最新一行」对应数据源最近交易日。"
+        ),
+    }
 
 
 @app.get(
@@ -1220,7 +1355,7 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
     except HTTPException:
         raise
     except DataSourceError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise _http_exception_from_datasource(e) from e
     except Exception as e:
         logger.exception("sector-screen failed: %s", e)
         raise HTTPException(status_code=502, detail=f"选股流水线失败：{e}") from e
@@ -1467,6 +1602,7 @@ def root():
         {
             "service": "quant-monitor",
             "ui": "/ui",
+            "web_data_preview_ui": "/ui/web-crawler",
             "docs": "/docs",
             "self_use": "/meta/self-use",
             "journal": "/journal",
@@ -1484,6 +1620,15 @@ def ui_console():
     path = STATIC_DIR / "console.html"
     if not path.is_file():
         raise HTTPException(status_code=404, detail="控制台页面未找到")
+    return FileResponse(path)
+
+
+@app.get("/ui/web-crawler", include_in_schema=False)
+def ui_web_crawler():
+    """K 线与资金流网页数据预览（静态页）；与 POST /ingest/web-data-preview 配套。"""
+    path = STATIC_DIR / "web-crawler.html"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="页面未找到")
     return FileResponse(path)
 
 

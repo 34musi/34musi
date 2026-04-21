@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from .datasources import BaseAShareDataSource
-from .market_utils import normalize_code, safe_float
+from .market_utils import is_listed_a_share_equity, normalize_code, safe_float
 from .screening import evaluate_screen
 
 
@@ -99,7 +99,7 @@ def _basic_pick_from_constituents(
     stock_rank = 0
     for _, crow in constituents.iterrows():
         code = normalize_code(crow.get("code", crow.get("代码", "")))
-        if not code or len(code) != 6:
+        if not code or len(code) != 6 or not is_listed_a_share_equity(code):
             continue
         name = crow.get("name", crow.get("名称", ""))
         if exclude_kcb and is_star_board_code(code):
@@ -150,7 +150,7 @@ def _technical_pick_from_constituents(
 
     for _, crow in constituents.iterrows():
         code = normalize_code(crow.get("code", crow.get("代码", "")))
-        if not code or len(code) != 6:
+        if not code or len(code) != 6 or not is_listed_a_share_equity(code):
             continue
         name = crow.get("name", crow.get("名称", ""))
         if exclude_kcb and is_star_board_code(code):
@@ -196,11 +196,13 @@ def _technical_pick_from_constituents(
         candidates.append(detail)
 
     if sort_by_trend_strength:
+        # 主排序：技术面与趋势；同分下略偏好更低波动（常见组合构建中的风险约束近似）。
         candidates.sort(
             key=lambda x: (
                 1 if x.get("screen_passed") else 0,
-                safe_float(x.get("trend_score")),
                 safe_float(x.get("screen_score")),
+                safe_float(x.get("trend_score")),
+                -safe_float(x.get("annual_volatility_20d")),
                 safe_float(x.get("volume_score")),
                 safe_float(x.get("avg_turnover_20d")),
             ),

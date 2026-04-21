@@ -7,6 +7,7 @@ import argparse
 import pandas as pd
 
 from .backtest import compose_final_score, run_sma_backtest
+from .market_utils import standardize_price_frame
 from .models import SectorRecord, StockEvaluation
 from .screening import evaluate_screen
 
@@ -18,9 +19,12 @@ def evaluate_stock(
     history: pd.DataFrame,
     args: argparse.Namespace,
 ) -> StockEvaluation:
-    screen = evaluate_screen(history)
+    std_hist = standardize_price_frame(history)
+    last_ts = std_hist["date"].iloc[-1]
+    latest_trade_date = pd.Timestamp(last_ts).strftime("%Y-%m-%d")
+    screen = evaluate_screen(std_hist)
     backtest = run_sma_backtest(
-        history,
+        std_hist,
         fast_period=args.fast_period,
         slow_period=args.slow_period,
         initial_cash=args.initial_cash,
@@ -36,6 +40,7 @@ def evaluate_stock(
         board_type=sector.board_type,
         code=code,
         name=name,
+        latest_trade_date=latest_trade_date,
         sector_hot_score=sector.hot_score,
         screen_passed=screen.passed,
         trend_score=screen.trend_score,

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import akshare as ak
+import numpy as np
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -215,6 +216,50 @@ def fetch_latest_main_flow(sym: str) -> tuple[float | None, str | None]:
     flow = float(amt) if amt is not None and pd.notna(amt) else None
     ds = str(dt) if dt is not None and pd.notna(dt) else None
     return flow, ds
+
+
+def _jsonable_fund_flow_cell(v: Any) -> Any:
+    """将 AkShare 资金流表单元格转为 JSON 友好类型。"""
+    if v is None:
+        return None
+    if isinstance(v, pd.Timestamp):
+        try:
+            return str(v.date())
+        except (ValueError, OSError):
+            return str(v)
+    if isinstance(v, (bool, str)):
+        return v
+    if isinstance(v, (int, np.integer)):
+        return int(v)
+    if isinstance(v, (float, np.floating)):
+        f = float(v)
+        return None if not math.isfinite(f) else f
+    if pd.isna(v):
+        return None
+    return str(v)
+
+
+def fetch_individual_fund_flow_recent_rows(sym: str, *, limit_rows: int = 10) -> list[dict[str, Any]]:
+    """
+    东财个股日级资金流向表最近若干行（旧→新），列名与 AkShare `stock_individual_fund_flow` 一致。
+
+    limit_rows：最多返回多少个交易日；用于网页预览「当日/最近交易日」资金概况。
+    """
+    sym_n = normalize_symbol(sym)
+    mkt = em_fund_flow_market(sym_n)
+    n = max(1, min(int(limit_rows), 500))
+    try:
+        df = ak.stock_individual_fund_flow(stock=sym_n, market=mkt)
+    except Exception as e:
+        logger.debug("fund_flow recent %s: %s", sym_n, e)
+        return []
+    if df is None or df.empty:
+        return []
+    tail = df.tail(min(n, len(df)))
+    out: list[dict[str, Any]] = []
+    for _, row in tail.iterrows():
+        out.append({str(k): _jsonable_fund_flow_cell(row[k]) for k in row.index})
+    return out
 
 
 def build_fundamental_panel(sym: str) -> FundamentalPanel:

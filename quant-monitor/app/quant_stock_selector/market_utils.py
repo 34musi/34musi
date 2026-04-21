@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -10,6 +11,11 @@ import pandas as pd
 
 from .constants import PRICE_COLUMN_ALIASES
 from .exceptions import DataSourceError
+
+# 与 mootdx 注释及交易所常见编码一致：排除 399/395 指数、880 自定义板块等，仅保留可交易的 A 股普通股等。
+_LISTED_A_SHARE_EQUITY_RE = re.compile(
+    r"^(00[0-3]\d{3}|300\d{3}|301\d{3}|60[0-9]\d{3}|688\d{3}|689\d{3}|430\d{3}|83[0-9]\d{3})$"
+)
 
 
 def normalize_code(raw_code: object) -> str:
@@ -19,6 +25,12 @@ def normalize_code(raw_code: object) -> str:
     if len(digits) >= 6:
         return digits[-6:]
     return digits.zfill(6)
+
+
+def is_listed_a_share_equity(code: object) -> bool:
+    """True 表示按常见规则可作为「个股」拉日线、参与选股（非指数/板块占位码）。"""
+    c = normalize_code(code)
+    return bool(c and len(c) == 6 and _LISTED_A_SHARE_EQUITY_RE.match(c))
 
 
 def to_tushare_code(code: str) -> str:

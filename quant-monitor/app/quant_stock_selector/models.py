@@ -54,6 +54,8 @@ class StockEvaluation:
     board_type: str
     code: str
     name: str
+    # 与 latest_close 同一根 K 线的交易日（YYYY-MM-DD），供 API/表格展示
+    latest_trade_date: str
     sector_hot_score: float
     screen_passed: bool
     trend_score: float

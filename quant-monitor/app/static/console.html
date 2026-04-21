@@ -76,7 +76,7 @@
       flex: 1;
       padding: 1.25rem 1.5rem;
       overflow-y: auto;
-      max-width: 900px;
+      max-width: 960px;
     }
     .panel { display: none; }
     .panel.active { display: block; }
@@ -216,6 +216,24 @@
     .ingest-h3 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--text); }
     .ingest-result-wrap { margin-top: 1rem; }
     .ingest-fv-methods-row { margin-top: 0.35rem; }
+    .ingest-fv-oos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.65rem 1rem;
+      margin-top: 0.35rem;
+      max-width: 520px;
+    }
+    .ingest-fv-oos-grid label { margin-bottom: 0.2rem; }
+    .ingest-fv-oos-grid input[type="date"] {
+      width: 100%;
+      max-width: 220px;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.88rem;
+    }
     .ingest-fv-methods-row > span.lbl-block {
       display: block;
       font-size: 0.82rem;
@@ -278,32 +296,308 @@
     .pill.err { background: rgba(248, 113, 113, 0.15); color: var(--err); }
     .hot-fill-box {
       margin: 1rem 0;
-      padding: 1rem;
+      padding: 0;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--panel);
+      border-radius: 12px;
+      background: linear-gradient(165deg, rgba(30, 42, 58, 0.95) 0%, var(--panel) 48%, #151d2a 100%);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
     }
-    .hot-fill-box h3 { margin: 0 0 0.75rem; font-size: 1rem; color: var(--text); }
+    /* ⑨ 等未使用分区头部的卡片：保留内边距 */
+    .hot-fill-box:not(:has(.hot-fill-head)) {
+      padding: 1rem 1.25rem 1.15rem;
+    }
+    .hot-fill-box h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+    .hot-fill-head {
+      padding: 1.15rem 1.35rem 1rem;
+      border-bottom: 1px solid rgba(45, 58, 79, 0.55);
+      background: rgba(0, 0, 0, 0.12);
+    }
+    .hot-fill-desc {
+      margin: 0.7rem 0 0;
+      padding: 0;
+      max-width: 48rem;
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+    .hot-fill-desc strong { color: #b8c9dc; font-weight: 600; }
+    .hot-fill-section {
+      padding: 1rem 1.35rem 1.1rem;
+    }
+    .hot-fill-section + .hot-fill-section {
+      border-top: 1px solid rgba(45, 58, 79, 0.45);
+    }
+    .hot-fill-section-title {
+      margin: 0 0 0.85rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6b7f95;
+      line-height: 1.3;
+    }
     .hot-form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 0.75rem 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      gap: 0.85rem 1.15rem;
       align-items: end;
-      margin-bottom: 0.75rem;
     }
-    .hot-form-grid label { margin-bottom: 0.15rem; }
+    .hot-form-grid .field-stack { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+    .hot-form-grid label { margin-bottom: 0; font-size: 0.8rem; color: #9aaaba; }
     .hot-form-grid input[type="number"], .hot-form-grid select {
       width: 100%;
       max-width: none;
-      padding: 0.45rem 0.55rem;
+      padding: 0.5rem 0.65rem;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       background: var(--bg);
       color: var(--text);
       font-size: 0.9rem;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    .hot-check-row { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.5rem 0 0.75rem; font-size: 0.85rem; color: var(--muted); }
-    .hot-check-row label { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; margin: 0; }
+    .hot-form-grid input[type="number"]:focus, .hot-form-grid select:focus {
+      outline: none;
+      border-color: rgba(61, 139, 253, 0.55);
+      box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.12);
+    }
+    .hot-options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.55rem 1.25rem;
+      align-items: start;
+    }
+    .hot-options-grid .hot-check-full {
+      grid-column: 1 / -1;
+    }
+    .hot-check-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1.25rem;
+      margin: 0;
+      font-size: 0.84rem;
+      color: #a8b6c8;
+    }
+    .hot-check-row label,
+    .hot-options-grid label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      margin: 0;
+      line-height: 1.4;
+      color: #c5d0df;
+    }
+    .hot-check-row label input,
+    .hot-options-grid label input {
+      width: 1rem;
+      height: 1rem;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .hot-threshold-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    @media (max-width: 600px) {
+      .hot-threshold-grid { grid-template-columns: 1fr; }
+    }
+    .hot-threshold-card {
+      padding: 0.9rem 1rem;
+      border: 1px solid rgba(45, 58, 79, 0.85);
+      border-radius: 10px;
+      background: rgba(15, 20, 25, 0.45);
+    }
+    .hot-threshold-card .hot-checkbox-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.45rem;
+      margin: 0 0 0.75rem;
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.45;
+    }
+    .hot-threshold-card .hot-checkbox-main input {
+      margin-top: 0.15rem;
+      width: 1rem;
+      height: 1rem;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .hot-threshold-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .hot-threshold-inputs .hot-sublabel {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    .hot-threshold-inputs input[type="number"] {
+      width: 100%;
+      max-width: 11rem;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .hot-threshold-inputs input[type="number"]:focus {
+      outline: none;
+      border-color: rgba(61, 139, 253, 0.55);
+      box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.12);
+    }
+    .hot-field-hint {
+      margin: 0.5rem 0 0;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      color: #7a8a9e;
+    }
+    .hot-fill-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 1rem 1.35rem 1.2rem;
+      border-top: 1px solid rgba(45, 58, 79, 0.55);
+      background: rgba(0, 0, 0, 0.18);
+    }
+    .hot-fill-actions .btns {
+      margin: 0;
+    }
+    .hot-fill-box > #hotSummaryLine {
+      margin-top: 0;
+      padding-top: 0.5rem;
+    }
+    .hot-fill-box > .hot-sectors-wrap {
+      margin: 0.75rem 1.35rem 1.1rem;
+      border-radius: 10px;
+    }
+    .panel-rule {
+      border: none;
+      height: 1px;
+      margin: 1.85rem 0 1.15rem;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+    .wl-manual-block {
+      padding-bottom: 0.5rem;
+    }
+    .wl-manual-heading {
+      margin: 0 0 0.35rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .wl-manual-lead {
+      margin: 0 0 1rem;
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+    .wl-quant-mode-card {
+      margin: 1rem 0 1.15rem;
+      padding: 1rem 1.2rem 1.05rem;
+      border-radius: 12px;
+      border: 1px solid rgba(61, 139, 253, 0.22);
+      background: linear-gradient(145deg, rgba(61, 139, 253, 0.1) 0%, rgba(15, 20, 25, 0.35) 100%);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    .wl-quant-switch-label {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      margin: 0;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text);
+      user-select: none;
+    }
+    .wl-quant-switch-label input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+    }
+    .wl-quant-switch-ui {
+      position: relative;
+      width: 2.65rem;
+      height: 1.45rem;
+      flex-shrink: 0;
+      border-radius: 999px;
+      background: #2d3a4f;
+      border: 1px solid var(--border);
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    .wl-quant-switch-ui::after {
+      content: "";
+      position: absolute;
+      top: 0.12rem;
+      left: 0.14rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      border-radius: 50%;
+      background: #e7ecf3;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+      transition: transform 0.2s ease;
+    }
+    .wl-quant-switch-label input:focus-visible + .wl-quant-switch-ui {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .wl-quant-switch-label input:checked + .wl-quant-switch-ui {
+      background: rgba(61, 139, 253, 0.55);
+      border-color: rgba(61, 139, 253, 0.65);
+    }
+    .wl-quant-switch-label input:checked + .wl-quant-switch-ui::after {
+      transform: translateX(1.15rem);
+    }
+    .wl-quant-switch-text { line-height: 1.45; }
+    .wl-quant-mode-desc {
+      margin: 0.7rem 0 0;
+      padding: 0;
+      font-size: 0.8rem;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+    .wl-quant-mode-desc strong { color: #b8c9dc; font-weight: 600; }
+    .wl-quant-mode-actions { margin-top: 0.85rem; }
+    .wl-quant-mode-actions.btns { margin-bottom: 0; }
+    .wl-quant-mode-hint {
+      margin: 0.65rem 0 0;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      color: #8ee5b8;
+    }
+    .wl-quant-mode-hint.warn { color: #fbbf77; }
+    .wl-hot-fill-disabled-note {
+      margin: 0 0 0.65rem;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: #c9b87c;
+      border: 1px solid rgba(201, 184, 124, 0.35);
+      border-radius: 8px;
+      background: rgba(201, 184, 124, 0.08);
+    }
+    #panel-2.wl-quant-mode-on .hot-fill-box {
+      opacity: 0.44;
+      pointer-events: none;
+      filter: grayscale(0.2);
+    }
     .hot-summary-box {
       margin-top: 0.85rem;
       padding: 0.9rem 1rem;
@@ -404,8 +698,26 @@
       color: var(--text);
       font-size: 0.9rem;
     }
-    .hot-tushare-row { display: none; margin-top: 0.75rem; padding: 0.75rem; border: 1px dashed var(--border); border-radius: 8px; background: rgba(0, 0, 0, 0.12); }
+    .hot-tushare-row {
+      display: none;
+      padding: 1rem 1.1rem;
+      border: 1px solid rgba(61, 139, 253, 0.22);
+      border-radius: 10px;
+      background: rgba(61, 139, 253, 0.06);
+    }
+    .hot-fill-box > .hot-tushare-row {
+      margin: 0.85rem 1.35rem 0;
+    }
+    .hot-fill-section .hot-tushare-row {
+      margin: 1rem 0 0;
+    }
     .hot-tushare-row.visible { display: block; }
+    .hot-tushare-row label { color: #a8b8cc; }
+    .hot-tushare-row input[type="password"] {
+      max-width: 100%;
+      width: 100%;
+    }
+    .hot-tushare-row .btns { margin-top: 0.65rem; }
     .ingest-notes { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 0.5rem; }
     .forecast-trades-legend { margin: 0; padding-left: 1.15rem; font-size: 0.74rem; color: var(--muted); line-height: 1.55; }
     .forecast-trades-legend li { margin: 0.2rem 0; }
@@ -561,6 +873,8 @@
   <header>
     <h1>A 股趋势监控 · 图形控制台</h1>
     <span>
+      <a href="/ui/web-crawler">网页数据（K线·资金）</a>
+      <span style="color:var(--border);margin:0 0.5rem">|</span>
       <a href="/docs" target="_blank" rel="noopener">开发者文档 /docs</a>
     </span>
   </header>
@@ -593,76 +907,104 @@
 
       <section id="panel-2" class="panel" data-module="2">
         <h2>② 管理自选股票</h2>
-        <p class="lead">告诉系统要关注哪些 6 位 A 股代码；拉数据、算信号都基于自选列表。可<strong>手动添加</strong>，也可用下方<strong>热门板块自动填充</strong>：再次填充会<strong>只清空上一次「热门自动」</strong>条目，<strong>不会删除手动添加</strong>。</p>
+        <p class="lead">告诉系统要关注哪些 6 位 A 股代码；拉数据、算信号都基于自选列表。可先选下方<strong>自选池来源</strong>：用⑨量化结果，或用<strong>手动 + 热门板块</strong>维护；手动条目在任何模式下都会保留。</p>
+        <div id="wlQuantModeCard" class="wl-quant-mode-card">
+          <label class="wl-quant-switch-label" for="chkWlUseQuant">
+            <input type="checkbox" id="chkWlUseQuant" autocomplete="off" />
+            <span class="wl-quant-switch-ui" aria-hidden="true"></span>
+            <span class="wl-quant-switch-text">使用⑨「量化选股」结果维护自选池</span>
+          </label>
+          <p class="wl-quant-mode-desc"><strong>开启</strong>后：在「⑨ 量化选股」点击<strong>运行选股评估</strong>成功时，会自动把结果股票写入自选（来源为「量化自动」，并清空原热门/量化自动项，不删手动）。<strong>关闭</strong>后：仅由下方热门填充与手动添加维护自选。</p>
+          <div class="wl-quant-mode-actions btns">
+            <button type="button" class="secondary" id="btnWlSyncQuantCache">将上次量化结果同步到自选</button>
+          </div>
+          <p class="wl-quant-mode-hint" id="wlQuantModeHint" hidden></p>
+        </div>
+        <p id="wlHotFillDisabledNote" class="wl-hot-fill-disabled-note" hidden>当前为量化池模式：下方「热门板块自动填充」已暂时不可用；请打开左侧「⑨ 量化选股」运行评估以更新自选。</p>
         <div class="hot-fill-box">
-          <h3>热门板块自动填充</h3>
-          <p class="lead" style="margin-top:0;font-size:0.8rem;">按核心数据源的热门板块排名，每板块取过滤后前若干只写入自选（来源列为「热门自动」）。<strong>akshare</strong> 东财板块较全；<strong>mootdx</strong> 通达信板块较少；<strong>TuShare</strong> 走同花顺指数（ths_index / ths_daily / ths_member，通常需 <strong>6000 积分</strong>），选后会提示填写 Token。需联网，耗时可较长。</p>
-          <div class="hot-form-grid">
-            <div>
-              <label for="hotTopSectors">热门板块个数</label>
-              <input type="number" id="hotTopSectors" value="5" min="1" max="200" />
+          <header class="hot-fill-head">
+            <h3>热门板块自动填充</h3>
+            <p class="hot-fill-desc">按核心数据源的热门板块排名，每板块取过滤后前若干只写入自选（来源列为「热门自动」）。<strong>akshare</strong> 东财板块较全；<strong>mootdx</strong> 通达信板块较少；<strong>TuShare</strong> 走同花顺指数（ths_index / ths_daily / ths_member，通常需 <strong>6000 积分</strong>），选后会提示填写 Token。需联网，耗时可较长。</p>
+          </header>
+          <div class="hot-fill-section">
+            <div class="hot-fill-section-title">数据源与数量</div>
+            <div class="hot-form-grid">
+              <div class="field-stack">
+                <label for="hotTopSectors">热门板块个数</label>
+                <input type="number" id="hotTopSectors" value="5" min="1" max="200" />
+              </div>
+              <div class="field-stack">
+                <label for="hotStocksPerSector">每板块只数</label>
+                <input type="number" id="hotStocksPerSector" value="5" min="1" max="50" />
+              </div>
+              <div class="field-stack">
+                <label for="hotBoardType">板块类型</label>
+                <select id="hotBoardType">
+                  <option value="all">全部（概念+行业）</option>
+                  <option value="concept">概念</option>
+                  <option value="industry">行业</option>
+                </select>
+              </div>
+              <div class="field-stack">
+                <label for="hotSelectorDs">热门数据路线</label>
+                <select id="hotSelectorDs">
+                  <option value="akshare" selected>akshare（推荐）</option>
+                  <option value="mootdx">mootdx</option>
+                  <option value="tushare">TuShare（同花顺板块 · 需 Token）</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label for="hotStocksPerSector">每板块只数</label>
-              <input type="number" id="hotStocksPerSector" value="5" min="1" max="50" />
-            </div>
-            <div>
-              <label for="hotBoardType">板块类型</label>
-              <select id="hotBoardType">
-                <option value="all">全部（概念+行业）</option>
-                <option value="concept">概念</option>
-                <option value="industry">行业</option>
-              </select>
-            </div>
-            <div>
-              <label for="hotSelectorDs">热门数据路线</label>
-              <select id="hotSelectorDs">
-                <option value="akshare" selected>akshare（推荐）</option>
-                <option value="mootdx">mootdx</option>
-                <option value="tushare">TuShare（同花顺板块 · 需 Token）</option>
-              </select>
+            <div id="hotTushareTokenRow" class="hot-tushare-row" aria-live="polite">
+              <label for="hotTushareToken">TuShare Pro Token</label>
+              <input type="password" id="hotTushareToken" placeholder="从 tushare.pro 获取；仅提交到本机服务" autocomplete="off" />
+              <div class="btns">
+                <button type="button" class="secondary" id="btnHotTushareSaveToken">保存 Token 到本机浏览器</button>
+              </div>
+              <p class="hot-field-hint" style="margin-top:0.65rem;">若已在服务器配置 <code>TUSHARE_TOKEN</code>，可留空。</p>
             </div>
           </div>
-          <div id="hotTushareTokenRow" class="hot-tushare-row" aria-live="polite">
-            <label for="hotTushareToken">TuShare Pro Token</label>
-            <input type="password" id="hotTushareToken" placeholder="从 tushare.pro 获取；仅提交到本机服务" autocomplete="off" style="max-width:420px;" />
-            <div class="btns" style="margin-top:0.5rem;">
-              <button type="button" class="secondary" id="btnHotTushareSaveToken">保存 Token 到本机浏览器</button>
+          <div class="hot-fill-section">
+            <div class="hot-fill-section-title">筛选与排序</div>
+            <div class="hot-options-grid">
+              <label><input type="checkbox" id="hotExcludeSt" checked /> 排除 ST</label>
+              <label><input type="checkbox" id="hotExcludeKcb" checked /> 排除科创板（688/689）</label>
+              <label class="hot-check-full"><input type="checkbox" id="hotUseSectorSnapshot" checked /> 使用板块快照（不勾选则强制请求最新板块数据）</label>
+              <label><input type="checkbox" id="hotSortByTrend" checked /> 板块内按趋势强度排序</label>
+              <label><input type="checkbox" id="hotRequireTechPass" /> 热门 + 技术面通过才入选</label>
             </div>
-            <p class="lead" style="margin:0.5rem 0 0;font-size:0.75rem;">若已在服务器配置 <code>TUSHARE_TOKEN</code>，可留空。</p>
           </div>
-          <div class="hot-check-row">
-            <label><input type="checkbox" id="hotExcludeSt" checked /> 排除 ST</label>
-            <label><input type="checkbox" id="hotExcludeKcb" checked /> 排除科创板（688/689）</label>
+          <div class="hot-fill-section">
+            <div class="hot-fill-section-title">涨幅与流动性（勾选后按阈值过滤）</div>
+            <div class="hot-threshold-grid">
+              <div class="hot-threshold-card">
+                <label class="hot-checkbox-main"><input type="checkbox" id="hotExcludeOverextended" /> 剔除近 20 日涨幅过大</label>
+                <div class="hot-threshold-inputs">
+                  <span class="hot-sublabel" id="lblHotMax20d">近 20 日累计涨幅上限（%）</span>
+                  <input type="number" id="hotMax20dReturnPct" value="25" min="0" max="500" step="1" aria-labelledby="lblHotMax20d" />
+                </div>
+                <p class="hot-field-hint">仅当上一项勾选时生效；超过该涨幅的标的会被剔除。</p>
+              </div>
+              <div class="hot-threshold-card">
+                <label class="hot-checkbox-main"><input type="checkbox" id="hotEnableLiquidityFilter" /> 最低成交额 / 流动性</label>
+                <div class="hot-threshold-inputs">
+                  <span class="hot-sublabel" id="lblHotMinTurn">近 20 日平均成交额下限（亿元）</span>
+                  <input type="number" id="hotMinTurnover20d100m" value="1" min="0" max="10000" step="0.1" aria-labelledby="lblHotMinTurn" />
+                </div>
+                <p class="hot-field-hint">仅当上一项勾选时生效；低于该均额的标的会被剔除。</p>
+              </div>
+            </div>
           </div>
-        <div class="hot-check-row">
-          <label><input type="checkbox" id="hotUseSectorSnapshot" checked /> 使用板块快照（不勾选则强制请求最新板块数据）</label>
-        </div>
-        <div class="hot-check-row">
-          <label><input type="checkbox" id="hotSortByTrend" checked /> 板块内按趋势强度排序</label>
-          <label><input type="checkbox" id="hotRequireTechPass" /> 热门 + 技术面通过才入选</label>
-        </div>
-        <div class="hot-form-grid" style="margin-top:0.35rem;">
-          <div>
-            <label><input type="checkbox" id="hotExcludeOverextended" /> 剔除近 20 日涨幅过大</label>
-            <input type="number" id="hotMax20dReturnPct" value="25" min="0" max="500" step="1" />
-            <p class="lead" style="margin:0.25rem 0 0;font-size:0.74rem;">阈值：近 20 日累计涨幅上限（%）</p>
-          </div>
-          <div>
-            <label><input type="checkbox" id="hotEnableLiquidityFilter" /> 最低成交额 / 流动性</label>
-            <input type="number" id="hotMinTurnover20d100m" value="1" min="0" max="10000" step="0.1" />
-            <p class="lead" style="margin:0.25rem 0 0;font-size:0.74rem;">阈值：近 20 日平均成交额下限（亿元）</p>
-          </div>
-        </div>
-          <div class="btns" style="margin-top:0;">
-            <button type="button" class="secondary" id="btnHotPreview">预览热门选股（不写库）</button>
-            <button type="button" class="primary" id="btnHotFill">从热门板块填充自选</button>
-          </div>
-          <div id="hotSummaryLine" style="margin-top:0.75rem;" hidden></div>
+          <footer class="hot-fill-actions">
+            <div class="btns">
+              <button type="button" class="secondary" id="btnHotPreview">预览热门选股（不写库）</button>
+              <button type="button" class="primary" id="btnHotFill">从热门板块填充自选</button>
+            </div>
+          </footer>
+          <div id="hotSummaryLine" style="padding:0 1.35rem 0.25rem;" hidden></div>
           <div id="hotSectorsWrap" class="hot-sectors-wrap" hidden></div>
         </div>
         <dialog id="hotTushareDlg" class="hot-dlg">
-          <p class="lead" style="margin-top:0;font-size:0.88rem;">已选择 <strong>TuShare</strong> 热门路线：请输入 <strong>TuShare Pro Token</strong>（同花顺板块接口，一般需 6000 积分）。Token 只发往当前访问的本机/局域网 API，不会显示在 Swagger URL 里。</p>
+          <p class="hot-fill-desc" style="margin:0;">已选择 <strong>TuShare</strong> 热门路线：请输入 <strong>TuShare Pro Token</strong>（同花顺板块接口，一般需 6000 积分）。Token 只发往当前访问的本机/局域网 API，不会显示在 Swagger URL 里。</p>
           <label for="hotTushareDlgInput">TuShare Token</label>
           <input type="password" id="hotTushareDlgInput" autocomplete="off" />
           <div class="btns" style="margin-top:0.75rem;">
@@ -670,13 +1012,18 @@
             <button type="button" class="secondary" id="hotTushareDlgCancel">稍后再说</button>
           </div>
         </dialog>
-        <div class="row">
-          <label for="symAdd">股票代码</label>
-          <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
-        </div>
-        <div class="btns">
-          <button type="button" class="primary" id="btnAddWl">确定添加</button>
-          <button type="button" class="secondary" id="btnRefreshWl">刷新列表</button>
+        <hr class="panel-rule" aria-hidden="true" />
+        <div class="wl-manual-block">
+          <h3 class="wl-manual-heading">手动添加与管理</h3>
+          <p class="lead wl-manual-lead">输入 6 位 A 股代码加入自选；可随时刷新列表或删除条目。与上方「热门自动」来源互不影响。</p>
+          <div class="row">
+            <label for="symAdd">股票代码</label>
+            <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
+          </div>
+          <div class="btns">
+            <button type="button" class="primary" id="btnAddWl">确定添加</button>
+            <button type="button" class="secondary" id="btnRefreshWl">刷新列表</button>
+          </div>
         </div>
         <div id="wl-table-wrap"></div>
         <pre class="out" id="out-2" hidden></pre>
@@ -706,6 +1053,22 @@
         <div class="row">
           <label for="ingestEndDate">结束日期（含当日）</label>
           <input type="date" id="ingestEndDate" />
+        </div>
+        <div class="row ingest-fv-methods-row">
+          <span class="lbl-block">行内 walk-forward <strong>样本外</strong>日期区间（可选；对应接口 <code>oos_from</code> / <code>oos_to</code>）</span>
+          <div class="ingest-fv-oos-grid">
+            <div>
+              <label for="fvOosFrom">样本外起始日（含）</label>
+              <input type="date" id="fvOosFrom" />
+            </div>
+            <div>
+              <label for="fvOosTo">样本外结束日（含）</label>
+              <input type="date" id="fvOosTo" />
+            </div>
+          </div>
+          <p class="lead" style="margin:0.4rem 0 0;font-size:0.78rem;color:var(--muted);">
+            <strong>都留空</strong>：从训练窗之后一直到<strong>最后一根已入库 K 线</strong>，全部计入样本外（推荐；可看到 2026 等任意已更新数据）。只填「结束」可截断到某日前。需 2026 年成交时，请先<strong>更新行情到今日</strong>或勾选下方「行内回测前拉取最新日线」。
+          </p>
         </div>
         <div class="row ingest-fv-methods-row">
           <span class="lbl-block">行内回测包含的策略（多选；勾选结果会保存到本机，下方表格点「开始回测」时生效）</span>
@@ -860,7 +1223,7 @@
               <select id="qssDataSource">
                 <option value="mootdx">mootdx（通达信，较稳）</option>
                 <option value="akshare" selected>akshare（东财，板块更全）</option>
-                <option value="tushare">tushare（需 Token）</option>
+                <option value="tushare">tushare（Token + 同花顺板块高积分）</option>
               </select>
             </div>
             <div>
@@ -900,9 +1263,15 @@
               <input type="number" id="qssTopLimit" value="40" min="1" max="500" />
             </div>
           </div>
+          <p class="lead" style="margin:0.45rem 0 0;font-size:0.78rem;color:var(--muted);max-width:52rem;line-height:1.55;">
+            <strong>结束日期</strong>是「允许用到的<strong>日历上限</strong>」，并不要求接口里一定已有该日的<strong>完整日 K</strong>。mootdx / 东财等源的<strong>日线</strong>通常在<strong>当日 A 股收盘后</strong>或<strong>更晚</strong>才写入当日那根；你在<strong>盘中或刚收盘</strong>跑选股时，最后一根往往仍是<strong>上一交易日</strong>，故候选表「最近收盘」可能显示 4/13 而结束日已填 4/14，属数据源节奏而非程序截断错误。
+          </p>
           <div id="qssTushareRow" class="hot-tushare-row" style="display:none;">
             <label for="qssTushareToken">TuShare Token（可与②共用本机保存）</label>
             <input type="password" id="qssTushareToken" placeholder="可选；未填则试服务端环境变量" autocomplete="off" style="max-width:420px;" />
+            <p class="lead" style="margin:0.4rem 0 0;font-size:0.72rem;color:var(--muted);max-width:46rem;line-height:1.55;">
+              <strong>热门板块</strong>走同花顺接口 <code>ths_index</code> / <code>ths_daily</code> / <code>ths_member</code>，TuShare 对这类接口通常要求<strong>高积分</strong>（文档常见说明为约 6000 分）。若返回「没有接口访问权限」，与 Token 是否填对<strong>无关</strong>，请改用 <strong>akshare</strong> 或 <strong>mootdx</strong>，或至 <a href="https://tushare.pro/document/1?doc_id=108" target="_blank" rel="noopener">tushare 权限说明</a> 核对账号权限。
+            </p>
           </div>
           <div class="row" style="margin-top:0.75rem;">
             <label for="qssSector">仅分析指定板块（可选，与下方自定义代码二选一）</label>
@@ -942,7 +1311,7 @@
 
   var modules = [
     { id: "1", title: "① 入门必读", hint: "密钥、测试连接、服务信息" },
-    { id: "2", title: "② 管理自选股票", hint: "手动添加 / 热门填充 / 列表" },
+    { id: "2", title: "② 管理自选股票", hint: "自选来源 · 热门 / ⑨量化 / 列表" },
     { id: "3", title: "③ 更新行情数据", hint: "拉取日线 / 拉取结果与回测" },
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
     { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
@@ -1139,12 +1508,15 @@
   }
 
   var LS_TUSHARE = "quant_monitor_tushare_token";
+  var LS_USE_QUANT_WL = "quant_monitor_use_quant_watchlist";
+  var LS_LAST_QSS_STOCKS = "quant_monitor_last_sector_screen_stocks_json";
 
   function initQssDates() {
     var end = $("qssEnd");
     var start = $("qssStart");
     if (!end || !start) return;
-    var t = new Date().toISOString().slice(0, 10);
+    /* 须用本机本地日，勿用 toISOString()（UTC），否则东八区凌晨「结束日」会错成前一天，行情只到 4/13 */
+    var t = localCalendarYmd(new Date());
     end.max = t;
     start.max = t;
     if (!end.value) end.value = t;
@@ -1199,7 +1571,9 @@
     return body;
   }
 
-  function buildQssHtmlTable(rows, keys, headers) {
+  function buildQssHtmlTable(rows, keys, headers, opts) {
+    opts = opts || {};
+    var cellHtmlFn = opts.cellHtml;
     var th = keys.map(function (k) {
       return "<th>" + escHtml(headers[k] || k) + "</th>";
     }).join("");
@@ -1208,6 +1582,10 @@
         "<tr>" +
         keys
           .map(function (k) {
+            if (cellHtmlFn) {
+              var custom = cellHtmlFn(k, row);
+              if (custom != null) return "<td>" + custom + "</td>";
+            }
             var v = row[k];
             if (v === true || v === false) v = v ? "是" : "否";
             if (v == null) v = "—";
@@ -1295,7 +1673,21 @@
           trade_count: "交易次数",
           win_rate_pct: "胜率%"
         };
-        stW.innerHTML = '<h3 class="ingest-h3">候选股票</h3>' + buildQssHtmlTable(st, c2, h2);
+        stW.innerHTML =
+          '<h3 class="ingest-h3">候选股票</h3>' +
+          buildQssHtmlTable(st, c2, h2, {
+            cellHtml: function (k, row) {
+              if (k !== "name") return null;
+              var nm = row.name != null ? String(row.name) : "";
+              var dt = row.latest_trade_date != null ? String(row.latest_trade_date).trim() : "";
+              var pc = row.latest_close;
+              var suffix = "";
+              if (dt && pc != null && pc !== "" && isFinite(Number(pc))) {
+                suffix = " · 最近收盘 " + dt + " " + Number(pc).toFixed(2);
+              }
+              return escHtml(nm + suffix);
+            }
+          });
       }
       stW.style.display = "block";
     }
@@ -1414,7 +1806,7 @@
       '<div class="hot-summary-grid">' +
       '<div class="hot-summary-stat ok"><span class="lbl">新增热门自动</span><span class="val">' + escHtml(summ.added != null ? summ.added : 0) + "</span></div>" +
       '<div class="hot-summary-stat warn"><span class="lbl">跳过手动自选</span><span class="val">' + escHtml(summ.skipped_existing_manual != null ? summ.skipped_existing_manual : 0) + "</span></div>" +
-      '<div class="hot-summary-stat err"><span class="lbl">删除旧热门自动</span><span class="val">' + escHtml(summ.removed_auto != null ? summ.removed_auto : 0) + "</span></div>" +
+      '<div class="hot-summary-stat err"><span class="lbl">删除旧自动池</span><span class="val">' + escHtml(summ.removed_auto != null ? summ.removed_auto : 0) + "</span></div>" +
       '<div class="hot-summary-stat"><span class="lbl">板块数 / 股票数</span><span class="val">' + escHtml(detail.length + " / " + totalStocks) + "</span></div>" +
       "</div>";
     if (warnings.length) {
@@ -1479,8 +1871,151 @@
     wrap.hidden = false;
   }
 
+  function isUseQuantWatchlistMode() {
+    try {
+      return localStorage.getItem(LS_USE_QUANT_WL) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function setUseQuantWatchlistMode(on) {
+    try {
+      if (on) localStorage.setItem(LS_USE_QUANT_WL, "1");
+      else localStorage.removeItem(LS_USE_QUANT_WL);
+    } catch (e) {}
+  }
+
+  function cacheLastQssStocks(data) {
+    try {
+      var st = data && Array.isArray(data.stocks) ? data.stocks : [];
+      localStorage.setItem(LS_LAST_QSS_STOCKS, JSON.stringify({ ts: Date.now(), stocks: st }));
+    } catch (e) {}
+  }
+
+  function getLastQssStocksCached() {
+    try {
+      var raw = localStorage.getItem(LS_LAST_QSS_STOCKS);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      return Array.isArray(o.stocks) ? o.stocks : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function applyWlQuantModeUi() {
+    var chk = $("chkWlUseQuant");
+    var p2 = $("panel-2");
+    var note = $("wlHotFillDisabledNote");
+    var hint = $("wlQuantModeHint");
+    var on = chk && chk.checked;
+    if (p2) p2.classList.toggle("wl-quant-mode-on", !!on);
+    if (note) note.hidden = !on;
+    if (chk) chk.setAttribute("aria-checked", on ? "true" : "false");
+    if (hint) {
+      if (!on) {
+        hint.hidden = true;
+        hint.textContent = "";
+        hint.classList.remove("warn");
+      } else {
+        var cached = getLastQssStocksCached();
+        if (cached && cached.length) {
+          hint.textContent =
+            "本机已缓存最近一次⑨选股结果（" + cached.length + " 条）；运行⑨成功后将自动写入自选。";
+          hint.hidden = false;
+          hint.classList.remove("warn");
+        } else {
+          hint.textContent =
+            "尚未在本机缓存⑨选股结果。请先打开「⑨ 量化选股」运行「运行选股评估」，或关闭本开关后用下方「将上次量化结果同步到自选」在生成结果后再试。";
+          hint.hidden = false;
+          hint.classList.add("warn");
+        }
+      }
+    }
+  }
+
+  function initWatchlistQuantMode() {
+    var chk = $("chkWlUseQuant");
+    if (!chk) return;
+    if (!chk._wlQuantBound) {
+      chk._wlQuantBound = true;
+      chk.addEventListener("change", function () {
+        setUseQuantWatchlistMode(chk.checked);
+        applyWlQuantModeUi();
+      });
+      var btnSync = $("btnWlSyncQuantCache");
+      if (btnSync && !btnSync._wlQuantBound) {
+        btnSync._wlQuantBound = true;
+        btnSync.addEventListener("click", async function () {
+          if (!guardKey()) return;
+          var st = getLastQssStocksCached();
+          await syncQuantWatchlistFromStocks(st, { silent: false, outPanel: "out-2" });
+        });
+      }
+    }
+    chk.checked = isUseQuantWatchlistMode();
+    applyWlQuantModeUi();
+  }
+
+  async function syncQuantWatchlistFromStocks(stocks, opts) {
+    opts = opts || {};
+    var outId = opts.outPanel || "out-9";
+    var rows = (stocks || [])
+      .map(function (s) {
+        return {
+          code: String(s.code != null ? s.code : "").trim(),
+          name: String(s.name != null ? s.name : "").trim()
+        };
+      })
+      .filter(function (r) {
+        return r.code.length >= 4;
+      });
+    if (!rows.length) {
+      if (!opts.silent) showOut(outId, "没有可同步的股票：请先在「⑨ 量化选股」运行「运行选股评估」以产生结果。", true);
+      return false;
+    }
+    try {
+      var res = await fetch("/watchlist/sync-from-quant-screen", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({ stocks: rows })
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        if (!opts.silent) showOut(outId, await formatError(res, body), true);
+        return false;
+      }
+      var msg =
+        "已写入自选：新增 " +
+        (body.added != null ? body.added : 0) +
+        " 条；跳过手动已存在 " +
+        (body.skipped_existing_manual != null ? body.skipped_existing_manual : 0) +
+        " 条；删除原自动池 " +
+        (body.removed_auto != null ? body.removed_auto : 0) +
+        " 条。";
+      if (!opts.silent) showOut(outId, msg, true);
+      try {
+        await refreshWatchlistTable();
+      } catch (e2) {}
+      applyWlQuantModeUi();
+      return true;
+    } catch (e) {
+      if (!opts.silent) showOut(outId, String(e), true);
+      return false;
+    }
+  }
+
   async function runHotPreview() {
     if (!guardKey()) return;
+    if (isUseQuantWatchlistMode()) {
+      showOut(
+        "out-2",
+        "当前已开启「使用⑨量化选股结果维护自选池」：请先关闭该开关，再使用热门板块预览/填充。",
+        true
+      );
+      return;
+    }
     var b0 = hotBuildFillBody();
     if (b0.selector_data_source === "tushare" && !(b0.tushare_token || "").trim()) {
       openHotTushareDialog();
@@ -1513,13 +2048,26 @@
 
   async function runHotFill() {
     if (!guardKey()) return;
+    if (isUseQuantWatchlistMode()) {
+      showOut(
+        "out-2",
+        "当前已开启「使用⑨量化选股结果维护自选池」：请先关闭该开关，再使用热门板块填充。",
+        true
+      );
+      return;
+    }
     var bf = hotBuildFillBody();
     if (bf.selector_data_source === "tushare" && !(bf.tushare_token || "").trim()) {
       openHotTushareDialog();
       showOut("out-2", "请先填写 TuShare Token（弹窗或下方输入框），或在服务器配置 TUSHARE_TOKEN。", true);
       return;
     }
-    if (!confirm("将删除当前所有「热门自动」自选，并按本次参数重新写入；手动自选会保留。确定？")) return;
+    if (
+      !confirm(
+        "将删除当前所有「热门自动」与「量化自动」自选，并按本次参数写入热门结果；手动自选会保留。确定？"
+      )
+    )
+      return;
     var btn = $("btnHotFill");
     if (btn) btn.disabled = true;
     showOut("out-2", "正在拉取热门板块并写入自选…", true);
@@ -1576,7 +2124,12 @@
     var rows = pageRows.map(function (item) {
       var sym = item.symbol;
       var nm = item.name != null && String(item.name).trim() ? escHtml(String(item.name).trim()) : "—";
-      var origin = item.origin === "auto_hot" ? "热门自动" : "手动";
+      var origin =
+        item.origin === "auto_hot"
+          ? "热门自动"
+          : item.origin === "auto_quant"
+            ? "量化自动"
+            : "手动";
       var ing = item.bars_last_ingested_at != null && String(item.bars_last_ingested_at).trim()
         ? escHtml(String(item.bars_last_ingested_at).trim())
         : "—";
@@ -1783,7 +2336,13 @@
           return;
         }
         showOut("out-9", "", false);
+        cacheLastQssStocks(body);
         renderSectorScreenOut(body);
+        if (isUseQuantWatchlistMode()) {
+          await syncQuantWatchlistFromStocks(body.stocks, { silent: false, outPanel: "out-9" });
+        } else {
+          applyWlQuantModeUi();
+        }
       } catch (e) {
         showOut("out-9", String(e), true);
       } finally {
@@ -1801,17 +2360,42 @@
   }
 
   function initIngestDateInput() {
-    var max = new Date().toISOString().slice(0, 10);
-    ["ingestStartDate", "ingestEndDate"].forEach(function (id) {
+    var max = localCalendarYmd(new Date());
+    ["ingestStartDate", "ingestEndDate", "fvOosFrom", "fvOosTo"].forEach(function (id) {
       var el = $(id);
       if (el) el.max = max;
     });
+  }
+
+  function initFvOosDateInputs() {
+    initIngestDateInput();
+    try {
+      var f = localStorage.getItem(LS_FV_OOS_FROM);
+      var t = localStorage.getItem(LS_FV_OOS_TO);
+      if ($("fvOosFrom") && f) $("fvOosFrom").value = f;
+      if ($("fvOosTo") && t) $("fvOosTo").value = t;
+    } catch (e0) {}
+    function bindSave(el, key) {
+      if (!el || el._fvOosBound) return;
+      el._fvOosBound = true;
+      el.addEventListener("change", function () {
+        try {
+          var v = el.value.trim();
+          if (v) localStorage.setItem(key, v);
+          else localStorage.removeItem(key);
+        } catch (e2) {}
+      });
+    }
+    bindSave($("fvOosFrom"), LS_FV_OOS_FROM);
+    bindSave($("fvOosTo"), LS_FV_OOS_TO);
   }
 
   var FORECAST_METHOD_ORDER = ["dual_ma_cross", "logistic_walkforward", "rule_trend", "majority_causal"];
   var LS_FV_METHODS = "quant_monitor_forecast_methods";
   var LS_FV_LIVE = "quant_monitor_fv_live_bars";
   var LS_FV_LIVE_MEM = "quant_monitor_fv_live_memory_only";
+  var LS_FV_OOS_FROM = "quant_monitor_fv_oos_from";
+  var LS_FV_OOS_TO = "quant_monitor_fv_oos_to";
 
   function getSelectedForecastMethodKeys() {
     var out = [];
@@ -3278,12 +3862,12 @@
       encodeURIComponent(String(mas)) +
       "&ma_long=" +
       encodeURIComponent(String(mal)) +
-      "&oos_from=" +
-      encodeURIComponent("2025-01-01") +
-      "&oos_to=" +
-      encodeURIComponent(localCalendarYmd(new Date())) +
       "&methods=" +
       encodeURIComponent(methodKeys.join(","));
+    var fvOosFrom = ($("fvOosFrom") && $("fvOosFrom").value.trim()) || "";
+    var fvOosTo = ($("fvOosTo") && $("fvOosTo").value.trim()) || "";
+    if (fvOosFrom) qs += "&oos_from=" + encodeURIComponent(fvOosFrom);
+    if (fvOosTo) qs += "&oos_to=" + encodeURIComponent(fvOosTo);
     if ($("chkFvLiveBars") && $("chkFvLiveBars").checked) {
       var ingestEndVal = $("ingestEndDate") && $("ingestEndDate").value.trim();
       var liveAsOf = ingestEndVal || localCalendarYmd(new Date());
@@ -3824,7 +4408,7 @@
   showPanel(initial);
   syncKeyInput();
   loadAuthStatus();
-  initIngestDateInput();
+  initFvOosDateInputs();
   initForecastMethodChecks();
   initForecastLiveBars();
   loadIngestDataSourceSelect();
@@ -3839,6 +4423,7 @@
   document.querySelector('.nav-item[data-module="2"]').addEventListener("click", function () {
     setTimeout(function () {
       initHotTushareUi();
+      initWatchlistQuantMode();
       refreshWatchlistTable();
     }, 0);
   });
@@ -3858,6 +4443,7 @@
   }
 
   initHotTushareUi();
+  initWatchlistQuantMode();
   initQssDates();
   syncQssTushareRow();
 })();
