@@ -1,0 +1,3411 @@
+{
+  "fetched_at": "2026-04-27T11:57:34.968049Z",
+  "provider": "sina",
+  "chain_attempted": [
+    "sina",
+    "tencent",
+    "baostock",
+    "eastmoney",
+    "akshare"
+  ],
+  "sector_source": "sina",
+  "stock_source": "sina",
+  "notes": [],
+  "top_stocks": 100,
+  "sector_rows": 259,
+  "stock_rows": 100,
+  "sectors": [
+    {
+      "sector_name": "华为海思",
+      "board_type": "concept",
+      "change_pct": 5.7134279412953,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 17.811,
+      "turnover_rate": 58633032121.0,
+      "source": "sina",
+      "hot_score": 87.59
+    },
+    {
+      "sector_name": "科创50",
+      "board_type": "concept",
+      "change_pct": 4.0699747058923,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 20.0,
+      "turnover_rate": 50100082146.0,
+      "source": "sina",
+      "hot_score": 86.85
+    },
+    {
+      "sector_name": "计算机、通信和其他电子设备制造业",
+      "board_type": "industry",
+      "change_pct": 2.403796320247,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 20.0,
+      "turnover_rate": 62755670358.0,
+      "source": "sina",
+      "hot_score": 86.04
+    },
+    {
+      "sector_name": "专精特新",
+      "board_type": "concept",
+      "change_pct": 2.7895589601849,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 16.278,
+      "turnover_rate": 47288219418.0,
+      "source": "sina",
+      "hot_score": 84.98
+    },
+    {
+      "sector_name": "华为概念",
+      "board_type": "concept",
+      "change_pct": 2.250813393886,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.048,
+      "turnover_rate": 148889177899.0,
+      "source": "sina",
+      "hot_score": 84.59
+    },
+    {
+      "sector_name": "无线耳机",
+      "board_type": "concept",
+      "change_pct": 2.6446512278738,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.023,
+      "turnover_rate": 99529762459.0,
+      "source": "sina",
+      "hot_score": 83.22
+    },
+    {
+      "sector_name": "钙钛矿",
+      "board_type": "concept",
+      "change_pct": 3.7167019339237,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.877,
+      "turnover_rate": 34093220763.0,
+      "source": "sina",
+      "hot_score": 83.17
+    },
+    {
+      "sector_name": "仪器仪表制造业",
+      "board_type": "industry",
+      "change_pct": 3.5044984625508,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 13.487,
+      "turnover_rate": 29232526320.0,
+      "source": "sina",
+      "hot_score": 82.59
+    },
+    {
+      "sector_name": "软件和信息技术服务业",
+      "board_type": "industry",
+      "change_pct": 1.5220934580069,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 11.159,
+      "turnover_rate": 49305444613.0,
+      "source": "sina",
+      "hot_score": 80.93
+    },
+    {
+      "sector_name": "本月解禁",
+      "board_type": "concept",
+      "change_pct": 4.421518618936,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.994,
+      "turnover_rate": 61022008965.0,
+      "source": "sina",
+      "hot_score": 80.62
+    },
+    {
+      "sector_name": "触摸屏",
+      "board_type": "concept",
+      "change_pct": 2.2208787496221,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.037,
+      "turnover_rate": 32200220654.0,
+      "source": "sina",
+      "hot_score": 79.5
+    },
+    {
+      "sector_name": "碳中和",
+      "board_type": "concept",
+      "change_pct": 1.2483063459275,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 17.082,
+      "turnover_rate": 40444564144.0,
+      "source": "sina",
+      "hot_score": 78.78
+    },
+    {
+      "sector_name": "苹果概念",
+      "board_type": "concept",
+      "change_pct": 2.3109219922366,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.045,
+      "turnover_rate": 74119589594.0,
+      "source": "sina",
+      "hot_score": 78.26
+    },
+    {
+      "sector_name": "宽带提速",
+      "board_type": "concept",
+      "change_pct": 2.7518582951131,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.739,
+      "turnover_rate": 63100052441.0,
+      "source": "sina",
+      "hot_score": 77.63
+    },
+    {
+      "sector_name": "锂矿",
+      "board_type": "concept",
+      "change_pct": 1.2164156701856,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.013,
+      "turnover_rate": 93081699526.0,
+      "source": "sina",
+      "hot_score": 76.93
+    },
+    {
+      "sector_name": "废弃资源综合利用业",
+      "board_type": "industry",
+      "change_pct": 2.6257321753181,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 19.984,
+      "turnover_rate": 6516755196.0,
+      "source": "sina",
+      "hot_score": 76.8
+    },
+    {
+      "sector_name": "军民融合",
+      "board_type": "concept",
+      "change_pct": 1.0651898326207,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.177,
+      "turnover_rate": 65306827255.0,
+      "source": "sina",
+      "hot_score": 76.41
+    },
+    {
+      "sector_name": "通用设备制造业",
+      "board_type": "industry",
+      "change_pct": 1.2827977426382,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 16.034,
+      "turnover_rate": 20826762899.0,
+      "source": "sina",
+      "hot_score": 76.04
+    },
+    {
+      "sector_name": "绿色照明",
+      "board_type": "concept",
+      "change_pct": 0.92719236362066,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 20.0,
+      "turnover_rate": 49123778998.0,
+      "source": "sina",
+      "hot_score": 75.85
+    },
+    {
+      "sector_name": "华为汽车",
+      "board_type": "concept",
+      "change_pct": 0.97128807428931,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 13.093,
+      "turnover_rate": 57122348280.0,
+      "source": "sina",
+      "hot_score": 75.5
+    },
+    {
+      "sector_name": "生态保护和环境治理业",
+      "board_type": "industry",
+      "change_pct": 1.2576631174333,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 17.082,
+      "turnover_rate": 18012593494.0,
+      "source": "sina",
+      "hot_score": 75.19
+    },
+    {
+      "sector_name": "5G概念",
+      "board_type": "concept",
+      "change_pct": 1.2621733149931,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.983,
+      "turnover_rate": 83965282404.0,
+      "source": "sina",
+      "hot_score": 74.79
+    },
+    {
+      "sector_name": "恒大概念",
+      "board_type": "concept",
+      "change_pct": 1.3184194956586,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.031,
+      "turnover_rate": 23484280840.0,
+      "source": "sina",
+      "hot_score": 74.31
+    },
+    {
+      "sector_name": "特斯拉",
+      "board_type": "concept",
+      "change_pct": 0.73226348638782,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.177,
+      "turnover_rate": 107876699867.0,
+      "source": "sina",
+      "hot_score": 74.04
+    },
+    {
+      "sector_name": "光伏概念",
+      "board_type": "concept",
+      "change_pct": 0.59986428726329,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 20.0,
+      "turnover_rate": 85962562216.0,
+      "source": "sina",
+      "hot_score": 73.59
+    },
+    {
+      "sector_name": "盐湖提锂",
+      "board_type": "concept",
+      "change_pct": 1.1617559215419,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.013,
+      "turnover_rate": 43693248787.0,
+      "source": "sina",
+      "hot_score": 73.51
+    },
+    {
+      "sector_name": "建筑装饰和其他建筑业",
+      "board_type": "industry",
+      "change_pct": 5.3933851165122,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.004,
+      "turnover_rate": 5811042692.0,
+      "source": "sina",
+      "hot_score": 73.44
+    },
+    {
+      "sector_name": "军工航天",
+      "board_type": "concept",
+      "change_pct": 0.7036491572574,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.177,
+      "turnover_rate": 72414286104.0,
+      "source": "sina",
+      "hot_score": 73.11
+    },
+    {
+      "sector_name": "鸿蒙概念",
+      "board_type": "concept",
+      "change_pct": 1.6159198024987,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.002,
+      "turnover_rate": 19923770466.0,
+      "source": "sina",
+      "hot_score": 73.09
+    },
+    {
+      "sector_name": "批发业",
+      "board_type": "industry",
+      "change_pct": 1.4614466624277,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.988,
+      "turnover_rate": 36479525713.0,
+      "source": "sina",
+      "hot_score": 73.07
+    },
+    {
+      "sector_name": "送转潜力",
+      "board_type": "concept",
+      "change_pct": 1.3962820407829,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 14.495,
+      "turnover_rate": 7066496490.0,
+      "source": "sina",
+      "hot_score": 72.99
+    },
+    {
+      "sector_name": "电解液",
+      "board_type": "concept",
+      "change_pct": 2.1188201080183,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.81,
+      "turnover_rate": 39111850711.0,
+      "source": "sina",
+      "hot_score": 72.57
+    },
+    {
+      "sector_name": "化学原料和化学制品制造业",
+      "board_type": "industry",
+      "change_pct": 1.0565547604559,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 12.46,
+      "turnover_rate": 24216455180.0,
+      "source": "sina",
+      "hot_score": 72.28
+    },
+    {
+      "sector_name": "内贸规划",
+      "board_type": "concept",
+      "change_pct": 2.1213095183434,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.019,
+      "turnover_rate": 7055597202.0,
+      "source": "sina",
+      "hot_score": 71.83
+    },
+    {
+      "sector_name": "BC电池",
+      "board_type": "concept",
+      "change_pct": 2.9996595594447,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.783,
+      "turnover_rate": 21868318891.0,
+      "source": "sina",
+      "hot_score": 71.74
+    },
+    {
+      "sector_name": "分拆上市",
+      "board_type": "concept",
+      "change_pct": 1.1081295965017,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.988,
+      "turnover_rate": 65240718532.0,
+      "source": "sina",
+      "hot_score": 71.74
+    },
+    {
+      "sector_name": "3D打印",
+      "board_type": "concept",
+      "change_pct": 1.7019324929034,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.049,
+      "turnover_rate": 41801525628.0,
+      "source": "sina",
+      "hot_score": 70.98
+    },
+    {
+      "sector_name": "锂电池",
+      "board_type": "concept",
+      "change_pct": 1.0962600289477,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.739,
+      "turnover_rate": 151104788369.0,
+      "source": "sina",
+      "hot_score": 70.91
+    },
+    {
+      "sector_name": "商务服务业",
+      "board_type": "industry",
+      "change_pct": 1.0963529737256,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.04,
+      "turnover_rate": 20483957903.0,
+      "source": "sina",
+      "hot_score": 70.79
+    },
+    {
+      "sector_name": "电商概念",
+      "board_type": "concept",
+      "change_pct": 1.0750394607739,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 14.495,
+      "turnover_rate": 13414720152.0,
+      "source": "sina",
+      "hot_score": 70.45
+    },
+    {
+      "sector_name": "国防军工",
+      "board_type": "concept",
+      "change_pct": 0.55226145590513,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.177,
+      "turnover_rate": 75381686783.0,
+      "source": "sina",
+      "hot_score": 70.44
+    },
+    {
+      "sector_name": "木材加工和木、竹、藤、棕、草制品业",
+      "board_type": "industry",
+      "change_pct": 3.3456782373988,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.014,
+      "turnover_rate": 1260664922.0,
+      "source": "sina",
+      "hot_score": 70.06
+    },
+    {
+      "sector_name": "文教、工美、体育和娱乐用品制造业",
+      "board_type": "industry",
+      "change_pct": 2.2035409501974,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.005,
+      "turnover_rate": 4534704646.0,
+      "source": "sina",
+      "hot_score": 69.96
+    },
+    {
+      "sector_name": "零售业",
+      "board_type": "industry",
+      "change_pct": 1.1998576759552,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.019,
+      "turnover_rate": 14607987339.0,
+      "source": "sina",
+      "hot_score": 69.63
+    },
+    {
+      "sector_name": "互联金融",
+      "board_type": "concept",
+      "change_pct": 1.4285714285714,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.988,
+      "turnover_rate": 16400269005.0,
+      "source": "sina",
+      "hot_score": 69.42
+    },
+    {
+      "sector_name": "金属制品业",
+      "board_type": "industry",
+      "change_pct": 0.79974886390816,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.023,
+      "turnover_rate": 39611358021.0,
+      "source": "sina",
+      "hot_score": 69.09
+    },
+    {
+      "sector_name": "邮政业",
+      "board_type": "industry",
+      "change_pct": 1.7173051519155,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.014,
+      "turnover_rate": 2919564845.0,
+      "source": "sina",
+      "hot_score": 68.55
+    },
+    {
+      "sector_name": "金融改革",
+      "board_type": "concept",
+      "change_pct": 0.61143016300383,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.035,
+      "turnover_rate": 40389304368.0,
+      "source": "sina",
+      "hot_score": 68.17
+    },
+    {
+      "sector_name": "武汉规划",
+      "board_type": "concept",
+      "change_pct": 1.5076815006569,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.522,
+      "turnover_rate": 44339755489.0,
+      "source": "sina",
+      "hot_score": 67.91
+    },
+    {
+      "sector_name": "智能穿戴",
+      "board_type": "concept",
+      "change_pct": 1.5507155465433,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.158,
+      "turnover_rate": 30814200274.0,
+      "source": "sina",
+      "hot_score": 67.55
+    },
+    {
+      "sector_name": "橡胶和塑料制品业",
+      "board_type": "industry",
+      "change_pct": 0.66465359299722,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 15.222,
+      "turnover_rate": 18813515811.0,
+      "source": "sina",
+      "hot_score": 67.49
+    },
+    {
+      "sector_name": "农副食品加工业",
+      "board_type": "industry",
+      "change_pct": 1.4777246688802,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.98,
+      "turnover_rate": 8505108753.0,
+      "source": "sina",
+      "hot_score": 67.32
+    },
+    {
+      "sector_name": "电信、广播电视和卫星传输服务",
+      "board_type": "industry",
+      "change_pct": 1.1377413037396,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 6902897450.0,
+      "source": "sina",
+      "hot_score": 66.87
+    },
+    {
+      "sector_name": "体育概念",
+      "board_type": "concept",
+      "change_pct": 1.3167152477636,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.969,
+      "turnover_rate": 9810974024.0,
+      "source": "sina",
+      "hot_score": 66.51
+    },
+    {
+      "sector_name": "TOPCon",
+      "board_type": "concept",
+      "change_pct": 1.8538661939677,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.367,
+      "turnover_rate": 26203265071.0,
+      "source": "sina",
+      "hot_score": 66.43
+    },
+    {
+      "sector_name": "高压快充",
+      "board_type": "concept",
+      "change_pct": 0.52776990648909,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.177,
+      "turnover_rate": 31765044834.0,
+      "source": "sina",
+      "hot_score": 66.16
+    },
+    {
+      "sector_name": "非金属矿物制品业",
+      "board_type": "industry",
+      "change_pct": 0.60972317442629,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 44542963735.0,
+      "source": "sina",
+      "hot_score": 65.33
+    },
+    {
+      "sector_name": "深圳本地",
+      "board_type": "concept",
+      "change_pct": 0.73916070449866,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.988,
+      "turnover_rate": 35159893382.0,
+      "source": "sina",
+      "hot_score": 65.02
+    },
+    {
+      "sector_name": "业绩预降",
+      "board_type": "concept",
+      "change_pct": 0.64876139395663,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.816,
+      "turnover_rate": 63664360269.0,
+      "source": "sina",
+      "hot_score": 64.96
+    },
+    {
+      "sector_name": "HIT电池",
+      "board_type": "concept",
+      "change_pct": 2.165139073901,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.669,
+      "turnover_rate": 19569638741.0,
+      "source": "sina",
+      "hot_score": 64.15
+    },
+    {
+      "sector_name": "皖江区域",
+      "board_type": "concept",
+      "change_pct": 0.56364436008426,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.002,
+      "turnover_rate": 33411922992.0,
+      "source": "sina",
+      "hot_score": 63.94
+    },
+    {
+      "sector_name": "高校背景",
+      "board_type": "concept",
+      "change_pct": 1.2482129110305,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.66,
+      "turnover_rate": 27476310161.0,
+      "source": "sina",
+      "hot_score": 63.3
+    },
+    {
+      "sector_name": "智能机器",
+      "board_type": "concept",
+      "change_pct": 1.1323656637508,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.91,
+      "turnover_rate": 24382232663.0,
+      "source": "sina",
+      "hot_score": 63.24
+    },
+    {
+      "sector_name": "土地流转",
+      "board_type": "concept",
+      "change_pct": 0.89078107090224,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 12960633899.0,
+      "source": "sina",
+      "hot_score": 63.13
+    },
+    {
+      "sector_name": "体育",
+      "board_type": "industry",
+      "change_pct": 4.1923076923077,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.731,
+      "turnover_rate": 807158727.0,
+      "source": "sina",
+      "hot_score": 62.53
+    },
+    {
+      "sector_name": "皮革、毛皮、羽毛及其制品和制鞋业",
+      "board_type": "industry",
+      "change_pct": 0.8137732506643,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 12.644,
+      "turnover_rate": 1664284941.0,
+      "source": "sina",
+      "hot_score": 62.11
+    },
+    {
+      "sector_name": "电子支付",
+      "board_type": "concept",
+      "change_pct": 1.0989879822897,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.806,
+      "turnover_rate": 23105195084.0,
+      "source": "sina",
+      "hot_score": 61.99
+    },
+    {
+      "sector_name": "创新药",
+      "board_type": "concept",
+      "change_pct": 0.15005896226415,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 20.0,
+      "turnover_rate": 33021431141.0,
+      "source": "sina",
+      "hot_score": 61.89
+    },
+    {
+      "sector_name": "前海概念",
+      "board_type": "concept",
+      "change_pct": 1.1102612814882,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.583,
+      "turnover_rate": 13528759376.0,
+      "source": "sina",
+      "hot_score": 61.76
+    },
+    {
+      "sector_name": "汽车电子",
+      "board_type": "concept",
+      "change_pct": 1.1841245980014,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.846,
+      "turnover_rate": 30505187323.0,
+      "source": "sina",
+      "hot_score": 61.06
+    },
+    {
+      "sector_name": "小米概念",
+      "board_type": "concept",
+      "change_pct": 0.56610205985789,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.854,
+      "turnover_rate": 45922942464.0,
+      "source": "sina",
+      "hot_score": 61.0
+    },
+    {
+      "sector_name": "股权激励",
+      "board_type": "concept",
+      "change_pct": 0.48668048447942,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.18,
+      "turnover_rate": 58018575949.0,
+      "source": "sina",
+      "hot_score": 60.83
+    },
+    {
+      "sector_name": "金属制品、机械和设备修理业",
+      "board_type": "industry",
+      "change_pct": 0.55952550169925,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.587,
+      "turnover_rate": 50083829498.0,
+      "source": "sina",
+      "hot_score": 60.62
+    },
+    {
+      "sector_name": "博彩概念",
+      "board_type": "concept",
+      "change_pct": 0.51647576756685,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 24963619070.0,
+      "source": "sina",
+      "hot_score": 60.46
+    },
+    {
+      "sector_name": "图们江",
+      "board_type": "concept",
+      "change_pct": 1.0072522159549,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.377,
+      "turnover_rate": 8587795481.0,
+      "source": "sina",
+      "hot_score": 60.33
+    },
+    {
+      "sector_name": "东亚自贸",
+      "board_type": "concept",
+      "change_pct": 1.2509596712279,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.049,
+      "turnover_rate": 5973727803.0,
+      "source": "sina",
+      "hot_score": 60.21
+    },
+    {
+      "sector_name": "核污防治",
+      "board_type": "concept",
+      "change_pct": 1.1875942081944,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.302,
+      "turnover_rate": 6809812473.0,
+      "source": "sina",
+      "hot_score": 60.11
+    },
+    {
+      "sector_name": "石油加工、炼焦和核燃料加工业",
+      "board_type": "industry",
+      "change_pct": 1.9425959534852,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.954,
+      "turnover_rate": 2443863558.0,
+      "source": "sina",
+      "hot_score": 59.69
+    },
+    {
+      "sector_name": "医药制造业",
+      "board_type": "industry",
+      "change_pct": 0.18342708080757,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 20.0,
+      "turnover_rate": 14595638494.0,
+      "source": "sina",
+      "hot_score": 59.11
+    },
+    {
+      "sector_name": "电气机械和器材制造业",
+      "board_type": "industry",
+      "change_pct": 0.12739920362809,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 12.004,
+      "turnover_rate": 32606901073.0,
+      "source": "sina",
+      "hot_score": 59.11
+    },
+    {
+      "sector_name": "卫星导航",
+      "board_type": "concept",
+      "change_pct": 0.86067957132176,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.593,
+      "turnover_rate": 23107723940.0,
+      "source": "sina",
+      "hot_score": 58.78
+    },
+    {
+      "sector_name": "CRO概念",
+      "board_type": "concept",
+      "change_pct": 0.70185177842103,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.196,
+      "turnover_rate": 9757443325.0,
+      "source": "sina",
+      "hot_score": 58.28
+    },
+    {
+      "sector_name": "专业技术服务业",
+      "board_type": "industry",
+      "change_pct": 0.60683563059471,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.468,
+      "turnover_rate": 13635956465.0,
+      "source": "sina",
+      "hot_score": 58.17
+    },
+    {
+      "sector_name": "节能环保",
+      "board_type": "concept",
+      "change_pct": 0.39530509891335,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.668,
+      "turnover_rate": 38918222068.0,
+      "source": "sina",
+      "hot_score": 58.15
+    },
+    {
+      "sector_name": "石墨烯",
+      "board_type": "concept",
+      "change_pct": 0.12977532646606,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.031,
+      "turnover_rate": 37704664871.0,
+      "source": "sina",
+      "hot_score": 58.09
+    },
+    {
+      "sector_name": "金融参股",
+      "board_type": "concept",
+      "change_pct": -0.020513221259512,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.052,
+      "turnover_rate": 54830454814.0,
+      "source": "sina",
+      "hot_score": 58.09
+    },
+    {
+      "sector_name": "三板精选",
+      "board_type": "concept",
+      "change_pct": 1.2103746397695,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.971,
+      "turnover_rate": 5592564093.0,
+      "source": "sina",
+      "hot_score": 57.34
+    },
+    {
+      "sector_name": "广播、电视、电影和影视录音制作业",
+      "board_type": "industry",
+      "change_pct": 0.85148514851485,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.051,
+      "turnover_rate": 7782615488.0,
+      "source": "sina",
+      "hot_score": 57.32
+    },
+    {
+      "sector_name": "网络游戏",
+      "board_type": "concept",
+      "change_pct": 0.15667409581393,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 26305111752.0,
+      "source": "sina",
+      "hot_score": 57.09
+    },
+    {
+      "sector_name": "大飞机",
+      "board_type": "concept",
+      "change_pct": -0.0080136632959194,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.035,
+      "turnover_rate": 45584388616.0,
+      "source": "sina",
+      "hot_score": 56.7
+    },
+    {
+      "sector_name": "其他制造业",
+      "board_type": "industry",
+      "change_pct": 0.99665408984125,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.005,
+      "turnover_rate": 6757469224.0,
+      "source": "sina",
+      "hot_score": 56.66
+    },
+    {
+      "sector_name": "房地产业",
+      "board_type": "industry",
+      "change_pct": 0.34763035759728,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 19769852559.0,
+      "source": "sina",
+      "hot_score": 56.58
+    },
+    {
+      "sector_name": "家具制造业",
+      "board_type": "industry",
+      "change_pct": 1.3024883359254,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.346,
+      "turnover_rate": 5700036429.0,
+      "source": "sina",
+      "hot_score": 56.27
+    },
+    {
+      "sector_name": "朝鲜改革",
+      "board_type": "concept",
+      "change_pct": 0.86202835743558,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.205,
+      "turnover_rate": 7263700535.0,
+      "source": "sina",
+      "hot_score": 56.06
+    },
+    {
+      "sector_name": "风电",
+      "board_type": "concept",
+      "change_pct": -0.0036435845584885,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 91495348161.0,
+      "source": "sina",
+      "hot_score": 56.0
+    },
+    {
+      "sector_name": "日韩贸易",
+      "board_type": "concept",
+      "change_pct": 0.96845047923323,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.049,
+      "turnover_rate": 5667556009.0,
+      "source": "sina",
+      "hot_score": 55.87
+    },
+    {
+      "sector_name": "空气治理",
+      "board_type": "concept",
+      "change_pct": 0.35817469426525,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 14419060507.0,
+      "source": "sina",
+      "hot_score": 55.6
+    },
+    {
+      "sector_name": "纺织服装、服饰业",
+      "board_type": "industry",
+      "change_pct": 0.25665704202759,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.074,
+      "turnover_rate": 6024016298.0,
+      "source": "sina",
+      "hot_score": 55.41
+    },
+    {
+      "sector_name": "有色金属矿采选业",
+      "board_type": "industry",
+      "change_pct": 0.01992345200021,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.013,
+      "turnover_rate": 39386049582.0,
+      "source": "sina",
+      "hot_score": 55.27
+    },
+    {
+      "sector_name": "超导概念",
+      "board_type": "concept",
+      "change_pct": 0.27335584499116,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.739,
+      "turnover_rate": 31983104020.0,
+      "source": "sina",
+      "hot_score": 55.15
+    },
+    {
+      "sector_name": "机器人概念",
+      "board_type": "concept",
+      "change_pct": 0.44056548531913,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.454,
+      "turnover_rate": 23706782426.0,
+      "source": "sina",
+      "hot_score": 55.14
+    },
+    {
+      "sector_name": "汽车制造业",
+      "board_type": "industry",
+      "change_pct": 0.12994721514741,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.004,
+      "turnover_rate": 28143186945.0,
+      "source": "sina",
+      "hot_score": 55.14
+    },
+    {
+      "sector_name": "光伏",
+      "board_type": "concept",
+      "change_pct": 0.10604646928976,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.739,
+      "turnover_rate": 82835604193.0,
+      "source": "sina",
+      "hot_score": 54.92
+    },
+    {
+      "sector_name": "券商重仓",
+      "board_type": "concept",
+      "change_pct": 0.11359358592496,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.739,
+      "turnover_rate": 71736658781.0,
+      "source": "sina",
+      "hot_score": 54.86
+    },
+    {
+      "sector_name": "自贸区",
+      "board_type": "concept",
+      "change_pct": 0.91645028257217,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.049,
+      "turnover_rate": 4526474725.0,
+      "source": "sina",
+      "hot_score": 54.77
+    },
+    {
+      "sector_name": "污水处理",
+      "board_type": "concept",
+      "change_pct": 0.29072425079081,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 13658009547.0,
+      "source": "sina",
+      "hot_score": 54.67
+    },
+    {
+      "sector_name": "涉矿概念",
+      "board_type": "concept",
+      "change_pct": 0.26775704016356,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.388,
+      "turnover_rate": 40904602096.0,
+      "source": "sina",
+      "hot_score": 54.56
+    },
+    {
+      "sector_name": "纺织业",
+      "board_type": "industry",
+      "change_pct": 0.55358500126678,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 8.155,
+      "turnover_rate": 6582562042.0,
+      "source": "sina",
+      "hot_score": 54.25
+    },
+    {
+      "sector_name": "畜牧业",
+      "board_type": "industry",
+      "change_pct": 1.6362960208256,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.071,
+      "turnover_rate": 320854723.0,
+      "source": "sina",
+      "hot_score": 53.88
+    },
+    {
+      "sector_name": "货币金融服务",
+      "board_type": "industry",
+      "change_pct": -0.023358422008824,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.035,
+      "turnover_rate": 28687764258.0,
+      "source": "sina",
+      "hot_score": 53.86
+    },
+    {
+      "sector_name": "页岩气",
+      "board_type": "concept",
+      "change_pct": 0.25173886288623,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 8.535,
+      "turnover_rate": 22709972515.0,
+      "source": "sina",
+      "hot_score": 53.74
+    },
+    {
+      "sector_name": "CXO概念",
+      "board_type": "concept",
+      "change_pct": 0.39252315664231,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.196,
+      "turnover_rate": 10753830469.0,
+      "source": "sina",
+      "hot_score": 53.65
+    },
+    {
+      "sector_name": "安防服务",
+      "board_type": "concept",
+      "change_pct": 0.37604239731899,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.18,
+      "turnover_rate": 16577759023.0,
+      "source": "sina",
+      "hot_score": 53.59
+    },
+    {
+      "sector_name": "建筑安装业",
+      "board_type": "industry",
+      "change_pct": 1.3660079051383,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.977,
+      "turnover_rate": 1764774033.0,
+      "source": "sina",
+      "hot_score": 53.53
+    },
+    {
+      "sector_name": "互联网和相关服务",
+      "board_type": "industry",
+      "change_pct": -0.26434609284321,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 17.825,
+      "turnover_rate": 40032461553.0,
+      "source": "sina",
+      "hot_score": 53.49
+    },
+    {
+      "sector_name": "民营银行",
+      "board_type": "concept",
+      "change_pct": 0.2264605667747,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.955,
+      "turnover_rate": 22867958869.0,
+      "source": "sina",
+      "hot_score": 53.4
+    },
+    {
+      "sector_name": "油气改革",
+      "board_type": "concept",
+      "change_pct": 0.12881459898789,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.04,
+      "turnover_rate": 10455371444.0,
+      "source": "sina",
+      "hot_score": 53.3
+    },
+    {
+      "sector_name": "维生素",
+      "board_type": "concept",
+      "change_pct": 0.30230161456544,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 3124984583.0,
+      "source": "sina",
+      "hot_score": 52.86
+    },
+    {
+      "sector_name": "风能概念",
+      "board_type": "concept",
+      "change_pct": 0.026375779498483,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 32110236488.0,
+      "source": "sina",
+      "hot_score": 52.76
+    },
+    {
+      "sector_name": "重组概念",
+      "board_type": "concept",
+      "change_pct": -0.25233902280825,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.177,
+      "turnover_rate": 44219485643.0,
+      "source": "sina",
+      "hot_score": 52.66
+    },
+    {
+      "sector_name": "物联网",
+      "board_type": "concept",
+      "change_pct": -0.25346085893412,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.04,
+      "turnover_rate": 50589479954.0,
+      "source": "sina",
+      "hot_score": 52.38
+    },
+    {
+      "sector_name": "信托重仓",
+      "board_type": "concept",
+      "change_pct": 0.011105910724343,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.163,
+      "turnover_rate": 59076915573.0,
+      "source": "sina",
+      "hot_score": 51.87
+    },
+    {
+      "sector_name": "新能源",
+      "board_type": "concept",
+      "change_pct": -0.27046073557701,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.031,
+      "turnover_rate": 56088810776.0,
+      "source": "sina",
+      "hot_score": 51.49
+    },
+    {
+      "sector_name": "国企改革",
+      "board_type": "concept",
+      "change_pct": 0.07598361719083,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 12268592772.0,
+      "source": "sina",
+      "hot_score": 51.47
+    },
+    {
+      "sector_name": "地热能",
+      "board_type": "concept",
+      "change_pct": 0.86807416139749,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.96,
+      "turnover_rate": 5660839945.0,
+      "source": "sina",
+      "hot_score": 51.39
+    },
+    {
+      "sector_name": "氢燃料",
+      "board_type": "concept",
+      "change_pct": 0.98468271334792,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.279,
+      "turnover_rate": 2008539919.0,
+      "source": "sina",
+      "hot_score": 51.35
+    },
+    {
+      "sector_name": "准ST股",
+      "board_type": "concept",
+      "change_pct": -0.11777612855345,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.037,
+      "turnover_rate": 23723984603.0,
+      "source": "sina",
+      "hot_score": 51.35
+    },
+    {
+      "sector_name": "公共设施管理业",
+      "board_type": "industry",
+      "change_pct": 0.53414927935537,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.271,
+      "turnover_rate": 3400323489.0,
+      "source": "sina",
+      "hot_score": 51.22
+    },
+    {
+      "sector_name": "仓储业",
+      "board_type": "industry",
+      "change_pct": 1.112618724559,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.896,
+      "turnover_rate": 922803119.0,
+      "source": "sina",
+      "hot_score": 51.18
+    },
+    {
+      "sector_name": "振兴沈阳",
+      "board_type": "concept",
+      "change_pct": 0.23887079261672,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 6803916987.0,
+      "source": "sina",
+      "hot_score": 51.08
+    },
+    {
+      "sector_name": "海工装备",
+      "board_type": "concept",
+      "change_pct": 0.092604361483849,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.739,
+      "turnover_rate": 32546136132.0,
+      "source": "sina",
+      "hot_score": 50.87
+    },
+    {
+      "sector_name": "研究和试验发展",
+      "board_type": "industry",
+      "change_pct": 0.39308404165821,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.477,
+      "turnover_rate": 9299500809.0,
+      "source": "sina",
+      "hot_score": 50.79
+    },
+    {
+      "sector_name": "业绩预升",
+      "board_type": "concept",
+      "change_pct": -0.16259034937661,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.002,
+      "turnover_rate": 43072646699.0,
+      "source": "sina",
+      "hot_score": 50.73
+    },
+    {
+      "sector_name": "造纸和纸制品业",
+      "board_type": "industry",
+      "change_pct": 0.13090122648758,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 12196859230.0,
+      "source": "sina",
+      "hot_score": 50.68
+    },
+    {
+      "sector_name": "生物疫苗",
+      "board_type": "concept",
+      "change_pct": 0.090834454207207,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 7704099950.0,
+      "source": "sina",
+      "hot_score": 50.37
+    },
+    {
+      "sector_name": "化学纤维制造业",
+      "board_type": "industry",
+      "change_pct": 0.20480738796105,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.533,
+      "turnover_rate": 10527760503.0,
+      "source": "sina",
+      "hot_score": 50.25
+    },
+    {
+      "sector_name": "参股金融",
+      "board_type": "concept",
+      "change_pct": -0.097829670037537,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 33461189486.0,
+      "source": "sina",
+      "hot_score": 50.21
+    },
+    {
+      "sector_name": "有色金属冶炼和压延加工业",
+      "board_type": "industry",
+      "change_pct": -0.73260979865606,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 13.797,
+      "turnover_rate": 105211445420.0,
+      "source": "sina",
+      "hot_score": 50.12
+    },
+    {
+      "sector_name": "固态电池",
+      "board_type": "concept",
+      "change_pct": -0.69669835569981,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 15.865,
+      "turnover_rate": 61852705632.0,
+      "source": "sina",
+      "hot_score": 49.9
+    },
+    {
+      "sector_name": "成渝特区",
+      "board_type": "concept",
+      "change_pct": -0.075010791646911,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.853,
+      "turnover_rate": 49016505214.0,
+      "source": "sina",
+      "hot_score": 49.85
+    },
+    {
+      "sector_name": "风能",
+      "board_type": "concept",
+      "change_pct": -0.19295228014466,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 49671768778.0,
+      "source": "sina",
+      "hot_score": 49.75
+    },
+    {
+      "sector_name": "陕甘宁",
+      "board_type": "concept",
+      "change_pct": -0.22757571268903,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.037,
+      "turnover_rate": 25961640614.0,
+      "source": "sina",
+      "hot_score": 49.38
+    },
+    {
+      "sector_name": "海峡西岸",
+      "board_type": "concept",
+      "change_pct": -0.43414600926178,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.052,
+      "turnover_rate": 34926330628.0,
+      "source": "sina",
+      "hot_score": 49.34
+    },
+    {
+      "sector_name": "食品安全",
+      "board_type": "concept",
+      "change_pct": 0.6637001282148,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.075,
+      "turnover_rate": 5338650401.0,
+      "source": "sina",
+      "hot_score": 49.21
+    },
+    {
+      "sector_name": "沿海发展",
+      "board_type": "concept",
+      "change_pct": -0.055661854235519,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.739,
+      "turnover_rate": 37820539607.0,
+      "source": "sina",
+      "hot_score": 48.67
+    },
+    {
+      "sector_name": "垃圾分类",
+      "board_type": "concept",
+      "change_pct": 0.3233392122281,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.813,
+      "turnover_rate": 10640080708.0,
+      "source": "sina",
+      "hot_score": 48.57
+    },
+    {
+      "sector_name": "电力、热力生产和供应业",
+      "board_type": "industry",
+      "change_pct": -0.36662211641702,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 54419109881.0,
+      "source": "sina",
+      "hot_score": 48.24
+    },
+    {
+      "sector_name": "综合",
+      "board_type": "industry",
+      "change_pct": 0.36958817317846,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.243,
+      "turnover_rate": 6188588653.0,
+      "source": "sina",
+      "hot_score": 48.09
+    },
+    {
+      "sector_name": "上海本地",
+      "board_type": "concept",
+      "change_pct": -0.18817588490305,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 19261881487.0,
+      "source": "sina",
+      "hot_score": 47.99
+    },
+    {
+      "sector_name": "智能家居",
+      "board_type": "concept",
+      "change_pct": 0.32283743145233,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.713,
+      "turnover_rate": 10474227794.0,
+      "source": "sina",
+      "hot_score": 47.98
+    },
+    {
+      "sector_name": "雄安新区",
+      "board_type": "concept",
+      "change_pct": -0.032952806873014,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 15085733581.0,
+      "source": "sina",
+      "hot_score": 47.84
+    },
+    {
+      "sector_name": "装卸搬运和运输代理业",
+      "board_type": "industry",
+      "change_pct": 0.88058519312305,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.28,
+      "turnover_rate": 1359596435.0,
+      "source": "sina",
+      "hot_score": 47.78
+    },
+    {
+      "sector_name": "固废处理",
+      "board_type": "concept",
+      "change_pct": -0.11678212171882,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 20174623251.0,
+      "source": "sina",
+      "hot_score": 47.2
+    },
+    {
+      "sector_name": "铁路、船舶、航空航天和其他运输设备制造业",
+      "board_type": "industry",
+      "change_pct": 0.73755377996312,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.549,
+      "turnover_rate": 1921042176.0,
+      "source": "sina",
+      "hot_score": 47.1
+    },
+    {
+      "sector_name": "融资融券",
+      "board_type": "concept",
+      "change_pct": -0.93155471541397,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.052,
+      "turnover_rate": 67860792635.0,
+      "source": "sina",
+      "hot_score": 46.97
+    },
+    {
+      "sector_name": "燃气生产和供应业",
+      "board_type": "industry",
+      "change_pct": -0.034042431629466,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.009,
+      "turnover_rate": 7499901505.0,
+      "source": "sina",
+      "hot_score": 46.78
+    },
+    {
+      "sector_name": "建筑节能",
+      "board_type": "concept",
+      "change_pct": 0.37188672807915,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.569,
+      "turnover_rate": 8350170742.0,
+      "source": "sina",
+      "hot_score": 46.74
+    },
+    {
+      "sector_name": "整体上市",
+      "board_type": "concept",
+      "change_pct": -0.13532200711181,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.163,
+      "turnover_rate": 39569479295.0,
+      "source": "sina",
+      "hot_score": 46.48
+    },
+    {
+      "sector_name": "文化艺术业",
+      "board_type": "industry",
+      "change_pct": 0.40778876541951,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.375,
+      "turnover_rate": 1004061895.0,
+      "source": "sina",
+      "hot_score": 46.0
+    },
+    {
+      "sector_name": "含H股",
+      "board_type": "concept",
+      "change_pct": -0.070923396103853,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.121,
+      "turnover_rate": 90156270518.0,
+      "source": "sina",
+      "hot_score": 45.98
+    },
+    {
+      "sector_name": "京津冀",
+      "board_type": "concept",
+      "change_pct": -0.13024802549536,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 14742996947.0,
+      "source": "sina",
+      "hot_score": 45.87
+    },
+    {
+      "sector_name": "含B股",
+      "board_type": "concept",
+      "change_pct": -0.15855013424683,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 17575114017.0,
+      "source": "sina",
+      "hot_score": 45.81
+    },
+    {
+      "sector_name": "印刷和记录媒介复制业",
+      "board_type": "industry",
+      "change_pct": 0.46636191531606,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.976,
+      "turnover_rate": 2326194144.0,
+      "source": "sina",
+      "hot_score": 45.72
+    },
+    {
+      "sector_name": "石油和天然气开采业",
+      "board_type": "industry",
+      "change_pct": 0.10111010469109,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.441,
+      "turnover_rate": 31553241752.0,
+      "source": "sina",
+      "hot_score": 45.6
+    },
+    {
+      "sector_name": "煤炭开采和洗选业",
+      "board_type": "industry",
+      "change_pct": 0.16934654995206,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.088,
+      "turnover_rate": 12176923357.0,
+      "source": "sina",
+      "hot_score": 45.12
+    },
+    {
+      "sector_name": "基因测序",
+      "board_type": "concept",
+      "change_pct": 0.63309352517986,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.221,
+      "turnover_rate": 1486793118.0,
+      "source": "sina",
+      "hot_score": 44.77
+    },
+    {
+      "sector_name": "林业",
+      "board_type": "industry",
+      "change_pct": 0.7994438651373,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.109,
+      "turnover_rate": 1408399818.0,
+      "source": "sina",
+      "hot_score": 44.52
+    },
+    {
+      "sector_name": "资本市场服务",
+      "board_type": "industry",
+      "change_pct": 0.17319074522464,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.837,
+      "turnover_rate": 27507861334.0,
+      "source": "sina",
+      "hot_score": 44.05
+    },
+    {
+      "sector_name": "文化振兴",
+      "board_type": "concept",
+      "change_pct": -0.40855182261711,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 13578022634.0,
+      "source": "sina",
+      "hot_score": 44.0
+    },
+    {
+      "sector_name": "赛马概念",
+      "board_type": "concept",
+      "change_pct": 0.56710775047259,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.673,
+      "turnover_rate": 3332715392.0,
+      "source": "sina",
+      "hot_score": 43.94
+    },
+    {
+      "sector_name": "社保重仓",
+      "board_type": "concept",
+      "change_pct": -0.18864464065816,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.755,
+      "turnover_rate": 66499992647.0,
+      "source": "sina",
+      "hot_score": 43.9
+    },
+    {
+      "sector_name": "央企50",
+      "board_type": "concept",
+      "change_pct": -0.028211776401521,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.323,
+      "turnover_rate": 55373979080.0,
+      "source": "sina",
+      "hot_score": 43.8
+    },
+    {
+      "sector_name": "循环经济",
+      "board_type": "concept",
+      "change_pct": -0.38870893105044,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 22314642137.0,
+      "source": "sina",
+      "hot_score": 43.67
+    },
+    {
+      "sector_name": "未股改",
+      "board_type": "concept",
+      "change_pct": 0.42894852617686,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.636,
+      "turnover_rate": 3989378477.0,
+      "source": "sina",
+      "hot_score": 43.57
+    },
+    {
+      "sector_name": "黄河三角",
+      "board_type": "concept",
+      "change_pct": -1.5535518743739,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.037,
+      "turnover_rate": 65168724876.0,
+      "source": "sina",
+      "hot_score": 42.9
+    },
+    {
+      "sector_name": "教育",
+      "board_type": "industry",
+      "change_pct": 0.52751468648843,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.944,
+      "turnover_rate": 741565939.0,
+      "source": "sina",
+      "hot_score": 42.88
+    },
+    {
+      "sector_name": "渔业",
+      "board_type": "industry",
+      "change_pct": 0.66959131840222,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.206,
+      "turnover_rate": 470336578.0,
+      "source": "sina",
+      "hot_score": 42.7
+    },
+    {
+      "sector_name": "保险重仓",
+      "board_type": "concept",
+      "change_pct": -1.6485874535687,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.03,
+      "turnover_rate": 102960660576.0,
+      "source": "sina",
+      "hot_score": 42.66
+    },
+    {
+      "sector_name": "资产注入",
+      "board_type": "concept",
+      "change_pct": -0.45517843410305,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 20290395892.0,
+      "source": "sina",
+      "hot_score": 42.05
+    },
+    {
+      "sector_name": "水上运输业",
+      "board_type": "industry",
+      "change_pct": 0.0006435461969637,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.046,
+      "turnover_rate": 8429565810.0,
+      "source": "sina",
+      "hot_score": 41.84
+    },
+    {
+      "sector_name": "信息安全",
+      "board_type": "concept",
+      "change_pct": 0.23475752900932,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.262,
+      "turnover_rate": 7061753102.0,
+      "source": "sina",
+      "hot_score": 41.28
+    },
+    {
+      "sector_name": "三沙概念",
+      "board_type": "concept",
+      "change_pct": 0.43103448275862,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.53,
+      "turnover_rate": 2894163356.0,
+      "source": "sina",
+      "hot_score": 41.08
+    },
+    {
+      "sector_name": "专用设备制造业",
+      "board_type": "industry",
+      "change_pct": 0.45662100456621,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.679,
+      "turnover_rate": 1757037912.0,
+      "source": "sina",
+      "hot_score": 40.95
+    },
+    {
+      "sector_name": "低碳经济",
+      "board_type": "concept",
+      "change_pct": -1.1257466081247,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.0,
+      "turnover_rate": 58651032064.0,
+      "source": "sina",
+      "hot_score": 40.83
+    },
+    {
+      "sector_name": "QFII重仓",
+      "board_type": "concept",
+      "change_pct": -1.6254797311583,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.002,
+      "turnover_rate": 68456716792.0,
+      "source": "sina",
+      "hot_score": 40.6
+    },
+    {
+      "sector_name": "农业",
+      "board_type": "industry",
+      "change_pct": 0.2017531654376,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.149,
+      "turnover_rate": 2962098953.0,
+      "source": "sina",
+      "hot_score": 39.92
+    },
+    {
+      "sector_name": "华为鸿蒙",
+      "board_type": "concept",
+      "change_pct": -0.94702892885066,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.007,
+      "turnover_rate": 26420825448.0,
+      "source": "sina",
+      "hot_score": 39.87
+    },
+    {
+      "sector_name": "天津自贸",
+      "board_type": "concept",
+      "change_pct": 0.23329798515376,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.96,
+      "turnover_rate": 2313118304.0,
+      "source": "sina",
+      "hot_score": 39.4
+    },
+    {
+      "sector_name": "钒电池",
+      "board_type": "concept",
+      "change_pct": -0.38570258632077,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.163,
+      "turnover_rate": 17278201202.0,
+      "source": "sina",
+      "hot_score": 39.36
+    },
+    {
+      "sector_name": "充电桩",
+      "board_type": "concept",
+      "change_pct": -1.8845642867687,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 10.048,
+      "turnover_rate": 32499631795.0,
+      "source": "sina",
+      "hot_score": 39.01
+    },
+    {
+      "sector_name": "水的生产和供应业",
+      "board_type": "industry",
+      "change_pct": 0.14105367092179,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.871,
+      "turnover_rate": 1691426099.0,
+      "source": "sina",
+      "hot_score": 38.94
+    },
+    {
+      "sector_name": "稀缺资源",
+      "board_type": "concept",
+      "change_pct": -1.0283267074456,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.163,
+      "turnover_rate": 66375310754.0,
+      "source": "sina",
+      "hot_score": 38.84
+    },
+    {
+      "sector_name": "氢能源",
+      "board_type": "concept",
+      "change_pct": -0.022057404394938,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.279,
+      "turnover_rate": 9474016534.0,
+      "source": "sina",
+      "hot_score": 38.67
+    },
+    {
+      "sector_name": "基金重仓",
+      "board_type": "concept",
+      "change_pct": -1.7972441704666,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 9.98,
+      "turnover_rate": 104005705286.0,
+      "source": "sina",
+      "hot_score": 38.41
+    },
+    {
+      "sector_name": "核电核能",
+      "board_type": "concept",
+      "change_pct": -0.62002763978635,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.454,
+      "turnover_rate": 36687176293.0,
+      "source": "sina",
+      "hot_score": 38.11
+    },
+    {
+      "sector_name": "国产软件",
+      "board_type": "concept",
+      "change_pct": -0.22323002091313,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.977,
+      "turnover_rate": 18404528307.0,
+      "source": "sina",
+      "hot_score": 37.8
+    },
+    {
+      "sector_name": "长株潭",
+      "board_type": "concept",
+      "change_pct": -0.58328210553403,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.386,
+      "turnover_rate": 31481272293.0,
+      "source": "sina",
+      "hot_score": 37.34
+    },
+    {
+      "sector_name": "聚氨酯",
+      "board_type": "concept",
+      "change_pct": -0.45197740112994,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.645,
+      "turnover_rate": 14476029482.0,
+      "source": "sina",
+      "hot_score": 37.12
+    },
+    {
+      "sector_name": "ST板块",
+      "board_type": "concept",
+      "change_pct": -0.54256683436914,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.163,
+      "turnover_rate": 17135407148.0,
+      "source": "sina",
+      "hot_score": 36.87
+    },
+    {
+      "sector_name": "钠电池",
+      "board_type": "concept",
+      "change_pct": -1.2681203262264,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 7.853,
+      "turnover_rate": 36737953750.0,
+      "source": "sina",
+      "hot_score": 35.89
+    },
+    {
+      "sector_name": "水产品",
+      "board_type": "concept",
+      "change_pct": 0.24259227170334,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.206,
+      "turnover_rate": 633267469.0,
+      "source": "sina",
+      "hot_score": 35.29
+    },
+    {
+      "sector_name": "非金属矿采选业",
+      "board_type": "industry",
+      "change_pct": 0.28559771521828,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.066,
+      "turnover_rate": 270385449.0,
+      "source": "sina",
+      "hot_score": 35.08
+    },
+    {
+      "sector_name": "乡村振兴",
+      "board_type": "concept",
+      "change_pct": -0.22207037922788,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.99,
+      "turnover_rate": 10922959060.0,
+      "source": "sina",
+      "hot_score": 34.67
+    },
+    {
+      "sector_name": "股期概念",
+      "board_type": "concept",
+      "change_pct": -0.10355412552239,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.857,
+      "turnover_rate": 10824778554.0,
+      "source": "sina",
+      "hot_score": 34.4
+    },
+    {
+      "sector_name": "碳纤维",
+      "board_type": "concept",
+      "change_pct": -0.54843164332215,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.289,
+      "turnover_rate": 13398075068.0,
+      "source": "sina",
+      "hot_score": 34.09
+    },
+    {
+      "sector_name": "海水淡化",
+      "board_type": "concept",
+      "change_pct": -0.14349858815905,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.66,
+      "turnover_rate": 4552577084.0,
+      "source": "sina",
+      "hot_score": 34.05
+    },
+    {
+      "sector_name": "餐饮业",
+      "board_type": "industry",
+      "change_pct": 0.13213530655391,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.03,
+      "turnover_rate": 246675082.0,
+      "source": "sina",
+      "hot_score": 34.02
+    },
+    {
+      "sector_name": "基因概念",
+      "board_type": "concept",
+      "change_pct": -0.18094475580464,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.221,
+      "turnover_rate": 7566766299.0,
+      "source": "sina",
+      "hot_score": 32.72
+    },
+    {
+      "sector_name": "超大盘",
+      "board_type": "concept",
+      "change_pct": -0.47892976588629,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.059,
+      "turnover_rate": 36990825580.0,
+      "source": "sina",
+      "hot_score": 32.45
+    },
+    {
+      "sector_name": "其他金融业",
+      "board_type": "industry",
+      "change_pct": -0.035663338088445,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.713,
+      "turnover_rate": 6681142045.0,
+      "source": "sina",
+      "hot_score": 32.22
+    },
+    {
+      "sector_name": "生物燃料",
+      "board_type": "concept",
+      "change_pct": -0.22714981070849,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.02,
+      "turnover_rate": 1713856914.0,
+      "source": "sina",
+      "hot_score": 31.58
+    },
+    {
+      "sector_name": "海南自贸",
+      "board_type": "concept",
+      "change_pct": -0.69847349743705,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.02,
+      "turnover_rate": 15245803334.0,
+      "source": "sina",
+      "hot_score": 31.53
+    },
+    {
+      "sector_name": "土木工程建筑业",
+      "board_type": "industry",
+      "change_pct": -1.0560034747672,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.005,
+      "turnover_rate": 22107233835.0,
+      "source": "sina",
+      "hot_score": 31.47
+    },
+    {
+      "sector_name": "百度概念",
+      "board_type": "concept",
+      "change_pct": -0.47228013445092,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.011,
+      "turnover_rate": 12023843339.0,
+      "source": "sina",
+      "hot_score": 31.41
+    },
+    {
+      "sector_name": "婴童概念",
+      "board_type": "concept",
+      "change_pct": -0.43560682450692,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.763,
+      "turnover_rate": 4210677210.0,
+      "source": "sina",
+      "hot_score": 31.33
+    },
+    {
+      "sector_name": "碳交易",
+      "board_type": "concept",
+      "change_pct": -0.37391841779975,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.368,
+      "turnover_rate": 14427252344.0,
+      "source": "sina",
+      "hot_score": 30.58
+    },
+    {
+      "sector_name": "外资背景",
+      "board_type": "concept",
+      "change_pct": -0.41925425150014,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.455,
+      "turnover_rate": 8844175296.0,
+      "source": "sina",
+      "hot_score": 30.46
+    },
+    {
+      "sector_name": "生态农业",
+      "board_type": "concept",
+      "change_pct": -0.48844636483186,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.99,
+      "turnover_rate": 6982280987.0,
+      "source": "sina",
+      "hot_score": 29.34
+    },
+    {
+      "sector_name": "黑色金属冶炼和压延加工业",
+      "board_type": "industry",
+      "change_pct": -0.71949646796143,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.4,
+      "turnover_rate": 7446897765.0,
+      "source": "sina",
+      "hot_score": 29.0
+    },
+    {
+      "sector_name": "酒、饮料和精制茶制造业",
+      "board_type": "industry",
+      "change_pct": -2.3840188896938,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 6.741,
+      "turnover_rate": 20671465562.0,
+      "source": "sina",
+      "hot_score": 28.8
+    },
+    {
+      "sector_name": "民营医院",
+      "board_type": "concept",
+      "change_pct": -1.2097651998134,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.947,
+      "turnover_rate": 14446538452.0,
+      "source": "sina",
+      "hot_score": 28.74
+    },
+    {
+      "sector_name": "社会工作",
+      "board_type": "industry",
+      "change_pct": 0.0,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.0,
+      "turnover_rate": 0.0,
+      "source": "sina",
+      "hot_score": 28.61
+    },
+    {
+      "sector_name": "出口退税",
+      "board_type": "concept",
+      "change_pct": -1.7233820107248,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.044,
+      "turnover_rate": 25197960491.0,
+      "source": "sina",
+      "hot_score": 28.11
+    },
+    {
+      "sector_name": "含GDR",
+      "board_type": "concept",
+      "change_pct": -0.10649627263046,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.0,
+      "turnover_rate": 1326029495.0,
+      "source": "sina",
+      "hot_score": 27.1
+    },
+    {
+      "sector_name": "抗癌",
+      "board_type": "concept",
+      "change_pct": -0.69999448823238,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.221,
+      "turnover_rate": 12992232650.0,
+      "source": "sina",
+      "hot_score": 27.05
+    },
+    {
+      "sector_name": "上海自贸",
+      "board_type": "concept",
+      "change_pct": -0.54230769230769,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.61,
+      "turnover_rate": 5331311440.0,
+      "source": "sina",
+      "hot_score": 27.01
+    },
+    {
+      "sector_name": "智能电网",
+      "board_type": "concept",
+      "change_pct": -1.9973893554663,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.983,
+      "turnover_rate": 23520597314.0,
+      "source": "sina",
+      "hot_score": 26.76
+    },
+    {
+      "sector_name": "白酒概念",
+      "board_type": "concept",
+      "change_pct": -3.0042636391269,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.073,
+      "turnover_rate": 22305978273.0,
+      "source": "sina",
+      "hot_score": 26.39
+    },
+    {
+      "sector_name": "开采辅助活动",
+      "board_type": "industry",
+      "change_pct": -0.70903128600549,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.242,
+      "turnover_rate": 5221185216.0,
+      "source": "sina",
+      "hot_score": 25.87
+    },
+    {
+      "sector_name": "生物育种",
+      "board_type": "concept",
+      "change_pct": -0.55078911132295,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.99,
+      "turnover_rate": 2657906714.0,
+      "source": "sina",
+      "hot_score": 25.75
+    },
+    {
+      "sector_name": "迪士尼",
+      "board_type": "concept",
+      "change_pct": -0.59298560449421,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.61,
+      "turnover_rate": 4908239847.0,
+      "source": "sina",
+      "hot_score": 25.56
+    },
+    {
+      "sector_name": "仿制药",
+      "board_type": "concept",
+      "change_pct": -0.50197717540517,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.807,
+      "turnover_rate": 4953654363.0,
+      "source": "sina",
+      "hot_score": 25.27
+    },
+    {
+      "sector_name": "保险业",
+      "board_type": "industry",
+      "change_pct": -0.45314211731899,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.0,
+      "turnover_rate": 6239810341.0,
+      "source": "sina",
+      "hot_score": 25.02
+    },
+    {
+      "sector_name": "黄金概念",
+      "board_type": "concept",
+      "change_pct": -1.4730987389173,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.214,
+      "turnover_rate": 19872131984.0,
+      "source": "sina",
+      "hot_score": 24.17
+    },
+    {
+      "sector_name": "甲型流感",
+      "board_type": "concept",
+      "change_pct": -0.54759060135404,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.398,
+      "turnover_rate": 4134891442.0,
+      "source": "sina",
+      "hot_score": 23.82
+    },
+    {
+      "sector_name": "海上丝路",
+      "board_type": "concept",
+      "change_pct": -0.55574126692295,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.13,
+      "turnover_rate": 2544485490.0,
+      "source": "sina",
+      "hot_score": 23.75
+    },
+    {
+      "sector_name": "水利管理业",
+      "board_type": "industry",
+      "change_pct": -0.22883295194508,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.0,
+      "turnover_rate": 64570560.0,
+      "source": "sina",
+      "hot_score": 23.28
+    },
+    {
+      "sector_name": "道路运输业",
+      "board_type": "industry",
+      "change_pct": -1.0595603231941,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 5.012,
+      "turnover_rate": 2137968296.0,
+      "source": "sina",
+      "hot_score": 23.24
+    },
+    {
+      "sector_name": "新闻和出版业",
+      "board_type": "industry",
+      "change_pct": -1.0684346063229,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 4.312,
+      "turnover_rate": 4101051823.0,
+      "source": "sina",
+      "hot_score": 23.03
+    },
+    {
+      "sector_name": "超级细菌",
+      "board_type": "concept",
+      "change_pct": -0.65160210425634,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.463,
+      "turnover_rate": 2731689199.0,
+      "source": "sina",
+      "hot_score": 21.8
+    },
+    {
+      "sector_name": "卫生",
+      "board_type": "industry",
+      "change_pct": -0.88278722000565,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.957,
+      "turnover_rate": 4820363788.0,
+      "source": "sina",
+      "hot_score": 21.72
+    },
+    {
+      "sector_name": "水利建设",
+      "board_type": "concept",
+      "change_pct": -1.8141222439297,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.934,
+      "turnover_rate": 10133368278.0,
+      "source": "sina",
+      "hot_score": 21.72
+    },
+    {
+      "sector_name": "航空运输业",
+      "board_type": "industry",
+      "change_pct": -0.62633405920528,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.569,
+      "turnover_rate": 3320364905.0,
+      "source": "sina",
+      "hot_score": 21.35
+    },
+    {
+      "sector_name": "草甘膦",
+      "board_type": "concept",
+      "change_pct": -1.1216517857143,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.839,
+      "turnover_rate": 3317803024.0,
+      "source": "sina",
+      "hot_score": 21.14
+    },
+    {
+      "sector_name": "黑色金属矿采选业",
+      "board_type": "industry",
+      "change_pct": -0.99566175947657,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.868,
+      "turnover_rate": 4232499896.0,
+      "source": "sina",
+      "hot_score": 20.81
+    },
+    {
+      "sector_name": "猪肉",
+      "board_type": "concept",
+      "change_pct": -1.218723573596,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.118,
+      "turnover_rate": 4968082284.0,
+      "source": "sina",
+      "hot_score": 20.19
+    },
+    {
+      "sector_name": "奢侈品",
+      "board_type": "concept",
+      "change_pct": -3.3333333333333,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.989,
+      "turnover_rate": 15874711364.0,
+      "source": "sina",
+      "hot_score": 19.25
+    },
+    {
+      "sector_name": "水域改革",
+      "board_type": "concept",
+      "change_pct": -0.73313782991202,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.206,
+      "turnover_rate": 1153907026.0,
+      "source": "sina",
+      "hot_score": 19.02
+    },
+    {
+      "sector_name": "摘帽概念",
+      "board_type": "concept",
+      "change_pct": -1.6984592809978,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 3.03,
+      "turnover_rate": 5458255238.0,
+      "source": "sina",
+      "hot_score": 18.5
+    },
+    {
+      "sector_name": "免疫治疗",
+      "board_type": "concept",
+      "change_pct": -1.2864303775008,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.463,
+      "turnover_rate": 3699314996.0,
+      "source": "sina",
+      "hot_score": 17.97
+    },
+    {
+      "sector_name": "铁路运输业",
+      "board_type": "industry",
+      "change_pct": -0.75214899713467,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.0,
+      "turnover_rate": 1128997170.0,
+      "source": "sina",
+      "hot_score": 17.55
+    },
+    {
+      "sector_name": "租赁业",
+      "board_type": "industry",
+      "change_pct": -0.78602620087336,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.316,
+      "turnover_rate": 760599165.0,
+      "source": "sina",
+      "hot_score": 17.51
+    },
+    {
+      "sector_name": "住宿业",
+      "board_type": "industry",
+      "change_pct": -0.85009278298811,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.789,
+      "turnover_rate": 872199611.0,
+      "source": "sina",
+      "hot_score": 17.28
+    },
+    {
+      "sector_name": "房屋建筑业",
+      "board_type": "industry",
+      "change_pct": -1.4207807118255,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 2.951,
+      "turnover_rate": 1378847620.0,
+      "source": "sina",
+      "hot_score": 16.77
+    },
+    {
+      "sector_name": "鸡肉",
+      "board_type": "concept",
+      "change_pct": -1.5461254612546,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.673,
+      "turnover_rate": 3900063290.0,
+      "source": "sina",
+      "hot_score": 16.45
+    },
+    {
+      "sector_name": "食品制造业",
+      "board_type": "industry",
+      "change_pct": -1.1268079381097,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.989,
+      "turnover_rate": 817109762.0,
+      "source": "sina",
+      "hot_score": 15.89
+    },
+    {
+      "sector_name": "农、林、牧、渔服务业",
+      "board_type": "industry",
+      "change_pct": -1.2957229675496,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 1.207,
+      "turnover_rate": 1568497039.0,
+      "source": "sina",
+      "hot_score": 15.35
+    },
+    {
+      "sector_name": "科技推广和应用服务业",
+      "board_type": "industry",
+      "change_pct": -4.4647387113141,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.0,
+      "turnover_rate": 1056642265.0,
+      "source": "sina",
+      "hot_score": 11.58
+    },
+    {
+      "sector_name": "机动车、电子产品和日用产品修理业",
+      "board_type": "industry",
+      "change_pct": -4.6536796536797,
+      "advancers_ratio": 0.5,
+      "leader_change_pct": 0.0,
+      "turnover_rate": 325019677.0,
+      "source": "sina",
+      "hot_score": 10.83
+    }
+  ],
+  "stocks": [
+    {
+      "rank": 1,
+      "code": "920156",
+      "name": "N海昌",
+      "change_pct": 93.98,
+      "last_price": 40.6,
+      "source": "sina"
+    },
+    {
+      "rank": 2,
+      "code": "688381",
+      "name": "帝奥微",
+      "change_pct": 20.007,
+      "last_price": 35.21,
+      "source": "sina"
+    },
+    {
+      "rank": 3,
+      "code": "688001",
+      "name": "华兴源创",
+      "change_pct": 20.0,
+      "last_price": 60.66,
+      "source": "sina"
+    },
+    {
+      "rank": 4,
+      "code": "688221",
+      "name": "前沿生物",
+      "change_pct": 20.0,
+      "last_price": 22.74,
+      "source": "sina"
+    },
+    {
+      "rank": 5,
+      "code": "688530",
+      "name": "欧莱新材",
+      "change_pct": 20.0,
+      "last_price": 46.2,
+      "source": "sina"
+    },
+    {
+      "rank": 6,
+      "code": "300029",
+      "name": "*ST天龙",
+      "change_pct": 20.0,
+      "last_price": 4.32,
+      "source": "sina"
+    },
+    {
+      "rank": 7,
+      "code": "688677",
+      "name": "海泰新光",
+      "change_pct": 19.996,
+      "last_price": 118.76,
+      "source": "sina"
+    },
+    {
+      "rank": 8,
+      "code": "301248",
+      "name": "杰创智能",
+      "change_pct": 19.994,
+      "last_price": 81.74,
+      "source": "sina"
+    },
+    {
+      "rank": 9,
+      "code": "300582",
+      "name": "英飞特",
+      "change_pct": 19.985,
+      "last_price": 15.73,
+      "source": "sina"
+    },
+    {
+      "rank": 10,
+      "code": "301500",
+      "name": "飞南资源",
+      "change_pct": 19.984,
+      "last_price": 30.32,
+      "source": "sina"
+    },
+    {
+      "rank": 11,
+      "code": "688184",
+      "name": "ST帕瓦",
+      "change_pct": 19.98,
+      "last_price": 12.19,
+      "source": "sina"
+    },
+    {
+      "rank": 12,
+      "code": "300467",
+      "name": "迅游科技",
+      "change_pct": 17.825,
+      "last_price": 36.95,
+      "source": "sina"
+    },
+    {
+      "rank": 13,
+      "code": "688037",
+      "name": "芯源微",
+      "change_pct": 17.811,
+      "last_price": 212.0,
+      "source": "sina"
+    },
+    {
+      "rank": 14,
+      "code": "300854",
+      "name": "中兰环保",
+      "change_pct": 17.082,
+      "last_price": 33.86,
+      "source": "sina"
+    },
+    {
+      "rank": 15,
+      "code": "688020",
+      "name": "方邦股份",
+      "change_pct": 16.278,
+      "last_price": 138.72,
+      "source": "sina"
+    },
+    {
+      "rank": 16,
+      "code": "688409",
+      "name": "富创精密",
+      "change_pct": 16.034,
+      "last_price": 120.42,
+      "source": "sina"
+    },
+    {
+      "rank": 17,
+      "code": "300853",
+      "name": "申昊科技",
+      "change_pct": 15.945,
+      "last_price": 30.25,
+      "source": "sina"
+    },
+    {
+      "rank": 18,
+      "code": "300477",
+      "name": "ST合纵",
+      "change_pct": 15.865,
+      "last_price": 2.41,
+      "source": "sina"
+    },
+    {
+      "rank": 19,
+      "code": "688323",
+      "name": "瑞华泰",
+      "change_pct": 15.222,
+      "last_price": 23.92,
+      "source": "sina"
+    },
+    {
+      "rank": 20,
+      "code": "688693",
+      "name": "锴威特",
+      "change_pct": 14.999,
+      "last_price": 95.99,
+      "source": "sina"
+    },
+    {
+      "rank": 21,
+      "code": "301176",
+      "name": "逸豪新材",
+      "change_pct": 14.792,
+      "last_price": 33.68,
+      "source": "sina"
+    },
+    {
+      "rank": 22,
+      "code": "301391",
+      "name": "卡莱特",
+      "change_pct": 14.748,
+      "last_price": 88.7,
+      "source": "sina"
+    },
+    {
+      "rank": 23,
+      "code": "300295",
+      "name": "*ST三六",
+      "change_pct": 14.495,
+      "last_price": 12.48,
+      "source": "sina"
+    },
+    {
+      "rank": 24,
+      "code": "300613",
+      "name": "富瀚微",
+      "change_pct": 13.909,
+      "last_price": 63.88,
+      "source": "sina"
+    },
+    {
+      "rank": 25,
+      "code": "300057",
+      "name": "万顺新材",
+      "change_pct": 13.797,
+      "last_price": 8.99,
+      "source": "sina"
+    },
+    {
+      "rank": 26,
+      "code": "300469",
+      "name": "信息发展",
+      "change_pct": 13.594,
+      "last_price": 53.98,
+      "source": "sina"
+    },
+    {
+      "rank": 27,
+      "code": "688112",
+      "name": "鼎阳科技",
+      "change_pct": 13.487,
+      "last_price": 61.68,
+      "source": "sina"
+    },
+    {
+      "rank": 28,
+      "code": "301031",
+      "name": "中熔电气",
+      "change_pct": 13.093,
+      "last_price": 161.52,
+      "source": "sina"
+    },
+    {
+      "rank": 29,
+      "code": "300831",
+      "name": "派瑞股份",
+      "change_pct": 12.789,
+      "last_price": 19.49,
+      "source": "sina"
+    },
+    {
+      "rank": 30,
+      "code": "300870",
+      "name": "欧陆通",
+      "change_pct": 12.687,
+      "last_price": 391.25,
+      "source": "sina"
+    },
+    {
+      "rank": 31,
+      "code": "300591",
+      "name": "万里马",
+      "change_pct": 12.644,
+      "last_price": 7.84,
+      "source": "sina"
+    },
+    {
+      "rank": 32,
+      "code": "688350",
+      "name": "富淼科技",
+      "change_pct": 12.46,
+      "last_price": 31.32,
+      "source": "sina"
+    },
+    {
+      "rank": 33,
+      "code": "688110",
+      "name": "东芯股份",
+      "change_pct": 12.328,
+      "last_price": 132.94,
+      "source": "sina"
+    },
+    {
+      "rank": 34,
+      "code": "301193",
+      "name": "家联科技",
+      "change_pct": 12.274,
+      "last_price": 24.24,
+      "source": "sina"
+    },
+    {
+      "rank": 35,
+      "code": "301511",
+      "name": "德福科技",
+      "change_pct": 12.015,
+      "last_price": 67.5,
+      "source": "sina"
+    },
+    {
+      "rank": 36,
+      "code": "688719",
+      "name": "爱科赛博",
+      "change_pct": 12.004,
+      "last_price": 61.77,
+      "source": "sina"
+    },
+    {
+      "rank": 37,
+      "code": "300570",
+      "name": "太辰光",
+      "change_pct": 11.723,
+      "last_price": 149.82,
+      "source": "sina"
+    },
+    {
+      "rank": 38,
+      "code": "301112",
+      "name": "信邦智能",
+      "change_pct": 11.631,
+      "last_price": 36.28,
+      "source": "sina"
+    },
+    {
+      "rank": 39,
+      "code": "688721",
+      "name": "龙图光罩",
+      "change_pct": 11.593,
+      "last_price": 48.13,
+      "source": "sina"
+    },
+    {
+      "rank": 40,
+      "code": "300710",
+      "name": "万隆光电",
+      "change_pct": 11.454,
+      "last_price": 31.43,
+      "source": "sina"
+    },
+    {
+      "rank": 41,
+      "code": "301510",
+      "name": "固高科技",
+      "change_pct": 11.192,
+      "last_price": 39.74,
+      "source": "sina"
+    },
+    {
+      "rank": 42,
+      "code": "688777",
+      "name": "中控技术",
+      "change_pct": 11.159,
+      "last_price": 74.91,
+      "source": "sina"
+    },
+    {
+      "rank": 43,
+      "code": "688114",
+      "name": "华大智造",
+      "change_pct": 10.952,
+      "last_price": 53.59,
+      "source": "sina"
+    },
+    {
+      "rank": 44,
+      "code": "688170",
+      "name": "德龙激光",
+      "change_pct": 10.877,
+      "last_price": 63.1,
+      "source": "sina"
+    },
+    {
+      "rank": 45,
+      "code": "300604",
+      "name": "长川科技",
+      "change_pct": 10.772,
+      "last_price": 175.02,
+      "source": "sina"
+    },
+    {
+      "rank": 46,
+      "code": "300957",
+      "name": "贝泰妮",
+      "change_pct": 10.735,
+      "last_price": 42.5,
+      "source": "sina"
+    },
+    {
+      "rank": 47,
+      "code": "688378",
+      "name": "奥来德",
+      "change_pct": 10.422,
+      "last_price": 43.65,
+      "source": "sina"
+    },
+    {
+      "rank": 48,
+      "code": "688691",
+      "name": "灿芯股份",
+      "change_pct": 10.401,
+      "last_price": 114.0,
+      "source": "sina"
+    },
+    {
+      "rank": 49,
+      "code": "300351",
+      "name": "永贵电器",
+      "change_pct": 10.177,
+      "last_price": 22.41,
+      "source": "sina"
+    },
+    {
+      "rank": 50,
+      "code": "688129",
+      "name": "东来技术",
+      "change_pct": 10.172,
+      "last_price": 29.46,
+      "source": "sina"
+    },
+    {
+      "rank": 51,
+      "code": "688808",
+      "name": "C联讯",
+      "change_pct": 10.138,
+      "last_price": 880.0,
+      "source": "sina"
+    },
+    {
+      "rank": 52,
+      "code": "688361",
+      "name": "中科飞测",
+      "change_pct": 10.112,
+      "last_price": 184.57,
+      "source": "sina"
+    },
+    {
+      "rank": 53,
+      "code": "605138",
+      "name": "盛泰集团",
+      "change_pct": 10.074,
+      "last_price": 7.43,
+      "source": "sina"
+    },
+    {
+      "rank": 54,
+      "code": "600815",
+      "name": "厦工股份",
+      "change_pct": 10.052,
+      "last_price": 4.27,
+      "source": "sina"
+    },
+    {
+      "rank": 55,
+      "code": "002706",
+      "name": "良信股份",
+      "change_pct": 10.048,
+      "last_price": 11.39,
+      "source": "sina"
+    },
+    {
+      "rank": 56,
+      "code": "002175",
+      "name": "东方智造",
+      "change_pct": 10.042,
+      "last_price": 2.63,
+      "source": "sina"
+    },
+    {
+      "rank": 57,
+      "code": "002210",
+      "name": "飞马国际",
+      "change_pct": 10.04,
+      "last_price": 2.74,
+      "source": "sina"
+    },
+    {
+      "rank": 58,
+      "code": "600707",
+      "name": "彩虹股份",
+      "change_pct": 10.037,
+      "last_price": 8.88,
+      "source": "sina"
+    },
+    {
+      "rank": 59,
+      "code": "002217",
+      "name": "合力泰",
+      "change_pct": 10.037,
+      "last_price": 2.96,
+      "source": "sina"
+    },
+    {
+      "rank": 60,
+      "code": "600830",
+      "name": "香溢融通",
+      "change_pct": 10.035,
+      "last_price": 9.54,
+      "source": "sina"
+    },
+    {
+      "rank": 61,
+      "code": "002560",
+      "name": "通达股份",
+      "change_pct": 10.035,
+      "last_price": 15.68,
+      "source": "sina"
+    },
+    {
+      "rank": 62,
+      "code": "600152",
+      "name": "维科技术",
+      "change_pct": 10.031,
+      "last_price": 14.26,
+      "source": "sina"
+    },
+    {
+      "rank": 63,
+      "code": "600637",
+      "name": "东方明珠",
+      "change_pct": 10.03,
+      "last_price": 10.86,
+      "source": "sina"
+    },
+    {
+      "rank": 64,
+      "code": "000952",
+      "name": "广济药业",
+      "change_pct": 10.03,
+      "last_price": 7.35,
+      "source": "sina"
+    },
+    {
+      "rank": 65,
+      "code": "603626",
+      "name": "科森科技",
+      "change_pct": 10.023,
+      "last_price": 24.37,
+      "source": "sina"
+    },
+    {
+      "rank": 66,
+      "code": "600693",
+      "name": "东百集团",
+      "change_pct": 10.019,
+      "last_price": 11.53,
+      "source": "sina"
+    },
+    {
+      "rank": 67,
+      "code": "603110",
+      "name": "东方材料",
+      "change_pct": 10.017,
+      "last_price": 19.66,
+      "source": "sina"
+    },
+    {
+      "rank": 68,
+      "code": "603579",
+      "name": "荣泰健康",
+      "change_pct": 10.015,
+      "last_price": 22.08,
+      "source": "sina"
+    },
+    {
+      "rank": 69,
+      "code": "000565",
+      "name": "渝三峡Ａ",
+      "change_pct": 10.014,
+      "last_price": 8.02,
+      "source": "sina"
+    },
+    {
+      "rank": 70,
+      "code": "001211",
+      "name": "双枪科技",
+      "change_pct": 10.014,
+      "last_price": 38.01,
+      "source": "sina"
+    },
+    {
+      "rank": 71,
+      "code": "002120",
+      "name": "韵达股份",
+      "change_pct": 10.014,
+      "last_price": 8.13,
+      "source": "sina"
+    },
+    {
+      "rank": 72,
+      "code": "600338",
+      "name": "西藏珠峰",
+      "change_pct": 10.013,
+      "last_price": 24.83,
+      "source": "sina"
+    },
+    {
+      "rank": 73,
+      "code": "603657",
+      "name": "春光科技",
+      "change_pct": 10.012,
+      "last_price": 28.35,
+      "source": "sina"
+    },
+    {
+      "rank": 74,
+      "code": "605118",
+      "name": "力鼎光电",
+      "change_pct": 10.012,
+      "last_price": 47.36,
+      "source": "sina"
+    },
+    {
+      "rank": 75,
+      "code": "603318",
+      "name": "水发燃气",
+      "change_pct": 10.009,
+      "last_price": 12.53,
+      "source": "sina"
+    },
+    {
+      "rank": 76,
+      "code": "603726",
+      "name": "朗迪集团",
+      "change_pct": 10.009,
+      "last_price": 24.62,
+      "source": "sina"
+    },
+    {
+      "rank": 77,
+      "code": "603610",
+      "name": "麒盛科技",
+      "change_pct": 10.007,
+      "last_price": 16.71,
+      "source": "sina"
+    },
+    {
+      "rank": 78,
+      "code": "603272",
+      "name": "联翔股份",
+      "change_pct": 10.005,
+      "last_price": 24.3,
+      "source": "sina"
+    },
+    {
+      "rank": 79,
+      "code": "603211",
+      "name": "晋拓股份",
+      "change_pct": 10.004,
+      "last_price": 25.4,
+      "source": "sina"
+    },
+    {
+      "rank": 80,
+      "code": "605289",
+      "name": "罗曼股份",
+      "change_pct": 10.004,
+      "last_price": 142.29,
+      "source": "sina"
+    },
+    {
+      "rank": 81,
+      "code": "003036",
+      "name": "泰坦股份",
+      "change_pct": 10.003,
+      "last_price": 36.95,
+      "source": "sina"
+    },
+    {
+      "rank": 82,
+      "code": "600418",
+      "name": "江淮汽车",
+      "change_pct": 10.002,
+      "last_price": 48.94,
+      "source": "sina"
+    },
+    {
+      "rank": 83,
+      "code": "600246",
+      "name": "万通发展",
+      "change_pct": 10.0,
+      "last_price": 10.67,
+      "source": "sina"
+    },
+    {
+      "rank": 84,
+      "code": "600396",
+      "name": "华电辽能",
+      "change_pct": 10.0,
+      "last_price": 10.12,
+      "source": "sina"
+    },
+    {
+      "rank": 85,
+      "code": "600433",
+      "name": "冠豪高新",
+      "change_pct": 10.0,
+      "last_price": 4.4,
+      "source": "sina"
+    },
+    {
+      "rank": 86,
+      "code": "600726",
+      "name": "华电能源",
+      "change_pct": 10.0,
+      "last_price": 6.38,
+      "source": "sina"
+    },
+    {
+      "rank": 87,
+      "code": "603228",
+      "name": "景旺电子",
+      "change_pct": 10.0,
+      "last_price": 75.35,
+      "source": "sina"
+    },
+    {
+      "rank": 88,
+      "code": "603773",
+      "name": "沃格光电",
+      "change_pct": 10.0,
+      "last_price": 64.13,
+      "source": "sina"
+    },
+    {
+      "rank": 89,
+      "code": "605287",
+      "name": "德才股份",
+      "change_pct": 10.0,
+      "last_price": 49.28,
+      "source": "sina"
+    },
+    {
+      "rank": 90,
+      "code": "000925",
+      "name": "众合科技",
+      "change_pct": 10.0,
+      "last_price": 10.12,
+      "source": "sina"
+    },
+    {
+      "rank": 91,
+      "code": "002785",
+      "name": "万里石",
+      "change_pct": 10.0,
+      "last_price": 44.55,
+      "source": "sina"
+    },
+    {
+      "rank": 92,
+      "code": "603501",
+      "name": "豪威集团",
+      "change_pct": 9.998,
+      "last_price": 104.63,
+      "source": "sina"
+    },
+    {
+      "rank": 93,
+      "code": "001332",
+      "name": "锡装股份",
+      "change_pct": 9.996,
+      "last_price": 62.83,
+      "source": "sina"
+    },
+    {
+      "rank": 94,
+      "code": "002134",
+      "name": "天津普林",
+      "change_pct": 9.996,
+      "last_price": 24.98,
+      "source": "sina"
+    },
+    {
+      "rank": 95,
+      "code": "002902",
+      "name": "铭普光磁",
+      "change_pct": 9.996,
+      "last_price": 28.61,
+      "source": "sina"
+    },
+    {
+      "rank": 96,
+      "code": "603486",
+      "name": "科沃斯",
+      "change_pct": 9.994,
+      "last_price": 67.8,
+      "source": "sina"
+    },
+    {
+      "rank": 97,
+      "code": "002484",
+      "name": "江海股份",
+      "change_pct": 9.994,
+      "last_price": 37.64,
+      "source": "sina"
+    },
+    {
+      "rank": 98,
+      "code": "605006",
+      "name": "山东玻纤",
+      "change_pct": 9.99,
+      "last_price": 11.34,
+      "source": "sina"
+    },
+    {
+      "rank": 99,
+      "code": "603095",
+      "name": "越剑智能",
+      "change_pct": 9.988,
+      "last_price": 19.05,
+      "source": "sina"
+    },
+    {
+      "rank": 100,
+      "code": "000062",
+      "name": "深圳华强",
+      "change_pct": 9.988,
+      "last_price": 37.77,
+      "source": "sina"
+    }
+  ]
+}

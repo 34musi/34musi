@@ -17,6 +17,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 from datetime import date, datetime, timezone
 
@@ -41,7 +42,12 @@ from app.db import (
     init_db,
     session_scope,
 )
-from app.fundamentals import fetch_individual_fund_flow_recent_rows, upsert_fundamental_snapshot
+from app.fundamentals import (
+    fetch_individual_fund_flow_recent_rows,
+    fetch_individual_fund_flow_latest_metrics,
+    spot_liquidity_fields_for_codes,
+    upsert_fundamental_snapshot,
+)
 from app.ingest import (
     fetch_stock_name,
     fetch_stock_names_map,
@@ -54,6 +60,8 @@ from app.ingest import (
     watchlist_bar_fields_for_session,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
+from app.quant_stock_selector.hot_pick import is_star_board_code, is_st_stock_name
+from app.quant_stock_selector.market_utils import is_listed_a_share_equity, normalize_code
 from app.quant_stock_selector.datasources import (
     default_sector_snapshot_path,
     load_sector_rankings_snapshot,
@@ -69,23 +77,40 @@ from app.schemas import (
     FillHotSectorsOut,
     FillHotSectorsSummary,
     ForecastValidateOut,
+    HotMarketSnapshotFileOut,
+    HotMarketSnapshotOut,
+    HotMarketSnapshotRefreshIn,
+    HotMarketSnapshotRefreshOut,
     IngestDataSource,
+    IngestFundamentalsIn,
     IngestUpdateIn,
     JournalIn,
     JournalOut,
     QuantWatchlistSyncIn,
     QuantWatchlistSyncOut,
+    SectorConstituentsTopIn,
+    SectorConstituentsTopOut,
     SectorScreenDataSource,
     SectorScreenIn,
     SectorScreenOut,
     SelectorSectorDataSource,
     SelfUseMetaOut,
     SignalOut,
+    WatchlistBatchDeleteIn,
+    WatchlistBatchDeleteOut,
+    WatchlistHotSnapshotImportIn,
+    WatchlistHotSnapshotImportOut,
     WatchlistIn,
     WatchlistItem,
     WebDataPreviewIn,
 )
 from app.forecast_validate import run_forecast_validate
+from app.hot_market_snapshot import (
+    default_hot_market_snapshot_path,
+    fetch_hot_market_snapshot,
+    load_hot_market_snapshot,
+    save_hot_market_snapshot,
+)
 from app.signals import compute_signal
 from app.alerts import detect_changes, signal_to_snapshot
 
@@ -248,7 +273,7 @@ def _pre_refresh_symbols(symbols: list[str], *, route: str, pre_refresh: bool) -
         try:
             incremental_refresh(sym, data_source=route)
         except Exception as e:
-            logger.warning("pre_refresh before signal %s route=%s: %s", sym, route, e)
+            logger.debug("pre_refresh skipped %s route=%s: %s", sym, route, e)
 
 
 def _http_exception_from_datasource(e: DataSourceError) -> HTTPException:
@@ -519,6 +544,61 @@ def meta_self_use():
     )
 
 
+@app.get(
+    "/meta/hot-market-snapshot",
+    response_model=HotMarketSnapshotFileOut,
+    tags=["⑥ 说明与免责"],
+    summary="读取已保存的热门板块+热门股快照",
+    description="""
+从本地 `data/hot_market_snapshot.json` 读取上次 **POST /meta/hot-market-snapshot/refresh** 落盘内容。
+
+未刷新过时 `snapshot` 为 null。数据为公开源截面，**非投资建议**。
+""",
+)
+def meta_hot_market_snapshot_get():
+    p = default_hot_market_snapshot_path()
+    raw = load_hot_market_snapshot()
+    if raw is None:
+        return HotMarketSnapshotFileOut(path=str(p), snapshot=None)
+    return HotMarketSnapshotFileOut(path=str(p), snapshot=HotMarketSnapshotOut(**asdict(raw)))
+
+
+@app.post(
+    "/meta/hot-market-snapshot/refresh",
+    response_model=HotMarketSnapshotRefreshOut,
+    tags=["③ 更新行情数据"],
+    summary="拉取热门板块+热门股并保存快照",
+    description="""
+按固定顺序 **新浪 → 腾讯 → Baostock → 东财 → akshare** 尝试，直到成功（与 `app/hot_market_snapshot.py` 内说明一致）。
+
+- **新浪成功时**：板块与个股均来自新浪公开接口（个股为沪深 A 按涨跌幅降序取前 N）。
+- **腾讯步**：个股为腾讯财经 A 股排行（客户端按 `zdf` 排序）；因腾讯无对等板块全表，板块由东财补充（响应内 `sector_source` / `notes` 会说明）。
+- **东财 / akshare 步**：板块为东财；个股为人气榜（与「涨幅序」不同，见 `notes`）。
+
+**公开数据，非实时撮合；不构成投资建议。**
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def meta_hot_market_snapshot_refresh(
+    request: Request,
+    body: HotMarketSnapshotRefreshIn | None = None,
+    _: None = Depends(optional_api_key),
+):
+    """联网拉取并覆盖写入 `data/hot_market_snapshot.json`。"""
+    b = body or HotMarketSnapshotRefreshIn()
+    try:
+        snap = fetch_hot_market_snapshot(top_stocks=b.top_stocks, chain=b.chain)
+        path = save_hot_market_snapshot(snap)
+    except DataSourceError as e:
+        raise _http_exception_from_datasource(e) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    return HotMarketSnapshotRefreshOut(
+        saved_to=str(path),
+        snapshot=HotMarketSnapshotOut(**asdict(snap)),
+    )
+
+
 def _watchlist_item_with_bars(s, r: WatchlistRow) -> WatchlistItem:
     meta = watchlist_bar_fields_for_session(s, [r.symbol]).get(r.symbol, {})
     return WatchlistItem(
@@ -613,6 +693,136 @@ def watchlist_delete(symbol: str, request: Request, _: None = Depends(optional_a
     with session_scope() as s:
         s.execute(delete(WatchlistRow).where(WatchlistRow.symbol == sym))
     return {"ok": True, "symbol": sym}
+
+
+@app.post(
+    "/watchlist/batch-delete",
+    response_model=WatchlistBatchDeleteOut,
+    tags=["② 管理自选股票"],
+    summary="批量从自选删除多只股票",
+    description="""
+请求体传入 **symbols** 字符串列表；每项会经 `normalize_symbol` 规范为 6 位，**去重**后一次性从库中删除。
+
+无效代码（无法规范为 6 位 A 股）会被跳过；若去重后列表为空则返回 400。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def watchlist_batch_delete(
+    request: Request,
+    body: WatchlistBatchDeleteIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    seen: set[str] = set()
+    syms: list[str] = []
+    for raw in body.symbols:
+        try:
+            sym = normalize_symbol(str(raw))
+        except ValueError:
+            continue
+        if sym not in seen:
+            seen.add(sym)
+            syms.append(sym)
+    if not syms:
+        raise HTTPException(status_code=400, detail="没有有效的 A 股代码可删除")
+    with session_scope() as s:
+        res = s.execute(delete(WatchlistRow).where(WatchlistRow.symbol.in_(syms)))
+        try:
+            removed = int(res.rowcount or 0)
+        except (TypeError, ValueError):
+            removed = 0
+    return WatchlistBatchDeleteOut(removed=removed, requested_unique=len(syms))
+
+
+@app.post(
+    "/watchlist/import-hot-market-snapshot",
+    response_model=WatchlistHotSnapshotImportOut,
+    tags=["② 管理自选股票"],
+    summary="从热门市场快照 JSON 导入热门股到自选",
+    description="""
+读取服务端 **`data/hot_market_snapshot.json`**（与⑨「热门市场快照」、**`GET /meta/hot-market-snapshot`** 同源），将其 **stocks** 列表写入自选，**origin=auto_hot**。
+
+- **`replace_auto_pool=true`（默认）**：先删除当前全部 **auto_hot** 与 **auto_quant**，再按快照顺序写入；**手动**（manual）不删，若代码已存在且为手动则**跳过**。
+- **`replace_auto_pool=false`**：不删池子，仅对尚未出现在自选的代码追加为 auto_hot；已存在任意来源的代码则跳过（不覆盖名称）。
+
+快照文件不存在或 **stocks** 为空时返回 404 / 400。无需先打开⑨页面，只要服务端已有落盘文件即可。
+""",
+)
+@limiter.limit("6/minute")
+def watchlist_import_hot_market_snapshot(
+    request: Request,
+    body: WatchlistHotSnapshotImportIn = Body(default_factory=WatchlistHotSnapshotImportIn),
+    _: None = Depends(optional_api_key),
+):
+    b = body
+    snap = load_hot_market_snapshot()
+    if snap is None:
+        raise HTTPException(
+            status_code=404,
+            detail="未找到本地 hot_market_snapshot.json，请先在⑨点击「刷新热门快照（联网）」或执行 POST /meta/hot-market-snapshot/refresh。",
+        )
+    stocks = list(snap.stocks or [])
+    if not stocks:
+        raise HTTPException(status_code=400, detail="快照中热门股列表 stocks 为空")
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    warnings: list[str] = []
+    for st in stocks:
+        if not isinstance(st, dict):
+            continue
+        raw_code = st.get("code")
+        if raw_code is None:
+            continue
+        try:
+            sym = normalize_symbol(str(raw_code))
+        except ValueError:
+            warnings.append(f"跳过无效代码：{raw_code!r}")
+            continue
+        if sym in seen:
+            continue
+        seen.add(sym)
+        nm_raw = st.get("name")
+        nm = str(nm_raw).strip() if nm_raw is not None else ""
+        if nm.lower() == "nan":
+            nm = ""
+        pairs.append((sym, nm))
+    if not pairs:
+        raise HTTPException(status_code=400, detail="快照中无任何有效 A 股代码可导入")
+    skipped_existing_manual = 0
+    added = 0
+    removed_auto = 0
+    with session_scope() as s:
+        if b.replace_auto_pool:
+            res = s.execute(
+                delete(WatchlistRow).where(
+                    or_(
+                        WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_HOT,
+                        WatchlistRow.origin == WATCHLIST_ORIGIN_AUTO_QUANT,
+                    )
+                )
+            )
+            try:
+                removed_auto = int(res.rowcount or 0)
+            except (TypeError, ValueError):
+                removed_auto = 0
+        for sym, nm in pairs:
+            row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
+            if row is not None:
+                if row.origin == WATCHLIST_ORIGIN_MANUAL:
+                    skipped_existing_manual += 1
+                continue
+            use_nm = nm
+            if not use_nm:
+                use_nm = fetch_stock_name(sym) or ""
+            s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT, name=use_nm))
+            added += 1
+    return WatchlistHotSnapshotImportOut(
+        added=added,
+        skipped_existing_manual=skipped_existing_manual,
+        removed_auto=removed_auto,
+        snapshot_stock_rows=len(stocks),
+        candidates=len(pairs),
+        warnings=warnings,
+    )
 
 
 @app.post(
@@ -847,6 +1057,50 @@ def watchlist_hot_sectors_preview_post(
         raise HTTPException(status_code=502, detail=f"热门板块预览失败：{e}") from e
 
 
+def _watchlist_subset_symbols(
+    subset: list[str] | None,
+    wl_pairs: list[tuple[str, str]],
+) -> tuple[list[str], dict[str, str], list[dict]]:
+    """从 (symbol, name) 列表解析待处理代码顺序；须在 session 内先展开 ORM 行再传入，避免 DetachedInstanceError。"""
+    wl_name_by_sym = {sym: nm for sym, nm in wl_pairs}
+    ordered_all = [sym for sym, _ in wl_pairs]
+    wl_set = set(ordered_all)
+    suffix_errs: list[dict] = []
+
+    if not subset:
+        return list(ordered_all), wl_name_by_sym, suffix_errs
+
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for raw in subset:
+        try:
+            s = normalize_symbol(str(raw))
+        except ValueError:
+            token = str(raw).strip()[:20] if raw is not None else ""
+            suffix_errs.append(
+                {
+                    "symbol": token or "?",
+                    "watchlist_name": None,
+                    "error": "代码格式无效（需 6 位 A 股数字）",
+                }
+            )
+            continue
+        if s in seen:
+            continue
+        seen.add(s)
+        if s not in wl_set:
+            suffix_errs.append(
+                {
+                    "symbol": s,
+                    "watchlist_name": None,
+                    "error": "不在当前自选池",
+                }
+            )
+            continue
+        ordered.append(s)
+    return ordered, wl_name_by_sym, suffix_errs
+
+
 @app.post(
     "/ingest/update",
     tags=["③ 更新行情数据"],
@@ -856,12 +1110,13 @@ def watchlist_hot_sectors_preview_post(
 
 - **Body 可留空**（增量更新到今天）。
 - 传 **`start_date` + `end_date`**：按该闭区间拉取；仅 **`start_date`**：从该日拉到今日；仅 **`end_date`**：增量更新到该日。
+- **`symbols`**（可选）：只拉取列表中的代码（**须在自选池**）；不传或空表示**自选全部**。不在池内的代码会在 `results` 里单独返回 `error`，不阻塞其余标的。
 - **`data_source`**：行情路线（`auto` / `eastmoney` / `akshare` / `sina` / `tencent` / `baostock` / `mootdx` / `tushare`）；不传则用 **`INGEST_DATA_SOURCE`**（默认 `auto`）。`eastmoney` 与 `akshare` 均为东财日线（后者与选股脚本命名对齐），东财路线有 **3–5 秒随机间隔**；`mootdx` / `tushare` 经 `quant_stock_selector` 核心拉取（需依赖与 TuShare token）。
 - **`GET /ingest/test-connection`**：探测本机能否访问数据源（短区间测试，需 API Key 时同上）；可带 Query **`data_source`**。
 - 需要能访问外网（通过 AkShare 拉公开数据）。
 - 自选为空时会返回错误，请先用 `POST /watchlist` 添加股票。
 - 某一只股票拉取失败时，结果里该条会带 `error`，其它股票仍会继续。
-- 成功条目中附带 **`watchlist_name`**（自选里存的简称，可能为空）与 **`strength`**（基于拉取后本地 K 线的简要强弱摘要：约 5/20 日涨跌与相对 MA20，仅供自览）。
+- 成功条目中附带 **`watchlist_name`**（自选里存的简称，可能为空）、**`last_trade_date` / `last_close`**（拉取后本地库中**最新一根**日线交易日与收盘价，前复权）、**`strength`**（基于拉取后本地 K 线的简要强弱摘要：约 5/20 日涨跌与相对 MA20，仅供自览）。
 
 **注意**：接口有「每分钟次数」限制，不要连续狂点。
 """,
@@ -878,11 +1133,11 @@ def ingest_update(
     自选为空返回 400；单个标的失败时该条结果带 error 字段，不整批失败。
     """
     with session_scope() as s:
-        rows = s.execute(select(WatchlistRow)).scalars().all()
-        symbols = [r.symbol for r in rows]
-        wl_name_by_sym = {r.symbol: (r.name or "").strip() for r in rows}
-    if not symbols:
+        orm_rows = list(s.execute(select(WatchlistRow)).scalars().all())
+        wl_pairs = [(r.symbol, (r.name or "").strip()) for r in orm_rows]
+    if not wl_pairs:
         raise HTTPException(status_code=400, detail="自选池为空，请先 POST /watchlist 添加标的")
+    symbols, wl_name_by_sym, suffix_errs = _watchlist_subset_symbols(body.symbols, wl_pairs)
     st, en = body.start_date, body.end_date
     if en and en > date.today():
         raise HTTPException(status_code=400, detail="结束日期不能晚于今天")
@@ -907,6 +1162,7 @@ def ingest_update(
             results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
         except Exception as e:
             results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
+    results.extend(suffix_errs)
     return {
         "results": results,
         "ingest_data_source": resolved_ds,
@@ -919,7 +1175,7 @@ def ingest_update(
     tags=["③ 更新行情数据"],
     summary="拉取扩展因子并写入本地（Demo）",
     description="""
-对自选池**每一只**拉取并入库：
+对自选池拉取并入库（默认**每一只**；也可传 **`symbols`** 只处理子集，规则与 `POST /ingest/update` 相同）。
 
 - **估值**：东财沪深京 A 股列表中的市盈率(动)、市净率（全表有短 TTL 内存缓存，减轻限流）。
 - **成长**：最近一期财报的营业收入/归属净利润**同比 %**（`stock_financial_analysis_indicator_em`）。
@@ -929,19 +1185,25 @@ def ingest_update(
 """,
 )
 @limiter.limit("12/minute")
-def ingest_fundamentals(request: Request, _: None = Depends(optional_api_key)):
+def ingest_fundamentals(
+    request: Request,
+    body: IngestFundamentalsIn = Body(default_factory=IngestFundamentalsIn),
+    _: None = Depends(optional_api_key),
+):
     """自选批量扩展因子 upsert；单条失败体现在该条 `error` 字段。"""
     with session_scope() as s:
-        rows = s.execute(select(WatchlistRow)).scalars().all()
-        symbols = [r.symbol for r in rows]
-    if not symbols:
+        orm_rows = list(s.execute(select(WatchlistRow)).scalars().all())
+        wl_pairs = [(r.symbol, (r.name or "").strip()) for r in orm_rows]
+    if not wl_pairs:
         raise HTTPException(status_code=400, detail="自选池为空，请先 POST /watchlist 添加标的")
+    symbols, _, suffix_errs = _watchlist_subset_symbols(body.symbols, wl_pairs)
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
     results: list[dict] = []
     for i, sym in enumerate(symbols):
         if i > 0 and pause > 0:
             time.sleep(pause)
         results.append(upsert_fundamental_snapshot(sym))
+    results.extend(suffix_errs)
     return {
         "results": results,
         "disclaimer": _disclaimer_payload().model_dump(),
@@ -1069,9 +1331,9 @@ def quotes_daily_bars(
 对自选池里**每一只**股票计算信号（趋势、强度、评分、风险提示等）。
 
 - 自选为空时返回空列表 `[]`。
-- 若某只股票从未成功拉取过 K 线，该只会被跳过（可去看服务日志）。
+- 若某只股票从未成功拉取过 K 线，该只会被跳过（默认不在服务日志打 WARNING，可用 DEBUG 查看）；响应头 **`X-Quant-Signals-Success-Count`** / **`X-Quant-Signals-Failed-Count`** / **`X-Quant-Signals-Failed-Symbols`** 汇总跳过代码。
 - **建议先执行** `POST /ingest/update`。
-- **pre_refresh**：为 `true` 时先按 **data_source**（或服务端默认路线）对各标的做**增量拉取**再算信号（与③所选路线一致时需传相同 `data_source`）。响应头 `X-Quant-Data-Source` / `X-Quant-Pre-Refresh` 供控制台展示。
+- **pre_refresh**：为 `true` 时**按只**增量拉取再算信号；某只拉取失败**仅跳过该只**，不影响其它标的。与③所选路线一致时需传相同 `data_source`。响应头 `X-Quant-Data-Source` / `X-Quant-Pre-Refresh` 及跳过汇总头见上文。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
@@ -1099,11 +1361,20 @@ def signals_batch(
         return []
     _pre_refresh_symbols(symbols, route=route, pre_refresh=pre_refresh)
     out: list[SignalOut] = []
+    failed_syms: list[str] = []
     for sym in symbols:
         try:
             out.append(compute_signal(sym, data_source=route))
         except Exception as e:
-            logger.warning("signal failed %s: %s", sym, e)
+            failed_syms.append(sym)
+            logger.debug("signal skipped %s: %s", sym, e)
+    response.headers["X-Quant-Signals-Success-Count"] = str(len(out))
+    response.headers["X-Quant-Signals-Failed-Count"] = str(len(failed_syms))
+    if failed_syms:
+        joined = ",".join(failed_syms[:120])
+        if len(failed_syms) > 120:
+            joined += ",..."
+        response.headers["X-Quant-Signals-Failed-Symbols"] = joined[:1800]
     return out
 
 
@@ -1346,9 +1617,12 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             initial_cash=body.initial_cash,
             commission=body.commission,
             stop_loss=body.stop_loss,
+            scoring_strategy=body.scoring_strategy,
             only_passed=body.only_passed,
             top_stocks=body.top_stocks_limit,
             output=None,
+            hot_chain_prefer_cache=body.hot_chain_prefer_snapshot,
+            hot_chain_force_refresh=body.hot_chain_refresh_snapshot,
         )
         validate_args(ns)
         sectors, stocks = run_analysis(ns)
@@ -1370,8 +1644,130 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
         sectors=[asdict(s) for s in sectors],
         stocks=stock_rows,
         stocks_total=len(stocks),
+        start_date=body.start_date,
+        end_date=body.end_date,
         disclaimer=d.disclaimer,
         note="与根目录 `quant_stock_selector.py` 及包 `app.quant_stock_selector` 流水线一致（技术面初筛 + 双均线回测 + 综合分）。请求会大量拉取行情，请勿频繁触发。",
+    )
+
+
+def _run_sector_constituents_top(body: SectorConstituentsTopIn) -> SectorConstituentsTopOut:
+    """按板块名拉成分股，过滤后取前 limit 条，并合并东财 spot 与个股日级资金流向末行。"""
+    if body.data_source == SectorScreenDataSource.tushare:
+        tok = _hot_tushare_token(body.tushare_token)
+        if not tok:
+            raise HTTPException(
+                status_code=400,
+                detail="data_source=tushare 时请传 tushare_token，或配置 TUSHARE_TOKEN / 服务端 tushare_token。",
+            )
+        tushare_token_resolved = tok
+    else:
+        tushare_token_resolved = body.tushare_token
+
+    bt_arg = None if body.board_type == "all" else body.board_type
+    sector_nm = body.sector_name.strip()
+    constituents_note_suffix = ""
+
+    try:
+        ds = get_data_source(
+            body.data_source.value,
+            tushare_token=tushare_token_resolved,
+            hot_chain_prefer_cache=body.hot_chain_prefer_snapshot,
+            hot_chain_force_refresh=body.hot_chain_refresh_snapshot,
+        )
+        cons = ds.get_sector_constituents(sector_nm, bt_arg)
+    except HTTPException:
+        raise
+    except DataSourceError as e:
+        # mootdx 仅覆盖通达信板块文件中的块名；新浪/东财快照里的概念名常对不上，成分改走东财解析。
+        if body.data_source == SectorScreenDataSource.mootdx and "未找到板块" in str(e):
+            try:
+                em = get_data_source("akshare")
+                cons = em.get_sector_constituents(sector_nm, bt_arg)
+                constituents_note_suffix = (
+                    " 该板块名在 mootdx 通达信板块表中未命中（与新浪/东财板块名不完全一致），"
+                    "成分列表已自动改用东财(AkShare)拉取。"
+                )
+                logger.info("sector-constituents-top: mootdx miss sector=%r, fell back to akshare", sector_nm)
+            except DataSourceError as e2:
+                raise _http_exception_from_datasource(e2) from e
+        else:
+            raise _http_exception_from_datasource(e) from e
+    except Exception as e:
+        logger.exception("sector-constituents-top failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"拉取板块成分失败：{e}") from e
+
+    if cons is None or cons.empty:
+        d = _disclaimer_payload()
+        return SectorConstituentsTopOut(
+            sector_name=body.sector_name.strip(),
+            board_type=None,
+            stocks=[],
+            stocks_total=0,
+            constituents_total_after_filter=0,
+            disclaimer=d.disclaimer,
+            note="未返回任何成分行。",
+        )
+
+    lim = max(1, min(int(body.limit), 50))
+    passing: list[dict[str, Any]] = []
+    resolved_bt: str | None = None
+    for _, crow in cons.iterrows():
+        code = normalize_code(str(crow.get("code", "") or ""))
+        if not code or len(code) != 6 or not is_listed_a_share_equity(code):
+            continue
+        name = crow.get("name", crow.get("名称", ""))
+        if body.exclude_kcb and is_star_board_code(code):
+            continue
+        if body.exclude_st and is_st_stock_name(name):
+            continue
+        row_bt = crow.get("board_type")
+        bt_str: str | None = None
+        if row_bt is not None and str(row_bt).strip():
+            bt_str = str(row_bt).strip().lower()
+            if resolved_bt is None:
+                resolved_bt = bt_str
+        passing.append(
+            {
+                "code": code,
+                "name": str(name).strip() if name is not None else "",
+                "sector_name": str(crow.get("sector_name", body.sector_name)).strip(),
+                "board_type": bt_str,
+            }
+        )
+
+    slice_rows = passing[:lim]
+    codes_for_spot = [r["code"] for r in slice_rows]
+    spot_by_code = spot_liquidity_fields_for_codes(codes_for_spot)
+    stocks_out: list[dict[str, Any]] = []
+    for i, row in enumerate(slice_rows, start=1):
+        code = row["code"]
+        merged: dict[str, Any] = {**row, "rank": i}
+        merged.update(spot_by_code.get(code, {}))
+        try:
+            ff = fetch_individual_fund_flow_latest_metrics(code)
+            if ff:
+                merged.update(ff)
+        except Exception as e:
+            logger.debug("sector-constituents-top fund_flow %s: %s", code, e)
+        stocks_out.append(merged)
+        if i < len(slice_rows):
+            time.sleep(0.06)
+
+    d = _disclaimer_payload()
+    return SectorConstituentsTopOut(
+        sector_name=body.sector_name.strip(),
+        board_type=resolved_bt,
+        stocks=stocks_out,
+        stocks_total=len(stocks_out),
+        constituents_total_after_filter=len(passing),
+        disclaimer=d.disclaimer,
+        note=(
+            "成分后已尝试以东财全 A 列表补「现价/昨收、成交量、成交额」，并以个股日级资金流向表末行补"
+            "「收盘价与对应交易日、大单(含超大单)与小单净流入净占比」；成交额/量为列表截面（盘中为当日累积），"
+            "大单小单占比为东财日级口径而非逐笔拆单。远端失败时对应字段为空。不构成投资建议。"
+            + constituents_note_suffix
+        ),
     )
 
 
@@ -1389,6 +1785,10 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
 
 **注意**：会对多只股票依次请求行情，**耗时长**、易受数据源限流；请将 `max_stocks_per_sector`、`top_sectors` 控制在合理范围。
 
+**`data_source=hot_chain`**：热门板块表与 `POST /meta/hot-market-snapshot/refresh` 相同（**新浪优先** → 回退等），可用 `hot_chain_prefer_snapshot` / `hot_chain_refresh_snapshot` 控制是否读本地 `hot_market_snapshot.json`；**成分股与日线**仍经东财拉取。详见 `app/hot_market_snapshot.py`。
+
+**`data_source=baostock`**：**日 K** 经 Baostock（与③行情 `baostock` 路线一致，通常较爬东财页稳）；**板块排名与成分股**仍用东财（AkShare），因 Baostock 无同形态热门板块表。
+
 **TuShare** 须 `tushare_token` 或服务端 token 配置。**不构成投资建议**。
 """,
 )
@@ -1399,6 +1799,32 @@ def research_sector_screen(
     _: None = Depends(optional_api_key),
 ):
     return _run_sector_screen(body)
+
+
+@app.post(
+    "/research/sector-constituents-top",
+    response_model=SectorConstituentsTopOut,
+    tags=["⑨ 量化选股（脚本）"],
+    summary="热门板块成分前 N（仅列表，不跑回测）",
+    description="""
+按 **sector_name**（与板块列表「板块」列一致）调用当前 **data_source** 的 `get_sector_constituents`，
+在服务端按选项过滤 **ST** / **科创板** 后取前 **limit** 条（默认 10）。
+
+**`data_source=mootdx`**：成分名依赖通达信板块文件；若板块名与新浪/东财快照不一致导致「未找到板块」，
+服务端会**自动改以东财(AkShare)** 再拉一次成分（响应 `note` 会说明）。
+
+不写库、不跑选股 K 线与回测；返回每条成分时会**尽量**以东财全 A 列表补成交量/成交额/现价与昨收，
+并以个股**日级资金流向**末行补收盘价、对应交易日、大单(含超大单)与小单净流入净占比（详见响应 `note`）。
+**TuShare** 规则与 `/research/sector-screen` 相同。**不构成投资建议**。
+""",
+)
+@limiter.limit("20/minute")
+def research_sector_constituents_top(
+    request: Request,
+    body: SectorConstituentsTopIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    return _run_sector_constituents_top(body)
 
 
 @app.post(

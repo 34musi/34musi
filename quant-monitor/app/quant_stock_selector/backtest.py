@@ -104,5 +104,25 @@ def run_sma_backtest(
     )
 
 
-def compose_final_score(sector_hot_score: float, screen_score: float, backtest_score: float) -> float:
-    return round(sector_hot_score * 0.25 + screen_score * 0.35 + backtest_score * 0.40, 2)
+def compose_final_score(
+    sector_hot_score: float,
+    screen_score: float,
+    backtest_score: float,
+    *,
+    scoring_strategy: str = "v2",
+) -> float:
+    """
+    组合总分策略（可扩展）。
+
+    - v1: 旧版默认（板块热度占比较高）
+    - v2: 新版默认（更偏向个股技术面与回测表现）
+    """
+    key = (scoring_strategy or "").strip().lower() or "v2"
+    if key == "v1":
+        w_sector, w_screen, w_backtest = 0.25, 0.35, 0.40
+    else:
+        w_sector, w_screen, w_backtest = 0.15, 0.45, 0.40
+    return round(
+        sector_hot_score * w_sector + screen_score * w_screen + backtest_score * w_backtest,
+        2,
+    )

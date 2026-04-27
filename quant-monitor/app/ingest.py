@@ -169,9 +169,20 @@ def _fetch_and_upsert(
             "data_source": resolve_data_source(data_source),
             "provider": provider,
         }
+        try:
+            last_rows = list_bars_from_db(sym, limit=1)
+        except ValueError:
+            last_rows = []
+        if last_rows:
+            lb = last_rows[-1]
+            out["last_trade_date"] = lb["trade_date"]
+            out["last_close"] = round(float(lb["close"]), 4)
+        else:
+            out["last_trade_date"] = None
+            out["last_close"] = None
         return out
     except Exception as e:
-        logger.exception("ingest failed for %s", sym)
+        logger.warning("ingest failed for %s: %s", sym, _format_ingest_error(e))
         raise RuntimeError(_format_ingest_error(e)) from e
 
 
@@ -458,7 +469,7 @@ def _fetch_auto_chain(sym: str, start_y: str, end_y: str) -> tuple[pd.DataFrame,
         errs.append("新浪财经(stock_zh_a_daily): 区间内无数据行")
     except Exception as e2:
         errs.append(f"新浪财经(stock_zh_a_daily): {type(e2).__name__}: {e2}")
-        logger.warning("新浪失败 %s: %s", sym, e2)
+        logger.debug("新浪失败 %s: %s", sym, e2)
 
     try:
         df3 = ak.stock_zh_a_hist_tx(symbol=leg, start_date=start_y, end_date=end_y, adjust="qfq")
@@ -471,7 +482,7 @@ def _fetch_auto_chain(sym: str, start_y: str, end_y: str) -> tuple[pd.DataFrame,
         errs.append("腾讯(stock_zh_a_hist_tx): 区间内无数据行")
     except Exception as e3:
         errs.append(f"腾讯(stock_zh_a_hist_tx): {type(e3).__name__}: {e3}")
-        logger.warning("腾讯失败 %s: %s", sym, e3)
+        logger.debug("腾讯失败 %s: %s", sym, e3)
 
     try:
         df4 = _fetch_baostock_daily(sym, start_y, end_y)
@@ -481,7 +492,7 @@ def _fetch_auto_chain(sym: str, start_y: str, end_y: str) -> tuple[pd.DataFrame,
         errs.append("baostock: 区间内无数据行")
     except Exception as e4:
         errs.append(f"baostock: {type(e4).__name__}: {e4}")
-        logger.warning("baostock 失败 %s: %s", sym, e4)
+        logger.debug("baostock 失败 %s: %s", sym, e4)
 
     raise RuntimeError("日线拉取失败，新浪与备选源均未成功:\n" + "\n".join(errs))
 

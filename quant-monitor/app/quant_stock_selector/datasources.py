@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 import os
+import random
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -159,15 +160,36 @@ class AkShareDataSource(BaseAShareDataSource):
         frames: List[pd.DataFrame] = []
         try:
             if board_types in {"all", "concept"}:
+                # 概念板块：优先使用仓库内自定义东财接口（更可控/可扩展），失败再回退 AkShare 内置函数。
+                def _concept_frame() -> pd.DataFrame:
+                    try:
+                        from .stock_board_concept_em import stock_board_concept_name_em
+
+                        return stock_board_concept_name_em()
+                    except Exception:
+                        return self.ak.stock_board_concept_name_em()
+
                 frames.append(
                     self._prepare_board_frame(
-                        self._retry_call(self.ak.stock_board_concept_name_em, "获取概念板块列表"), "concept"
+                        self._retry_call(_concept_frame, "fetch concept sector rankings"), "concept"
                     )
                 )
             if board_types in {"all", "industry"}:
+                # 概念+行业连拉时易触发东财/连接限流，中间间隔一小段再拉行业
+                if board_types == "all" and frames:
+                    time.sleep(random.uniform(1.2, 3.0))
+                # 行业板块：优先使用仓库内自定义东财接口（更可控/可扩展），失败再回退 AkShare 内置函数。
+                def _industry_frame() -> pd.DataFrame:
+                    try:
+                        from .stock_board_industry_em import stock_board_industry_name_em
+
+                        return stock_board_industry_name_em()
+                    except Exception:
+                        return self.ak.stock_board_industry_name_em()
+
                 frames.append(
                     self._prepare_board_frame(
-                        self._retry_call(self.ak.stock_board_industry_name_em, "获取行业板块列表"), "industry"
+                        self._retry_call(_industry_frame, "fetch industry sector rankings"), "industry"
                     )
                 )
         except Exception as exc:
@@ -237,14 +259,32 @@ class AkShareDataSource(BaseAShareDataSource):
         board = self._resolve_sector(sector_name, board_type)
         try:
             if board["board_type"] == "concept":
+                # 概念板块：优先走自定义东财板块成分接口；失败回退 AkShare 内置实现。
+                def _concept_cons() -> pd.DataFrame:
+                    try:
+                        from .stock_board_concept_em import stock_board_concept_cons_em
+
+                        return stock_board_concept_cons_em(symbol=str(board["sector_name"]))
+                    except Exception:
+                        return self.ak.stock_board_concept_cons_em(symbol=board["sector_name"])
+
                 frame = self._retry_call(
-                    lambda: self.ak.stock_board_concept_cons_em(symbol=board["sector_name"]),
-                    f"获取概念板块成分股 {board['sector_name']}",
+                    _concept_cons,
+                    f"fetch concept sector constituents {board['sector_name']}",
                 )
             else:
+                # 行业板块：优先走自定义东财板块成分接口；失败回退 AkShare 内置实现。
+                def _industry_cons() -> pd.DataFrame:
+                    try:
+                        from .stock_board_industry_em import stock_board_industry_cons_em
+
+                        return stock_board_industry_cons_em(symbol=str(board["sector_name"]))
+                    except Exception:
+                        return self.ak.stock_board_industry_cons_em(symbol=board["sector_name"])
+
                 frame = self._retry_call(
-                    lambda: self.ak.stock_board_industry_cons_em(symbol=board["sector_name"]),
-                    f"获取行业板块成分股 {board['sector_name']}",
+                    _industry_cons,
+                    f"fetch industry sector constituents {board['sector_name']}",
                 )
         except Exception as exc:
             raise DataSourceError(f"AkShare 获取板块成分股失败: {board['sector_name']} - {exc}") from exc
@@ -695,11 +735,75 @@ class MootdxDataSource(BaseAShareDataSource):
         return standardized
 
 
-def get_data_source(name: str, tushare_token: Optional[str] = None) -> BaseAShareDataSource:
+class BaostockDataSource(BaseAShareDataSource):
+    """
+    日 K 走 Baostock 开源接口（与 ingest 的 baostock 路线一致，通常较爬东财页稳）。
+
+    Baostock **不提供**与东财同形态的「全市场热门板块」HTTP 表，故 **板块排名与成分股**
+    委托给 AkShare/东财；仅 **get_price_history** 使用 Baostock。选此源时，日线质量偏稳，
+    板块仍依赖东财网络，若东财断连，热门板块模式可能失败，可改 mootdx / 指定板块+baostock 日线。
+    """
+
+    source_name = "baostock"
+
+    def __init__(self) -> None:
+        self._em = AkShareDataSource()
+
+    def get_stock_universe(self) -> pd.DataFrame:
+        return self._em.get_stock_universe()
+
+    def get_sector_rankings(self, board_types: str = "all") -> pd.DataFrame:
+        return self._em.get_sector_rankings(board_types)
+
+    def get_sector_constituents(self, sector_name: str, board_type: Optional[str] = None) -> pd.DataFrame:
+        return self._em.get_sector_constituents(sector_name, board_type)
+
+    def get_price_history(
+        self, code: str, start_date: str, end_date: str, adjust: str = "qfq"
+    ) -> pd.DataFrame:
+        # Baostock query 已按前复权；adjust 仅与接口其它源对齐，此处忽略细分
+        _ = adjust
+        from app.ingest import _fetch_baostock_daily
+
+        sym = normalize_code(code)
+        if not is_listed_a_share_equity(sym):
+            raise DataSourceError(f"Baostock 日线不适用于该代码: {sym}")
+        start_y = str(start_date).replace("-", "")[:8]
+        end_y = str(end_date).replace("-", "")[:8]
+        try:
+            raw = _fetch_baostock_daily(sym, start_y, end_y)
+        except Exception as exc:
+            raise DataSourceError(f"Baostock 拉取 {sym} 失败: {exc}") from exc
+        if raw is None or raw.empty:
+            raise DataSourceError(f"baostock 在区间内无 {sym} 日线")
+        work = raw.drop(columns=[c for c in ("symbol",) if c in raw.columns], errors="ignore")
+        if "trade_date" in work.columns:
+            work = work.rename(columns={"trade_date": "date"})
+        standardized = standardize_price_frame(work)
+        standardized["code"] = sym
+        return standardized
+
+
+def get_data_source(
+    name: str,
+    tushare_token: Optional[str] = None,
+    *,
+    hot_chain_prefer_cache: bool = True,
+    hot_chain_force_refresh: bool = False,
+) -> BaseAShareDataSource:
     if name == "akshare":
         return AkShareDataSource()
     if name == "tushare":
         return TushareDataSource(token=tushare_token)
     if name == "mootdx":
         return MootdxDataSource()
+    if name == "baostock":
+        return BaostockDataSource()
+    if name == "hot_chain":
+        from .hot_chain_datasource import HotChainDataSource
+
+        return HotChainDataSource(
+            prefer_snapshot_cache=hot_chain_prefer_cache,
+            force_refresh_snapshot=hot_chain_force_refresh,
+        )
     raise DataSourceError(f"不支持的数据源: {name}")

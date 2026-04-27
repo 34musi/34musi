@@ -41,7 +41,33 @@ class AlertsPreviewIn(BaseModel):
     )
 
 
-class IngestUpdateIn(BaseModel):
+class IngestSymbolSubsetOptional(BaseModel):
+    """可选：只处理自选中的部分代码（日线更新 / 扩展因子等共用）。"""
+
+    symbols: list[str] | None = Field(
+        default=None,
+        description="仅处理列表中的代码（须在自选池内）；不传、null 或去重后为空表示自选全部。最多 200 个。",
+    )
+
+    @field_validator("symbols", mode="before")
+    @classmethod
+    def _symbols_strip(cls, v):
+        if v is None:
+            return None
+        if not isinstance(v, list):
+            return v
+        out = [str(x).strip() for x in v if x is not None and str(x).strip()]
+        return out or None
+
+    @field_validator("symbols", mode="after")
+    @classmethod
+    def _symbols_cap(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None and len(v) > 200:
+            raise ValueError("symbols 最多 200 个代码")
+        return v
+
+
+class IngestUpdateIn(IngestSymbolSubsetOptional):
     """POST /ingest/update 可选参数。"""
 
     start_date: date | None = Field(
@@ -60,6 +86,10 @@ class IngestUpdateIn(BaseModel):
             "tushare=TuShare 日线（需 TUSHARE_TOKEN 或配置 tushare_token）；其余为仅使用该源。"
         ),
     )
+
+
+class IngestFundamentalsIn(IngestSymbolSubsetOptional):
+    """POST /ingest/fundamentals：可选 symbols 子集，其余字段无。"""
 
 
 class WebDataPreviewIn(BaseModel):
@@ -102,6 +132,41 @@ class WatchlistIn(BaseModel):
         description="股票代码，填 6 位数字即可（可带 sz/sh 等前缀，系统会自动去掉）。示例：茅台 600519，平安银行 000001。",
         examples=["600519"],
     )
+
+
+class WatchlistBatchDeleteIn(BaseModel):
+    """POST /watchlist/batch-delete：按代码列表批量删除自选。"""
+
+    symbols: list[str] = Field(
+        ...,
+        min_length=1,
+        max_length=300,
+        description="待删除代码列表；无效项忽略，规范化后去重再执行删除",
+    )
+
+
+class WatchlistBatchDeleteOut(BaseModel):
+    ok: bool = True
+    removed: int = Field(..., description="数据库中实际删除的行数")
+    requested_unique: int = Field(..., description="规范化并去重后的有效代码数")
+
+
+class WatchlistHotSnapshotImportIn(BaseModel):
+    """POST /watchlist/import-hot-market-snapshot：从 hot_market_snapshot.json 导入热门股到自选。"""
+
+    replace_auto_pool: bool = Field(
+        True,
+        description="为 true 时先删除全部 auto_hot 与 auto_quant，再写入快照中的热门股（来源 auto_hot）；手动条目保留并跳过",
+    )
+
+
+class WatchlistHotSnapshotImportOut(BaseModel):
+    added: int = Field(..., description="新写入的 auto_hot 条数")
+    skipped_existing_manual: int = Field(..., description="已在自选且为手动的代码数（跳过）")
+    removed_auto: int = Field(..., description="若 replace_auto_pool，为删除的 auto_hot+auto_quant 条数；否则为 0")
+    snapshot_stock_rows: int = Field(..., description="快照 JSON 中 stocks 列表长度")
+    candidates: int = Field(..., description="规范化去重后可尝试导入的代码数")
+    warnings: list[str] = Field(default_factory=list, description="无效代码等提示")
 
 
 class WatchlistItem(BaseModel):
@@ -236,6 +301,8 @@ class FillHotSectorsOut(BaseModel):
 class SectorScreenDataSource(str, Enum):
     """与命令行 `quant_stock_selector.py --data-source` 一致。"""
 
+    hot_chain = "hot_chain"
+    baostock = "baostock"
     akshare = "akshare"
     tushare = "tushare"
     mootdx = "mootdx"
@@ -249,9 +316,20 @@ class SectorScreenIn(BaseModel):
 
     data_source: SectorScreenDataSource = Field(
         SectorScreenDataSource.mootdx,
-        description="行情与板块数据源；akshare 板块最全，mootdx 更稳，tushare 需 token",
+        description=(
+            "行情与板块数据源：hot_chain=新浪优先热门链+快照；baostock=**日 K 用 Baostock**（较稳），"
+            "板块/成分仍东财；akshare=东财全线；mootdx=通达信；tushare=同花顺（需 token+积分）"
+        ),
     )
     tushare_token: str | None = Field(None, description="data_source=tushare 时使用，或服务端已配置 TUSHARE_TOKEN")
+    hot_chain_prefer_snapshot: bool = Field(
+        True,
+        description="data_source=hot_chain 时：为 true 则优先使用本地 data/hot_market_snapshot.json，不存在再联网拉链",
+    )
+    hot_chain_refresh_snapshot: bool = Field(
+        False,
+        description="data_source=hot_chain 时：为 true 则忽略本地快照，先按链重拉并覆盖 hot_market_snapshot.json 再选股",
+    )
     board_type: Literal["all", "concept", "industry"] = "all"
     top_sectors: int = Field(5, ge=1, le=60, description="热门板块模式下取前 N 个板块")
     max_stocks_per_sector: int = Field(
@@ -283,6 +361,10 @@ class SectorScreenIn(BaseModel):
     initial_cash: float = Field(100_000.0, gt=0)
     commission: float = Field(0.001, ge=0, le=0.05)
     stop_loss: float = Field(0.08, gt=0, le=0.5)
+    scoring_strategy: Literal["v2", "v1"] = Field(
+        "v2",
+        description="综合评分策略：v2（新版，偏个股技术面/回测）/ v1（旧版，板块热度权重更高）",
+    )
     only_passed: bool = Field(False, description="为 true 时仅保留技术面初筛通过的股票")
     top_stocks_limit: int = Field(40, ge=1, le=500, description="响应中最多返回多少条股票结果")
 
@@ -311,10 +393,62 @@ class SectorScreenOut(BaseModel):
     sectors: list[dict[str, Any]]
     stocks: list[dict[str, Any]]
     stocks_total: int
+    start_date: str = Field(
+        ...,
+        description="本次用于拉日线的起始日（与请求体一致，YYYYMMDD）",
+    )
+    end_date: str = Field(
+        ...,
+        description="结束日（YYYYMMDD）",
+    )
     disclaimer: str
     note: str = Field(
         "",
         description="与命令行脚本差异说明（若有）",
+    )
+
+
+class SectorConstituentsTopIn(BaseModel):
+    """POST /research/sector-constituents-top：仅拉板块成分（不跑 K 线与回测），用于控制台「前 10 成分」。"""
+
+    sector_name: str = Field(..., min_length=1, max_length=128, description="板块名称，与列表中「板块」列一致")
+    board_type: Literal["concept", "industry", "all"] = Field(
+        "all",
+        description="与列表行「类型」一致；all 时由数据源在全表内按名称解析板块",
+    )
+    data_source: SectorScreenDataSource = Field(
+        SectorScreenDataSource.mootdx,
+        description="与 POST /research/sector-screen 的 data_source 一致；成分股仍由各源对应接口拉取",
+    )
+    tushare_token: str | None = Field(None, description="data_source=tushare 时使用")
+    hot_chain_prefer_snapshot: bool = Field(
+        True,
+        description="data_source=hot_chain 时是否优先读本地 hot_market_snapshot.json",
+    )
+    hot_chain_refresh_snapshot: bool = Field(
+        False,
+        description="data_source=hot_chain 时是否强制重拉快照再解析板块表",
+    )
+    limit: int = Field(10, ge=1, le=50, description="返回成分条数上限（按数据源原始顺序，过滤 ST/科创板后截取）")
+    exclude_st: bool = Field(True, description="名称含 ST 的成分是否排除")
+    exclude_kcb: bool = Field(True, description="是否排除 688/689 科创板代码")
+
+
+class SectorConstituentsTopOut(BaseModel):
+    """板块成分预览。"""
+
+    sector_name: str
+    board_type: str | None = Field(None, description="成分 DataFrame 中解析到的板块类型（若有）")
+    stocks: list[dict[str, Any]]
+    stocks_total: int = Field(..., description="本次响应中返回的条数，至多 limit")
+    constituents_total_after_filter: int = Field(
+        0,
+        description="过滤 ST/科创板后，该板块在数据源中的可交易成分总数（可能大于返回的 stocks 条数）",
+    )
+    disclaimer: str
+    note: str = Field(
+        "",
+        description="说明：成分股列表；服务端可合并东财 spot 与个股日级资金流向（收盘价/交易日/大单小单净占比、成交量额）",
     )
 
 
@@ -481,6 +615,54 @@ class SelfUseMetaOut(BaseModel):
     related_doc_files: list[str]
     journal_api: str
     example_risk_policy_file: str
+
+
+class HotMarketSnapshotOut(BaseModel):
+    """热门板块 + 热门股本地快照（JSON 内容同构）。"""
+
+    fetched_at: str
+    provider: str
+    chain_attempted: list[str]
+    sector_source: str
+    stock_source: str
+    notes: list[str]
+    top_stocks: int
+    sector_rows: int
+    stock_rows: int
+    sectors: list[dict[str, Any]]
+    stocks: list[dict[str, Any]]
+
+
+class HotMarketSnapshotFileOut(BaseModel):
+    """GET /meta/hot-market-snapshot：文件路径与已存快照（若无则为 null）。"""
+
+    path: str
+    snapshot: HotMarketSnapshotOut | None = None
+
+
+class HotMarketSnapshotRefreshIn(BaseModel):
+    """POST /meta/hot-market-snapshot/refresh：拉取并覆盖写入 hot_market_snapshot.json。"""
+
+    top_stocks: int = Field(
+        100,
+        ge=10,
+        le=500,
+        description="热门股条数上限（新浪/腾讯为按涨跌幅重排后截断；东财步为人气榜截断）",
+    )
+    chain: list[str] | None = Field(
+        None,
+        description=(
+            "尝试顺序，默认 sina → tencent → baostock → eastmoney → akshare；"
+            "可改为子集以加快失败回退"
+        ),
+    )
+
+
+class HotMarketSnapshotRefreshOut(BaseModel):
+    """刷新结果：落盘路径与快照正文。"""
+
+    saved_to: str
+    snapshot: HotMarketSnapshotOut
 
 
 class ForecastConfusionOut(BaseModel):

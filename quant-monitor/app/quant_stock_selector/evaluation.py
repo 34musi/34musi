@@ -31,7 +31,13 @@ def evaluate_stock(
         commission=args.commission,
         stop_loss=args.stop_loss,
     )
-    final_score = compose_final_score(sector.hot_score, screen.screen_score, backtest.backtest_score)
+    scoring_strategy = getattr(args, "scoring_strategy", None)
+    final_score = compose_final_score(
+        sector.hot_score,
+        screen.screen_score,
+        backtest.backtest_score,
+        scoring_strategy=str(scoring_strategy or "v2"),
+    )
     if not screen.passed:
         final_score = round(final_score * 0.75, 2)
 

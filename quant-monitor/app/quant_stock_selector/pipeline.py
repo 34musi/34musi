@@ -13,7 +13,12 @@ from .sectors import load_sector_constituents, select_target_sectors
 
 
 def run_analysis(args: argparse.Namespace) -> Tuple[List[SectorRecord], List[StockEvaluation]]:
-    datasource = get_data_source(args.data_source, tushare_token=args.tushare_token)
+    datasource = get_data_source(
+        args.data_source,
+        tushare_token=args.tushare_token,
+        hot_chain_prefer_cache=getattr(args, "hot_chain_prefer_cache", True),
+        hot_chain_force_refresh=getattr(args, "hot_chain_force_refresh", False),
+    )
     target_sectors = select_target_sectors(datasource, args)
     sector_constituents = load_sector_constituents(datasource, target_sectors, args)
 

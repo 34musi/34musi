@@ -201,6 +201,69 @@ def fetch_financial_em_main(sym: str) -> dict[str, Any]:
     return out
 
 
+def spot_liquidity_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
+    """
+    东财沪深京 A 股列表快照（`stock_zh_a_spot_em`）：现价、昨收、成交量、成交额。
+    与 `fetch_valuation_from_spot` 共用 TTL 内存缓存，一次请求可批量匹配多只股票。
+    """
+    uniq = [c for c in dict.fromkeys(codes) if c]
+    out: dict[str, dict[str, Any]] = {c: {} for c in uniq}
+    if not uniq:
+        return out
+    df = _get_spot_em_df()
+    if df is None or df.empty:
+        return out
+    for sym in uniq:
+        row = _spot_row_for_symbol(sym, df)
+        if row is None:
+            continue
+        out[sym] = {
+            "spot_last_price": _fin_float(row, "最新价"),
+            "spot_prev_close": _fin_float(row, "昨收"),
+            "spot_volume": _fin_float(row, "成交量"),
+            "spot_amount": _fin_float(row, "成交额"),
+        }
+    return out
+
+
+def fetch_individual_fund_flow_latest_metrics(sym: str) -> dict[str, Any] | None:
+    """
+    东财个股日级资金流向表最后一行（旧→新取末行）：收盘价、交易日、大单/小单净流入净占比。
+
+    「大单」为东财口径下「大单 + 超大单」净占比之和；非交易所逐笔拆单，盘中请以官方披露为准。
+    """
+    sym_n = normalize_symbol(sym)
+    mkt = em_fund_flow_market(sym_n)
+    try:
+        df = ak.stock_individual_fund_flow(stock=sym_n, market=mkt)
+    except Exception as e:
+        logger.debug("fund_flow latest metrics %s: %s", sym_n, e)
+        return None
+    if df is None or df.empty:
+        return None
+    last = df.iloc[-1]
+    dt = last.get("日期")
+    trade_date: str | None = None
+    if dt is not None and not pd.isna(dt):
+        if hasattr(dt, "isoformat"):
+            trade_date = dt.isoformat()[:10]
+        else:
+            trade_date = str(dt)[:10]
+    d_big = _fin_float(last, "大单净流入-净占比")
+    d_sup = _fin_float(last, "超大单净流入-净占比")
+    large_combined: float | None = None
+    if d_big is not None or d_sup is not None:
+        large_combined = (d_big or 0.0) + (d_sup or 0.0)
+        if not math.isfinite(large_combined):
+            large_combined = None
+    return {
+        "em_trade_date": trade_date,
+        "em_close": _fin_float(last, "收盘价"),
+        "em_small_net_pct": _fin_float(last, "小单净流入-净占比"),
+        "em_large_net_pct": large_combined,
+    }
+
+
 def fetch_latest_main_flow(sym: str) -> tuple[float | None, str | None]:
     mkt = em_fund_flow_market(sym)
     try:

@@ -18,9 +18,9 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="A 股热门板块筛选与个股量化评估脚本")
     parser.add_argument(
         "--data-source",
-        choices=["akshare", "tushare", "mootdx"],
+        choices=["akshare", "baostock", "tushare", "mootdx"],
         default="mootdx",
-        help="A 股数据源（mootdx 走通达信协议，更稳定；akshare 走东方财富，板块数据更全）",
+        help="A 股数据源（mootdx 通达信；baostock 日 K+东财板块；akshare 东财全线；tushare 同花顺）",
     )
     parser.add_argument("--tushare-token", help="TuShare token，可选")
     parser.add_argument(
@@ -42,6 +42,12 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--initial-cash", type=float, default=100000.0, help="回测初始资金")
     parser.add_argument("--commission", type=float, default=0.001, help="单边交易手续费率")
     parser.add_argument("--stop-loss", type=float, default=0.08, help="止损比例，例如 0.08 表示 8%%")
+    parser.add_argument(
+        "--scoring-strategy",
+        choices=["v2", "v1"],
+        default="v2",
+        help="综合评分策略：v2（新版，偏个股技术面/回测）/ v1（旧版，板块热度权重更高）",
+    )
     parser.add_argument("--only-passed", action="store_true", help="只输出通过技术面初筛的股票")
     parser.add_argument("--top-stocks", type=int, default=20, help="终端展示前 N 只股票")
     parser.add_argument("--output", type=Path, help="结果导出路径，建议 xlsx")
