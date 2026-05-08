@@ -203,6 +203,23 @@ class QuantWatchlistStockRowIn(BaseModel):
     name: str = Field("", description="证券简称，可空")
 
 
+class WatchlistReplaceAllIn(BaseModel):
+    """POST /watchlist/replace-all：用给定列表完全替换自选池（删除全部既有记录后写入）。"""
+
+    stocks: list[QuantWatchlistStockRowIn] = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="按顺序写入；每项至少含 code，name 可空（服务端会尝试补全简称）",
+    )
+
+
+class WatchlistReplaceAllOut(BaseModel):
+    removed: int = Field(..., description="删除的原自选行数（含手动、热门自动、量化自动）")
+    added: int = Field(..., description="新写入条数（来源均为 auto_hot）")
+    warnings: list[str] = Field(default_factory=list, description="无效代码等提示")
+
+
 class QuantWatchlistSyncIn(BaseModel):
     """POST /watchlist/sync-from-quant-screen：将⑨选股结果写入自选（origin=auto_quant）。"""
 
@@ -330,6 +347,19 @@ class SectorScreenIn(BaseModel):
         False,
         description="data_source=hot_chain 时：为 true 则忽略本地快照，先按链重拉并覆盖 hot_market_snapshot.json 再选股",
     )
+    include_hot_snapshot_stocks: bool = Field(
+        False,
+        description=(
+            "仅「热门板块」模式（未指定 sector、未传 symbols）有效：为 true 时除各热门板块成分股外，"
+            "再并入本地 data/hot_market_snapshot.json 中的热门股列表，去重后与板块股统一拉日线并做双均线回测与综合分"
+        ),
+    )
+    hot_snapshot_stocks_cap: int = Field(
+        80,
+        ge=1,
+        le=500,
+        description="并入快照热门股时，按文件顺序至多取几只（过大易超时）；已在板块池内的代码会跳过",
+    )
     board_type: Literal["all", "concept", "industry"] = "all"
     top_sectors: int = Field(5, ge=1, le=60, description="热门板块模式下取前 N 个板块")
     max_stocks_per_sector: int = Field(
@@ -384,6 +414,11 @@ class SectorScreenIn(BaseModel):
             raise ValueError("不能同时指定 symbols 与 sector")
         if self.symbols is not None and len(self.symbols) > 500:
             raise ValueError("symbols 最多 500 条")
+        if self.include_hot_snapshot_stocks and (
+            (self.symbols is not None and len(self.symbols) > 0)
+            or (self.sector is not None and str(self.sector).strip() != "")
+        ):
+            object.__setattr__(self, "include_hot_snapshot_stocks", False)
         return self
 
 

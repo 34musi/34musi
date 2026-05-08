@@ -98,6 +98,8 @@ from app.schemas import (
     SignalOut,
     WatchlistBatchDeleteIn,
     WatchlistBatchDeleteOut,
+    WatchlistReplaceAllIn,
+    WatchlistReplaceAllOut,
     WatchlistHotSnapshotImportIn,
     WatchlistHotSnapshotImportOut,
     WatchlistIn,
@@ -571,9 +573,10 @@ def meta_hot_market_snapshot_get():
     description="""
 按固定顺序 **新浪 → 腾讯 → Baostock → 东财 → akshare** 尝试，直到成功（与 `app/hot_market_snapshot.py` 内说明一致）。
 
-- **新浪成功时**：板块与个股均来自新浪公开接口（个股为沪深 A 按涨跌幅降序取前 N）。
+- **个股热门**：各源在按涨幅/人气排序后，**仅保留沪、深主板**（60/000–003 段，不含科创 688/689、创业板 300/301、北交所等），再取前 **top_stocks**（默认 100）。
+- **新浪成功时**：板块与个股均来自新浪公开接口（个股为上述主板口径）。
 - **腾讯步**：个股为腾讯财经 A 股排行（客户端按 `zdf` 排序）；因腾讯无对等板块全表，板块由东财补充（响应内 `sector_source` / `notes` 会说明）。
-- **东财 / akshare 步**：板块为东财；个股为人气榜（与「涨幅序」不同，见 `notes`）。
+- **东财 / akshare 步**：板块为东财；个股为人气榜筛主板（与「涨幅序」不同，见 `notes`）。
 
 **公开数据，非实时撮合；不构成投资建议。**
 """,
@@ -731,6 +734,57 @@ def watchlist_batch_delete(
         except (TypeError, ValueError):
             removed = 0
     return WatchlistBatchDeleteOut(removed=removed, requested_unique=len(syms))
+
+
+@app.post(
+    "/watchlist/replace-all",
+    response_model=WatchlistReplaceAllOut,
+    tags=["② 管理自选股票"],
+    summary="用股票列表完全替换自选池",
+    description="""
+删除当前自选池**全部**记录（含手动、热门自动、量化自动），再按请求体 **stocks** 顺序写入，**origin=auto_hot**。
+
+用于控制台「快照热门股」勾选后「将所选加入自选」：② 管理列表仅保留本次选择，不与旧条目合并。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def watchlist_replace_all(
+    request: Request,
+    body: WatchlistReplaceAllIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    """清空自选后按列表重建（来源 auto_hot）。"""
+    warnings: list[str] = []
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for row in body.stocks:
+        try:
+            sym = normalize_symbol(row.code)
+        except ValueError:
+            warnings.append(f"跳过无效代码：{row.code!r}")
+            continue
+        if sym in seen:
+            continue
+        seen.add(sym)
+        nm = (row.name or "").strip()
+        if nm.lower() == "nan":
+            nm = ""
+        pairs.append((sym, nm))
+    if not pairs:
+        raise HTTPException(status_code=400, detail="没有有效的 A 股代码可写入")
+    removed = 0
+    with session_scope() as s:
+        res = s.execute(delete(WatchlistRow))
+        try:
+            removed = int(res.rowcount or 0)
+        except (TypeError, ValueError):
+            removed = 0
+        for sym, nm in pairs:
+            use_nm = nm
+            if not use_nm:
+                use_nm = fetch_stock_name(sym) or ""
+            s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT, name=use_nm))
+    return WatchlistReplaceAllOut(removed=removed, added=len(pairs), warnings=warnings)
 
 
 @app.post(
@@ -1623,6 +1677,8 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             output=None,
             hot_chain_prefer_cache=body.hot_chain_prefer_snapshot,
             hot_chain_force_refresh=body.hot_chain_refresh_snapshot,
+            include_hot_snapshot_stocks=body.include_hot_snapshot_stocks,
+            hot_snapshot_stocks_cap=body.hot_snapshot_stocks_cap,
         )
         validate_args(ns)
         sectors, stocks = run_analysis(ns)
@@ -1786,6 +1842,8 @@ def _run_sector_constituents_top(body: SectorConstituentsTopIn) -> SectorConstit
 **注意**：会对多只股票依次请求行情，**耗时长**、易受数据源限流；请将 `max_stocks_per_sector`、`top_sectors` 控制在合理范围。
 
 **`data_source=hot_chain`**：热门板块表与 `POST /meta/hot-market-snapshot/refresh` 相同（**新浪优先** → 回退等），可用 `hot_chain_prefer_snapshot` / `hot_chain_refresh_snapshot` 控制是否读本地 `hot_market_snapshot.json`；**成分股与日线**仍经东财拉取。详见 `app/hot_market_snapshot.py`。
+
+**`include_hot_snapshot_stocks=true`**（仅热门板块模式，即未传 **sector**、**symbols**）：在板块成分之外，再按 `hot_snapshot_stocks_cap` 从本地 `hot_market_snapshot.json` 的 **stocks** 并入热门股，与已有代码**去重**后，与各板块股**同一套** K 线窗口与双均线回测流程。
 
 **`data_source=baostock`**：**日 K** 经 Baostock（与③行情 `baostock` 路线一致，通常较爬东财页稳）；**板块排名与成分股**仍用东财（AkShare），因 Baostock 无同形态热门板块表。
 

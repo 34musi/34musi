@@ -4,17 +4,19 @@
 
 说明：
 - 新浪板块：`ak.stock_industry.stock_sector_spot`（概念/行业，公开行情页数据）。
-- 新浪个股：沪深 A 股节点 `getHQNodeData`，`sort=changepercent` 降序，取前 N。
+- 新浪个股：沪深 A 股节点 `getHQNodeData`，`sort=changepercent` 降序；**仅保留沪、深主板**后取前 N（不含科创 688/689、创业板 300/301、北交所等）。
 - 腾讯：个股用 QQ `getBoardRankList`（仅支持 sort_type=price，客户端按 `zdf` 排序取前 N）；
   腾讯无稳定公开的「板块涨跌幅全表」接口，故在该步以东方财富板块表补齐（见返回中的 sector_source）。
 - Baostock：无对等的板块热度/全市场热门股接口，链中该步会失败并进入下一源。
 - 东财 / akshare：板块用 `AkShareDataSource.get_sector_rankings`；个股用东财人气榜 `stock_hot_rank_em`（与新浪「涨幅序」含义不同，见 notes）。
+- 个股表「相关业务类型」：落盘前以东财 **`stock_individual_info_em`（qt/stock/get）中的「行业」** 写入 `related_business`；与 `ulist` 接口的 f127 语义不同，不能用 ulist 批量字段以免误取涨跌幅等数值（旧快照需重新刷新后才有）。
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,11 +31,80 @@ from akshare.utils import demjson
 from app.config import get_settings
 from app.quant_stock_selector.datasources import AkShareDataSource
 from app.quant_stock_selector.exceptions import DataSourceError
-from app.quant_stock_selector.market_utils import normalize_score, safe_float
+from app.quant_stock_selector.market_utils import normalize_code, normalize_score, safe_float
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CHAIN: tuple[str, ...] = ("sina", "tencent", "baostock", "eastmoney", "akshare")
+
+
+def _is_hs_main_board_equity(code: object) -> bool:
+    """
+    沪深主板 A 股：沪 60 段（排除 688/689 科创板）、深 000–003 段（含常见 002）。
+    不含创业板 300/301、北交所 43/83/87/88/92 等。
+    """
+    c = normalize_code(str(code))
+    if len(c) != 6:
+        return False
+    if c.startswith(("688", "689", "300", "301")):
+        return False
+    if c.startswith(("430", "83", "87", "88", "92")):
+        return False
+    if c.startswith("60"):
+        return True
+    if c.startswith(("000", "001", "002", "003")):
+        return True
+    return False
+
+
+def _lookup_related_business_em(code6: str) -> str:
+    """
+    东财个股信息（AkShare `stock_individual_info_em` / qt/stock/get）中的「行业」文本。
+
+    注意：``ulist.np/get`` 批量接口里的 f127 与 ``qt/stock/get`` 的 f127 语义不一致，
+    前者在列表场景下常为数值行情字段，误用会显示成涨跌幅；此处必须用个股信息接口。
+    """
+    c = normalize_code(code6)
+    if len(c) != 6:
+        return ""
+    try:
+        df = ak.stock_individual_info_em(symbol=c, timeout=12)
+    except Exception as e:
+        logger.debug("stock_individual_info_em %s: %s", c, e)
+        return ""
+    if df is None or df.empty or "item" not in df.columns or "value" not in df.columns:
+        return ""
+    for label in ("行业", "所属行业"):
+        hit = df.loc[df["item"] == label, "value"]
+        if hit.empty:
+            continue
+        v = hit.iloc[0]
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            continue
+        s = str(v).strip()
+        if s and s.lower() not in ("nan", "none", "-", "—"):
+            return s[:220]
+    return ""
+
+
+def _enrich_stocks_related_business(stocks: pd.DataFrame) -> pd.DataFrame:
+    """为快照个股表增加 related_business（东财个股信息中的行业）；失败时列为空字符串。"""
+    if stocks is None or stocks.empty or "code" not in stocks.columns:
+        return stocks
+    try:
+        vals: list[str] = []
+        for raw in stocks["code"].astype(str):
+            c6 = normalize_code(raw)
+            vals.append(_lookup_related_business_em(c6) if len(c6) == 6 else "")
+            time.sleep(0.05)
+        s = stocks.copy()
+        s["related_business"] = vals
+        return s
+    except Exception as e:
+        logger.warning("related_business 批量补齐失败: %s", e)
+        s = stocks.copy()
+        s["related_business"] = [""] * len(s)
+        return s
 
 SINA_HQ_DATA_URL = (
     "https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData"
@@ -115,8 +186,8 @@ def fetch_sina_hot_sectors() -> pd.DataFrame:
     return df
 
 
-def _sina_hot_stocks_pages(*, top_n: int, max_pages: int = 4) -> pd.DataFrame:
-    """多页拉取 A 股按涨跌幅降序，合并后取前 top_n（约等于收盘热门涨幅股）。"""
+def _sina_hot_stocks_pages(*, top_n: int, max_pages: int = 12) -> pd.DataFrame:
+    """多页拉取 A 股按涨跌幅降序，筛沪深主板后取前 top_n（主板在全市场里占比有限，故多翻几页）。"""
     rows: list[pd.DataFrame] = []
     for page in range(1, max_pages + 1):
         p = {
@@ -142,12 +213,15 @@ def _sina_hot_stocks_pages(*, top_n: int, max_pages: int = 4) -> pd.DataFrame:
     big = pd.concat(rows, ignore_index=True)
     big["code"] = big["code"].astype(str).str.zfill(6)
     big["changepercent"] = pd.to_numeric(big["changepercent"], errors="coerce")
-    big = big.sort_values("changepercent", ascending=False).drop_duplicates("code").head(top_n)
-    return big
+    big = big.sort_values("changepercent", ascending=False).drop_duplicates("code")
+    main = big[big["code"].map(_is_hs_main_board_equity)]
+    return main.head(top_n)
 
 
 def fetch_sina_hot_stocks(*, top_n: int) -> pd.DataFrame:
     df = _sina_hot_stocks_pages(top_n=top_n)
+    if df is None or df.empty:
+        raise DataSourceError("新浪涨幅榜筛沪深主板后无可用成分")
     out = pd.DataFrame(
         {
             "rank": range(1, len(df) + 1),
@@ -171,7 +245,7 @@ def fetch_tencent_hot_stocks(*, top_n: int) -> pd.DataFrame:
             "sort_type": "price",
             "direct": "down",
             "offset": "0",
-            "count": "200",
+            "count": "800",
         },
         timeout=20,
     )
@@ -185,7 +259,10 @@ def fetch_tencent_hot_stocks(*, top_n: int) -> pd.DataFrame:
         raise DataSourceError("腾讯排行字段缺失")
     tdf["code"] = tdf["code"].astype(str).str.zfill(6)
     tdf["zdf"] = pd.to_numeric(tdf["zdf"], errors="coerce")
-    tdf = tdf.sort_values("zdf", ascending=False).head(top_n)
+    tdf = tdf.sort_values("zdf", ascending=False)
+    tdf = tdf[tdf["code"].map(_is_hs_main_board_equity)].head(top_n)
+    if tdf.empty:
+        raise DataSourceError("腾讯排行筛沪深主板后为空")
     return pd.DataFrame(
         {
             "rank": range(1, len(tdf) + 1),
@@ -223,12 +300,17 @@ def _em_sector_frame(ds: AkShareDataSource) -> pd.DataFrame:
 def _bundle_sina(*, top_stocks: int) -> HotMarketSnapshot:
     sectors = fetch_sina_hot_sectors()
     stocks = fetch_sina_hot_stocks(top_n=top_stocks)
+    stocks = _enrich_stocks_related_business(stocks)
+    notes = [
+        "快照热门股：在全市场涨幅排序中仅保留**沪、深主板**，取前 N 条（不含科创/创业/北交所）。",
+        "个股「相关业务类型」为东财个股信息接口中的「行业」文字（非 ulist 数值字段）；与新浪个股源无关；旧快照请重新「刷新热门快照」后更新。",
+    ]
     return _to_snapshot(
         "sina",
         list(DEFAULT_CHAIN),
         "sina",
         "sina",
-        [],
+        notes,
         top_stocks,
         sectors,
         stocks,
@@ -238,12 +320,17 @@ def _bundle_sina(*, top_stocks: int) -> HotMarketSnapshot:
 def _bundle_tencent(*, top_stocks: int) -> HotMarketSnapshot:
     notes = [
         "腾讯侧无与新浪对等的全市场板块涨跌幅表；本步板块使用东方财富（概念+行业）作为补齐；个股为腾讯财经排行按涨跌幅重排。",
+        "快照热门股：个股列表已筛为**沪、深主板**前 N 条（不含科创/创业/北交所）。",
     ]
     ds = AkShareDataSource()
     sectors = _em_sector_frame(ds)
     sectors = sectors.copy()
     sectors["source"] = "eastmoney"
     stocks = fetch_tencent_hot_stocks(top_n=top_stocks)
+    stocks = _enrich_stocks_related_business(stocks)
+    notes = notes + [
+        "个股「相关业务类型」为东财个股信息接口「行业」字段（与腾讯个股源无关）。",
+    ]
     return _to_snapshot(
         "tencent",
         list(DEFAULT_CHAIN),
@@ -272,26 +359,33 @@ def _bundle_eastmoney(*, top_stocks: int) -> HotMarketSnapshot:
         raise DataSourceError(f"东财人气榜失败: {e}") from e
     if hot is None or hot.empty:
         raise DataSourceError("东财人气榜为空")
-    hot2 = hot.head(top_stocks).copy()
-    if "股票名称" not in hot2.columns or "涨跌幅" not in hot2.columns:
+    if "股票名称" not in hot.columns or "涨跌幅" not in hot.columns:
         raise DataSourceError("东财人气榜列结构不符合预期")
-    if "代码" not in hot2.columns:
+    if "代码" not in hot.columns:
         raise DataSourceError("东财人气榜缺少代码列")
     code_col = "代码"
-    raw_codes = hot2[code_col].astype(str)
-    code6 = raw_codes.str.replace(r"\D", "", regex=True)
-    code6 = code6.str.zfill(6)
-    code6 = code6.str[-6:]
+    raw_codes = hot[code_col].astype(str)
+    code6 = raw_codes.str.replace(r"\D", "", regex=True).str.zfill(6).str[-6:]
+    main_mask = code6.map(_is_hs_main_board_equity).fillna(False)
+    hot2 = hot.loc[main_mask].head(top_stocks).copy()
+    if hot2.empty:
+        raise DataSourceError("东财人气榜中未筛出沪深主板成分股")
+    code6_f = hot2[code_col].astype(str).str.replace(r"\D", "", regex=True).str.zfill(6).str[-6:]
     stocks = pd.DataFrame(
         {
-            "rank": hot2.get("当前排名", range(1, len(hot2) + 1)),
-            "code": code6,
+            "rank": range(1, len(hot2) + 1),
+            "code": code6_f,
             "name": hot2["股票名称"],
             "change_pct": pd.to_numeric(hot2["涨跌幅"], errors="coerce"),
             "last_price": pd.to_numeric(hot2.get("最新价", float("nan")), errors="coerce"),
             "source": "eastmoney",
         }
     )
+    stocks = _enrich_stocks_related_business(stocks)
+    notes = notes + [
+        "快照热门股：人气榜接口单次条数有限，已筛**沪、深主板**后取前 N 条（与「人气」排序含义不同）。",
+        "个股表「相关业务类型」为东财个股信息接口中的「行业」分类（非市场概念标签如算力/AI 全量列表）。",
+    ]
     return _to_snapshot(
         "eastmoney",
         list(DEFAULT_CHAIN),

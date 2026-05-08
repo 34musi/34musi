@@ -9,8 +9,11 @@ from typing import Dict, List, Sequence
 import pandas as pd
 
 from .datasources import BaseAShareDataSource
-from .market_utils import read_codes_file, safe_float
+from .market_utils import is_listed_a_share_equity, normalize_code, read_codes_file, safe_float
 from .models import SectorRecord
+
+# 与 POST /research/sector-screen 的 include_hot_snapshot_stocks 配套：虚拟板块名，避免与真实板块重名。
+HOT_SNAPSHOT_SECTOR_NAME = "热门快照·全市场热门股"
 
 
 def build_sector_records(frame: pd.DataFrame) -> List[SectorRecord]:
@@ -71,7 +74,21 @@ def select_target_sectors(datasource: BaseAShareDataSource, args: argparse.Names
 
     if args.hot_sectors:
         rankings = datasource.get_sector_rankings(args.board_type)
-        return build_sector_records(rankings.head(args.top_sectors))
+        out = build_sector_records(rankings.head(args.top_sectors))
+        if getattr(args, "include_hot_snapshot_stocks", False):
+            out.append(
+                SectorRecord(
+                    sector_name=HOT_SNAPSHOT_SECTOR_NAME,
+                    board_type="snapshot",
+                    change_pct=0.0,
+                    advancers_ratio=0.0,
+                    leader_change_pct=0.0,
+                    turnover_rate=0.0,
+                    hot_score=52.0,
+                    source="hot_snapshot",
+                )
+            )
+        return out
 
     return [
         SectorRecord(
@@ -87,6 +104,54 @@ def select_target_sectors(datasource: BaseAShareDataSource, args: argparse.Names
     ]
 
 
+def _constituents_from_hot_market_snapshot(
+    *,
+    sector_name: str,
+    cap: int,
+    exclude_codes: set[str],
+) -> pd.DataFrame:
+    """从 hot_market_snapshot.json 构建与 get_sector_constituents 列对齐的成分表。"""
+    from app.hot_market_snapshot import load_hot_market_snapshot
+
+    snap = load_hot_market_snapshot()
+    if snap is None or not snap.stocks:
+        return pd.DataFrame(columns=["code", "name", "sector_name", "board_type"])
+
+    cap = max(1, min(500, int(cap)))
+    rows: list[dict[str, str]] = []
+    seen_local: set[str] = set()
+    for st in snap.stocks:
+        if len(rows) >= cap:
+            break
+        if not isinstance(st, dict):
+            continue
+        raw_code = st.get("code")
+        if raw_code is None:
+            continue
+        code = normalize_code(str(raw_code))
+        if not code or len(code) != 6 or not is_listed_a_share_equity(code):
+            continue
+        if code in exclude_codes or code in seen_local:
+            continue
+        seen_local.add(code)
+        nm_raw = st.get("name")
+        name = str(nm_raw).strip() if nm_raw is not None else ""
+        if name.lower() == "nan":
+            name = ""
+        rows.append(
+            {
+                "code": code,
+                "name": name,
+                "sector_name": sector_name,
+                "board_type": "snapshot",
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(columns=["code", "name", "sector_name", "board_type"])
+    return pd.DataFrame(rows)
+
+
 def load_sector_constituents(
     datasource: BaseAShareDataSource,
     sectors: Sequence[SectorRecord],
@@ -98,11 +163,30 @@ def load_sector_constituents(
         sector_map["自定义股票池"] = codes.assign(sector_name="自定义股票池", board_type="custom")
         return sector_map
 
+    seen_codes: set[str] = set()
     for sector in sectors:
+        if sector.source == "hot_snapshot" or sector.sector_name == HOT_SNAPSHOT_SECTOR_NAME:
+            cap = int(getattr(args, "hot_snapshot_stocks_cap", 80) or 80)
+            snap_df = _constituents_from_hot_market_snapshot(
+                sector_name=sector.sector_name,
+                cap=cap,
+                exclude_codes=seen_codes,
+            )
+            sector_map[sector.sector_name] = snap_df
+            for c in snap_df["code"].astype(str):
+                cc = normalize_code(c)
+                if cc:
+                    seen_codes.add(cc)
+            continue
+
         constituents = datasource.get_sector_constituents(
             sector.sector_name, sector.board_type if sector.board_type != "custom" else None
         )
         if args.max_stocks_per_sector:
             constituents = constituents.head(args.max_stocks_per_sector)
         sector_map[sector.sector_name] = constituents
+        for c in constituents["code"].astype(str):
+            cc = normalize_code(c)
+            if cc:
+                seen_codes.add(cc)
     return sector_map
