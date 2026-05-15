@@ -11,15 +11,17 @@ import argparse
 import csv
 import json
 import logging
+import math
 import os
 import tempfile
 import time
 from contextlib import asynccontextmanager
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response, Security
 from fastapi.security import APIKeyHeader
@@ -60,6 +62,7 @@ from app.ingest import (
     watchlist_bar_fields_for_session,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
+from app.quant_stock_selector.models import StockEvaluation
 from app.quant_stock_selector.hot_pick import is_star_board_code, is_st_stock_name
 from app.quant_stock_selector.market_utils import is_listed_a_share_equity, normalize_code
 from app.quant_stock_selector.datasources import (
@@ -93,6 +96,7 @@ from app.schemas import (
     SectorScreenDataSource,
     SectorScreenIn,
     SectorScreenOut,
+    SectorScreenPoolMode,
     SelectorSectorDataSource,
     SelfUseMetaOut,
     SignalOut,
@@ -1352,8 +1356,9 @@ def ingest_web_data_preview(
     description="""
 读取 **已写入 SQLite** 的日线（前复权），按交易日**从旧到新**排列。
 
-- **limit**：最近多少根 K 线（1～500，默认 30）。
-- **change_pct**：相对**上一交易日收盘**的涨跌幅（%）；返回区间内第一根为 `null`。
+- **limit**：未传 `from_date`/`to_date` 时表示最近多少根（1～500，默认 30）。**若传了任一日期界**，在区间内至多返回 **500** 根（`limit` 参数被忽略）。
+- **from_date** / **to_date**：可选，含当日，按 `trade_date` 闭区间筛选；仅传下界或上界亦可。
+- **change_pct**：相对**上一交易日收盘**的涨跌幅（%）；返回区间内第一根若前一交易日不在结果中则相对库内上一交易日收盘，无则 `null`。
 - 若库里尚无该代码数据，返回空列表 `[]`（请先 `POST /ingest/update`）。
 """,
 )
@@ -1361,7 +1366,9 @@ def ingest_web_data_preview(
 def quotes_daily_bars(
     symbol: str,
     request: Request,
-    limit: int = Query(30, ge=1, le=500, description="最近几根日线"),
+    limit: int = Query(30, ge=1, le=500, description="未传日期界时：最近几根日线；传了 from_date/to_date 时该参数被忽略（区间内至多 500 根）"),
+    from_date: date | None = Query(None, description="筛选起始日（含），YYYY-MM-DD"),
+    to_date: date | None = Query(None, description="筛选结束日（含），YYYY-MM-DD"),
     _: None = Depends(optional_api_key),
 ):
     """规范化代码后读库；无行则返回空列表。"""
@@ -1370,7 +1377,17 @@ def quotes_daily_bars(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     try:
-        rows = list_bars_from_db(sym, limit=limit)
+        if from_date is not None or to_date is not None:
+            d_from = from_date.isoformat() if from_date is not None else None
+            d_to = to_date.isoformat() if to_date is not None else None
+            rows = list_bars_from_db(
+                sym,
+                limit=500,
+                trade_date_from=d_from,
+                trade_date_to=d_to,
+            )
+        else:
+            rows = list_bars_from_db(sym, limit=limit)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     return rows
@@ -1603,6 +1620,39 @@ def research_forecast_validate(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+_SECTOR_SCREEN_DUAL_MA_KEYS = frozenset(
+    {
+        "dual_ma_total_return_pct",
+        "dual_ma_annual_return_pct",
+        "dual_ma_max_drawdown_pct",
+        "dual_ma_sharpe_ratio",
+        "dual_ma_trade_count",
+        "dual_ma_win_rate_pct",
+    }
+)
+_SECTOR_SCREEN_TRIPLE_MA_KEYS = frozenset(
+    {
+        "triple_ma_total_return_pct",
+        "triple_ma_annual_return_pct",
+        "triple_ma_max_drawdown_pct",
+        "triple_ma_sharpe_ratio",
+        "triple_ma_trade_count",
+        "triple_ma_win_rate_pct",
+    }
+)
+
+
+def _sector_screen_stock_row_dict(ev: StockEvaluation, *, show_dual: bool, show_triple: bool) -> dict[str, Any]:
+    row = asdict(ev)
+    if not show_dual:
+        for k in _SECTOR_SCREEN_DUAL_MA_KEYS:
+            row.pop(k, None)
+    if not show_triple:
+        for k in _SECTOR_SCREEN_TRIPLE_MA_KEYS:
+            row.pop(k, None)
+    return row
+
+
 def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
     """执行选股流水线；symbols 模式写临时 CSV，等价命令行 --codes。"""
     tmp_codes: Path | None = None
@@ -1618,6 +1668,9 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
         else:
             tushare_token_resolved = body.tushare_token
 
+        flat_universe = False
+        flat_universe_top = max(1, min(500, body.universe_max_stocks))
+        flat_universe_scan = 0
         if body.symbols:
             norm: list[str] = []
             seen: set[str] = set()
@@ -1648,6 +1701,17 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             hot_sectors = False
             sector_name = body.sector.strip()
             codes_arg = None
+        elif body.pool_mode == SectorScreenPoolMode.universe:
+            hot_sectors = False
+            sector_name = None
+            codes_arg = None
+            flat_universe = True
+            if body.show_dual_ma_strategy or body.show_triple_ma_strategy:
+                flat_universe_scan = max(
+                    flat_universe_top, min(8000, int(body.universe_scan_cap))
+                )
+            else:
+                flat_universe_scan = 0
         else:
             hot_sectors = True
             sector_name = None
@@ -1679,6 +1743,13 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             hot_chain_force_refresh=body.hot_chain_refresh_snapshot,
             include_hot_snapshot_stocks=body.include_hot_snapshot_stocks,
             hot_snapshot_stocks_cap=body.hot_snapshot_stocks_cap,
+            flat_universe=flat_universe,
+            flat_universe_top=flat_universe_top,
+            flat_universe_scan=flat_universe_scan,
+            universe_segments=list(body.universe_segments),
+            universe_exclude_st=body.universe_exclude_st,
+            show_dual_ma_strategy=body.show_dual_ma_strategy,
+            show_triple_ma_strategy=body.show_triple_ma_strategy,
         )
         validate_args(ns)
         sectors, stocks = run_analysis(ns)
@@ -1695,7 +1766,95 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
 
     d = _disclaimer_payload()
     lim = max(1, body.top_stocks_limit)
-    stock_rows = [asdict(s) for s in stocks[:lim]]
+    slice_stocks = list(stocks[:lim])
+    codes_req = [normalize_code(s.code) for s in slice_stocks]
+    sh_today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+
+    merged = []
+    if body.data_source == SectorScreenDataSource.mootdx:
+        qmap: dict[str, dict[str, Any]] = {}
+        try:
+            ds_mx = get_data_source("mootdx")
+            fn = getattr(ds_mx, "quote_snapshot_for_codes", None)
+            if callable(fn):
+                qmap = fn(codes_req)
+        except Exception as e:
+            logger.warning("sector-screen: mootdx quote snapshot skipped: %s", e)
+            qmap = {}
+        for ev in slice_stocks:
+            nk = normalize_code(ev.code)
+            row = qmap.get(nk) or {}
+            p = row.get("tdx_last_price")
+            qd = row.get("tdx_quote_date")
+            dt_show = sh_today
+            if isinstance(qd, str) and len(qd) >= 10 and qd[4] == "-" and qd[7] == "-":
+                dt_show = qd[:10]
+            chg = row.get("tdx_change_pct")
+            chg_f = None
+            if chg is not None and math.isfinite(float(chg)):
+                chg_f = round(float(chg), 2)
+            if p is not None and math.isfinite(float(p)) and float(p) > 0:
+                merged.append(
+                    replace(
+                        ev,
+                        latest_close=round(float(p), 2),
+                        latest_trade_date=dt_show,
+                        spot_change_pct=chg_f,
+                    )
+                )
+            else:
+                merged.append(ev)
+        note_tail = (
+            "当前数据源为 mootdx：股票池为通达信列表顺序截取；"
+            "「最新价」「最近交易日」在能拉到通达信批量行情时，用快照现价与行情日期列（若无日期列则用东八区自然日）覆盖日线末根展示；"
+            "「涨幅%」为快照 (现价−昨收)/昨收，与最新价同源；"
+            "初筛与回测仍基于区间内日线。"
+        )
+    else:
+        try:
+            spot_by = spot_liquidity_fields_for_codes(codes_req, force_refresh=True)
+        except Exception as e:
+            logger.warning("sector-screen: spot merge for latest price skipped: %s", e)
+            spot_by = {}
+        for ev in slice_stocks:
+            nk = normalize_code(ev.code)
+            row = spot_by.get(nk) or {}
+            p = row.get("spot_last_price")
+            qd = row.get("spot_quote_date")
+            trade_show = sh_today
+            if isinstance(qd, str) and len(qd) >= 10 and qd[4] == "-" and qd[7] == "-":
+                trade_show = qd[:10]
+            chg = row.get("spot_change_pct")
+            chg_f = None
+            if chg is not None and math.isfinite(float(chg)):
+                chg_f = round(float(chg), 2)
+            if p is not None and math.isfinite(float(p)) and float(p) > 0:
+                merged.append(
+                    replace(
+                        ev,
+                        latest_close=round(float(p), 2),
+                        latest_trade_date=trade_show,
+                        spot_change_pct=chg_f,
+                    )
+                )
+            else:
+                merged.append(ev)
+        note_tail = (
+            "返回中「最新价」在能拉到东财全 A 列表快照时，用快照现价覆盖日线末根收盘价；"
+            "「涨幅%」为东财列表「涨跌幅」列（与最新价同源）；"
+            "「最近交易日」优先用快照表内日期列，否则用东八区当前自然日。"
+            "每次选股会跳过 spot 内存 TTL 尽量拉新表；拉取失败时仍可能回退到缓存表。"
+            "初筛与回测仍基于区间内日线。"
+        )
+
+    stock_rows = [
+        _sector_screen_stock_row_dict(
+            s,
+            show_dual=body.show_dual_ma_strategy,
+            show_triple=body.show_triple_ma_strategy,
+        )
+        for s in merged
+    ]
     return SectorScreenOut(
         sectors=[asdict(s) for s in sectors],
         stocks=stock_rows,
@@ -1703,7 +1862,13 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
         start_date=body.start_date,
         end_date=body.end_date,
         disclaimer=d.disclaimer,
-        note="与根目录 `quant_stock_selector.py` 及包 `app.quant_stock_selector` 流水线一致（技术面初筛 + 双均线回测 + 综合分）。请求会大量拉取行情，请勿频繁触发。",
+        show_dual_ma_strategy=body.show_dual_ma_strategy,
+        show_triple_ma_strategy=body.show_triple_ma_strategy,
+        note=(
+            "与根目录 `quant_stock_selector.py` 及包 `app.quant_stock_selector` 流水线一致（技术面初筛 + 双均线回测 + 综合分）。"
+            + note_tail
+            + "请求会大量拉取行情，请勿频繁触发。"
+        ),
     )
 
 
@@ -1831,19 +1996,19 @@ def _run_sector_constituents_top(body: SectorConstituentsTopIn) -> SectorConstit
     "/research/sector-screen",
     response_model=SectorScreenOut,
     tags=["⑨ 量化选股（脚本）"],
-    summary="热门板块选股（脚本同款流水线）",
+    summary="板块或全市场股票池选股（脚本同款流水线）",
     description="""
 对应命令行 **`quant_stock_selector.py`** / 包 **`app.quant_stock_selector`**：
 
-1. 拉取热门板块（或指定 **sector**、或 **symbols** 自定义列表）；
+1. 构建股票池：**pool_mode=universe** 且未指定 **sector**、**symbols** 时，从当前 `data_source` 的全市场列表顺序截取 `universe_max_stocks` 只；否则拉取热门板块（或指定 **sector**、或 **symbols** 自定义列表）；
 2. 取成分股，按 `start_date`～`end_date` 拉日线（优先本地 `data_dir` 在 CLI 中有，API 固定仅走网络数据源）；
 3. 技术面初筛（`evaluate_screen`）+ 双均线回测（`run_sma_backtest`）合成 **final_score**。
 
-**注意**：会对多只股票依次请求行情，**耗时长**、易受数据源限流；请将 `max_stocks_per_sector`、`top_sectors` 控制在合理范围。
+**注意**：会对多只股票依次请求行情，**耗时长**、易受数据源限流；全市场截取模式请将 `universe_max_stocks`、`top_stocks_limit` 控制在合理范围。
 
 **`data_source=hot_chain`**：热门板块表与 `POST /meta/hot-market-snapshot/refresh` 相同（**新浪优先** → 回退等），可用 `hot_chain_prefer_snapshot` / `hot_chain_refresh_snapshot` 控制是否读本地 `hot_market_snapshot.json`；**成分股与日线**仍经东财拉取。详见 `app/hot_market_snapshot.py`。
 
-**`include_hot_snapshot_stocks=true`**（仅热门板块模式，即未传 **sector**、**symbols**）：在板块成分之外，再按 `hot_snapshot_stocks_cap` 从本地 `hot_market_snapshot.json` 的 **stocks** 并入热门股，与已有代码**去重**后，与各板块股**同一套** K 线窗口与双均线回测流程。
+**`include_hot_snapshot_stocks=true`**（仅 **pool_mode=hot_sectors** 且未传 **sector**、**symbols**）：在板块成分之外，再按 `hot_snapshot_stocks_cap` 从本地 `hot_market_snapshot.json` 的 **stocks** 并入热门股，与已有代码**去重**后，与各板块股**同一套** K 线窗口与双均线回测流程。
 
 **`data_source=baostock`**：**日 K** 经 Baostock（与③行情 `baostock` 路线一致，通常较爬东财页稳）；**板块排名与成分股**仍用东财（AkShare），因 Baostock 无同形态热门板块表。
 

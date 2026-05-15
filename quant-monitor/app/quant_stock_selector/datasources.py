@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import math
 import os
 import random
 import time
@@ -558,6 +559,83 @@ class MootdxDataSource(BaseAShareDataSource):
         if not frames:
             return pd.DataFrame()
         return pd.concat(frames, ignore_index=True)
+
+    def quote_snapshot_for_codes(self, codes: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        通达信批量行情快照：现价等，用于选股结果展示（与日线最后一根可能不同，更接近当前盘口）。
+        键为 6 位 normalize_code。
+        """
+        uniq: List[str] = []
+        seen: set[str] = set()
+        for c in codes:
+            nc = normalize_code(str(c))
+            if len(nc) != 6 or nc in seen:
+                continue
+            seen.add(nc)
+            uniq.append(nc)
+        if not uniq:
+            return {}
+        qf = self._batch_quotes(uniq)
+        if qf is None or qf.empty:
+            return {}
+        work = qf.copy()
+        if "code" not in work.columns and "symbol" in work.columns:
+            work = work.rename(columns={"symbol": "code"})
+        if "code" not in work.columns:
+            return {}
+        work["code"] = work["code"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+        out: Dict[str, Dict[str, Any]] = {}
+        for _, row in work.iterrows():
+            code = normalize_code(row["code"])
+            if len(code) != 6:
+                continue
+            price: float | None = None
+            for key in ("price", "last", "close", "current", "最新价", "现价"):
+                if key not in row.index:
+                    continue
+                raw = row[key]
+                if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+                    continue
+                try:
+                    f = float(raw)
+                except (TypeError, ValueError):
+                    continue
+                if math.isfinite(f) and f > 0:
+                    price = round(f, 2)
+                    break
+            qdate: str | None = None
+            for dcol in ("servertime", "server_time", "datetime", "time", "date"):
+                if dcol not in row.index:
+                    continue
+                raw = row[dcol]
+                if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+                    continue
+                try:
+                    if hasattr(raw, "strftime"):
+                        qdate = raw.strftime("%Y-%m-%d")[:10]
+                    else:
+                        s = str(raw).strip()
+                        if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+                            qdate = s[:10]
+                except (ValueError, TypeError, OSError):
+                    qdate = None
+                if qdate:
+                    break
+            prev_close: float | None = None
+            if "last_close" in row.index:
+                raw_lc = row["last_close"]
+                if raw_lc is not None and not (isinstance(raw_lc, float) and pd.isna(raw_lc)):
+                    try:
+                        lc = float(raw_lc)
+                        if math.isfinite(lc) and lc > 0:
+                            prev_close = lc
+                    except (TypeError, ValueError):
+                        prev_close = None
+            chg_pct: float | None = None
+            if price is not None and prev_close is not None and prev_close > 0:
+                chg_pct = round((float(price) - prev_close) / prev_close * 100.0, 2)
+            out[code] = {"tdx_last_price": price, "tdx_quote_date": qdate, "tdx_change_pct": chg_pct}
+        return out
 
     def _load_block_frame(self, block_file: str) -> pd.DataFrame:
         client = self._get_client()

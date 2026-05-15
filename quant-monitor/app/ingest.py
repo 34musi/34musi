@@ -177,9 +177,11 @@ def _fetch_and_upsert(
             lb = last_rows[-1]
             out["last_trade_date"] = lb["trade_date"]
             out["last_close"] = round(float(lb["close"]), 4)
+            out["last_volume"] = round(float(lb.get("volume") or 0), 4)
         else:
             out["last_trade_date"] = None
             out["last_close"] = None
+            out["last_volume"] = None
         return out
     except Exception as e:
         logger.warning("ingest failed for %s: %s", sym, _format_ingest_error(e))
@@ -534,15 +536,73 @@ def max_stored_date(symbol: str) -> str | None:
         return s.execute(q).scalar_one_or_none()
 
 
-def list_bars_from_db(symbol: str, *, limit: int = 30) -> list[dict[str, Any]]:
+def list_bars_from_db(
+    symbol: str,
+    *,
+    limit: int = 30,
+    trade_date_from: str | None = None,
+    trade_date_to: str | None = None,
+) -> list[dict[str, Any]]:
     """
-    读取本地 bars：按 trade_date **降序**取最近 limit 根，再转为**升序**（旧→新）。
+    读取本地 bars（前复权日线）。
 
-    每根附带 change_pct（相对上一交易日收盘%，第一根为 None）。limit 有效范围 1～500。
+    - 未传 trade_date_from / trade_date_to：按 trade_date **降序**取最近 limit 根，再转为**升序**（旧→新）。
+    - 传入任一日期界：按闭区间筛选 trade_date（字符串 YYYY-MM-DD），**升序**，至多 limit 根（建议 500）。
+
+    每根附带 change_pct：非区间模式相对返回序列内上一根；区间模式第一根相对**区间内**上一交易日的库内收盘（若无则 None）。
+    limit 有效范围 1～500。
     """
     if limit < 1 or limit > 500:
         raise ValueError("limit 须在 1～500")
     sym = normalize_symbol(symbol)
+    use_range = trade_date_from is not None or trade_date_to is not None
+    if use_range:
+        d_from = (trade_date_from or "").strip() or None
+        d_to = (trade_date_to or "").strip() or None
+        if d_from and d_to and d_from > d_to:
+            d_from, d_to = d_to, d_from
+        with session_scope() as s:
+            q = select(BarRow).where(BarRow.symbol == sym)
+            if d_from:
+                q = q.where(BarRow.trade_date >= d_from)
+            if d_to:
+                q = q.where(BarRow.trade_date <= d_to)
+            q = q.order_by(BarRow.trade_date.asc()).limit(limit)
+            orm_rows = list(s.execute(q).scalars().all())
+            prev_close: float | None = None
+            if orm_rows:
+                first_td = orm_rows[0].trade_date
+                pc = (
+                    s.execute(
+                        select(BarRow.close)
+                        .where(BarRow.symbol == sym, BarRow.trade_date < first_td)
+                        .order_by(BarRow.trade_date.desc())
+                        .limit(1)
+                    ).scalar_one_or_none()
+                )
+                prev_close = float(pc) if pc is not None else None
+            data = [
+                {
+                    "trade_date": r.trade_date,
+                    "open": float(r.open),
+                    "high": float(r.high),
+                    "low": float(r.low),
+                    "close": float(r.close),
+                    "volume": float(r.volume or 0),
+                    "amount": float(r.amount or 0),
+                }
+                for r in orm_rows
+            ]
+        out: list[dict[str, Any]] = []
+        for row in data:
+            cp: float | None = None
+            if prev_close is not None and abs(prev_close) > 1e-12:
+                cp = round((row["close"] - prev_close) / abs(prev_close) * 100, 4)
+            row["change_pct"] = cp
+            prev_close = row["close"]
+            out.append(row)
+        return out
+
     with session_scope() as s:
         q = (
             select(BarRow)
@@ -564,16 +624,16 @@ def list_bars_from_db(symbol: str, *, limit: int = 30) -> list[dict[str, Any]]:
             for r in orm_rows
         ]
     data.reverse()
-    out: list[dict[str, Any]] = []
-    prev_close: float | None = None
+    out2: list[dict[str, Any]] = []
+    prev_close2: float | None = None
     for row in data:
-        cp: float | None = None
-        if prev_close is not None and abs(prev_close) > 1e-12:
-            cp = round((row["close"] - prev_close) / abs(prev_close) * 100, 4)
-        row["change_pct"] = cp
-        prev_close = row["close"]
-        out.append(row)
-    return out
+        cp2: float | None = None
+        if prev_close2 is not None and abs(prev_close2) > 1e-12:
+            cp2 = round((row["close"] - prev_close2) / abs(prev_close2) * 100, 4)
+        row["change_pct"] = cp2
+        prev_close2 = row["close"]
+        out2.append(row)
+    return out2
 
 
 def strength_snapshot_for_symbol(symbol: str, *, bar_limit: int = 120) -> dict[str, Any] | None:

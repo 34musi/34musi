@@ -75,3 +75,20 @@ class StockEvaluation:
     win_rate_pct: float
     final_score: float
     reasons: str
+    # 以下仅当请求体开启对应开关时由服务端填入；默认 None，JSON 中可省略
+    dual_ma_total_return_pct: float | None = None
+    dual_ma_annual_return_pct: float | None = None
+    dual_ma_max_drawdown_pct: float | None = None
+    dual_ma_sharpe_ratio: float | None = None
+    dual_ma_trade_count: int | None = None
+    dual_ma_win_rate_pct: float | None = None
+    triple_ma_total_return_pct: float | None = None
+    triple_ma_annual_return_pct: float | None = None
+    triple_ma_max_drawdown_pct: float | None = None
+    triple_ma_sharpe_ratio: float | None = None
+    triple_ma_trade_count: int | None = None
+    triple_ma_win_rate_pct: float | None = None
+    # 与「最新价」同源的快照涨跌幅（%）；mootdx 为 (现价−昨收)/昨收，东财 spot 为列表「涨跌幅」列
+    spot_change_pct: float | None = None
+    # 全市场+策略筛选时：末根均线复合强度，用于排序（无量纲混合，仅相对比较）
+    strategy_pick_strength: float | None = None

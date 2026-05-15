@@ -325,10 +325,20 @@ class SectorScreenDataSource(str, Enum):
     mootdx = "mootdx"
 
 
+class SectorScreenPoolMode(str, Enum):
+    """未指定 sector、symbols 时，股票池如何构建。"""
+
+    hot_sectors = "hot_sectors"
+    universe = "universe"
+
+
+UniverseBoardSegment = Literal["sh_sz_main", "cyb", "kcb", "bj"]
+
+
 class SectorScreenIn(BaseModel):
     """
     对应仓库根目录 `quant_stock_selector.py` / 包 `app.quant_stock_selector` 的流水线：
-    热门板块或指定板块/代码列表 → 拉行情 → 技术面初筛 + 双均线回测 → 综合分。
+    热门板块或指定板块/代码列表 → 拉行情 →（可选）末根 K 线策略筛选 → 技术面初筛 + 双均线回测 → 综合分。
     """
 
     data_source: SectorScreenDataSource = Field(
@@ -359,6 +369,40 @@ class SectorScreenIn(BaseModel):
         ge=1,
         le=500,
         description="并入快照热门股时，按文件顺序至多取几只（过大易超时）；已在板块池内的代码会跳过",
+    )
+    pool_mode: SectorScreenPoolMode = Field(
+        SectorScreenPoolMode.hot_sectors,
+        description=(
+            "仅当未传 sector、未传 symbols 时生效：hot_sectors=按热门板块排名取池；"
+            "universe=从当前 data_source 的全市场股票列表顺序截取 universe_max_stocks 只（不经热门板块/热门股）"
+        ),
+    )
+    universe_max_stocks: int = Field(
+        200,
+        ge=1,
+        le=500,
+        description="pool_mode=universe 时，从 get_stock_universe 取前多少只参与日线与回测",
+    )
+    universe_segments: list[UniverseBoardSegment] = Field(
+        default_factory=lambda: ["sh_sz_main"],
+        description=(
+            "仅 pool_mode=universe 时生效：按代码所属市场板块过滤（多选取并集）。"
+            "sh_sz_main=沪/深主板与原中小板（00/60 开头且非 688/689）；cyb=创业板 300/301；"
+            "kcb=科创板 688/689；bj=北交所常见前缀。在列表顺序下取满 universe_max_stocks 只。"
+        ),
+    )
+    universe_exclude_st: bool = Field(
+        True,
+        description="pool_mode=universe 时：为 true 则排除名称含 ST/*ST/＊ST 的股票",
+    )
+    universe_scan_cap: int = Field(
+        3000,
+        ge=500,
+        le=8000,
+        description=(
+            "仅 pool_mode=universe 且启用「双均线/三均线」策略筛选时生效：从全市场列表按顺序至多扫描多少只，"
+            "在末根 K 线满足条件者中按策略强度取 universe_max_stocks 只再完整评估；未启用策略筛选时忽略。"
+        ),
     )
     board_type: Literal["all", "concept", "industry"] = "all"
     top_sectors: int = Field(5, ge=1, le=60, description="热门板块模式下取前 N 个板块")
@@ -397,6 +441,20 @@ class SectorScreenIn(BaseModel):
     )
     only_passed: bool = Field(False, description="为 true 时仅保留技术面初筛通过的股票")
     top_stocks_limit: int = Field(40, ge=1, le=500, description="响应中最多返回多少条股票结果")
+    show_dual_ma_strategy: bool = Field(
+        False,
+        description=(
+            "为 true 时：① 仅保留末根 K 线出现快慢线金叉的标的；② 仍计算并返回 dual_ma_* 对照列。"
+            "与综合分所用默认回测（含 MA20/60 过滤）无关。"
+        ),
+    )
+    show_triple_ma_strategy: bool = Field(
+        False,
+        description=(
+            "为 true 时：① 仅保留末根 K 线满足收盘>MA短>MA中>MA长（三均线多头）的标的；② 仍计算并返回 triple_ma_* 对照列。"
+            "两项均勾选时为同时满足（且）。"
+        ),
+    )
 
     @field_validator("start_date", "end_date", mode="before")
     @classmethod
@@ -407,6 +465,20 @@ class SectorScreenIn(BaseModel):
         if len(s) != 8 or not s.isdigit():
             raise ValueError("start_date/end_date 须为 YYYYMMDD 或 YYYY-MM-DD")
         return s
+
+    @field_validator("universe_segments", mode="before")
+    @classmethod
+    def _v_univ_seg(cls, v: object) -> list[str]:
+        allowed = {"sh_sz_main", "cyb", "kcb", "bj"}
+        if v is None:
+            return ["sh_sz_main"]
+        if not isinstance(v, list):
+            return ["sh_sz_main"]
+        out = [str(x).strip() for x in v if str(x).strip() in allowed]
+        out = list(dict.fromkeys(out))
+        if not out:
+            return sorted(allowed)
+        return out
 
     @model_validator(mode="after")
     def _exclusive_modes(self):
@@ -440,6 +512,14 @@ class SectorScreenOut(BaseModel):
     note: str = Field(
         "",
         description="与命令行脚本差异说明（若有）",
+    )
+    show_dual_ma_strategy: bool = Field(
+        False,
+        description="与请求一致：为 true 时已按末根金叉筛选并返回 dual_ma_*",
+    )
+    show_triple_ma_strategy: bool = Field(
+        False,
+        description="与请求一致：为 true 时已按末根三均线多头筛选并返回 triple_ma_*",
     )
 
 

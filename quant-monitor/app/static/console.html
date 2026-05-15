@@ -285,6 +285,68 @@
     .ingest-table td.trend-bear { color: var(--err); }
     .ingest-table td.trend-side { color: #c9b87c; }
     .ingest-table button.btn-ingest-backtest { font-size: 0.78rem; padding: 0.32rem 0.6rem; white-space: nowrap; }
+    table.ingest-kline-mini { font-size: 0.78rem; }
+    .ingest-action-cell {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.4rem 0.55rem;
+      max-width: 22rem;
+    }
+    .ingest-action-cell .ingest-row-h {
+      max-width: 3.6rem;
+      padding: 0.22rem 0.35rem;
+      font-size: 0.82rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .ingest-last-vol {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.22rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .btn-ingest-show-kline {
+      appearance: none;
+      font: inherit;
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 0.32rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      color: #cfe4ff;
+      background: linear-gradient(180deg, rgba(61, 139, 253, 0.35) 0%, rgba(61, 139, 253, 0.12) 100%);
+      border: 1px solid rgba(61, 139, 253, 0.55);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .btn-ingest-show-kline:hover {
+      color: #fff;
+      background: linear-gradient(180deg, rgba(61, 139, 253, 0.55) 0%, rgba(61, 139, 253, 0.22) 100%);
+      border-color: rgba(61, 139, 253, 0.85);
+    }
+    .btn-ingest-show-kline:active {
+      transform: translateY(1px);
+      box-shadow: none;
+    }
+    .ingest-kline-exp-tr td {
+      background: rgba(26, 35, 50, 0.65);
+      border-top: 1px dashed var(--border);
+      vertical-align: top;
+    }
     .ingest-detail-tr td { background: var(--panel); vertical-align: top; }
     .ingest-detail-inner { max-height: 520px; overflow: auto; padding: 0.25rem 0 0.5rem; }
     .ingest-inline-bt-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
@@ -445,11 +507,6 @@
       font-size: 0.72rem;
       color: var(--muted);
     }
-    .qss-hot-snap-section {
-      border-left: 3px solid rgba(61, 139, 253, 0.45);
-      padding-left: 0.75rem;
-      margin-top: 0.25rem;
-    }
     /* ⑨ 量化选股：分区层次、二选一卡片、折叠说明 */
     #panel-9 .qss-flow-details {
       margin: 0 0 0.85rem;
@@ -572,15 +629,244 @@
       border: 1px solid rgba(45, 58, 79, 0.55);
       background: rgba(0, 0, 0, 0.14);
     }
-    #panel-9 .qss-section--snapshot {
-      box-shadow: inset 3px 0 0 0 rgba(201, 184, 124, 0.42);
+    #panel-9 .qss-ds-snap-toolbar {
+      margin: 0 0 0.85rem;
+      max-width: 100%;
     }
-    #panel-9 .qss-hot-stock-board-filter-host {
-      margin: 0.65rem 0 0.75rem;
-      padding: 0.65rem 0.85rem;
+    #panel-9 .qss-snap-confirm-bar {
+      margin-top: 0.55rem;
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid rgba(61, 139, 253, 0.35);
+      background: rgba(61, 139, 253, 0.08);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem 0.65rem;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+    #panel-9 .qss-snap-confirm-bar .qss-snap-confirm-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    #panel-9 .qss-ds-select-wrap-full {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 0;
+    }
+    #panel-9 .qss-ds-select-wrap-full > label {
+      font-size: 0.8rem;
+      color: #9aaaba;
+      margin: 0;
+    }
+    #panel-9 .qss-ds-select-wrap-full select {
+      width: 100%;
+      max-width: 100%;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    #panel-9 .qss-ds-select-wrap-full select:focus {
+      outline: none;
+      border-color: rgba(61, 139, 253, 0.55);
+      box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.12);
+    }
+    #panel-9 .qss-ds-select-wrap-full select optgroup {
+      font-weight: 600;
+      color: #9eb4cc;
+    }
+    #panel-9 .qss-ds-snap-toolbar-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 0.85rem 1.25rem;
+    }
+    #panel-9 .qss-ds-select-compact {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: min(100%, 300px);
+    }
+    #panel-9 .qss-ds-select-compact > label {
+      font-size: 0.8rem;
+      color: #9aaaba;
+      margin: 0;
+    }
+    #panel-9 .qss-ds-select-compact select {
+      width: 100%;
+      max-width: 280px;
+      min-height: 2.4rem;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.86rem;
+      line-height: 1.35;
+      box-sizing: border-box;
+    }
+    #panel-9 .qss-ds-select-compact select:focus {
+      outline: none;
+      border-color: rgba(61, 139, 253, 0.55);
+      box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.12);
+    }
+    #panel-9 .qss-ds-select-compact select optgroup {
+      font-weight: 600;
+      color: #9eb4cc;
+    }
+    #panel-9 .qss-universe-type-wrap {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: min(100%, 300px);
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      align-self: flex-start;
+    }
+    #panel-9 .qss-universe-type-wrap > label:first-of-type {
+      font-size: 0.8rem;
+      color: #9aaaba;
+      margin: 0;
+    }
+    #panel-9 .qss-universe-select-compact {
+      position: relative;
+      width: 100%;
+      max-width: 280px;
+    }
+    #panel-9 .qss-universe-trigger {
+      width: 100%;
+      max-width: 280px;
+      min-height: 2.4rem;
+      padding: 0.45rem 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.86rem;
+      line-height: 1.35;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+    #panel-9 .qss-universe-trigger:hover {
+      border-color: rgba(61, 139, 253, 0.35);
+    }
+    #panel-9 .qss-universe-trigger:focus {
+      outline: none;
+      border-color: rgba(61, 139, 253, 0.55);
+      box-shadow: 0 0 0 3px rgba(61, 139, 253, 0.12);
+    }
+    #panel-9 .qss-universe-trigger .qss-universe-trigger-chev {
+      flex: 0 0 auto;
+      font-size: 0.65rem;
+      color: #9eb4cc;
+      opacity: 0.9;
+    }
+    #panel-9 .qss-universe-dropdown {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 60;
+      padding: 0.35rem 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+      max-height: 16rem;
+      overflow-y: auto;
+    }
+    #panel-9 .qss-universe-dropdown[hidden] {
+      display: none !important;
+    }
+    #panel-9 .qss-universe-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.45rem;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      cursor: pointer;
+      user-select: none;
+    }
+    #panel-9 .qss-universe-option:hover {
+      background: rgba(61, 139, 253, 0.12);
+    }
+    #panel-9 .qss-universe-option input {
+      margin-top: 0.15rem;
+      flex-shrink: 0;
+    }
+    #panel-9 .qss-universe-type-wrap .qss-universe-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.45;
+      margin: 0;
+    }
+    #panel-9 .qss-universe-type-wrap .qss-universe-st-row {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin: 0.15rem 0 0;
+      user-select: none;
+    }
+    #panel-9 .qss-strategy-filter-slot {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: min(100%, 280px);
+      align-self: flex-start;
+    }
+    #panel-9 .qss-strategy-filter-slot .qss-strategy-hint {
+      margin-top: 0.35rem;
+    }
+    #panel-9 .qss-scan-cap-row {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-top: 0.35rem;
+      flex-wrap: wrap;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    #panel-9 .qss-scan-cap-row input[type="number"] {
+      width: 4.6rem;
+      padding: 0.2rem 0.35rem;
+      font-size: 0.78rem;
+    }
+    #panel-9 .qss-strategy-hint {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.45;
+      margin: 0;
+    }
+    #panel-9 .qss-datasource-snapshot-nest {
+      margin-top: 0.85rem;
+      padding: 0.75rem 0.95rem 0.9rem;
       border-radius: 10px;
       border: 1px solid rgba(45, 58, 79, 0.55);
-      background: rgba(0, 0, 0, 0.14);
+      background: rgba(0, 0, 0, 0.12);
+      box-shadow: inset 3px 0 0 0 rgba(201, 184, 124, 0.42);
+    }
+    #panel-9 .qss-datasource-snapshot-nest .qss-hot-stock-board-filter-host {
+      margin-top: 0.55rem;
+      margin-bottom: 0.5rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 10px;
+      border: 1px solid rgba(45, 58, 79, 0.5);
+      background: rgba(0, 0, 0, 0.18);
     }
     #panel-9 footer.hot-fill-actions.qss-run-footer {
       border-top: 2px solid rgba(61, 139, 253, 0.28);
@@ -1243,7 +1529,7 @@
         <hr class="panel-rule" aria-hidden="true" />
         <div class="wl-manual-block">
           <h3 class="wl-manual-heading">手动添加与管理</h3>
-          <p class="lead wl-manual-lead">输入 6 位 A 股代码加入自选；可随时刷新列表，或勾选后<strong>批量删除</strong>、单行删除。⑨「快照热门股」里<strong>将所选加入自选</strong>会<strong>清空全部自选</strong>后仅保留勾选股票（来源为<strong>热门自动</strong>）。上方「将上次量化结果同步到自选」写入后来源为<strong>量化自动</strong>；「获取快照热门股票」写入后为<strong>热门自动</strong>（读 <code>data/hot_market_snapshot.json</code>，与⑨ 展示本地快照同源），且只清空自动池、保留手动。若无快照文件，请先在⑨「热门市场快照」里「刷新热门快照（联网）」落盘。</p>
+          <p class="lead wl-manual-lead">输入 6 位 A 股代码加入自选；可随时刷新列表，或勾选后<strong>批量删除</strong>、单行删除。⑨「快照热门股」里<strong>将所选加入自选</strong>会<strong>清空全部自选</strong>后仅保留勾选股票（来源为<strong>热门自动</strong>）。上方「将上次量化结果同步到自选」写入后来源为<strong>量化自动</strong>；「获取快照热门股票」写入后为<strong>热门自动</strong>（读 <code>data/hot_market_snapshot.json</code>，与⑨ 第 2 步「展示本地快照」同源），且只清空自动池、保留手动。若无快照文件，请先在⑨第 2 步里点「刷新热门快照（联网）」落盘。</p>
           <div class="row">
             <label for="symAdd">股票代码</label>
             <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
@@ -1261,7 +1547,7 @@
 
       <section id="panel-3" class="panel" data-module="3">
         <h2>③ 更新行情数据</h2>
-        <p class="lead">从网络拉日线写入本机数据库；自选里有几只就更新几只。需联网，请稍等。完成后下方以表格展示每只股票的写入情况。</p>
+        <p class="lead">从网络拉日线写入本机数据库；自选里有几只就更新几只。需联网，请稍等。请先选<strong>开始/结束日期</strong>（可选）并点<strong>开始更新自选行情</strong>；<strong>「拉取结果」表单在该按钮下方展开</strong>，展示本轮入库情况，并与本地历史 K 线合并保留。</p>
         <div class="row">
           <label for="ingestDataSource">行情路线</label>
           <select id="ingestDataSource">
@@ -1276,14 +1562,6 @@
           </select>
         </div>
         <p class="lead" style="margin-top:0;font-size:0.82rem;">路线会保存到本机浏览器；与接口 Body 字段 <code>data_source</code> 一致。默认自动链式 failover；固定单一源便于排查网络问题。<strong>东财日线</strong>在服务端对相邻请求有 <strong>约 3–5 秒</strong>随机间隔（防限流），自选多只时更新会较慢，可用环境变量 <code>EASTMONEY_REQUEST_MIN_INTERVAL_SEC</code> / <code>MAX</code> 调整。若日志出现 <code>ProxyError</code> / 无法连接代理，请关闭系统代理或设 <code>INGEST_EASTMONEY_BYPASS_PROXY=true</code>（可直连时）后重启服务。</p>
-        <div class="row">
-          <label for="ingestStartDate">开始日期（含当日）</label>
-          <input type="date" id="ingestStartDate" />
-        </div>
-        <div class="row">
-          <label for="ingestEndDate">结束日期（含当日）</label>
-          <input type="date" id="ingestEndDate" />
-        </div>
         <div class="row ingest-fv-methods-row">
           <span class="lbl-block">行内 walk-forward <strong>样本外</strong>日期区间（可选；对应接口 <code>oos_from</code> / <code>oos_to</code>）</span>
           <div class="ingest-fv-oos-grid">
@@ -1312,7 +1590,7 @@
         <div class="row" style="margin-top:0.45rem">
           <label class="fv-live-bars-label">
             <input type="checkbox" id="chkFvLiveBars" />
-            <span>行内回测前拉取<strong>最新日线</strong>（联网；<strong>不勾选</strong>则仅用库内已有数据）。默认会把增量<strong>写入</strong>本地库后再算。截止日优先取上方<strong>结束日期</strong>，未填则用本机当天。</span>
+            <span>行内回测前拉取<strong>最新日线</strong>（联网；<strong>不勾选</strong>则仅用库内已有数据）。默认会把增量<strong>写入</strong>本地库后再算。截止日优先取行情区<strong>结束日期</strong>（与「开始更新自选行情」同一区域，在结果展示上方），未填则用本机当天。</span>
           </label>
         </div>
         <div class="row fv-live-sub" style="margin-top:0.2rem;padding-left:1.55rem">
@@ -1321,20 +1599,33 @@
             <span><strong>不写库</strong>：仅将联网拉到的区间与当前库内日线在<strong>内存中合并</strong>后用于本次回测（不改 SQLite；需先勾选上一项）</span>
           </label>
         </div>
-        <p class="lead" style="margin-top:0;font-size:0.82rem;">
-          <strong>都不填</strong>：按库增量更新到今天。<strong>只填结束</strong>：增量更新到结束日。<strong>只填开始</strong>：从该日拉到今日。<strong>两个都填</strong>：拉取该闭区间。
-          若出现「远端断开连接」，多为数据源限流或网络问题，可先点下方「测试数据源连接」。
-        </p>
         <div class="row field-stack" style="margin-top:0.75rem;max-width:40rem">
           <label for="ingestSubsetSymbols">仅更新部分自选（可选，减轻耗时）</label>
           <textarea id="ingestSubsetSymbols" rows="3" placeholder="留空 = 更新自选全部。可粘贴多行或逗号分隔，例如：&#10;600519&#10;000001 300750" style="width:100%;font-family:ui-monospace,monospace;font-size:0.84rem;line-height:1.45" autocomplete="off"></textarea>
           <p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted)">自动提取 6 位数字代码并去重；仅拉取<strong>已在自选池</strong>中的标的。不在自选的代码会在结果折叠区标为失败。下方「拉取扩展因子」也会使用本框（若填写）。</p>
         </div>
+        <div id="ingest-test-wrap" hidden></div>
+        <div class="ingest-range-after-results" style="margin-top:1rem;padding-top:0.85rem;border-top:1px solid var(--border);max-width:40rem">
+          <p class="lead" style="margin:0 0 0.55rem;font-size:0.85rem;color:var(--muted);">
+            拉取区间：先在此选择开始/结束日期（均可留空，规则见下），再点「开始更新自选行情」，即可按区间联网拉取日线并<strong>与本地 SQLite 按交易日合并写入</strong>（upsert），不会清空其它日期的历史 K 线。<strong>「拉取结果」表单会在下方按钮之后展开</strong>，展示本轮写入情况。
+          </p>
+          <div class="row">
+            <label for="ingestStartDate">开始日期（含当日）</label>
+            <input type="date" id="ingestStartDate" />
+          </div>
+          <div class="row">
+            <label for="ingestEndDate">结束日期（含当日）</label>
+            <input type="date" id="ingestEndDate" />
+          </div>
+          <p class="lead" style="margin:0.45rem 0 0;font-size:0.82rem;">
+            <strong>都不填</strong>：按库增量更新到今天。<strong>只填结束</strong>：增量更新到结束日。<strong>只填开始</strong>：从该日拉到今日。<strong>两个都填</strong>：拉取该闭区间。
+            若出现「远端断开连接」，多为数据源限流或网络问题，可先点「测试数据源连接」。
+          </p>
+        </div>
         <div class="btns">
           <button type="button" class="secondary" id="btnIngestTest">测试数据源连接</button>
           <button type="button" class="primary" id="btnIngest">开始更新自选行情</button>
         </div>
-        <div id="ingest-test-wrap" hidden></div>
         <div id="ingest-result-wrap" class="ingest-result-wrap" hidden></div>
         <h3 class="ingest-h3">扩展因子（量化 Demo）</h3>
         <p class="lead" style="margin-top:0;font-size:0.82rem;">
@@ -1451,13 +1742,11 @@
           日线<strong>技术初筛</strong> + <strong>双均线回测</strong> → 综合分；接口 <code>POST /research/sector-screen</code>。需<strong>长时间联网</strong>，填好后<strong>点一次</strong>并等待。非投资建议。
         </p>
         <details class="qss-flow-details">
-          <summary>五步操作指引（点击展开）</summary>
+          <summary>四步操作指引（点击展开）</summary>
           <ol class="forecast-steps qss-steps">
-            <li>先定<strong>分析谁</strong>：默认「热门板块模式」— 下面两格都空；要限定则填<strong>指定板块</strong> <em>或</em> <strong>自定义代码</strong>（二选一）。</li>
-            <li>再选<strong>数据源</strong>与规模（第 2 步）。推荐 <code>hot_chain</code>：板块热度新浪优先链 + 可写快照，个股日线仍从东财拉。</li>
-            <li>（可选）第 3 步「<strong>热门市场快照</strong>」只读/刷新 <code>hot_market_snapshot.json</code>，与 K 线参数无关。</li>
-            <li>第 4 步设<strong>开始/结束日期</strong>与均线；结束日只是「日历上限」，详见该步说明。</li>
-            <li>第 5 步点<strong>运行选股评估</strong>，在下方看<strong>板块表</strong>与<strong>候选股票表</strong>。</li>
+            <li>先定<strong>分析谁</strong>：默认<strong>全市场股票池</strong>（两格都空）— 按当前数据源的股票列表顺序取 200 只做评估；要限定则填<strong>指定板块</strong> <em>或</em> <strong>自定义代码</strong>（二选一）。</li>
+            <li>再定<strong>数据从哪来</strong>（第 2 步）：<strong>数据源</strong>下拉中：上面分组为<strong>接口数据源</strong>；底部分组为<strong>本地热门快照</strong>（展示/刷新文件，仅影响下方快照表）。默认推荐 <code>mootdx</code>（通达信列表 + 批量行情展示现价）。</li>
+            <li>第 3 步点<strong>运行选股评估</strong>，在下方看<strong>板块表</strong>与<strong>候选股票表</strong>（走 <code>POST /research/sector-screen</code>）；回测区间与均线等使用控制台内置默认参数。</li>
           </ol>
         </details>
 
@@ -1465,12 +1754,12 @@
           <header class="hot-fill-head">
             <h3>选股参数</h3>
             <p class="hot-fill-desc qss-head-summary">
-              按步骤 <strong>1</strong> 股票范围 → <strong>2</strong> 数据源与规模 → <strong>3</strong> 快照浏览（可选）→ <strong>4</strong> K 线与策略 → <strong>5</strong> 运行评估。
+              按步骤 <strong>1</strong> 股票范围（留空=全市场池 200 只；或填板块/代码）→ <strong>2</strong> 数据源 → <strong>3</strong> 运行选股评估（K 线参数内置默认）。
             </p>
             <details class="qss-help-details">
-              <summary>表单区块与快照 / 选股按钮的区别</summary>
+              <summary>两条数据路径与「运行选股评估」的区别</summary>
               <p class="hot-fill-desc">
-                第 3 步两个按钮只影响 <code>hot_market_snapshot.json</code> 与下方展示，<strong>不走</strong> K 线回测。第 5 步「运行选股评估」才用全文参数请求 <code>POST /research/sector-screen</code>。二者职责不同，勿混淆。
+                <strong>路径 A</strong>：第 2 步<strong>数据源</strong>里选「接口数据源」，默认按<strong>全市场股票池</strong>顺序取 200 只做双均线回测（不经热门板块）。<strong>路径 B</strong>：同一下拉框里选「本地热门快照」中的项，只维护 <code>hot_market_snapshot.json</code> 与下方快照表，<strong>不走</strong> K 线回测。「运行选股评估」用内置默认 K 线窗口与均线参数请求 <code>POST /research/sector-screen</code>。
               </p>
             </details>
           </header>
@@ -1480,11 +1769,11 @@
               <span class="qss-section-badge" aria-hidden="true">1</span>
               <div class="hot-fill-section-title">股票范围（二选一或都空）</div>
             </div>
-            <p class="qss-section-lead"><strong>两格都留空</strong>＝热门板块模式（用第 2 步里的「热门板块数」等）。填<strong>其一</strong>则单板块或固定代码列表，不再按「热门数」扩板块。</p>
+            <p class="qss-section-lead"><strong>两格都留空</strong>＝使用控制台默认<strong>全市场股票池</strong>（顺序截取 200 只，非热门板块/热门股）。填<strong>其一</strong>则单板块或固定代码列表。</p>
             <details class="qss-help-details">
               <summary>详细说明</summary>
               <p class="hot-fill-desc">
-                都留空时从当前数据源取热门前 N 个板块，再每板块取若干只。仅填板块名则只分析该板块；仅填自定义代码则只对这些代码做日线与回测。
+                都留空时从当前数据源<strong>全市场股票池</strong>取前若干只；仅填板块名则只分析该板块；仅填自定义代码则只对这些代码做日线与回测。
               </p>
             </details>
             <div class="qss-either-grid">
@@ -1509,152 +1798,115 @@
           <div class="hot-fill-section qss-section">
             <div class="qss-section-head">
               <span class="qss-section-badge" aria-hidden="true">2</span>
-              <div class="hot-fill-section-title">数据源与板块规模</div>
+              <div class="hot-fill-section-title">数据源与本地快照</div>
             </div>
-            <p class="qss-section-lead">热门模式下的板块数量、每板块股票数与数据源；与第 4 步 K 线窗口配合用于完整选股。</p>
+            <p class="qss-section-lead">
+              <strong>接口侧</strong>：选<strong>数据源</strong>、<strong>股票类型（多选）</strong>与右侧<strong>策略筛选</strong>下拉（可选）后，点「运行选股评估」。全市场默认最多完整评估 200 只；若在下拉中选择了策略条件，则先在全市场列表上按顺序<strong>至多扫描</strong>「策略扫描上限」只，在其中<strong>只保留</strong>末根 K 线满足条件的标的，再按<strong>策略强度</strong>取前 200 只做初筛与回测，结果表按强度优先排序，并附带策略对照列。<strong>文件侧</strong>：底部「本地热门快照」用于 <code>hot_market_snapshot.json</code> 与下方表。
+            </p>
             <details class="qss-help-details">
               <summary>各数据源简要说明</summary>
               <p class="hot-fill-desc">
                 <strong>baostock</strong>：日 K 走 Baostock；热门板块 / 成分股与 akshare 一样走<strong>东财</strong>。若常断连，可试 <strong>mootdx</strong>（通达信板块）或第 1 步「自定义代码」只拉日线。
               </p>
             </details>
-            <div class="hot-form-grid">
-              <div>
-                <label for="qssDataSource">数据源</label>
-                <select id="qssDataSource">
-                <option value="hot_chain" selected>hot_chain（新浪优先+快照，荐）</option>
-                <option value="baostock">baostock（日K稳，板块仍东财）</option>
-                <option value="mootdx">mootdx（通达信，较稳）</option>
-                <option value="akshare">akshare（东财，板块更全）</option>
-                <option value="tushare">tushare（同花顺板块，要 Token+积分）</option>
-              </select>
+            <div class="qss-ds-snap-toolbar">
+              <div class="qss-ds-snap-toolbar-inner">
+                <div class="qss-ds-select-compact">
+                  <label for="qssDataSource">数据源（接口路线 + 本地快照）</label>
+                  <select id="qssDataSource" title="选「接口数据源」参与选股；「展示本地快照」需再点确认条中的「确认展示」；「刷新热门快照」联网即写入 JSON 并刷新下方表。">
+                    <optgroup label="接口数据源（参与运行选股评估）">
+                      <option value="hot_chain">hot_chain（新浪优先+快照）</option>
+                      <option value="baostock">baostock（日K稳，板块仍东财）</option>
+                      <option value="mootdx" selected>mootdx（通达信，荐）</option>
+                      <option value="akshare">akshare（东财，板块更全）</option>
+                      <option value="tushare">tushare（同花顺板块，要 Token+积分）</option>
+                    </optgroup>
+                    <optgroup label="本地热门快照（仅更新/预览 JSON 与下方表）">
+                      <option value="__qss_snap_show__">展示本地快照</option>
+                      <option value="__qss_snap_refresh__">刷新热门快照（联网）</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div class="qss-universe-type-wrap">
+                  <label for="qssUniverseTrigger">股票类型（多选，全市场池）</label>
+                  <div class="qss-universe-select-compact">
+                    <button type="button" id="qssUniverseTrigger" class="qss-universe-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="qssUniverseDropdown" title="点击展开，勾选多个板块；与数据源同为单行控件。">
+                      <span id="qssUniverseTriggerText">沪深主板</span>
+                      <span class="qss-universe-trigger-chev" aria-hidden="true">▾</span>
+                    </button>
+                    <div id="qssUniverseDropdown" class="qss-universe-dropdown" role="listbox" aria-multiselectable="true" hidden>
+                      <label class="qss-universe-option">
+                        <input type="checkbox" data-qss-seg="sh_sz_main" checked />
+                        <span>沪深主板（00/60，不含创业板/科创板/北交所）</span>
+                      </label>
+                      <label class="qss-universe-option">
+                        <input type="checkbox" data-qss-seg="cyb" />
+                        <span>创业板（300/301）</span>
+                      </label>
+                      <label class="qss-universe-option">
+                        <input type="checkbox" data-qss-seg="kcb" />
+                        <span>科创板（688/689）</span>
+                      </label>
+                      <label class="qss-universe-option">
+                        <input type="checkbox" data-qss-seg="bj" />
+                        <span>北交所（43/83/87/88/92）</span>
+                      </label>
+                    </div>
+                  </div>
+                  <label class="qss-universe-st-row">
+                    <input type="checkbox" id="qssUniverseExcludeSt" checked /> 排除名称含 ST / *ST / ＊ST
+                  </label>
+                  <p class="qss-universe-hint">多选为「并集」：满足任一已选板块且通过排除 ST 的代码。未启用策略筛选时，按列表顺序取满 200 只再拉日线；启用策略时见右侧「策略扫描上限」。</p>
+                </div>
+                <div class="qss-ds-select-compact qss-strategy-filter-slot">
+                  <label for="qssStrategyFilter">策略筛选（可选）</label>
+                  <select id="qssStrategyFilter" title="与左侧数据源、股票类型下拉风格一致；选「不应用」则不做末根 K 线策略过滤。">
+                    <option value="" selected>不应用策略筛选</option>
+                    <option value="dual">仅双均线·末根金叉</option>
+                    <option value="triple">仅三均线·末根多头</option>
+                    <option value="both">双均线金叉 且 三均线多头</option>
+                  </select>
+                  <div class="qss-scan-cap-row">
+                    <label for="qssUniverseScanCap">策略扫描上限（只）</label>
+                    <input type="number" id="qssUniverseScanCap" min="500" max="8000" value="3000" step="100" title="全市场且启用策略时：按列表顺序至多扫描这么多只代码；其中末根满足策略者按强度取前 200 只做完整评估（500–8000）。" />
+                  </div>
+                  <p class="qss-strategy-hint">启用策略时：在扫描范围内对每只有效日线算末根是否满足条件；满足者赋予<strong>策略强度</strong>并排序，再对前 200 只<strong>完整初筛与回测</strong>。<strong>双均线</strong>＝末根快慢线<strong>金叉</strong>（上一根快线≤慢线、本根快线&gt;慢线，周期同 fast/slow）；<strong>三均线</strong>＝末根<strong>收盘&gt;MA短&gt;MA中&gt;MA长</strong>。选「且」时须<strong>同时满足</strong>。表中「策略强度」用于排序；「双均线·*」「三均线·*」为独立回测列。</p>
+                </div>
               </div>
-              <div>
-                <label for="qssBoardType">板块类型</label>
-                <select id="qssBoardType">
-                  <option value="all" selected>全部</option>
-                  <option value="concept">概念</option>
-                  <option value="industry">行业</option>
-                </select>
+              <details class="qss-help-details qss-screen-help" style="margin-top:0.55rem;">
+                <summary>候选表「初筛」列含义（与股票类型入池不同）</summary>
+                <p class="hot-fill-desc" style="margin-top:0.45rem;">
+                  <strong>初筛（是/否）</strong>：对每只股票在请求的起止日期内用<strong>前复权日线</strong>做技术面硬判断（代码
+                  <code>evaluate_screen</code>）。须<strong>同时</strong>满足：① 最新收盘 &gt; MA20 &gt; MA60；② 近 20 个交易日收益率为正；③ 距 60 日滚动最高价 ≤ 12%；④ 近 60 日最大回撤 ≤ 18%。数据不足 120 根有效 K 线的股票会跳过。未通过时综合分仍会算，但会乘以 0.75 降权。
+                </p>
+                <p class="hot-fill-desc" style="margin-top:0.35rem;">
+                  <strong>依据说明</strong>：未通过时，服务端会附带文字摘要（均线/新高距离/回撤/波动/量能等），在候选表中将鼠标悬停在<strong>「否」</strong>上可查看；通过时摘要为「趋势、量能和风险指标均达标」类表述。
+                </p>
+                <p class="hot-fill-desc" style="margin-top:0.35rem;">
+                  <strong>与上方「股票类型」的关系</strong>：股票类型 + 排除 ST 决定全市场列表的<strong>扫描范围与顺序</strong>；未启用策略时顺序取满 200 只进入分析。启用策略时在该范围内按「策略扫描上限」扫描后再截 200 只。初筛列仍由技术面硬条件决定，与入池方式无关。
+                </p>
+                <p class="hot-fill-desc" style="margin-top:0.35rem;">
+                  <strong>与「策略筛选」的关系</strong>：全市场且启用策略时，先在「策略扫描上限」内顺序拉日线，<strong>仅保留</strong>末根满足条件的标的，按<strong>策略强度</strong>取前 200 只再做初筛与默认回测，表按强度优先排序；未启用策略时仍为先取满 200 只再评。候选表「双均线·*」「三均线·*」为独立回测列。
+                </p>
+              </details>
+              <div id="qssSnapShowConfirmBar" class="qss-snap-confirm-bar" hidden>
+                <span>将从本机读取 <code>hot_market_snapshot.json</code> 并刷新下方「快照热门股 / 板块」表。确认后再加载。</span>
+                <span class="qss-snap-confirm-actions">
+                  <button type="button" id="qssBtnConfirmSnapShow" class="secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;">确认展示</button>
+                  <button type="button" id="qssBtnCancelSnapShow" class="secondary" style="font-size:0.78rem;padding:0.25rem 0.65rem;">取消</button>
+                </span>
               </div>
-              <div>
-                <label for="qssTopSectors">热门板块数</label>
-                <input type="number" id="qssTopSectors" value="5" min="1" max="60" title="仅热门模式有效" />
-              </div>
-              <div>
-                <label for="qssMaxPerSector">每板块最多分析只数</label>
-                <input type="number" id="qssMaxPerSector" value="8" min="1" max="100" />
-              </div>
-            </div>
-            <div id="qssHotChainRow" class="hot-tushare-row qss-subpanel" style="display:none;">
-              <p class="lead" style="margin:0 0 0.55rem;font-size:0.78rem;line-height:1.55;">
-                <strong>hot_chain</strong> 下板块表与 <code>/meta/hot-market-snapshot</code> 同源，读写 <code>data/hot_market_snapshot.json</code>。第 3 步可单独浏览/刷新；若勾选第二项，则仅在点击第 5 步「运行选股评估」时先重拉快照再跑完整流程。
-              </p>
-              <label style="display:block;margin:0.25rem 0;"><input type="checkbox" id="qssHotSnapPrefer" checked /> 优先读本机已保存快照（无文件再联网）</label>
-              <label style="display:block;margin:0.35rem 0 0;"><input type="checkbox" id="qssHotSnapRefresh" /> <strong>运行选股前</strong>强制重拉快照并覆盖文件（随后会跑完整选股，较慢）</label>
             </div>
             <div id="qssTushareRow" class="hot-tushare-row qss-subpanel" style="display:none;">
               <label for="qssTushareToken">TuShare Token（可与 ② 保存到本机）</label>
               <input type="password" id="qssTushareToken" placeholder="未填时试服务端环境变量" autocomplete="off" style="max-width:100%;" />
               <p class="lead" style="margin:0.5rem 0 0;font-size:0.75rem;">同花顺板块接口常需 <strong>高积分</strong>。无权限时改用 <strong>hot_chain / akshare / mootdx</strong>。说明：<a href="https://tushare.pro/document/1?doc_id=108" target="_blank" rel="noopener">tushare 权限</a>。</p>
             </div>
-            <div class="qss-subpanel" style="margin-top:0.85rem;">
-              <p class="lead" style="margin:0 0 0.55rem;font-size:0.78rem;line-height:1.55;color:var(--muted);">
-                <strong>热门 + 双均线合并</strong>：第 5 步在<strong>仅热门板块模式</strong>（第 1 步两格都空）时，默认只对各板块成分股拉 K 线并做双均线回测。勾选下方后，会<strong>再并入</strong> <code>hot_market_snapshot.json</code> 里的热门股（与板块池<strong>去重</strong>），再<strong>统一</strong>按第 4 步参数评估。
-              </p>
-              <label style="display:block;margin:0.25rem 0;cursor:pointer;user-select:none;font-size:0.84rem;">
-                <input type="checkbox" id="qssIncludeHotSnapshotStocks" />
-                运行选股评估时并入快照热门股（与板块成分合并后再跑双均线）
-              </label>
-              <div class="row" style="margin:0.55rem 0 0;flex-wrap:wrap;gap:0.35rem 0.75rem;align-items:center;">
-                <label for="qssHotSnapMergeCap" style="margin:0;font-size:0.8rem;">并入上限（按文件顺序、不含已在板块内的代码）</label>
-                <input type="number" id="qssHotSnapMergeCap" value="80" min="1" max="500" title="过大易超时" style="max-width:5rem;" />
-                <span style="font-size:0.72rem;color:var(--muted);">只。需本地已有快照（第 3 步「展示/刷新」或 hot_chain 落盘）。指定板块或自定义代码时此项由接口自动忽略。</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="hot-fill-section qss-section qss-section--snapshot">
-            <div class="qss-section-head">
-              <span class="qss-section-badge" aria-hidden="true">3</span>
-              <div class="hot-fill-section-title">热门市场快照（独立，可选）</div>
-            </div>
-            <p class="qss-section-lead">
-              只操作 <code>hot_market_snapshot.json</code>（全市场热门股 + 热门板块）。<strong>不读取</strong>下方 K 线日期与均线，<strong>不做</strong>回测。
-            </p>
-            <div id="qssHotStockBoardFilterHost" class="qss-hot-stock-board-filter-host" aria-label="快照热门股类型筛选"></div>
-            <details class="qss-help-details">
-              <summary>与「运行选股评估」的关系</summary>
-              <p class="hot-fill-desc">
-                点「展示本地快照」或「刷新热门快照」后，页面下方会展示「快照热门股」与「板块列表」。这与第 5 步选股是两条链路；若要在选股前强制更新快照文件，请用第 2 步里 hot_chain 的「运行选股前强制重拉快照」。
-              </p>
-            </details>
-            <div class="btns" style="margin-top:0;">
-              <button
-                type="button"
-                class="secondary"
-                id="btnQssLoadHotSnapshot"
-                title="GET /meta/hot-market-snapshot：只读已落盘快照"
-              >
-                展示本地快照
-              </button>
-              <button
-                type="button"
-                class="secondary"
-                id="btnQssRefreshHotSnapshot"
-                title="POST /meta/hot-market-snapshot/refresh：联网覆盖 hot_market_snapshot.json"
-              >
-                刷新热门快照（联网）
-              </button>
-            </div>
-          </div>
-
-          <div class="hot-fill-section qss-section">
-            <div class="qss-section-head">
-              <span class="qss-section-badge" aria-hidden="true">4</span>
-              <div class="hot-fill-section-title">历史 K 线 · 双均线 · 条数与策略</div>
-            </div>
-            <p class="qss-section-lead">供第 5 步「运行选股评估」使用：回测区间、均线参数、返回条数上限与评分版本。</p>
-            <div class="hot-form-grid">
-              <div>
-                <label for="qssStart">开始日期</label>
-                <input type="date" id="qssStart" />
-              </div>
-              <div>
-                <label for="qssEnd">结束日期</label>
-                <input type="date" id="qssEnd" />
-              </div>
-              <div>
-                <label for="qssFast">快均线</label>
-                <input type="number" id="qssFast" value="10" min="2" max="120" />
-              </div>
-              <div>
-                <label for="qssSlow">慢均线</label>
-                <input type="number" id="qssSlow" value="30" min="3" max="250" />
-              </div>
-              <div>
-                <label for="qssTopLimit">返回股票条数上限</label>
-                <input type="number" id="qssTopLimit" value="40" min="1" max="500" />
-              </div>
-              <div>
-                <label for="qssScoringStrategy">综合评分策略</label>
-                <select id="qssScoringStrategy">
-                  <option value="v2" selected>v2 新版（偏个股技术/回测）</option>
-                  <option value="v1">v1 旧版（板块权重更高）</option>
-                </select>
-              </div>
-            </div>
-            <div class="qss-callout" role="note" style="margin-top:0.75rem;">
-              <strong>结束日期</strong>是允许使用的<strong>日历最后一天</strong>，不保证该日已有一根<strong>完整日 K</strong>。盘中/刚收盘时，数据源里「最后一根」常仍是前一交易日，属更新节奏，不是断档错误。
-            </div>
-            <div class="hot-check-row" style="margin-top:0.9rem;">
-              <label><input type="checkbox" id="qssOnlyPassed" /> 仅返回技术面初筛通过的股票</label>
-            </div>
           </div>
 
           <footer class="hot-fill-actions qss-run-footer">
             <div class="qss-section-head">
-              <span class="qss-section-badge" aria-hidden="true">5</span>
+              <span class="qss-section-badge" aria-hidden="true">3</span>
               <div class="hot-fill-section-title">运行选股评估（日线 + 回测）</div>
             </div>
             <div class="btns">
@@ -1663,7 +1915,7 @@
             <details class="qss-help-details">
               <summary>接口说明与注意</summary>
               <p class="hot-fill-desc" style="margin:0;">
-                使用当前页<strong>全部参数</strong>请求 <code>POST /research/sector-screen</code>，耗时长、勿连续狂点。<strong>hot_chain</strong> 时若要在选股前重拉快照，请用第 2 步中「运行选股前强制重拉快照」。仅想更新 <code>hot_market_snapshot.json</code> 请用第 3 步。若 ② 开启「用⑨维护自选」，仅<strong>选股成功</strong>后写自选。
+                请求 <code>POST /research/sector-screen</code>，耗时长、勿连续狂点。默认 <strong>mootdx</strong> + <strong>全市场池</strong>：按<strong>股票类型多选</strong>与「排除 ST」过滤后，在通达信列表顺序下取满 200 只拉日线；若在<strong>策略筛选</strong>下拉中选择了条件，则仅对末根 K 线满足<strong>双均线金叉</strong>与/或<strong>三均线多头</strong>的标的做初筛与回测。返回表「最新价」「涨幅%」尽量用通达信/东财快照覆盖。仅想更新 <code>hot_market_snapshot.json</code> 请用「本地热门快照」选项。若 ② 开启「用⑨维护自选」，仅<strong>选股成功</strong>后写自选。
               </p>
             </details>
           </footer>
@@ -1694,6 +1946,10 @@
   var LS_DS = "quant_monitor_ingest_data_source";
   var LS_WL_PAGE_SIZE = "quant_monitor_watchlist_page_size";
   var LS_INGEST_PAGE_SIZE = "quant_monitor_ingest_page_size";
+  /** 上次成功拉取行情后的响应 JSON（恢复③表格与免责等） */
+  var LS_LAST_INGEST_BODY = "quant_monitor_last_ingest_result_v1";
+  var LS_LAST_INGEST_REQ = "quant_monitor_last_ingest_request_dates_v1";
+  var LS_LAST_INGEST_PAGE = "quant_monitor_last_ingest_result_page_v1";
   var SS_MOD = "quant_console_module";
   var WL_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
   var INGEST_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -1703,6 +1959,8 @@
   /** 自选批量删除：跨页保留勾选（Set 存 6 位代码）。 */
   var wlSelectedSyms = new Set();
   var lastIngestResultBody = null;
+  /** 最近一次点击「开始更新自选行情」时表单上的开始/结束（YYYY-MM-DD 或空），供结果区摘要展示。 */
+  var lastIngestRequestDates = { start: null, end: null };
   var ingestResultPage = 1;
 
   var modules = [
@@ -1713,7 +1971,7 @@
     { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
     { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" },
     { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" },
-    { id: "9", title: "⑨ 量化选股", hint: "先定范围与数据源，再点运行" }
+    { id: "9", title: "⑨ 量化选股", hint: "范围 · 数据源 · 运行" }
   ];
 
   function $(id) { return document.getElementById(id); }
@@ -1804,6 +2062,7 @@
     });
     sessionStorage.setItem(SS_MOD, id);
     updateRouteEchoSpans();
+    if (id === "3") tryRestoreLastIngestFromStorage();
   }
 
   function buildNav() {
@@ -1913,14 +2172,19 @@
   /** 板块列表「类型」筛选：all | concept | industry，新加载选股/快照时重置为 all */
   var _qssSectorBoardFilter = "all";
   /** 快照热门股「股票类型」多选：键 sh/sz/cyb/kcb/bj/st/other 为 true；空对象表示不筛选（全部） */
-  /** 快照热门股类型筛选默认：沪/深主板（与加载快照后默认一致）。 */
-  var _qssStockBoardFilters = { sh: true, sz: true };
+  var _qssStockBoardFilters = {};
   /** ⑨ 热门股 / 板块表折叠：true=已折叠（隐藏表体） */
   var _qssFoldStocks = false;
   var _qssFoldSectors = false;
   var QSS_PAGE_SIZE = 15;
   var _qssIsHotSnapshot = false;
+  /** 数据源里选了「展示本地快照」尚未点「确认展示」时为 true；与 _qssIsHotSnapshot 一起决定是否显示「股票类型」条。 */
+  var _qssPendingSnapShow = false;
   var _qssSnapMeta = null;
+  /** 数据源下拉里「本地热门快照」两项为瞬时动作，选完后恢复；选股请求用最近一次接口值。 */
+  var QSS_DS_SNAP_SHOW = "__qss_snap_show__";
+  var QSS_DS_SNAP_REFRESH = "__qss_snap_refresh__";
+  var _qssLastRealDataSource = "mootdx";
   /** 「前10成分」弹窗：按请求参数缓存接口 JSON（含 sessionStorage，刷新页面后同标签仍可用）；仅「刷新列表」强制重拉。 */
   var _qssSectorTopCache = Object.create(null);
   var QSS_SECTOR_TOP_CACHE_MAX = 36;
@@ -2065,25 +2329,77 @@
     );
   }
 
-  function initQssDates() {
-    var end = $("qssEnd");
-    var start = $("qssStart");
-    if (!end || !start) return;
-    /* 须用本机本地日，勿用 toISOString()（UTC），否则东八区凌晨「结束日」会错成前一天，行情只到 4/13 */
-    var t = localCalendarYmd(new Date());
-    end.max = t;
-    start.max = t;
-    if (!end.value) end.value = t;
-    if (!start.value) start.value = "2023-01-01";
+  function qssIsSnapActionVal(v) {
+    return v === QSS_DS_SNAP_SHOW || v === QSS_DS_SNAP_REFRESH;
+  }
+
+  function getQssEffectiveDataSource() {
+    var el = $("qssDataSource");
+    if (!el) return "mootdx";
+    var v = el.value;
+    if (qssIsSnapActionVal(v)) return _qssLastRealDataSource || "mootdx";
+    return v || "mootdx";
+  }
+
+  function qssRestoreDataSourceSelectToLastReal() {
+    var el = $("qssDataSource");
+    if (!el) return;
+    el.value = _qssLastRealDataSource || "mootdx";
+  }
+
+  function qssClearSnapShowPendingUi() {
+    _qssPendingSnapShow = false;
+    var bar = $("qssSnapShowConfirmBar");
+    if (bar) bar.hidden = true;
+    qssPaintHotStockBoardFilterHostOnly();
+  }
+
+  function qssRevealSnapShowConfirmBar() {
+    _qssPendingSnapShow = true;
+    var bar = $("qssSnapShowConfirmBar");
+    if (bar) bar.hidden = false;
+    qssPaintHotStockBoardFilterHostOnly();
+  }
+
+  async function qssRunLocalSnapShowConfirmed() {
+    var bar = $("qssSnapShowConfirmBar");
+    if (bar) bar.hidden = true;
+    var qssDs = $("qssDataSource");
+    if (qssDs) qssDs.disabled = true;
+    showOut("out-9", "正在读取本地快照…", true);
+    try {
+      var res = await fetch("/meta/hot-market-snapshot");
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-9", await formatError(res, body), true);
+        return;
+      }
+      renderQssHotMarketSnapshot(body);
+    } catch (e) {
+      showOut("out-9", String(e), true);
+    } finally {
+      _qssPendingSnapShow = false;
+      if (qssDs) qssDs.disabled = false;
+      qssRestoreDataSourceSelectToLastReal();
+      syncQssAuxRows();
+      qssPaintHotStockBoardFilterHostOnly();
+    }
+  }
+
+  /** ⑨ 选股请求内置默认 K 线窗口（与原先表单默认值一致；结束日为本地日历日）。 */
+  function qssBuiltinSectorScreenDateRange() {
+    return {
+      start_date: "20230101",
+      end_date: localCalendarYmd(new Date()).replace(/-/g, "")
+    };
   }
 
   function syncQssAuxRows() {
     var ds = $("qssDataSource");
     if (!ds) return;
+    var eff = getQssEffectiveDataSource();
     var trow = $("qssTushareRow");
-    var hrow = $("qssHotChainRow");
-    if (trow) trow.style.display = ds.value === "tushare" ? "block" : "none";
-    if (hrow) hrow.style.display = ds.value === "hot_chain" ? "block" : "none";
+    if (trow) trow.style.display = eff === "tushare" ? "block" : "none";
   }
 
   function parseQssSymbols(raw) {
@@ -2103,36 +2419,130 @@
     return out.length ? out : null;
   }
 
+  var QSS_UNIVERSE_SEG_ORDER = ["sh_sz_main", "cyb", "kcb", "bj"];
+
+  function qssUniverseSegShortLabel(seg) {
+    if (seg === "sh_sz_main") return "沪深主板";
+    if (seg === "cyb") return "创业板";
+    if (seg === "kcb") return "科创板";
+    if (seg === "bj") return "北交所";
+    return seg;
+  }
+
+  function getQssUniverseSegments() {
+    var host = $("qssUniverseDropdown");
+    if (!host) return ["sh_sz_main"];
+    var out = [];
+    for (var i = 0; i < QSS_UNIVERSE_SEG_ORDER.length; i++) {
+      var seg = QSS_UNIVERSE_SEG_ORDER[i];
+      var cb = host.querySelector('input[type="checkbox"][data-qss-seg="' + seg + '"]');
+      if (cb && cb.checked) out.push(seg);
+    }
+    return out.length ? out : ["sh_sz_main"];
+  }
+
+  function qssRefreshUniverseTriggerLabel() {
+    var span = $("qssUniverseTriggerText");
+    if (!span) return;
+    var segs = getQssUniverseSegments();
+    var parts = [];
+    for (var i = 0; i < segs.length; i++) parts.push(qssUniverseSegShortLabel(segs[i]));
+    span.textContent = parts.join("、");
+  }
+
+  function qssCloseUniverseDropdown() {
+    var dd = $("qssUniverseDropdown");
+    var tr = $("qssUniverseTrigger");
+    if (dd) dd.setAttribute("hidden", "");
+    if (tr) tr.setAttribute("aria-expanded", "false");
+  }
+
+  function qssBindUniverseSegmentDropdown() {
+    var dd = $("qssUniverseDropdown");
+    var tr = $("qssUniverseTrigger");
+    if (!dd || !tr) return;
+    qssRefreshUniverseTriggerLabel();
+    tr.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var ddEl = $("qssUniverseDropdown");
+      var trEl = $("qssUniverseTrigger");
+      if (!ddEl || !trEl) return;
+      if (ddEl.hasAttribute("hidden")) {
+        ddEl.removeAttribute("hidden");
+        trEl.setAttribute("aria-expanded", "true");
+      } else {
+        qssCloseUniverseDropdown();
+      }
+    });
+    dd.addEventListener("click", function (e) {
+      e.stopPropagation();
+    });
+    dd.addEventListener("change", function (e) {
+      var t = e.target;
+      if (!t || !t.getAttribute || !t.getAttribute("data-qss-seg")) return;
+      if (!dd.querySelector('input[type="checkbox"][data-qss-seg]:checked')) {
+        var main = dd.querySelector('input[type="checkbox"][data-qss-seg="sh_sz_main"]');
+        if (main) main.checked = true;
+      }
+      qssRefreshUniverseTriggerLabel();
+    });
+    document.addEventListener("click", function () {
+      qssCloseUniverseDropdown();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") qssCloseUniverseDropdown();
+    });
+  }
+
   function buildSectorScreenPayload() {
     var sector = ($("qssSector") && $("qssSector").value || "").trim();
     var syms = $("qssSymbols") ? parseQssSymbols($("qssSymbols").value) : null;
+    var dsEl = $("qssDataSource");
+    var dsRaw = dsEl ? dsEl.value : "mootdx";
+    if (dsRaw && !qssIsSnapActionVal(dsRaw)) {
+      _qssLastRealDataSource = dsRaw;
+    }
+    var dr = qssBuiltinSectorScreenDateRange();
+    var sf = $("qssStrategyFilter");
+    var sfv = sf && sf.value != null ? String(sf.value).trim() : "";
+    var showDualMaStrat = sfv === "dual" || sfv === "both";
+    var showTripleMaStrat = sfv === "triple" || sfv === "both";
     var body = {
-      data_source: $("qssDataSource").value,
-      board_type: $("qssBoardType").value,
-      top_sectors: parseInt($("qssTopSectors").value, 10) || 5,
-      max_stocks_per_sector: parseInt($("qssMaxPerSector").value, 10) || 8,
-      start_date: ($("qssStart").value || "").replace(/-/g, ""),
-      end_date: ($("qssEnd").value || "").replace(/-/g, ""),
-      fast_period: parseInt($("qssFast").value, 10) || 10,
-      slow_period: parseInt($("qssSlow").value, 10) || 30,
-      scoring_strategy: ($("qssScoringStrategy") && $("qssScoringStrategy").value) ? $("qssScoringStrategy").value : "v2",
-      only_passed: $("qssOnlyPassed").checked,
-      top_stocks_limit: parseInt($("qssTopLimit").value, 10) || 40
+      data_source: getQssEffectiveDataSource(),
+      pool_mode: "universe",
+      universe_max_stocks: 200,
+      board_type: "all",
+      top_sectors: 5,
+      max_stocks_per_sector: 8,
+      start_date: dr.start_date,
+      end_date: dr.end_date,
+      fast_period: 10,
+      slow_period: 30,
+      scoring_strategy: "v2",
+      only_passed: false,
+      top_stocks_limit: 200,
+      universe_segments: getQssUniverseSegments(),
+      universe_exclude_st: $("qssUniverseExcludeSt") ? !!$("qssUniverseExcludeSt").checked : true,
+      show_dual_ma_strategy: showDualMaStrat,
+      show_triple_ma_strategy: showTripleMaStrat
     };
+    if (showDualMaStrat || showTripleMaStrat) {
+      var capEl = $("qssUniverseScanCap");
+      var capRaw = capEl && capEl.value != null ? parseInt(String(capEl.value).trim(), 10) : NaN;
+      var capN = isFinite(capRaw) ? capRaw : 3000;
+      if (capN < 500) capN = 500;
+      if (capN > 8000) capN = 8000;
+      body.universe_scan_cap = capN;
+    }
     if (sector) body.sector = sector;
     if (syms) body.symbols = syms;
     if (body.data_source === "tushare") {
-      var tok = ($("qssTushareToken").value || "").trim();
+      var tok = ($("qssTushareToken") && $("qssTushareToken").value || "").trim();
       if (tok) body.tushare_token = tok;
     }
     if (body.data_source === "hot_chain") {
-      if ($("qssHotSnapPrefer")) body.hot_chain_prefer_snapshot = $("qssHotSnapPrefer").checked;
-      if ($("qssHotSnapRefresh")) body.hot_chain_refresh_snapshot = $("qssHotSnapRefresh").checked;
-    }
-    if (!sector && !syms && $("qssIncludeHotSnapshotStocks") && $("qssIncludeHotSnapshotStocks").checked) {
-      body.include_hot_snapshot_stocks = true;
-      var capEl = $("qssHotSnapMergeCap");
-      body.hot_snapshot_stocks_cap = capEl ? parseInt(capEl.value, 10) || 80 : 80;
+      body.hot_chain_prefer_snapshot = true;
+      body.hot_chain_refresh_snapshot = false;
     }
     return body;
   }
@@ -2269,8 +2679,11 @@
   function buildQssHtmlTable(rows, keys, headers, opts) {
     opts = opts || {};
     var cellHtmlFn = opts.cellHtml;
+    var headerTitles = opts.headerTitles || {};
     var th = keys.map(function (k) {
-      return "<th>" + escHtml(headers[k] || k) + "</th>";
+      var ht = headerTitles[k];
+      var titAttr = ht ? ' title="' + escHtml(ht) + '"' : "";
+      return "<th" + titAttr + ">" + escHtml(headers[k] || k) + "</th>";
     }).join("");
     var trs = rows.map(function (row) {
       return (
@@ -2369,7 +2782,7 @@
     );
   }
 
-  /** 快照热门股「股票类型」多选条（置于「热门市场快照」按钮上方，与表头解耦）。 */
+  /** 快照热门股「股票类型」多选条（置于第 2 步「本地热榜快照文件」内，与表头解耦）。 */
   function qssHotStockBoardFilterBarHtml() {
     function cbx(val, label) {
       var on = !!_qssStockBoardFilters[val];
@@ -2398,12 +2811,12 @@
     );
   }
 
-  /** 仅渲染第 3 步「股票类型」条（不依赖是否已加载快照）。 */
+  /** 原第 2 步「股票类型」筛选条已移除；快照热门股列表不再提供该条 UI。 */
   function qssPaintHotStockBoardFilterHostOnly() {
     var filterHost = $("qssHotStockBoardFilterHost");
     if (!filterHost) return;
-    filterHost.innerHTML = qssHotStockBoardFilterBarHtml();
-    filterHost.hidden = false;
+    filterHost.innerHTML = "";
+    filterHost.hidden = true;
   }
 
   /** 快照热门股：标题 + 折叠（类型筛选在 #qssHotStockBoardFilterHost）。 */
@@ -2592,11 +3005,27 @@
               qssBuildPagerHtml("stocks", _qssStockPage, QSS_PAGE_SIZE, st.length)
           );
       } else {
+        var sampleRow = stFull.length ? stFull[0] : null;
+        var qssShowMaDual =
+          data.show_dual_ma_strategy === true ||
+          (sampleRow && Object.prototype.hasOwnProperty.call(sampleRow, "dual_ma_annual_return_pct"));
+        var qssShowMaTriple =
+          data.show_triple_ma_strategy === true ||
+          (sampleRow && Object.prototype.hasOwnProperty.call(sampleRow, "triple_ma_annual_return_pct"));
+        var qssShowMaStrat = qssShowMaDual || qssShowMaTriple;
         var c2 = [
           "code",
           "name",
+          "latest_trade_date",
+          "latest_close",
+          "spot_change_pct",
           "sector_name",
-          "screen_passed",
+          "screen_passed"
+        ];
+        if (qssShowMaStrat) {
+          c2.push("strategy_pick_strength");
+        }
+        c2.push(
           "final_score",
           "screen_score",
           "annual_return_pct",
@@ -2604,11 +3033,32 @@
           "sharpe_ratio",
           "trade_count",
           "win_rate_pct"
-        ];
+        );
+        if (qssShowMaDual) {
+          c2.push(
+            "dual_ma_annual_return_pct",
+            "dual_ma_max_drawdown_pct",
+            "dual_ma_sharpe_ratio",
+            "dual_ma_trade_count",
+            "dual_ma_win_rate_pct"
+          );
+        }
+        if (qssShowMaTriple) {
+          c2.push(
+            "triple_ma_annual_return_pct",
+            "triple_ma_max_drawdown_pct",
+            "triple_ma_sharpe_ratio",
+            "triple_ma_trade_count",
+            "triple_ma_win_rate_pct"
+          );
+        }
         var h2 = {
           code: "代码",
           name: "名称",
-          sector_name: "板块",
+          latest_trade_date: "最近交易日",
+          latest_close: "最新价",
+          spot_change_pct: "涨幅%",
+          sector_name: "分组",
           screen_passed: "初筛",
           final_score: "综合分",
           screen_score: "技术分",
@@ -2618,6 +3068,49 @@
           trade_count: "交易次数",
           win_rate_pct: "胜率%"
         };
+        if (qssShowMaStrat) {
+          h2.strategy_pick_strength = "策略强度";
+        }
+        if (qssShowMaDual) {
+          h2.dual_ma_annual_return_pct = "双均线·年化%";
+          h2.dual_ma_max_drawdown_pct = "双均线·回撤%";
+          h2.dual_ma_sharpe_ratio = "双均线·夏普";
+          h2.dual_ma_trade_count = "双均线·次数";
+          h2.dual_ma_win_rate_pct = "双均线·胜率%";
+        }
+        if (qssShowMaTriple) {
+          h2.triple_ma_annual_return_pct = "三均线·年化%";
+          h2.triple_ma_max_drawdown_pct = "三均线·回撤%";
+          h2.triple_ma_sharpe_ratio = "三均线·夏普";
+          h2.triple_ma_trade_count = "三均线·次数";
+          h2.triple_ma_win_rate_pct = "三均线·胜率%";
+        }
+        var qssScreenPassedThTitle =
+          "初筛：须同时满足 收盘>MA20>MA60、近20日收益>0、距60日高≤12%、近60日回撤≤18%（区间内前复权日线，≥120根）。与「股票类型」入池无关。";
+        var headerTitlesMa = { screen_passed: qssScreenPassedThTitle };
+        if (qssShowMaStrat) {
+          headerTitlesMa.strategy_pick_strength =
+            "全市场且启用双/三均线策略时：末根满足条件者在扫描范围内的匹配强度，用于截前 200 只及本表排序；数值越大越贴近理想形态。";
+        }
+        headerTitlesMa.latest_close = "与日线末根可能不同：成功合并快照时用盘口/东财现价覆盖。";
+        headerTitlesMa.spot_change_pct =
+          "当日涨跌幅（%）：mootdx 为 (快照现价−昨收)/昨收；其他数据源为东财全 A 表「涨跌幅」。未合并快照时为空。";
+        if (qssShowMaDual) {
+          headerTitlesMa.dual_ma_annual_return_pct =
+            "纯快慢线：上一根非多头、本根金叉买入，死叉或止损卖出；周期同请求 fast/slow；不参与综合分。";
+          headerTitlesMa.dual_ma_max_drawdown_pct = "双均线策略权益曲线最大回撤（%）。";
+          headerTitlesMa.dual_ma_sharpe_ratio = "双均线策略日收益夏普（年化缩放）。";
+          headerTitlesMa.dual_ma_trade_count = "双均线策略完整买卖回合次数。";
+          headerTitlesMa.dual_ma_win_rate_pct = "双均线策略各笔交易收益率>0 的比例（%）。";
+        }
+        if (qssShowMaTriple) {
+          headerTitlesMa.triple_ma_annual_return_pct =
+            "三均线：收盘>MA短>MA中>MA长时买入，跌破慢线或序破坏或止损卖出；短/中/长由 fast、中点、slow 推导；不参与综合分。";
+          headerTitlesMa.triple_ma_max_drawdown_pct = "三均线策略权益曲线最大回撤（%）。";
+          headerTitlesMa.triple_ma_sharpe_ratio = "三均线策略日收益夏普（年化缩放）。";
+          headerTitlesMa.triple_ma_trade_count = "三均线策略完整买卖回合次数。";
+          headerTitlesMa.triple_ma_win_rate_pct = "三均线策略各笔交易收益率>0 的比例（%）。";
+        }
         var t0 = (_qssStockPage - 1) * QSS_PAGE_SIZE;
         var stSlice = st.slice(t0, t0 + QSS_PAGE_SIZE);
         stW.innerHTML =
@@ -2626,16 +3119,55 @@
             "stocks",
             _qssFoldStocks,
             buildQssHtmlTable(stSlice, c2, h2, {
+              headerTitles: headerTitlesMa,
               cellHtml: function (k, row) {
-                if (k !== "name") return null;
-                var nm = row.name != null ? String(row.name) : "";
-                var dt = row.latest_trade_date != null ? String(row.latest_trade_date).trim() : "";
-                var pc = row.latest_close;
-                var suffix = "";
-                if (dt && pc != null && pc !== "" && isFinite(Number(pc))) {
-                  suffix = " · 最近收盘 " + dt + " " + Number(pc).toFixed(2);
+                if (k === "name") {
+                  var nm = row.name != null ? String(row.name).trim() : "";
+                  return escHtml(nm || "—");
                 }
-                return escHtml(nm + suffix);
+                if (k === "latest_close") {
+                  var pc = row.latest_close;
+                  if (pc == null || pc === "" || !isFinite(Number(pc))) return escHtml("—");
+                  return escHtml(Number(pc).toFixed(2));
+                }
+                if (k === "spot_change_pct") {
+                  var sc = row.spot_change_pct;
+                  if (sc == null || sc === "" || !isFinite(Number(sc))) return escHtml("—");
+                  return escHtml(Number(sc).toFixed(2) + "%");
+                }
+                if (k === "latest_trade_date") {
+                  var dtx = row.latest_trade_date != null ? String(row.latest_trade_date).trim() : "";
+                  return escHtml(dtx || "—");
+                }
+                if (k === "screen_passed") {
+                  var ok = row.screen_passed === true || row.screen_passed === "true";
+                  var rs = row.reasons != null ? String(row.reasons).trim() : "";
+                  var tip = ok
+                    ? "初筛通过。依据说明：" + (rs || "—")
+                    : "初筛未通过。依据说明：" + (rs || "（无摘要）");
+                  var lab = ok ? "是" : "否";
+                  return (
+                    '<span class="qss-screen-pass-cell" style="cursor:help;border-bottom:1px dotted rgba(158,180,204,0.5);" title="' +
+                    escHtml(tip) +
+                    '">' +
+                    escHtml(lab) +
+                    "</span>"
+                  );
+                }
+                if (k === "strategy_pick_strength") {
+                  var stv = row.strategy_pick_strength;
+                  if (stv == null || stv === "" || !isFinite(Number(stv))) return escHtml("—");
+                  return escHtml(Number(stv).toFixed(4));
+                }
+                if (k.indexOf("dual_ma_") === 0 || k.indexOf("triple_ma_") === 0) {
+                  var mv = row[k];
+                  if (mv == null || mv === "") return escHtml("—");
+                  if (String(k).indexOf("trade_count") >= 0) return escHtml(String(Number(mv)));
+                  if (!isFinite(Number(mv))) return escHtml("—");
+                  if (String(k).indexOf("sharpe") >= 0) return escHtml(Number(mv).toFixed(3));
+                  return escHtml(Number(mv).toFixed(2));
+                }
+                return null;
               }
             }) + qssBuildPagerHtml("stocks", _qssStockPage, QSS_PAGE_SIZE, st.length)
           );
@@ -3056,11 +3588,12 @@
   function renderSectorScreenOut(data) {
     _qssIsHotSnapshot = false;
     _qssSnapMeta = null;
+    qssClearSnapShowPendingUi();
     _qssCached = data;
     _qssSectorPage = 1;
     _qssStockPage = 1;
     _qssSectorBoardFilter = "all";
-    _qssStockBoardFilters = { sh: true, sz: true };
+    _qssStockBoardFilters = {};
     _qssFoldStocks = false;
     _qssFoldSectors = false;
     qssPaintSectorScreenTables();
@@ -3071,7 +3604,7 @@
     if (!snap) {
       showOut(
         "out-9",
-        "未找到本地快照：尚未落盘或文件为空。请点上方「热门市场快照」里的「刷新热门快照（联网）」，或使用 /docs 里 POST /meta/hot-market-snapshot/refresh；也可运行⑨选股（数据源 hot_chain）并勾选「运行前强制重拉快照」。\n\n服务端路径：" +
+        "未找到本地快照：尚未落盘或文件为空。请在⑨第 2 步「数据源与本地快照」里点「刷新热门快照（联网）」，或使用 /docs 里 POST /meta/hot-market-snapshot/refresh。\n\n服务端路径：" +
           (fileOut && fileOut.path ? String(fileOut.path) : "（未知）"),
         true
       );
@@ -3081,7 +3614,6 @@
       if (sw) sw.style.display = "none";
       if (tw) tw.style.display = "none";
       if (nl) nl.hidden = true;
-      qssPaintHotStockBoardFilterHostOnly();
       var tbFail = $("qssSnapshotTimeBar");
       if (tbFail) {
         tbFail.innerHTML = "";
@@ -3090,6 +3622,7 @@
       _qssCached = null;
       _qssIsHotSnapshot = false;
       _qssSnapMeta = null;
+      qssClearSnapShowPendingUi();
       return;
     }
     showOut("out-9", "", false);
@@ -3115,8 +3648,7 @@
     _qssSectorPage = 1;
     _qssStockPage = 1;
     _qssSectorBoardFilter = "all";
-    /* 快照热门股默认只看沪、深主板（与服务端「主板热门前 N」口径一致；可取消勾选以看全部类型）。 */
-    _qssStockBoardFilters = { sh: true, sz: true };
+    _qssStockBoardFilters = {};
     _qssFoldStocks = false;
     _qssFoldSectors = false;
     qssPaintSectorScreenTables();
@@ -3896,10 +4428,69 @@
   if (btnHotFill) btnHotFill.addEventListener("click", runHotFill);
 
   var qssDs = $("qssDataSource");
-  if (qssDs)
+  if (qssDs) {
     qssDs.addEventListener("change", function () {
+      var v = qssDs.value;
+      if (v === QSS_DS_SNAP_SHOW) {
+        qssRestoreDataSourceSelectToLastReal();
+        qssRevealSnapShowConfirmBar();
+        syncQssAuxRows();
+        return;
+      }
+      if (v === QSS_DS_SNAP_REFRESH) {
+        qssClearSnapShowPendingUi();
+        if (!guardKey()) {
+          qssRestoreDataSourceSelectToLastReal();
+          return;
+        }
+        void (async function () {
+          var scrBtn = $("btnSectorScreen");
+          qssDs.disabled = true;
+          if (scrBtn) scrBtn.disabled = true;
+          showOut("out-9", "正在联网刷新热门快照（不写入选股回测）…", true);
+          try {
+            var res = await fetch("/meta/hot-market-snapshot/refresh", {
+              method: "POST",
+              headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+              body: JSON.stringify({})
+            });
+            var body = await readBody(res);
+            if (!res.ok) {
+              showOut("out-9", await formatError(res, body), true);
+              return;
+            }
+            showOut("out-9", "热门快照已保存：" + (body.saved_to || "") + "。下方为本次拉取结果。", true);
+            renderQssHotMarketSnapshot({ path: body.saved_to || "", snapshot: body.snapshot });
+          } catch (e) {
+            showOut("out-9", String(e), true);
+          } finally {
+            qssRestoreDataSourceSelectToLastReal();
+            qssDs.disabled = false;
+            if (scrBtn) scrBtn.disabled = false;
+            syncQssAuxRows();
+          }
+        })();
+        return;
+      }
+      qssClearSnapShowPendingUi();
+      _qssLastRealDataSource = v;
       syncQssAuxRows();
     });
+  }
+  qssBindUniverseSegmentDropdown();
+
+  var qssBtnConfirmSnapShow = $("qssBtnConfirmSnapShow");
+  if (qssBtnConfirmSnapShow) {
+    qssBtnConfirmSnapShow.addEventListener("click", function () {
+      void qssRunLocalSnapShowConfirmed();
+    });
+  }
+  var qssBtnCancelSnapShow = $("qssBtnCancelSnapShow");
+  if (qssBtnCancelSnapShow) {
+    qssBtnCancelSnapShow.addEventListener("click", function () {
+      qssClearSnapShowPendingUi();
+    });
+  }
 
   var btnSectorScreen = $("btnSectorScreen");
   if (btnSectorScreen) {
@@ -3918,10 +4509,7 @@
         showOut("out-9", "TuShare 需要 Token：请填写上方输入框，或在②保存 Token 到本机，或服务器配置 TUSHARE_TOKEN。", true);
         return;
       }
-      if (!payload.start_date || !payload.end_date) {
-        showOut("out-9", "请选择开始与结束日期。", true);
-        return;
-      }
+      qssClearSnapShowPendingUi();
       btn.disabled = true;
       showOut("out-9", "运行中（可能较慢，请稍候）…", true);
       $("qssSectorsWrap").style.display = "none";
@@ -3955,62 +4543,6 @@
         showOut("out-9", String(e), true);
       } finally {
         btn.disabled = false;
-      }
-    });
-  }
-
-  var btnQssLoadHotSnapshot = $("btnQssLoadHotSnapshot");
-  if (btnQssLoadHotSnapshot) {
-    btnQssLoadHotSnapshot.addEventListener("click", async function () {
-      var btn = $("btnQssLoadHotSnapshot");
-      btn.disabled = true;
-      showOut("out-9", "正在读取本地快照…", true);
-      try {
-        var res = await fetch("/meta/hot-market-snapshot");
-        var body = await readBody(res);
-        if (!res.ok) {
-          showOut("out-9", await formatError(res, body), true);
-          return;
-        }
-        renderQssHotMarketSnapshot(body);
-      } catch (e) {
-        showOut("out-9", String(e), true);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  }
-
-  var btnQssRefreshHotSnapshot = $("btnQssRefreshHotSnapshot");
-  if (btnQssRefreshHotSnapshot) {
-    btnQssRefreshHotSnapshot.addEventListener("click", async function () {
-      if (!guardKey()) return;
-      var btn = $("btnQssRefreshHotSnapshot");
-      var loadBtn = $("btnQssLoadHotSnapshot");
-      var scrBtn = $("btnSectorScreen");
-      btn.disabled = true;
-      if (loadBtn) loadBtn.disabled = true;
-      if (scrBtn) scrBtn.disabled = true;
-      showOut("out-9", "正在联网刷新热门快照（不写入选股回测）…", true);
-      try {
-        var res = await fetch("/meta/hot-market-snapshot/refresh", {
-          method: "POST",
-          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify({})
-        });
-        var body = await readBody(res);
-        if (!res.ok) {
-          showOut("out-9", await formatError(res, body), true);
-          return;
-        }
-        showOut("out-9", "热门快照已保存：" + (body.saved_to || "") + "。下方为本次拉取结果。", true);
-        renderQssHotMarketSnapshot({ path: body.saved_to || "", snapshot: body.snapshot });
-      } catch (e) {
-        showOut("out-9", String(e), true);
-      } finally {
-        btn.disabled = false;
-        if (loadBtn) loadBtn.disabled = false;
-        if (scrBtn) scrBtn.disabled = false;
       }
     });
   }
@@ -5783,12 +6315,12 @@
     if (!guardKey()) return;
     var btn = $("btnIngest");
     btn.disabled = true;
-    clearIngestResult();
     clearFundamentalsResult();
     showOut("out-3", "正在拉取，请稍候…", true);
     try {
       var startVal = $("ingestStartDate").value.trim();
       var endVal = $("ingestEndDate").value.trim();
+      lastIngestRequestDates = { start: startVal || null, end: endVal || null };
       var payload = { data_source: getIngestDataSource() };
       if (startVal) payload.start_date = startVal;
       if (endVal) payload.end_date = endVal;
@@ -5809,7 +6341,6 @@
         renderIngestResult(body);
       } else showOut("out-3", await formatError(res, body), true);
     } catch (e) {
-      clearIngestResult();
       showOut("out-3", String(e), true);
     } finally {
       btn.disabled = false;
@@ -6048,6 +6579,14 @@
     return out;
   }
 
+  /** 将 ingest 返回的 YYYYMMDD 或带横线日期格式化为 YYYY-MM-DD 便于阅读 */
+  function formatIngestApiYmd(s) {
+    if (s == null || s === "") return "—";
+    var t = String(s).replace(/\D/g, "");
+    if (t.length === 8) return t.slice(0, 4) + "-" + t.slice(4, 6) + "-" + t.slice(6, 8);
+    return String(s);
+  }
+
   /** ③ 拉取失败行折叠展示用，避免整段堆栈占满界面 */
   function ingestShortErr(msg) {
     var s = String(msg || "")
@@ -6070,6 +6609,61 @@
       qp.remove();
     }
     clearForecastValidateResult();
+  }
+
+  function persistLastIngestSnapshot() {
+    try {
+      if (!lastIngestResultBody || !Array.isArray(lastIngestResultBody.results)) return;
+      localStorage.setItem(LS_LAST_INGEST_BODY, JSON.stringify(lastIngestResultBody));
+      localStorage.setItem(LS_LAST_INGEST_REQ, JSON.stringify(lastIngestRequestDates || { start: null, end: null }));
+      localStorage.setItem(LS_LAST_INGEST_PAGE, String(ingestResultPage));
+    } catch (e) {
+      try {
+        console.warn("quant-monitor: 无法缓存上次拉取结果（可能超出浏览器配额）", e);
+      } catch (e2) {}
+    }
+  }
+
+  function persistLastIngestPageOnly() {
+    try {
+      if (!localStorage.getItem(LS_LAST_INGEST_BODY)) return;
+      localStorage.setItem(LS_LAST_INGEST_PAGE, String(ingestResultPage));
+    } catch (e) {}
+  }
+
+  function tryRestoreLastIngestFromStorage() {
+    if (lastIngestResultBody != null) return;
+    try {
+      var raw = localStorage.getItem(LS_LAST_INGEST_BODY);
+      if (!raw || !String(raw).trim()) return;
+      var body = JSON.parse(raw);
+      if (!body || typeof body !== "object" || !Array.isArray(body.results)) return;
+      var req = {};
+      var reqRaw = localStorage.getItem(LS_LAST_INGEST_REQ);
+      if (reqRaw && String(reqRaw).trim()) {
+        try {
+          req = JSON.parse(reqRaw);
+        } catch (eReq) {
+          req = {};
+        }
+      }
+      lastIngestRequestDates = {
+        start: req && req.start ? String(req.start) : null,
+        end: req && req.end ? String(req.end) : null,
+      };
+      if ($("ingestStartDate") && lastIngestRequestDates.start) $("ingestStartDate").value = lastIngestRequestDates.start;
+      if ($("ingestEndDate") && lastIngestRequestDates.end) $("ingestEndDate").value = lastIngestRequestDates.end;
+      var pageRaw = localStorage.getItem(LS_LAST_INGEST_PAGE);
+      var savedPage = parseInt(pageRaw || "1", 10);
+      if (!isFinite(savedPage) || savedPage < 1) savedPage = 1;
+      renderIngestResult(body, { fromStorage: true, savedPage: savedPage });
+    } catch (e) {
+      try {
+        localStorage.removeItem(LS_LAST_INGEST_BODY);
+        localStorage.removeItem(LS_LAST_INGEST_REQ);
+        localStorage.removeItem(LS_LAST_INGEST_PAGE);
+      } catch (e2) {}
+    }
   }
 
   function formatFixed(n, digits) {
@@ -6115,13 +6709,27 @@
         "</td></tr>"
       );
     }
+    var volStr =
+      r.last_volume != null && isFinite(Number(r.last_volume))
+        ? '<span class="ingest-last-vol" title="最新一根日线成交量（单位与数据源一致）">量 ' +
+          escapeHtml(
+            Number(r.last_volume).toLocaleString("zh-CN", {
+              maximumFractionDigits: 0,
+            })
+          ) +
+          "</span>"
+        : '<span class="ingest-last-vol">量 —</span>';
     var bt =
-      '<div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">' +
-      '<label style="display:inline-flex;align-items:center;gap:0.35rem;color:var(--muted);font-size:0.8rem;">H' +
-      '<input type="number" class="ingest-row-h" min="1" max="60" value="5" style="max-width:4.2rem;" /></label>' +
+      '<div class="ingest-action-cell">' +
+      '<label style="display:inline-flex;align-items:center;gap:0.3rem;color:var(--muted);font-size:0.78rem;margin:0;">H' +
+      '<input type="number" class="ingest-row-h" min="1" max="60" value="5" /></label>' +
       '<button type="button" class="primary btn-ingest-backtest" data-symbol="' +
       escapeHtml(symRaw) +
-      '">开始回测</button></div>';
+      '">开始回测</button>' +
+      volStr +
+      '<button type="button" class="btn-ingest-show-kline" data-symbol="' +
+      escapeHtml(symRaw) +
+      '" title="展开所选日期区间内的本地日线 OHLCV">K 线明细</button></div>';
     var lastTd =
       r.last_trade_date != null && String(r.last_trade_date).trim()
         ? escapeHtml(String(r.last_trade_date).trim())
@@ -6145,8 +6753,167 @@
       "</td></tr>" +
       '<tr class="ingest-detail-tr" data-detail-for="' +
       escapeHtml(symRaw) +
-      '" hidden><td colspan="6"><div class="ingest-detail-inner"></div></td></tr>'
+      '" hidden><td colspan="6"><div class="ingest-detail-inner"></div></td></tr>' +
+      '<tr class="ingest-kline-exp-tr" hidden data-kline-for="' +
+      escapeHtml(symRaw) +
+      '"><td colspan="6"><div class="ingest-kline-exp-inner" style="padding:0.35rem 0 0.5rem"></div></td></tr>'
     );
+  }
+
+  /** ingest 返回的 start/end 或表单值 → YYYY-MM-DD，用于 /quotes/{symbol}/bars */
+  function ingestFieldToIsoQuery(v) {
+    if (v == null || v === "") return null;
+    var t = String(v).replace(/\D/g, "");
+    if (t.length === 8) return t.slice(0, 4) + "-" + t.slice(4, 6) + "-" + t.slice(6, 8);
+    var u = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(u)) return u;
+    return null;
+  }
+
+  function ingestKlineBarRowHtml(b) {
+    var ch = b.change_pct;
+    var chStr =
+      ch == null || ch === "" || (typeof ch === "number" && !isFinite(Number(ch))) ? "—" : formatFixed(Number(ch), 2) + "%";
+    var cls = "num";
+    if (typeof ch === "number" && isFinite(ch)) {
+      cls += ch > 0.004 ? " trend-bull" : ch < -0.004 ? " trend-bear" : "";
+    }
+    return (
+      "<tr><td>" +
+      escapeHtml(String(b.trade_date || "")) +
+      "</td><td class=\"num\">" +
+      formatFixed(b.open, 2) +
+      "</td><td class=\"num\">" +
+      formatFixed(b.high, 2) +
+      "</td><td class=\"num\">" +
+      formatFixed(b.low, 2) +
+      "</td><td class=\"num\">" +
+      formatFixed(b.close, 2) +
+      "</td><td class=\"num\">" +
+      formatFixed(b.volume, 0) +
+      '</td><td class="' +
+      cls +
+      '">' +
+      escapeHtml(chStr) +
+      "</td></tr>"
+    );
+  }
+
+  function ingestBarsQueryForRow(r) {
+    var rq = lastIngestRequestDates || {};
+    var sym = String(r.symbol || "").replace(/\D/g, "").slice(0, 6);
+    var fromQ =
+      rq.start && String(rq.start).trim() ? String(rq.start).trim() : ingestFieldToIsoQuery(r.start);
+    var toQ = rq.end && String(rq.end).trim() ? String(rq.end).trim() : ingestFieldToIsoQuery(r.end);
+    var qs = [];
+    if (fromQ) qs.push("from_date=" + encodeURIComponent(fromQ));
+    if (toQ) qs.push("to_date=" + encodeURIComponent(toQ));
+    if (!qs.length) qs.push("limit=120");
+    return { sym: sym, fromQ: fromQ, toQ: toQ, qs: qs, url: "/quotes/" + encodeURIComponent(sym) + "/bars?" + qs.join("&") };
+  }
+
+  /**
+   * 拉取单标的在「表单 / ingest 返回 start·end」窗口内的本地 bars；生成底部汇总区用的 <details> 与行内展开用的纯块。
+   */
+  async function fetchIngestKlineRowBundle(r, openAttr) {
+    var q = ingestBarsQueryForRow(r);
+    var sym = q.sym;
+    var fromQ = q.fromQ;
+    var toQ = q.toQ;
+    var qs = q.qs;
+    var wn = r.watchlist_name && String(r.watchlist_name).trim() ? String(r.watchlist_name).trim() : "";
+    var sumHead = escapeHtml(sym + (wn ? " " + wn : ""));
+    var res = await fetch(q.url, { headers: authHeaders() });
+    var txt = await res.text();
+    var rows = null;
+    try {
+      rows = JSON.parse(txt);
+    } catch (eParse) {
+      rows = null;
+    }
+    var errBox = function (title, body) {
+      return {
+        sym: sym,
+        detailHtml:
+          '<details class="ingest-kline-detail" style="margin-top:0.45rem"><summary>' +
+          sumHead +
+          " " +
+          title +
+          "</summary>" +
+          body +
+          "</details>",
+        plainHtml: '<p class="cell-err" style="margin:0">' + sumHead + " " + title + "</p>" + body,
+      };
+    };
+    if (!res.ok) {
+      return errBox(
+        '<span class="pill err">加载失败</span> HTTP ' + res.status,
+        '<pre class="out" style="margin-top:0.35rem;border:none">' + escapeHtml(String(txt).slice(0, 800)) + "</pre>"
+      );
+    }
+    if (!Array.isArray(rows)) {
+      return errBox(
+        '<span class="pill err">返回格式异常</span>',
+        '<pre class="out" style="margin-top:0.35rem;border:none">' + escapeHtml(String(txt).slice(0, 800)) + "</pre>"
+      );
+    }
+    if (!rows.length) {
+      var emptyDetail =
+        '<details class="ingest-kline-detail" style="margin-top:0.45rem" open><summary>' +
+        sumHead +
+        " · <strong>0</strong> 根（窗口内暂无本地日线）</summary>" +
+        '<p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted)">请确认已成功入库且区间含交易日。</p></details>';
+      var emptyPlain =
+        '<p class="lead" style="margin:0;font-size:0.78rem;color:var(--muted)">' +
+        sumHead +
+        " · 窗口内暂无本地日线。</p>";
+      return { sym: sym, detailHtml: emptyDetail, plainHtml: emptyPlain };
+    }
+    var winLab;
+    if (fromQ || toQ) {
+      winLab = escapeHtml((fromQ || "…") + " ～ " + (toQ || "…"));
+    } else {
+      var limM = qs.length === 1 ? String(qs[0]).match(/limit=(\d+)/) : null;
+      winLab = escapeHtml("最近 " + (limM ? limM[1] : "120") + " 根（未指定日期区间）");
+    }
+    var tb =
+      '<div class="wl-table-scroll" style="margin-top:0.35rem"><table class="ingest-table ingest-kline-mini"><thead><tr><th>交易日</th><th>开盘</th><th>最高</th><th>最低</th><th>收盘</th><th>成交量</th><th>涨跌%</th></tr></thead><tbody>' +
+      rows.map(ingestKlineBarRowHtml).join("") +
+      "</tbody></table></div>";
+    var sumLine =
+      '<p class="lead" style="margin:0 0 0.35rem;font-size:0.8rem;color:var(--muted)">' +
+      sumHead +
+      " · " +
+      winLab +
+      " · 共 <strong>" +
+      rows.length +
+      "</strong> 根</p>";
+    var detailHtml =
+      '<details class="ingest-kline-detail" style="margin-top:0.45rem"' +
+      (openAttr || "") +
+      "><summary>" +
+      sumHead +
+      " · " +
+      winLab +
+      " · 共 <strong>" +
+      rows.length +
+      "</strong> 根</summary>" +
+      tb +
+      "</details>";
+    var plainHtml = sumLine + tb;
+    return { sym: sym, detailHtml: detailHtml, plainHtml: plainHtml };
+  }
+
+  function findIngestResultRowBySymbol(sym) {
+    var body = lastIngestResultBody;
+    if (!body || !Array.isArray(body.results)) return null;
+    for (var i = 0; i < body.results.length; i++) {
+      var s = String(body.results[i].symbol || "")
+        .replace(/\D/g, "")
+        .slice(0, 6);
+      if (s === sym && !body.results[i].error) return body.results[i];
+    }
+    return null;
   }
 
   function renderIngestTablePage() {
@@ -6188,9 +6955,11 @@
     if (next) next.disabled = ingestResultPage >= totalPages;
     var sel = $("ingestPageSize");
     if (sel && String(pageSize) !== sel.value) sel.value = String(pageSize);
+    persistLastIngestPageOnly();
   }
 
-  function renderIngestResult(body) {
+  function renderIngestResult(body, opts) {
+    opts = opts || {};
     clearIngestResult();
     $("out-3").hidden = true;
     if (!body || typeof body !== "object" || !Array.isArray(body.results)) {
@@ -6198,7 +6967,10 @@
       return;
     }
     lastIngestResultBody = body;
-    ingestResultPage = 1;
+    if (opts.fromStorage && opts.savedPage != null) {
+      var sp = parseInt(String(opts.savedPage), 10);
+      ingestResultPage = isFinite(sp) && sp >= 1 ? sp : 1;
+    } else ingestResultPage = 1;
     var batchDs = body.ingest_data_source != null ? escapeHtml(String(body.ingest_data_source)) : "—";
     var results = Array.isArray(body.results) ? body.results : [];
     var okN = results.filter(function (r) {
@@ -6226,8 +6998,52 @@
       "</strong> 只已成功入库（下表<strong>仅展示成功</strong>，可分页与回测）" +
       (errN > 0 ? "；<strong>" + errN + "</strong> 只未入库，不影响其余标的，简要原因见下方折叠区。" : "。") +
       "</p>";
+    var rq = lastIngestRequestDates || {};
+    var formRng =
+      rq.start || rq.end
+        ? "本次提交时表单日期：<strong>" +
+          escapeHtml(rq.start || "未填") +
+          "</strong> ～ <strong>" +
+          escapeHtml(rq.end || "未填") +
+          "</strong>。"
+        : "本次提交时表单日期：<strong>均未填</strong>（服务端按<strong>增量至今</strong>规则拉取；各标的实际联网窗口可能不同）。";
+    var okWithRange = results.filter(function (r) {
+      return !r.error && r.start != null && r.end != null;
+    });
+    var srvExtra = "";
+    if (okWithRange.length) {
+      var s0 = String(okWithRange[0].start);
+      var e0 = String(okWithRange[0].end);
+      var same = okWithRange.every(function (r) {
+        return String(r.start) === s0 && String(r.end) === e0;
+      });
+      var modeLab = {
+        explicit_range: "闭区间",
+        start_to_today: "自指定日起至今日",
+        incremental: "增量补数",
+      };
+      var m0 = okWithRange[0].mode != null ? String(okWithRange[0].mode) : "";
+      var mZh = modeLab[m0] ? modeLab[m0] : m0;
+      if (same) {
+        srvExtra =
+          " 成功入库记录本次联网窗口一致：<strong>" +
+          escapeHtml(formatIngestApiYmd(s0)) +
+          "</strong> ～ <strong>" +
+          escapeHtml(formatIngestApiYmd(e0)) +
+          "</strong>（" +
+          escapeHtml(mZh) +
+          "）。是否已含「当日」取决于公开源是否已公布该交易日日线。";
+      } else {
+        srvExtra =
+          " 成功记录中各标的 <code>start</code>/<code>end</code> 不完全相同（常见于增量），请展开「查看原始 JSON」逐条查看。";
+      }
+    }
     html +=
-      '<p class="lead" style="margin:0 0 0.5rem;font-size:0.8rem;color:var(--muted);">「强弱」基于拉取后<strong>本地已入库</strong>日线：约 5/20 交易日涨跌与收盘相对 MA20；仅供自览，非投资建议。支持分页；每一行可单独设置 <strong>H</strong>，改值后再次点<strong>开始回测</strong>会按新的 H 重新回测并刷新该行结果。</p>';
+      '<p class="lead" style="margin:0 0 0.65rem;font-size:0.82rem;line-height:1.55;color:var(--muted);">' +
+      formRng +
+      '<span style="color:var(--text)">' +
+      srvExtra +
+      "</span> 下一轮回可在<strong>「开始更新」按钮上方的日期框</strong>修改区间后再点「开始更新自选行情」；本地其它交易日 K 线仍保留。</p>";
     html +=
       '<div class="ingest-pager-bar">' +
       '<span id="ingest-pager-info"></span>' +
@@ -6282,6 +7098,7 @@
     $("ingest-result-wrap").innerHTML = html;
     $("ingest-result-wrap").hidden = false;
     renderIngestTablePage();
+    persistLastIngestSnapshot();
   }
 
   var ingestResultWrapEl = $("ingest-result-wrap");
@@ -6292,6 +7109,7 @@
         setIngestPageSize(t.value);
         ingestResultPage = 1;
         renderIngestTablePage();
+        return;
       }
     });
     ingestResultWrapEl.addEventListener("click", function (ev) {
@@ -6319,6 +7137,63 @@
         renderIngestTablePage();
         return;
       }
+      var kbtn = el.closest(".btn-ingest-show-kline");
+      if (kbtn) {
+        ev.preventDefault();
+        var ksym = (kbtn.getAttribute("data-symbol") || "").replace(/\D/g, "");
+        if (ksym.length !== 6) return;
+        var dataTrK = kbtn.closest("tr.ingest-data-tr");
+        if (!dataTrK || dataTrK.classList.contains("ingest-data-err")) return;
+        var detailTrK = dataTrK.nextElementSibling;
+        if (!detailTrK || !detailTrK.classList.contains("ingest-detail-tr")) return;
+        var klineTr = detailTrK.nextElementSibling;
+        if (!klineTr || !klineTr.classList.contains("ingest-kline-exp-tr")) return;
+        var innerK = klineTr.querySelector(".ingest-kline-exp-inner");
+        if (!innerK) return;
+        if (!klineTr.hidden && innerK.dataset.loaded === "1") {
+          klineTr.hidden = true;
+          return;
+        }
+        var tbK = dataTrK.parentElement;
+        if (tbK) {
+          var allDK = tbK.querySelectorAll(".ingest-detail-tr");
+          for (var dik = 0; dik < allDK.length; dik++) {
+            allDK[dik].hidden = true;
+            var oink = allDK[dik].querySelector(".ingest-detail-inner");
+            if (oink) oink.innerHTML = "";
+          }
+          var allKK = tbK.querySelectorAll(".ingest-kline-exp-tr");
+          for (var kkj = 0; kkj < allKK.length; kkj++) {
+            if (allKK[kkj] !== klineTr) {
+              allKK[kkj].hidden = true;
+              var okj = allKK[kkj].querySelector(".ingest-kline-exp-inner");
+              if (okj) {
+                okj.innerHTML = "";
+                delete okj.dataset.loaded;
+              }
+            }
+          }
+        }
+        klineTr.hidden = false;
+        if (innerK.dataset.loaded === "1") return;
+        innerK.innerHTML =
+          '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted)">正在加载所选区间 K 线…</p>';
+        var rowK = findIngestResultRowBySymbol(ksym);
+        if (!rowK) {
+          innerK.innerHTML = '<p class="cell-err" style="margin:0">未找到该标的的入库记录。</p>';
+          return;
+        }
+        void (async function () {
+          try {
+            var pack = await fetchIngestKlineRowBundle(rowK, "");
+            innerK.innerHTML = pack.plainHtml;
+            innerK.dataset.loaded = "1";
+          } catch (ek) {
+            innerK.innerHTML = '<p class="cell-err" style="margin:0">加载失败：' + escapeHtml(String(ek)) + "</p>";
+          }
+        })();
+        return;
+      }
       var btn = el.closest(".btn-ingest-backtest");
       if (!btn) return;
       ev.preventDefault();
@@ -6339,6 +7214,15 @@
           allD[di].hidden = true;
           var oin = allD[di].querySelector(".ingest-detail-inner");
           if (oin) oin.innerHTML = "";
+        }
+        var allKHide = tb.querySelectorAll(".ingest-kline-exp-tr");
+        for (var ki = 0; ki < allKHide.length; ki++) {
+          allKHide[ki].hidden = true;
+          var kin = allKHide[ki].querySelector(".ingest-kline-exp-inner");
+          if (kin) {
+            kin.innerHTML = "";
+            delete kin.dataset.loaded;
+          }
         }
       }
       void runForecastValidateForSymbol(sym, isFinite(hz) && hz >= 1 ? hz : 5, { innerEl: inner, rowEl: detailTr });
@@ -6375,7 +7259,6 @@
   if (nav9) {
     nav9.addEventListener("click", function () {
       setTimeout(function () {
-        initQssDates();
         syncQssAuxRows();
         qssPaintHotStockBoardFilterHostOnly();
         try {
@@ -6388,7 +7271,6 @@
 
   initHotTushareUi();
   initWatchlistQuantMode();
-  initQssDates();
   syncQssAuxRows();
   qssPaintHotStockBoardFilterHostOnly();
 })();

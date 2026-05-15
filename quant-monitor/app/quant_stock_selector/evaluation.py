@@ -6,7 +6,13 @@ import argparse
 
 import pandas as pd
 
-from .backtest import compose_final_score, run_sma_backtest
+from .backtest import (
+    compose_final_score,
+    run_pure_dual_ma_cross_backtest,
+    run_sma_backtest,
+    run_triple_ma_alignment_backtest,
+)
+from .exceptions import DataSourceError
 from .market_utils import standardize_price_frame
 from .models import SectorRecord, StockEvaluation
 from .screening import evaluate_screen
@@ -41,6 +47,65 @@ def evaluate_stock(
     if not screen.passed:
         final_score = round(final_score * 0.75, 2)
 
+    show_dual = bool(getattr(args, "show_dual_ma_strategy", False))
+    show_triple = bool(getattr(args, "show_triple_ma_strategy", False))
+    dual_kw: dict = {}
+    triple_kw: dict = {}
+    if show_dual:
+        try:
+            dm = run_pure_dual_ma_cross_backtest(
+                std_hist,
+                fast_period=args.fast_period,
+                slow_period=args.slow_period,
+                initial_cash=args.initial_cash,
+                commission=args.commission,
+                stop_loss=args.stop_loss,
+            )
+            dual_kw = {
+                "dual_ma_total_return_pct": dm.total_return_pct,
+                "dual_ma_annual_return_pct": dm.annual_return_pct,
+                "dual_ma_max_drawdown_pct": dm.max_drawdown_pct,
+                "dual_ma_sharpe_ratio": dm.sharpe_ratio,
+                "dual_ma_trade_count": dm.trade_count,
+                "dual_ma_win_rate_pct": dm.win_rate_pct,
+            }
+        except DataSourceError:
+            dual_kw = {
+                "dual_ma_total_return_pct": None,
+                "dual_ma_annual_return_pct": None,
+                "dual_ma_max_drawdown_pct": None,
+                "dual_ma_sharpe_ratio": None,
+                "dual_ma_trade_count": None,
+                "dual_ma_win_rate_pct": None,
+            }
+    if show_triple:
+        try:
+            tm = run_triple_ma_alignment_backtest(
+                std_hist,
+                fast_period=args.fast_period,
+                slow_period=args.slow_period,
+                initial_cash=args.initial_cash,
+                commission=args.commission,
+                stop_loss=args.stop_loss,
+            )
+            triple_kw = {
+                "triple_ma_total_return_pct": tm.total_return_pct,
+                "triple_ma_annual_return_pct": tm.annual_return_pct,
+                "triple_ma_max_drawdown_pct": tm.max_drawdown_pct,
+                "triple_ma_sharpe_ratio": tm.sharpe_ratio,
+                "triple_ma_trade_count": tm.trade_count,
+                "triple_ma_win_rate_pct": tm.win_rate_pct,
+            }
+        except DataSourceError:
+            triple_kw = {
+                "triple_ma_total_return_pct": None,
+                "triple_ma_annual_return_pct": None,
+                "triple_ma_max_drawdown_pct": None,
+                "triple_ma_sharpe_ratio": None,
+                "triple_ma_trade_count": None,
+                "triple_ma_win_rate_pct": None,
+            }
+
     return StockEvaluation(
         sector_name=sector.sector_name,
         board_type=sector.board_type,
@@ -66,4 +131,6 @@ def evaluate_stock(
         win_rate_pct=backtest.win_rate_pct,
         final_score=final_score,
         reasons=screen.reasons,
+        **dual_kw,
+        **triple_kw,
     )

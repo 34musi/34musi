@@ -23,6 +23,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from app.config import get_settings
 from app.db import FundamentalSnapshotRow, session_scope
 from app.ingest import normalize_symbol
+from app.quant_stock_selector.market_utils import normalize_code as _norm_stock_code6
 from app.schemas import FundamentalPanel, SignalReason
 
 logger = logging.getLogger(__name__)
@@ -54,12 +55,15 @@ def em_fund_flow_market(sym: str) -> str:
     return "sz"
 
 
-def _get_spot_em_df() -> pd.DataFrame | None:
+def _get_spot_em_df(*, force_refresh: bool = False) -> pd.DataFrame | None:
+    """
+    东财全 A 列表快照。默认 TTL 内存缓存；force_refresh=True 时跳过 TTL，尽量拉取新表（失败则仍回退到旧缓存）。
+    """
     global _spot_mono_ts, _spot_df
     ttl = max(10.0, float(get_settings().fundamentals_spot_cache_ttl_sec))
     now = time.monotonic()
     with _spot_lock:
-        if _spot_df is not None and (now - _spot_mono_ts) < ttl:
+        if _spot_df is not None and not force_refresh and (now - _spot_mono_ts) < ttl:
             return _spot_df
     try:
         df = ak.stock_zh_a_spot_em()
@@ -129,7 +133,7 @@ def _fetch_valuation_from_value_em(sym: str) -> tuple[float | None, float | None
 
 
 def fetch_valuation_from_spot(sym: str) -> tuple[float | None, float | None]:
-    df = _get_spot_em_df()
+    df = _get_spot_em_df(force_refresh=False)
     row = _spot_row_for_symbol(sym, df) if df is not None else None
     pe, pb = (None, None) if row is None else _read_pe_pb_from_spot_row(row)
     if pe is None or pb is None:
@@ -201,27 +205,78 @@ def fetch_financial_em_main(sym: str) -> dict[str, Any]:
     return out
 
 
-def spot_liquidity_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
+def _spot_snapshot_price_from_row(row: pd.Series) -> float | None:
+    """东财 spot 行取现价：列名随 AkShare/东财改版可能变化。"""
+    for key in ("最新价", "现价", "收盘", "成交价", "price", "close", "最新"):
+        v = _fin_float(row, key)
+        if v is not None and math.isfinite(v) and v > 0:
+            return v
+    return None
+
+
+def _spot_quote_calendar_date_str(row: pd.Series) -> str | None:
+    """若列表含日期/时间列，规范为 YYYY-MM-DD，供与日线末根区分。"""
+    for key in ("数据日期", "日期", "更新时间", "时间"):
+        if key not in row.index:
+            continue
+        raw = row[key]
+        if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+            continue
+        try:
+            if hasattr(raw, "strftime"):
+                return raw.strftime("%Y-%m-%d")[:10]
+            s = str(raw).strip()
+            if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+                return s[:10]
+            if len(s) >= 8 and s[:8].isdigit():
+                return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+        except (ValueError, TypeError, OSError):
+            continue
+    return None
+
+
+def spot_liquidity_fields_for_codes(
+    codes: list[str],
+    *,
+    force_refresh: bool = False,
+) -> dict[str, dict[str, Any]]:
     """
     东财沪深京 A 股列表快照（`stock_zh_a_spot_em`）：现价、昨收、成交量、成交额。
-    与 `fetch_valuation_from_spot` 共用 TTL 内存缓存，一次请求可批量匹配多只股票。
+    与 `fetch_valuation_from_spot` 共用内存缓存；force_refresh=True 时跳过 TTL 尽量拉新表（选股结果合并最新价用）。
     """
-    uniq = [c for c in dict.fromkeys(codes) if c]
+    uniq: list[str] = []
+    seen: set[str] = set()
+    for c in codes:
+        if c is None:
+            continue
+        nc = _norm_stock_code6(c)
+        if len(nc) != 6 or nc in seen:
+            continue
+        seen.add(nc)
+        uniq.append(nc)
     out: dict[str, dict[str, Any]] = {c: {} for c in uniq}
     if not uniq:
         return out
-    df = _get_spot_em_df()
+    df = _get_spot_em_df(force_refresh=force_refresh)
     if df is None or df.empty:
         return out
     for sym in uniq:
         row = _spot_row_for_symbol(sym, df)
         if row is None:
             continue
+        px = _spot_snapshot_price_from_row(row)
+        chg = _fin_float(row, "涨跌幅")
+        if chg is not None and math.isfinite(chg):
+            chg = round(float(chg), 2)
+        else:
+            chg = None
         out[sym] = {
-            "spot_last_price": _fin_float(row, "最新价"),
+            "spot_last_price": px,
             "spot_prev_close": _fin_float(row, "昨收"),
+            "spot_change_pct": chg,
             "spot_volume": _fin_float(row, "成交量"),
             "spot_amount": _fin_float(row, "成交额"),
+            "spot_quote_date": _spot_quote_calendar_date_str(row),
         }
     return out
 

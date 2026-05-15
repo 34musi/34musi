@@ -3,17 +3,41 @@
 from __future__ import annotations
 
 import argparse
+import re
 from dataclasses import asdict
 from typing import Dict, List, Sequence
 
 import pandas as pd
 
 from .datasources import BaseAShareDataSource
+from .exceptions import DataSourceError
+from .hot_pick import is_st_stock_name
 from .market_utils import is_listed_a_share_equity, normalize_code, read_codes_file, safe_float
 from .models import SectorRecord
 
 # 与 POST /research/sector-screen 的 include_hot_snapshot_stocks 配套：虚拟板块名，避免与真实板块重名。
 HOT_SNAPSHOT_SECTOR_NAME = "热门快照·全市场热门股"
+# pool_mode=universe：单池虚拟板块名，与 get_stock_universe 截取的成分表 sector_name 一致。
+UNIVERSE_POOL_SECTOR_NAME = "全市场股票池"
+
+
+def _code_universe_tags(code: object) -> set[str]:
+    """代码所属板块标签（可多标签，用于与 universe_segments 求交）。"""
+    c = normalize_code(str(code))
+    out: set[str] = set()
+    if len(c) != 6:
+        return out
+    if re.match(r"^00[0-3]\d{3}$", c):
+        out.add("sh_sz_main")
+    if c.startswith("60") and not c.startswith("688") and not c.startswith("689"):
+        out.add("sh_sz_main")
+    if re.match(r"^30[01]\d{3}$", c):
+        out.add("cyb")
+    if c.startswith("688") or c.startswith("689"):
+        out.add("kcb")
+    if re.match(r"^(43|83|87|88|92)\d{4}$", c):
+        out.add("bj")
+    return out
 
 
 def build_sector_records(frame: pd.DataFrame) -> List[SectorRecord]:
@@ -69,6 +93,20 @@ def select_target_sectors(datasource: BaseAShareDataSource, args: argparse.Names
                 turnover_rate=0.0,
                 hot_score=60.0,
                 source=args.data_source,
+            )
+        ]
+
+    if getattr(args, "flat_universe", False):
+        return [
+            SectorRecord(
+                sector_name=UNIVERSE_POOL_SECTOR_NAME,
+                board_type="all",
+                change_pct=0.0,
+                advancers_ratio=0.0,
+                leader_change_pct=0.0,
+                turnover_rate=0.0,
+                hot_score=50.0,
+                source="universe",
             )
         ]
 
@@ -161,6 +199,54 @@ def load_sector_constituents(
     if args.codes:
         codes = read_codes_file(args.codes)
         sector_map["自定义股票池"] = codes.assign(sector_name="自定义股票池", board_type="custom")
+        return sector_map
+
+    if getattr(args, "flat_universe", False):
+        top_target = max(1, min(500, int(getattr(args, "flat_universe_top", 200) or 200)))
+        scan_raw = int(getattr(args, "flat_universe_scan", 0) or 0)
+        if scan_raw > top_target:
+            n = max(top_target, min(8000, scan_raw))
+        else:
+            n = top_target
+        try:
+            uni = datasource.get_stock_universe()
+        except Exception as exc:
+            raise DataSourceError(f"获取全市场股票池失败: {exc}") from exc
+        if uni is None or uni.empty:
+            raise DataSourceError("全市场股票池为空，无法选股")
+        work = uni[["code", "name"]].copy()
+        work["code"] = work["code"].map(lambda x: normalize_code(str(x)))
+        work = work[work["code"].astype(str).str.len() == 6]
+        work = work[work["code"].map(is_listed_a_share_equity)]
+        work = work.drop_duplicates(subset=["code"], keep="first")
+        seg_list = getattr(args, "universe_segments", None) or ["sh_sz_main"]
+        include = set(str(s).strip() for s in seg_list if str(s).strip())
+        if not include:
+            include = {"sh_sz_main", "cyb", "kcb", "bj"}
+        exclude_st = bool(getattr(args, "universe_exclude_st", True))
+        picked: list[dict[str, str]] = []
+        for row in work.itertuples(index=False):
+            c = normalize_code(str(getattr(row, "code", "") or ""))
+            nm_raw = getattr(row, "name", "") or ""
+            name = str(nm_raw).strip()
+            if name.lower() == "nan":
+                name = ""
+            if len(c) != 6 or not is_listed_a_share_equity(c):
+                continue
+            if exclude_st and is_st_stock_name(name):
+                continue
+            tags = _code_universe_tags(c)
+            if not (tags & include):
+                continue
+            picked.append({"code": c, "name": name})
+            if len(picked) >= n:
+                break
+        if not picked:
+            raise DataSourceError(
+                "全市场股票池在当前「股票类型 / 排除 ST」条件下为空，请放宽多选或取消排除 ST。"
+            )
+        sn = UNIVERSE_POOL_SECTOR_NAME
+        sector_map[sn] = pd.DataFrame(picked).assign(sector_name=sn, board_type="all")
         return sector_map
 
     seen_codes: set[str] = set()
