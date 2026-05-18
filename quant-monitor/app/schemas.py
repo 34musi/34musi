@@ -437,9 +437,19 @@ class SectorScreenIn(BaseModel):
     stop_loss: float = Field(0.08, gt=0, le=0.5)
     scoring_strategy: Literal["v2", "v1"] = Field(
         "v2",
-        description="综合评分策略：v2（新版，偏个股技术面/回测）/ v1（旧版，板块热度权重更高）",
+        description="综合评分策略：v2（短线模式下自动用 v2_short 权重）/ v1（旧版，板块热度权重更高）",
     )
-    only_passed: bool = Field(False, description="为 true 时仅保留技术面初筛通过的股票")
+    screen_mode: Literal["short_term", "legacy"] = Field(
+        "short_term",
+        description=(
+            "技术面初筛模式。short_term=短线强化（MA5/10、5日涨跌、MA20斜率、末根量比、贴近新高、"
+            "回撤与波动过滤；≥60 根日线）；legacy=原规则（≥120 根，收盘>MA20>MA60 等）"
+        ),
+    )
+    only_passed: bool = Field(
+        False,
+        description="为 true 时仅保留初筛通过的股票（short_term 模式下为短线初筛通过）",
+    )
     top_stocks_limit: int = Field(40, ge=1, le=500, description="响应中最多返回多少条股票结果")
     show_dual_ma_strategy: bool = Field(
         False,
@@ -454,6 +464,32 @@ class SectorScreenIn(BaseModel):
             "为 true 时：① 仅保留末根 K 线满足收盘>MA短>MA中>MA长（三均线多头）的标的；② 仍计算并返回 triple_ma_* 对照列。"
             "两项均勾选时为同时满足（且）。"
         ),
+    )
+    show_ma5_stand_strategy: bool = Field(
+        False,
+        description=(
+            "为 true 时：① 仅保留末根收盘>=MA5 的标的；② 返回 ma5_stand_count（最近 ma5_stand_lookback 根内站上五日线次数），"
+            "用于评估后续上涨强度。"
+        ),
+    )
+    ma5_stand_lookback: int = Field(
+        60,
+        ge=10,
+        le=250,
+        description="show_ma5_stand_strategy 时：统计最近多少根 K 线内收盘>=MA5 的次数",
+    )
+    show_ma5_stand_3d_strategy: bool = Field(
+        False,
+        description=(
+            "为 true 时：仅保留末根起连续至少 ma5_stand_3d_min_days 个交易日"
+            "「收盘>=MA5 且收盘>=前一交易日收盘」的标的；返回 ma5_consecutive_stand_days。"
+        ),
+    )
+    ma5_stand_3d_min_days: int = Field(
+        3,
+        ge=2,
+        le=10,
+        description="连续站上五日线且不跌的最少交易日数，默认 3",
     )
 
     @field_validator("start_date", "end_date", mode="before")
@@ -520,6 +556,22 @@ class SectorScreenOut(BaseModel):
     show_triple_ma_strategy: bool = Field(
         False,
         description="与请求一致：为 true 时已按末根三均线多头筛选并返回 triple_ma_*",
+    )
+    show_ma5_stand_strategy: bool = Field(
+        False,
+        description="与请求一致：为 true 时已按末根站上 MA5 筛选并返回 ma5_stand_count",
+    )
+    ma5_stand_lookback: int = Field(
+        60,
+        description="与请求一致：ma5_stand_count 的统计窗口（根 K 线）",
+    )
+    show_ma5_stand_3d_strategy: bool = Field(
+        False,
+        description="与请求一致：为 true 时已按连续站上 MA5 且不跌筛选",
+    )
+    ma5_stand_3d_min_days: int = Field(
+        3,
+        description="与请求一致：连续天数下限",
     )
 
 
@@ -719,6 +771,45 @@ class JournalOut(BaseModel):
     planned_position_pct: float | None = None
     executed_as_planned: bool | None = None
     actual_action: str | None = None
+
+
+class ForwardOutlookSyncIn(BaseModel):
+    """POST /forward-outlook/sync：③ 后手动触发或补同步。"""
+
+    symbols: list[str] | None = Field(
+        None,
+        description="6 位代码列表；省略则对当前自选全部成功标的同步",
+    )
+    horizon: int = Field(3, ge=1, le=60, description="展望的未来交易日跨度 H")
+
+
+class ForwardOutlookSyncOut(BaseModel):
+    synced: int
+    failed_symbols: list[str]
+    extra_settled: int
+    horizon: int
+
+
+class ForwardOutlookOut(BaseModel):
+    """单条自动前向展望（⑦ 展示）。"""
+
+    id: int
+    symbol: str
+    stock_name: str | None = None
+    horizon: int
+    signal_trade_date: str
+    signal_close: float | None = None
+    bars_count: int | None = None
+    data_quality: dict[str, Any] | None = None
+    data_quality_ok: bool | None = None
+    predicted_up: bool | None = None
+    outlook_summary_zh: str | None = None
+    status: str
+    actual_return_pct: float | None = None
+    actual_up: bool | None = None
+    settled_at: str | None = None
+    created_at: str
+    updated_at: str
 
 
 class SelfUseMetaOut(BaseModel):

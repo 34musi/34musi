@@ -8,6 +8,8 @@ import pandas as pd
 
 from .backtest import (
     compose_final_score,
+    consecutive_ma5_stand_no_drop_streak,
+    count_stand_on_ma5_bars,
     run_pure_dual_ma_cross_backtest,
     run_sma_backtest,
     run_triple_ma_alignment_backtest,
@@ -28,7 +30,8 @@ def evaluate_stock(
     std_hist = standardize_price_frame(history)
     last_ts = std_hist["date"].iloc[-1]
     latest_trade_date = pd.Timestamp(last_ts).strftime("%Y-%m-%d")
-    screen = evaluate_screen(std_hist)
+    screen_mode = str(getattr(args, "screen_mode", "short_term") or "short_term").strip().lower()
+    screen = evaluate_screen(std_hist, mode=screen_mode)
     backtest = run_sma_backtest(
         std_hist,
         fast_period=args.fast_period,
@@ -38,17 +41,32 @@ def evaluate_stock(
         stop_loss=args.stop_loss,
     )
     scoring_strategy = getattr(args, "scoring_strategy", None)
+    strat = str(scoring_strategy or "v2").strip().lower()
+    if screen_mode == "short_term" and strat == "v2":
+        strat = "v2_short"
+    screen_for_score = (
+        screen.short_term_score if screen_mode == "short_term" else screen.screen_score
+    )
     final_score = compose_final_score(
         sector.hot_score,
-        screen.screen_score,
+        screen_for_score,
         backtest.backtest_score,
-        scoring_strategy=str(scoring_strategy or "v2"),
+        scoring_strategy=strat,
     )
     if not screen.passed:
         final_score = round(final_score * 0.75, 2)
 
     show_dual = bool(getattr(args, "show_dual_ma_strategy", False))
     show_triple = bool(getattr(args, "show_triple_ma_strategy", False))
+    show_ma5 = bool(getattr(args, "show_ma5_stand_strategy", False))
+    show_ma5_3d = bool(getattr(args, "show_ma5_stand_3d_strategy", False))
+    ma5_stand_count: int | None = None
+    ma5_consecutive_stand_days: int | None = None
+    if show_ma5:
+        lb = max(10, min(250, int(getattr(args, "ma5_stand_lookback", 60) or 60)))
+        ma5_stand_count = count_stand_on_ma5_bars(std_hist, ma_period=5, lookback=lb)
+    if show_ma5_3d:
+        ma5_consecutive_stand_days = consecutive_ma5_stand_no_drop_streak(std_hist)
     dual_kw: dict = {}
     triple_kw: dict = {}
     if show_dual:
@@ -123,6 +141,15 @@ def evaluate_stock(
         volume_ratio_20_60=screen.volume_ratio_20_60,
         drawdown_60d=screen.drawdown_60d,
         annual_volatility_20d=screen.annual_volatility_20d,
+        return_5d=screen.return_5d,
+        return_20d=screen.return_20d,
+        ma5=screen.ma5,
+        ma10=screen.ma10,
+        ma20_slope_pct=screen.ma20_slope_pct,
+        vol_ratio_last_day=screen.vol_ratio_last_day,
+        short_term_passed=screen.short_term_passed,
+        short_term_score=screen.short_term_score,
+        screen_mode=screen.screen_mode,
         total_return_pct=backtest.total_return_pct,
         annual_return_pct=backtest.annual_return_pct,
         max_drawdown_pct=backtest.max_drawdown_pct,
@@ -131,6 +158,8 @@ def evaluate_stock(
         win_rate_pct=backtest.win_rate_pct,
         final_score=final_score,
         reasons=screen.reasons,
+        ma5_stand_count=ma5_stand_count,
+        ma5_consecutive_stand_days=ma5_consecutive_stand_days,
         **dual_kw,
         **triple_kw,
     )

@@ -34,6 +34,14 @@ class ScreenMetrics:
     drawdown_60d: float
     annual_volatility_20d: float
     reasons: str
+    return_5d: float = 0.0
+    ma5: float = 0.0
+    ma10: float = 0.0
+    ma20_slope_pct: float = 0.0
+    vol_ratio_last_day: float = 0.0
+    short_term_passed: bool = False
+    short_term_score: float = 0.0
+    screen_mode: str = "short_term"
 
 
 @dataclass
@@ -75,6 +83,15 @@ class StockEvaluation:
     win_rate_pct: float
     final_score: float
     reasons: str
+    return_5d: float = 0.0
+    return_20d: float = 0.0
+    ma5: float = 0.0
+    ma10: float = 0.0
+    ma20_slope_pct: float = 0.0
+    vol_ratio_last_day: float = 0.0
+    short_term_passed: bool = False
+    short_term_score: float = 0.0
+    screen_mode: str = "short_term"
     # 以下仅当请求体开启对应开关时由服务端填入；默认 None，JSON 中可省略
     dual_ma_total_return_pct: float | None = None
     dual_ma_annual_return_pct: float | None = None
@@ -92,3 +109,7 @@ class StockEvaluation:
     spot_change_pct: float | None = None
     # 全市场+策略筛选时：末根均线复合强度，用于排序（无量纲混合，仅相对比较）
     strategy_pick_strength: float | None = None
+    # 启用「站在五日线」策略时：最近 N 根 K 线内收盘>=MA5 的次数（N 见请求 ma5_stand_lookback）
+    ma5_stand_count: int | None = None
+    # 启用「连续站上五日线且不跌」策略时：末根起连续满足天数
+    ma5_consecutive_stand_days: int | None = None

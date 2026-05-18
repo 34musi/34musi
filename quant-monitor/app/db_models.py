@@ -85,6 +85,30 @@ class FundamentalSnapshotRow(Base):
     ocf_per_share: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class ForwardOutlookRow(Base):
+    """③ 更新后自动登记的前向展望：数据质量 + 未来 H 日方向演示，到期后自动结算。"""
+
+    __tablename__ = "forward_outlook"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), index=True)
+    stock_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    horizon: Mapped[int] = mapped_column(Integer, default=3)
+    signal_trade_date: Mapped[str] = mapped_column(String(16), index=True)
+    created_at: Mapped[str] = mapped_column(String(32))
+    updated_at: Mapped[str] = mapped_column(String(32))
+    bars_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    signal_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    data_quality_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    outlook_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    predicted_up: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    outlook_summary_zh: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    actual_return_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    actual_up: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    settled_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
 class DecisionJournalRow(Base):
     """自用决策日志：标题/正文、可选标的、信号快照、计划仓位与执行一致性。"""
 

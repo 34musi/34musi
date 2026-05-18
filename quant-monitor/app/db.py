@@ -26,6 +26,7 @@ from app.db_models import (
     BarRow,
     Base,
     DecisionJournalRow,
+    ForwardOutlookRow,
     FundamentalSnapshotRow,
     SignalCacheRow,
     WatchlistRow,
@@ -51,6 +52,7 @@ __all__ = [
     "SignalCacheRow",
     "FundamentalSnapshotRow",
     "DecisionJournalRow",
+    "ForwardOutlookRow",
     # 会话/引擎
     "init_db",
     "get_engine",

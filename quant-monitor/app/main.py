@@ -39,6 +39,7 @@ from app.db import (
     WATCHLIST_ORIGIN_AUTO_QUANT,
     WATCHLIST_ORIGIN_MANUAL,
     DecisionJournalRow,
+    ForwardOutlookRow,
     SignalCacheRow,
     WatchlistRow,
     init_db,
@@ -87,6 +88,9 @@ from app.schemas import (
     IngestDataSource,
     IngestFundamentalsIn,
     IngestUpdateIn,
+    ForwardOutlookOut,
+    ForwardOutlookSyncIn,
+    ForwardOutlookSyncOut,
     JournalIn,
     JournalOut,
     QuantWatchlistSyncIn,
@@ -111,6 +115,14 @@ from app.schemas import (
     WebDataPreviewIn,
 )
 from app.forecast_validate import run_forecast_validate
+from app.forward_outlook import (
+    DEFAULT_HORIZON,
+    _stock_names_for_symbols,
+    row_to_dict,
+    settle_all_pending,
+    sync_after_ingest,
+    sync_symbol_outlook,
+)
 from app.hot_market_snapshot import (
     default_hot_market_snapshot_path,
     fetch_hot_market_snapshot,
@@ -1221,10 +1233,26 @@ def ingest_update(
         except Exception as e:
             results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
     results.extend(suffix_errs)
+    ok_syms = [str(r["symbol"]) for r in results if r.get("symbol") and "error" not in r]
+    meta_by_sym: dict[str, dict[str, Any]] = {}
+    for r in results:
+        if r.get("symbol") and "error" not in r:
+            meta_by_sym[str(r["symbol"])] = r
+    outlook_sync: dict[str, Any] | None = None
+    if ok_syms:
+        try:
+            outlook_sync = sync_after_ingest(
+                ok_syms,
+                horizon=DEFAULT_HORIZON,
+                ingest_meta_by_sym=meta_by_sym,
+            )
+        except Exception as e:
+            logger.warning("forward outlook auto-sync after ingest: %s", e)
     return {
         "results": results,
         "ingest_data_source": resolved_ds,
         "disclaimer": _disclaimer_payload().model_dump(),
+        "forward_outlook_sync": outlook_sync,
     }
 
 
@@ -1642,7 +1670,14 @@ _SECTOR_SCREEN_TRIPLE_MA_KEYS = frozenset(
 )
 
 
-def _sector_screen_stock_row_dict(ev: StockEvaluation, *, show_dual: bool, show_triple: bool) -> dict[str, Any]:
+def _sector_screen_stock_row_dict(
+    ev: StockEvaluation,
+    *,
+    show_dual: bool,
+    show_triple: bool,
+    show_ma5: bool,
+    show_ma5_3d: bool,
+) -> dict[str, Any]:
     row = asdict(ev)
     if not show_dual:
         for k in _SECTOR_SCREEN_DUAL_MA_KEYS:
@@ -1650,6 +1685,10 @@ def _sector_screen_stock_row_dict(ev: StockEvaluation, *, show_dual: bool, show_
     if not show_triple:
         for k in _SECTOR_SCREEN_TRIPLE_MA_KEYS:
             row.pop(k, None)
+    if not show_ma5:
+        row.pop("ma5_stand_count", None)
+    if not show_ma5_3d:
+        row.pop("ma5_consecutive_stand_days", None)
     return row
 
 
@@ -1706,7 +1745,12 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             sector_name = None
             codes_arg = None
             flat_universe = True
-            if body.show_dual_ma_strategy or body.show_triple_ma_strategy:
+            if (
+                body.show_dual_ma_strategy
+                or body.show_triple_ma_strategy
+                or body.show_ma5_stand_strategy
+                or body.show_ma5_stand_3d_strategy
+            ):
                 flat_universe_scan = max(
                     flat_universe_top, min(8000, int(body.universe_scan_cap))
                 )
@@ -1736,6 +1780,7 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             commission=body.commission,
             stop_loss=body.stop_loss,
             scoring_strategy=body.scoring_strategy,
+            screen_mode=body.screen_mode,
             only_passed=body.only_passed,
             top_stocks=body.top_stocks_limit,
             output=None,
@@ -1750,12 +1795,27 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             universe_exclude_st=body.universe_exclude_st,
             show_dual_ma_strategy=body.show_dual_ma_strategy,
             show_triple_ma_strategy=body.show_triple_ma_strategy,
+            show_ma5_stand_strategy=body.show_ma5_stand_strategy,
+            ma5_stand_lookback=body.ma5_stand_lookback,
+            show_ma5_stand_3d_strategy=body.show_ma5_stand_3d_strategy,
+            ma5_stand_3d_min_days=body.ma5_stand_3d_min_days,
         )
         validate_args(ns)
         sectors, stocks = run_analysis(ns)
+        logger.info(
+            "sector-screen pipeline done: data_source=%s stocks=%d sectors=%d",
+            body.data_source.value,
+            len(stocks),
+            len(sectors),
+        )
+        if not stocks:
+            logger.warning(
+                "sector-screen returned zero stocks; per-symbol fetch/eval skips are logged above"
+            )
     except HTTPException:
         raise
     except DataSourceError as e:
+        logger.warning("sector-screen aborted (data source): %s", e)
         raise _http_exception_from_datasource(e) from e
     except Exception as e:
         logger.exception("sector-screen failed: %s", e)
@@ -1852,6 +1912,8 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
             s,
             show_dual=body.show_dual_ma_strategy,
             show_triple=body.show_triple_ma_strategy,
+            show_ma5=body.show_ma5_stand_strategy,
+            show_ma5_3d=body.show_ma5_stand_3d_strategy,
         )
         for s in merged
     ]
@@ -1864,6 +1926,10 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
         disclaimer=d.disclaimer,
         show_dual_ma_strategy=body.show_dual_ma_strategy,
         show_triple_ma_strategy=body.show_triple_ma_strategy,
+        show_ma5_stand_strategy=body.show_ma5_stand_strategy,
+        ma5_stand_lookback=body.ma5_stand_lookback,
+        show_ma5_stand_3d_strategy=body.show_ma5_stand_3d_strategy,
+        ma5_stand_3d_min_days=body.ma5_stand_3d_min_days,
         note=(
             "与根目录 `quant_stock_selector.py` 及包 `app.quant_stock_selector` 流水线一致（技术面初筛 + 双均线回测 + 综合分）。"
             + note_tail
@@ -2002,7 +2068,7 @@ def _run_sector_constituents_top(body: SectorConstituentsTopIn) -> SectorConstit
 
 1. 构建股票池：**pool_mode=universe** 且未指定 **sector**、**symbols** 时，从当前 `data_source` 的全市场列表顺序截取 `universe_max_stocks` 只；否则拉取热门板块（或指定 **sector**、或 **symbols** 自定义列表）；
 2. 取成分股，按 `start_date`～`end_date` 拉日线（优先本地 `data_dir` 在 CLI 中有，API 固定仅走网络数据源）；
-3. 技术面初筛（`evaluate_screen`）+ 双均线回测（`run_sma_backtest`）合成 **final_score**。
+3. 技术面初筛（`evaluate_screen`，默认 **screen_mode=short_term** 短线强化）+ 双均线回测（`run_sma_backtest`）合成 **final_score**（短线模式用 **v2_short** 权重：板块 20% + 短线技术分 50% + 回测 30%）。
 
 **注意**：会对多只股票依次请求行情，**耗时长**、易受数据源限流；全市场截取模式请将 `universe_max_stocks`、`top_stocks_limit` 控制在合理范围。
 
@@ -2232,6 +2298,90 @@ def journal_delete(entry_id: int, request: Request, _: None = Depends(optional_a
             raise HTTPException(status_code=404, detail="记录不存在")
         s.delete(row)
     return {"ok": True, "id": entry_id}
+
+
+@app.get(
+    "/forward-outlook",
+    response_model=list[ForwardOutlookOut],
+    tags=["⑦ 决策日志（自用）"],
+    summary="自动前向展望列表（③ 同步，⑦ 展示）",
+    description="""
+③ `POST /ingest/update` 成功后会对成功拉取的标的**自动**登记：
+
+- **数据质量**：根数、末根收盘、与③返回是否一致等；
+- **pending**：基于末根 K 线的 H 日方向演示预测（默认 H=3）；
+- **settled**：库内已有 signal 日 + H 个交易日收盘后自动结算实际涨跌。
+
+无需手填⑦；打开本接口或控制台⑦区块即可查看。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def forward_outlook_list(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    symbol: str | None = Query(None, description="仅看某 6 位代码"),
+    status: str | None = Query(None, description="pending | settled"),
+    _: None = Depends(optional_api_key),
+):
+    settle_all_pending()
+    sym: str | None = None
+    if symbol and symbol.strip():
+        try:
+            sym = normalize_symbol(symbol)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+    with session_scope() as s:
+        q = select(ForwardOutlookRow).order_by(ForwardOutlookRow.id.desc()).limit(limit)
+        if sym is not None:
+            q = q.where(ForwardOutlookRow.symbol == sym)
+        if status and status.strip():
+            q = q.where(ForwardOutlookRow.status == status.strip().lower())
+        rows = s.execute(q).scalars().all()
+        name_map = _stock_names_for_symbols([r.symbol for r in rows], s)
+        out_rows: list[ForwardOutlookOut] = []
+        for r in rows:
+            nm = (r.stock_name or "").strip() or name_map.get(r.symbol, "")
+            if nm and not (r.stock_name or "").strip():
+                r.stock_name = nm[:64]
+            out_rows.append(ForwardOutlookOut(**row_to_dict(r, stock_name=nm)))
+        return out_rows
+
+
+@app.post(
+    "/forward-outlook/sync",
+    response_model=ForwardOutlookSyncOut,
+    tags=["⑦ 决策日志（自用）"],
+    summary="手动触发前向展望同步（一般不必，③ 已自动）",
+)
+@limiter.limit("20/minute")
+def forward_outlook_sync(
+    request: Request,
+    body: ForwardOutlookSyncIn = Body(default_factory=ForwardOutlookSyncIn),
+    _: None = Depends(optional_api_key),
+):
+    with session_scope() as s:
+        wl = [r.symbol for r in s.execute(select(WatchlistRow)).scalars().all()]
+    syms = body.symbols
+    if syms:
+        out_syms: list[str] = []
+        for raw in syms:
+            try:
+                out_syms.append(normalize_symbol(raw))
+            except ValueError:
+                continue
+        syms = out_syms
+    else:
+        syms = wl
+    if not syms:
+        raise HTTPException(status_code=400, detail="自选为空且未传 symbols")
+    meta: dict[str, dict[str, Any]] = {}
+    with session_scope() as s:
+        wl_rows = s.execute(select(WatchlistRow).where(WatchlistRow.symbol.in_(syms))).scalars().all()
+        wl_name = {r.symbol: (r.name or "").strip() for r in wl_rows}
+    for sym in syms:
+        meta[sym] = {"watchlist_name": wl_name.get(sym, "")}
+    result = sync_after_ingest(syms, horizon=body.horizon, ingest_meta_by_sym=meta)
+    return ForwardOutlookSyncOut(**result)
 
 
 @app.get(

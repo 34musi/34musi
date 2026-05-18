@@ -52,6 +52,19 @@ def ensure_sqlite_bars_ingested_at_column(engine) -> None:
             conn.commit()
 
 
+def ensure_sqlite_forward_outlook_stock_name_column(engine) -> None:
+    """已有 SQLite 库为 forward_outlook 追加 stock_name。"""
+    url = str(engine.url)
+    if not url.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        cur = conn.execute(text("PRAGMA table_info(forward_outlook)"))
+        existing = {row[1] for row in cur.fetchall()}
+        if "stock_name" not in existing:
+            conn.execute(text("ALTER TABLE forward_outlook ADD COLUMN stock_name TEXT"))
+            conn.commit()
+
+
 def ensure_sqlite_fundamental_snapshot_columns(engine) -> None:
     """已有库文件升级：为 fundamental_snapshots 追加列。"""
     url = str(engine.url)

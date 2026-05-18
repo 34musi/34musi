@@ -38,6 +38,8 @@ pip install -r requirements.txt
 
 ## 启动服务
 
+**标准启动步骤（含本机 / ngrok 外网访问、彩色速查）见 → [docs/STARTUP.md](docs/STARTUP.md)**
+
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
