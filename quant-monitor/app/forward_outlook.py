@@ -294,6 +294,12 @@ def sync_symbol_outlook(
         if existing:
             row = existing
             row.updated_at = now
+            # 已结算：保留历史展望与结算结果，仅补全名称（③ 再次更新同信号日也不覆盖）
+            if row.status == "settled":
+                row.stock_name = _resolve_stock_name(sym, stock_name)
+                s.flush()
+                s.refresh(row)
+                return row
         else:
             row = ForwardOutlookRow(
                 symbol=sym,

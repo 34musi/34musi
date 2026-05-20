@@ -669,8 +669,21 @@ def run_forecast_validate(
             keep &= d_str <= o_to
         oos_idx = oos_idx[keep]
         if len(oos_idx) == 0:
+            d_all = dates.iloc[np.arange(oos_start, n)].astype(str)
+            span = ""
+            if len(d_all):
+                span = f" 本标的未过滤时样本外约为 {d_all.min()} ~ {d_all.max()}（共 {len(d_all)} 个交易日）。"
+            filt = []
+            if o_from is not None:
+                filt.append(f"起始≥{o_from}")
+            if o_to is not None:
+                filt.append(f"结束≤{o_to}")
             raise ValueError(
-                "按 oos_from/oos_to 过滤后没有样本外交易日；请扩大区间、补充本地 K 线，或暂时去掉日期过滤"
+                "按 oos_from/oos_to 过滤后没有样本外交易日"
+                + (f"（{'，'.join(filt)}）" if filt else "")
+                + "。"
+                + span
+                + " 请在 ② 清空样本外日期或扩大区间；都留空则使用全部样本外段。"
             )
 
     # --- 多数类基线（每个时点用历史标签的众数预测当日标签，严格因果）---

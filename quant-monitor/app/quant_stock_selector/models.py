@@ -35,12 +35,15 @@ class ScreenMetrics:
     annual_volatility_20d: float
     reasons: str
     return_5d: float = 0.0
+    return_10d: float = 0.0
     ma5: float = 0.0
     ma10: float = 0.0
     ma20_slope_pct: float = 0.0
     vol_ratio_last_day: float = 0.0
     short_term_passed: bool = False
     short_term_score: float = 0.0
+    long_term_passed: bool = False
+    long_term_score: float = 0.0
     screen_mode: str = "short_term"
 
 

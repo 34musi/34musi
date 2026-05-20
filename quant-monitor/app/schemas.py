@@ -151,6 +151,21 @@ class WatchlistBatchDeleteOut(BaseModel):
     requested_unique: int = Field(..., description="规范化并去重后的有效代码数")
 
 
+class WatchlistDeleteAllIn(BaseModel):
+    """POST /watchlist/delete-all：按范围一次性清空自选。"""
+
+    scope: str = Field(
+        "all",
+        description="all=删除自选池全部记录；auto=仅删除热门自动与量化自动，保留手动",
+    )
+
+
+class WatchlistDeleteAllOut(BaseModel):
+    ok: bool = True
+    removed: int = Field(..., description="实际删除的行数")
+    scope: str = Field(..., description="本次删除范围：all 或 auto")
+
+
 class WatchlistHotSnapshotImportIn(BaseModel):
     """POST /watchlist/import-hot-market-snapshot：从 hot_market_snapshot.json 导入热门股到自选。"""
 
@@ -201,6 +216,25 @@ class QuantWatchlistStockRowIn(BaseModel):
 
     code: str = Field(..., description="股票代码，可为带前缀形式，服务端会规范为 6 位数字")
     name: str = Field("", description="证券简称，可空")
+
+
+class WatchlistBatchAddIn(BaseModel):
+    """POST /watchlist/batch-add：批量加入自选（来源 manual，不删其它条目）。"""
+
+    stocks: list[QuantWatchlistStockRowIn] = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="至少含 code；name 可空。已存在则保留并标为手动（不覆盖已有简称）",
+    )
+
+
+class WatchlistBatchAddOut(BaseModel):
+    ok: bool = True
+    added: int = Field(..., description="新写入条数")
+    updated: int = Field(..., description="已在池中、本次改为或保持手动的条数")
+    skipped: int = Field(0, description="无效代码条数")
+    warnings: list[str] = Field(default_factory=list)
 
 
 class WatchlistReplaceAllIn(BaseModel):

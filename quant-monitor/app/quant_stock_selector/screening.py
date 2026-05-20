@@ -47,6 +47,7 @@ def evaluate_screen(frame: pd.DataFrame, *, mode: str = "short_term") -> ScreenM
     ma120 = close.rolling(120).mean() if len(data) >= 120 else ma60
 
     ret5 = _pct_ret(close, 5)
+    ret10 = _pct_ret(close, 10)
     ret20 = close.pct_change(20).iloc[-1]
     rolling_high60 = close.rolling(60).max().iloc[-1]
     distance_to_high = max((rolling_high60 - close.iloc[-1]) / rolling_high60, 0.0) if rolling_high60 else 0.0
@@ -65,6 +66,7 @@ def evaluate_screen(frame: pd.DataFrame, *, mode: str = "short_term") -> ScreenM
     latest_ma60 = float(ma60.iloc[-1]) if pd.notna(ma60.iloc[-1]) else latest_close
     latest_ma120 = float(ma120.iloc[-1]) if pd.notna(ma120.iloc[-1]) else latest_ma60
     latest_ret5 = float(ret5) if pd.notna(ret5) else float("nan")
+    latest_ret10 = float(ret10) if pd.notna(ret10) else float("nan")
     latest_ret20 = float(ret20) if pd.notna(ret20) else float("nan")
     annual_volatility = safe_float(annual_volatility)
 
@@ -240,6 +242,9 @@ def evaluate_screen(frame: pd.DataFrame, *, mode: str = "short_term") -> ScreenM
         short_term_score = round(trend_score + volume_score + risk_score, 2)
         reasons = "、".join(legacy_reasons) if legacy_reasons else "趋势、量能和风险指标均达标"
 
+    long_term_passed = bool(legacy_pass)
+    long_term_score = round(trend_score + volume_score + risk_score, 2)
+
     return ScreenMetrics(
         passed=passed,
         trend_score=round(trend_score, 2),
@@ -257,11 +262,14 @@ def evaluate_screen(frame: pd.DataFrame, *, mode: str = "short_term") -> ScreenM
         annual_volatility_20d=round(annual_volatility * 100.0, 2),
         reasons=reasons,
         return_5d=round(latest_ret5 * 100.0, 2) if not math.isnan(latest_ret5) else 0.0,
+        return_10d=round(latest_ret10 * 100.0, 2) if not math.isnan(latest_ret10) else 0.0,
         ma5=round(latest_ma5, 2),
         ma10=round(latest_ma10, 2),
         ma20_slope_pct=round(ma20_slope_pct, 2),
         vol_ratio_last_day=round(vol_ratio_last, 2),
         short_term_passed=bool(short_term_pass),
         short_term_score=short_term_score,
+        long_term_passed=long_term_passed,
+        long_term_score=long_term_score,
         screen_mode=screen_mode,
     )

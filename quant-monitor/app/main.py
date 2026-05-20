@@ -104,8 +104,13 @@ from app.schemas import (
     SelectorSectorDataSource,
     SelfUseMetaOut,
     SignalOut,
+    WatchlistBatchAddIn,
+    WatchlistBatchAddOut,
     WatchlistBatchDeleteIn,
     WatchlistBatchDeleteOut,
+    WatchlistDeleteAllIn,
+    WatchlistDeleteAllOut,
+    QuantWatchlistStockRowIn,
     WatchlistReplaceAllIn,
     WatchlistReplaceAllOut,
     WatchlistHotSnapshotImportIn,
@@ -750,6 +755,108 @@ def watchlist_batch_delete(
         except (TypeError, ValueError):
             removed = 0
     return WatchlistBatchDeleteOut(removed=removed, requested_unique=len(syms))
+
+
+@app.post(
+    "/watchlist/batch-add",
+    response_model=WatchlistBatchAddOut,
+    tags=["② 管理自选股票"],
+    summary="批量加入自选（手动，不删除其它条目）",
+    description="""
+将多只股票一次性写入自选，**origin=manual**。已在池中的代码会标为手动（不删热门/量化自动以外的其它代码）。
+
+用于热门板块填充/预览结果中勾选后「加入自选」。无效代码计入 skipped 与 warnings。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def watchlist_batch_add(
+    request: Request,
+    body: WatchlistBatchAddIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    added = 0
+    updated = 0
+    skipped = 0
+    warnings: list[str] = []
+    seen: set[str] = set()
+    with session_scope() as s:
+        for row in body.stocks:
+            try:
+                sym = normalize_symbol(row.code)
+            except ValueError:
+                skipped += 1
+                warnings.append(f"跳过无效代码：{row.code!r}")
+                continue
+            if sym in seen:
+                continue
+            seen.add(sym)
+            nm_in = (row.name or "").strip()
+            existing = s.execute(
+                select(WatchlistRow).where(WatchlistRow.symbol == sym)
+            ).scalar_one_or_none()
+            if existing:
+                if existing.origin != WATCHLIST_ORIGIN_MANUAL:
+                    existing.origin = WATCHLIST_ORIGIN_MANUAL
+                if nm_in and not (existing.name or "").strip():
+                    existing.name = nm_in[:64]
+                elif not (existing.name or "").strip():
+                    existing.name = (fetch_stock_name(sym) or "")[:64]
+                updated += 1
+            else:
+                use_nm = nm_in or (fetch_stock_name(sym) or "")
+                s.add(
+                    WatchlistRow(
+                        symbol=sym,
+                        origin=WATCHLIST_ORIGIN_MANUAL,
+                        name=use_nm[:64],
+                    )
+                )
+                added += 1
+    return WatchlistBatchAddOut(
+        added=added,
+        updated=updated,
+        skipped=skipped,
+        warnings=warnings,
+    )
+
+
+@app.post(
+    "/watchlist/delete-all",
+    response_model=WatchlistDeleteAllOut,
+    tags=["② 管理自选股票"],
+    summary="一次性清空自选（全部或仅自动池）",
+    description="""
+- **scope=all**：删除自选池中的**全部**记录（含手动、热门自动、量化自动）。
+- **scope=auto**（默认推荐用于清空「获取快照热门股票」等自动写入）：仅删除 **auto_hot** 与 **auto_quant**，**保留**手动自选。
+
+无需勾选表格行；与「删除所选」互补。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def watchlist_delete_all(
+    request: Request,
+    body: WatchlistDeleteAllIn = Body(default_factory=WatchlistDeleteAllIn),
+    _: None = Depends(optional_api_key),
+):
+    scope = (body.scope or "all").strip().lower()
+    if scope not in ("all", "auto"):
+        raise HTTPException(status_code=400, detail="scope 须为 all 或 auto")
+    with session_scope() as s:
+        if scope == "all":
+            res = s.execute(delete(WatchlistRow))
+        else:
+            res = s.execute(
+                delete(WatchlistRow).where(
+                    WatchlistRow.origin.in_(
+                        (WATCHLIST_ORIGIN_AUTO_HOT, WATCHLIST_ORIGIN_AUTO_QUANT)
+                    )
+                )
+            )
+        try:
+            removed = int(res.rowcount or 0)
+        except (TypeError, ValueError):
+            removed = 0
+    return WatchlistDeleteAllOut(removed=removed, scope=scope)
 
 
 @app.post(

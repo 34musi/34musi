@@ -78,10 +78,15 @@ def _pick_history_window() -> tuple[str, str]:
     return start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
 
 
-def _avg_turnover_20d(frame: pd.DataFrame) -> float:
+def _avg_turnover_nd(frame: pd.DataFrame, days: int) -> float:
     if frame is None or frame.empty or "turnover" not in frame.columns:
         return 0.0
-    return safe_float(frame["turnover"].tail(20).mean(), default=0.0)
+    n = max(1, int(days))
+    return safe_float(frame["turnover"].tail(n).mean(), default=0.0)
+
+
+def _avg_turnover_20d(frame: pd.DataFrame) -> float:
+    return _avg_turnover_nd(frame, 20)
 
 
 def _basic_pick_from_constituents(
@@ -165,6 +170,8 @@ def _technical_pick_from_constituents(
             warnings.append(f"板块「{sector_name}」成分股 {code} 技术面计算失败：{exc}")
             continue
 
+        avg_turnover_5d = _avg_turnover_nd(hist, 5)
+        avg_turnover_10d = _avg_turnover_nd(hist, 10)
         avg_turnover_20d = _avg_turnover_20d(hist)
         if exclude_overextended and screen.return_20d > max_return_20d_pct:
             filtered_overextended += 1
@@ -184,15 +191,27 @@ def _technical_pick_from_constituents(
         detail["volume_score"] = screen.volume_score
         detail["risk_score"] = screen.risk_score
         detail["screen_score"] = screen.screen_score
+        detail["return_5d"] = screen.return_5d
+        detail["return_10d"] = screen.return_10d
         detail["return_20d"] = screen.return_20d
         detail["distance_to_60d_high"] = screen.distance_to_60d_high
         detail["volume_ratio_20_60"] = screen.volume_ratio_20_60
+        detail["vol_ratio_last_day"] = screen.vol_ratio_last_day
         detail["drawdown_60d"] = screen.drawdown_60d
         detail["annual_volatility_20d"] = screen.annual_volatility_20d
+        detail["avg_turnover_5d"] = round(avg_turnover_5d, 2)
+        detail["avg_turnover_10d"] = round(avg_turnover_10d, 2)
         detail["avg_turnover_20d"] = round(avg_turnover_20d, 2)
+        detail["avg_turnover_5d_100m"] = round(avg_turnover_5d / 1e8, 4)
+        detail["avg_turnover_10d_100m"] = round(avg_turnover_10d / 1e8, 4)
         detail["avg_turnover_20d_100m"] = round(avg_turnover_20d / 1e8, 4)
         detail["latest_close"] = screen.latest_close
         detail["screen_reasons"] = screen.reasons
+        detail["short_term_passed"] = bool(screen.short_term_passed)
+        detail["short_term_score"] = screen.short_term_score
+        detail["long_term_passed"] = bool(screen.long_term_passed)
+        detail["long_term_score"] = screen.long_term_score
+        detail["ma20_slope_pct"] = screen.ma20_slope_pct
         candidates.append(detail)
 
     if sort_by_trend_strength:
