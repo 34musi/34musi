@@ -10,15 +10,13 @@ K 线入库路径可与核心包 app.quant_stock_selector 对齐。名称展示�
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal
+import math
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from app.fundamentals import (
-    fundamental_score_delta,
-    load_fundamental_panel_from_db,
-)
+from app.fundamentals import fundamental_score_delta, load_fundamental_panel_from_db
 from app.ingest import fetch_stock_name, load_bars_df, normalize_symbol
 from app.schemas import (
     PositionHint,
@@ -56,20 +54,21 @@ def _rolling_vol(close: pd.Series, n: int = 20) -> float:
     return float(r.iloc[-n:].std(ddof=0) or 0.0)
 
 
-def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
+def _build_signal_metrics(
+    df: pd.DataFrame,
+    sym: str,
+    fund_panel: Any,
+    *,
+    last_close_override: float | None = None,
+) -> dict[str, Any]:
     """
-    对单标的计算完整 SignalOut。
-
-    要求至少约 30 根有效 K 线；不足则 ValueError（需先 ingest）。
-    data_source：与 ingest 路线一致时传入，便于 load_bars_df 内自动补拉使用同一路线。
+    基于日线 DataFrame 计算趋势/强度/评分/仓位提示等。
+    last_close_override：用快照现价等替代最后一根收盘参与计算（ret、趋势、得分）。
     """
-    sym = normalize_symbol(symbol)
-    df = load_bars_df(sym, data_source=data_source)
-    if df.empty or len(df) < 30:
-        raise ValueError("K 线数据不足，请先执行更新 ingest")
-
     df = df.reset_index(drop=True)
-    c = df["close"].astype(float)
+    c = df["close"].astype(float).copy()
+    if last_close_override is not None and math.isfinite(float(last_close_override)):
+        c.iloc[-1] = float(last_close_override)
     v = df["volume"].astype(float)
     h = df["high"].astype(float)
     low = df["low"].astype(float)
@@ -80,11 +79,11 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
 
     ma20_now = float(ma20.iloc[-1]) if pd.notna(ma20.iloc[-1]) else last_close
     ma60_now = float(ma60.iloc[-1]) if pd.notna(ma60.iloc[-1]) else last_close
-    # 用约 5 日前的 ma20 估计斜率，减弱单日噪声
     ma20_prev = float(ma20.iloc[-6]) if len(ma20) > 6 and pd.notna(ma20.iloc[-6]) else ma20_now
     ma20_slope = (ma20_now - ma20_prev) / (abs(ma20_prev) + 1e-9)
 
     ret5 = _pct_change(c, 5)
+    ret10 = _pct_change(c, 10)
     ret20 = _pct_change(c, 20)
     vol20_mean = float(v.iloc[-20:].mean()) if len(v) >= 20 else float(v.mean())
     vol_ratio = float(v.iloc[-1] / vol20_mean) if vol20_mean > 0 else 1.0
@@ -92,20 +91,15 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
     high_60 = float(h.iloc[-60:].max()) if len(h) >= 60 else float(h.max())
     low_60 = float(low.iloc[-60:].min()) if len(low) >= 60 else float(low.min())
     dd_from_high = (last_close - high_60) / (abs(high_60) + 1e-9)
-    bounce_from_low = (last_close - low_60) / (abs(low_60) + 1e-9)
 
     vol_sigma = _rolling_vol(c, 20)
 
-    # --- 趋势：均线多空排列 + 20 日均线斜率 ---
     trend: TrendRegime = "sideways"
     if last_close > ma20_now > ma60_now and ma20_slope > 0.001:
         trend = "bullish"
     elif last_close < ma20_now < ma60_now and ma20_slope < -0.001:
         trend = "bearish"
-    else:
-        trend = "sideways"
 
-    # --- 强度：短期涨跌、量能、距阶段高点的距离 ---
     strength: StrengthRegime = "neutral"
     strong_up = (not np.isnan(ret5) and ret5 > 0.03) or (not np.isnan(ret20) and ret20 > 0.08)
     strong_vol = vol_ratio > 1.4
@@ -116,10 +110,7 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
         strength = "weak"
     elif last_close < ma20_now and ma20_slope < 0:
         strength = "weak"
-    else:
-        strength = "neutral"
 
-    # --- 风险标签：波动、回撤、放量、震荡、接近涨停区等 ---
     risk_tags: list[str] = []
     if not np.isnan(vol_sigma) and vol_sigma > 0.025:
         risk_tags.append("高波动")
@@ -130,12 +121,11 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
     if trend == "sideways":
         risk_tags.append("趋势未确认")
     if len(df) >= 2:
-        prev_close = float(c.iloc[-2])
+        prev_close = float(df["close"].astype(float).iloc[-2])
         limit_up = prev_close * 1.095
         if last_close >= limit_up * 0.98:
             risk_tags.append("临近涨停区")
 
-    # --- 0–100 分：在 50 基准上按趋势/强度/斜率/波动与回撤加减 ---
     score = 50
     reasons: list[SignalReason] = []
 
@@ -172,7 +162,6 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
 
     technical_score = int(max(0, min(100, score)))
 
-    fund_panel = load_fundamental_panel_from_db(sym)
     fund_adj = 0
     if fund_panel is None:
         reasons.append(
@@ -187,9 +176,7 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
 
     combined = int(max(0, min(100, technical_score + fund_adj)))
 
-    # --- 仓位提示：与合成评分、趋势、强度联动；文案为模型提示非交易指令 ---
     position_hint: PositionHint
-    position_range_text: str
     if combined >= 72 and trend == "bullish" and strength != "weak":
         position_hint = "moderate"
         position_range_text = "模型提示：可结合自身风险承受能力考虑中等以下试错仓位（示例区间 10%–30% 总资金）"
@@ -250,11 +237,11 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
             ),
         )
 
-    name = fetch_stock_name(sym)
     meta: dict[str, Any] = {
         "ma20": round(ma20_now, 4),
         "ma60": round(ma60_now, 4),
         "ret_5d": None if np.isnan(ret5) else round(float(ret5), 6),
+        "ret_10d": None if np.isnan(ret10) else round(float(ret10), 6),
         "ret_20d": None if np.isnan(ret20) else round(float(ret20), 6),
         "vol_ratio_1d_vs_20d": round(vol_ratio, 4),
         "drawdown_from_60d_high": round(float(dd_from_high), 6),
@@ -262,23 +249,73 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
         "technical_score": technical_score,
         "fundamental_adjustment": fund_adj,
     }
+    if last_close_override is not None:
+        meta["price_basis"] = "spot_snapshot"
+        meta["spot_close_used"] = round(last_close, 4)
+
+    return {
+        "as_of_date": last_date,
+        "close": round(last_close, 4),
+        "trend": trend,
+        "strength": strength,
+        "buy_suitability_score": combined,
+        "technical_score": technical_score,
+        "fundamental_adjustment": fund_adj,
+        "position_hint": position_hint,
+        "suggested_position_pct": suggested_position_pct,
+        "trial_exit_guidance": trial_exit_guidance,
+        "position_range_text": position_range_text,
+        "risk_tags": risk_tags,
+        "reasons": reasons,
+        "meta": meta,
+    }
+
+
+def _daily_overlay_for_symbol(sym: str, df: pd.DataFrame, fund_panel: Any) -> dict[str, Any]:
+    """用本地日线末根收盘作现价对照（与③入库同源，不用东财 stock_zh_a_spot_em）。"""
+    if df is None or df.empty:
+        return {}
+    px = float(df["close"].iloc[-1])
+    if not math.isfinite(px) or px <= 0:
+        return {}
+    chg: float | None = None
+    if len(df) >= 2:
+        prev = float(df["close"].iloc[-2])
+        if math.isfinite(prev) and prev > 0:
+            chg = round((px / prev - 1) * 100, 2)
+    spot_m = _build_signal_metrics(df, sym, fund_panel, last_close_override=px)
+    out: dict[str, Any] = {
+        "spot_last_price": round(px, 4),
+        "spot_buy_suitability_score": spot_m["buy_suitability_score"],
+        "spot_buy_hint": spot_m["position_range_text"],
+        "spot_position_hint": spot_m["position_hint"],
+    }
+    if chg is not None:
+        out["spot_change_pct"] = chg
+    return out
+
+
+def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
+    """
+    对单标的计算完整 SignalOut。
+
+    要求至少约 30 根有效 K 线；不足则 ValueError（需先 ingest）。
+    data_source：与 ingest 路线一致时传入，便于 load_bars_df 内自动补拉使用同一路线。
+    """
+    sym = normalize_symbol(symbol)
+    df = load_bars_df(sym, data_source=data_source)
+    if df.empty or len(df) < 30:
+        raise ValueError("K 线数据不足，请先执行更新 ingest")
+
+    fund_panel = load_fundamental_panel_from_db(sym)
+    base = _build_signal_metrics(df, sym, fund_panel)
+    spot_extra = _daily_overlay_for_symbol(sym, df, fund_panel)
+    name = fetch_stock_name(sym)
 
     return SignalOut(
         symbol=sym,
         name=name,
-        as_of_date=last_date,
-        close=round(last_close, 4),
-        trend=trend,
-        strength=strength,
-        buy_suitability_score=combined,
-        technical_score=technical_score,
-        fundamental_adjustment=fund_adj,
         fundamentals=fund_panel,
-        position_hint=position_hint,
-        suggested_position_pct=suggested_position_pct,
-        trial_exit_guidance=trial_exit_guidance,
-        position_range_text=position_range_text,
-        risk_tags=risk_tags,
-        reasons=reasons,
-        meta=meta,
+        **base,
+        **spot_extra,
     )

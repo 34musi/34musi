@@ -146,6 +146,90 @@
       text-decoration: underline;
       padding: 0;
     }
+    .wl-ingest-missing {
+      color: var(--err);
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+    .wl-ingest-fix {
+      margin-left: 0.35rem;
+      color: var(--accent);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: 0.82rem;
+      text-decoration: underline;
+      padding: 0;
+      white-space: nowrap;
+    }
+    .hd-pnl-up { color: #3ecf8e; }
+    .hd-pnl-down { color: var(--err); }
+    .hd-pnl-flat { color: var(--muted); }
+    .hd-status-holding { color: var(--accent); }
+    .hd-status-closed { color: var(--muted); }
+    .hd-advice-panel {
+      margin-top: 0.85rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+    .hd-advice-panel[hidden] { display: none; }
+    .hd-advice-title { font-weight: 600; margin: 0 0 0.35rem; }
+    .hd-advice-score { color: var(--muted); font-size: 0.82rem; }
+    .hd-advice-strong { color: var(--err); }
+    .hd-advice-consider { color: #e8a838; }
+    .hd-advice-watch { color: var(--accent); }
+    .hd-advice-hold { color: #3ecf8e; }
+    .hd-req { color: var(--err); font-weight: 600; }
+    .hd-ed-cell {
+      min-width: 7.5rem;
+      vertical-align: middle;
+    }
+    .hd-ed-cell .hd-ed-val {
+      display: inline-block;
+      max-width: 10rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+    }
+    .hd-ed-cell .hd-ed-btn {
+      margin-left: 0.35rem;
+      color: var(--accent);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: 0.82rem;
+      text-decoration: underline;
+      padding: 0;
+      vertical-align: middle;
+    }
+    .hd-ed-cell .hd-inline-in {
+      max-width: 10rem;
+      padding: 0.2rem 0.35rem;
+      font-size: 0.82rem;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .hd-ed-cell .hd-inline-save,
+    .hd-ed-cell .hd-inline-cancel {
+      margin-left: 0.25rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+      text-decoration: underline;
+      padding: 0;
+    }
+    .hd-ed-cell .hd-inline-save { color: var(--accent); }
+    .hd-ed-cell .hd-inline-cancel { color: var(--muted); }
+    .hd-days-num { font-variant-numeric: tabular-nums; }
+    .hd-advice-reasons { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+    .hd-advice-reasons li { margin-bottom: 0.25rem; }
     .wl-toolbar, .wl-pager {
       display: flex;
       flex-wrap: wrap;
@@ -184,10 +268,25 @@
       font-size: 0.76rem;
       vertical-align: top;
     }
-    .wl-table-scroll td.wl-close-num {
+    .wl-table-scroll td.wl-close-num,
+    .wl-table-scroll td.wl-spot-num {
       text-align: right;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
+    }
+    .wl-table-scroll td.wl-spot-num .wl-spot-chg {
+      display: block;
+      font-size: 0.72rem;
+      margin-top: 0.12rem;
+    }
+    .wl-table-scroll td.wl-spot-num.wl-spot-up {
+      color: #f87171;
+    }
+    .wl-table-scroll td.wl-spot-num.wl-spot-down {
+      color: #4ade80;
+    }
+    .wl-table-scroll td.wl-spot-num.wl-spot-flat {
+      color: var(--muted);
     }
     .wl-table-scroll th.wl-check-col,
     .wl-table-scroll td.wl-check-col {
@@ -199,6 +298,19 @@
       width: 1rem;
       height: 1rem;
       cursor: pointer;
+    }
+    .btn-cancel-request {
+      border-color: rgba(248, 113, 113, 0.55);
+      color: #ffb4b4;
+    }
+    .btn-cancel-request:not([hidden]) {
+      margin-left: 0.35rem;
+    }
+    .cancel-hint {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin: 0.35rem 0 0;
+      line-height: 1.45;
     }
     .wl-pager {
       justify-content: flex-end;
@@ -388,41 +500,98 @@
     .ingest-table .cell-err { color: var(--err); font-size: 0.82rem; }
     .ingest-table .cell-pre { white-space: pre-wrap; word-break: break-word; }
     .ingest-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .ingest-table th.ingest-fund-th,
+    .ingest-table td.ingest-fund-cell {
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
     .ingest-table td.trend-bull { color: var(--ok); }
     .ingest-table td.trend-bear { color: var(--err); }
     .ingest-table td.trend-side { color: #c9b87c; }
     .ingest-table button.btn-ingest-backtest { font-size: 0.78rem; padding: 0.32rem 0.6rem; white-space: nowrap; }
     table.ingest-kline-mini { font-size: 0.78rem; }
-    .ingest-action-cell {
+    .ingest-table-split .ingest-row-top td {
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px dashed var(--border);
+    }
+    .ingest-table-split .ingest-row-bottom td {
+      background: rgba(56, 189, 248, 0.06);
+    }
+    .ingest-spot-time-sub {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+      line-height: 1.3;
+      white-space: nowrap;
+    }
+    .ingest-table-split .ingest-sym-cell,
+    .ingest-table-split .ingest-name-cell {
+      vertical-align: middle;
+      white-space: nowrap;
+      background: var(--panel);
+    }
+    .ingest-table-split .ingest-row-tag {
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .ingest-table-split .ingest-cell-empty {
+      color: var(--muted);
+      opacity: 0.45;
+    }
+    .ingest-table-split .ingest-vol-cell {
+      vertical-align: middle;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .ingest-table-split .ingest-op-cell {
+      vertical-align: middle;
+      background: var(--panel);
+      white-space: nowrap;
+    }
+    .ingest-op-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.38rem;
+    }
+    .ingest-op-days {
       display: flex;
       align-items: center;
-      flex-wrap: wrap;
-      gap: 0.4rem 0.55rem;
-      max-width: 22rem;
+      gap: 0.3rem;
+      font-size: 0.76rem;
+      color: var(--muted);
     }
-    .ingest-action-cell .ingest-row-h {
-      max-width: 3.6rem;
-      padding: 0.22rem 0.35rem;
+    .ingest-op-days .ingest-row-h {
+      width: 2.8rem;
+      padding: 0.2rem 0.3rem;
       font-size: 0.82rem;
       border-radius: 4px;
       border: 1px solid var(--border);
       background: var(--bg);
       color: var(--text);
     }
-    .ingest-last-vol {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.22rem 0.55rem;
-      border-radius: 999px;
-      font-size: 0.74rem;
-      font-variant-numeric: tabular-nums;
+    .ingest-op-stack .btn-ingest-backtest {
+      font-size: 0.78rem;
+      padding: 0.28rem 0.55rem;
+      width: 100%;
+      max-width: 7.5rem;
+      text-align: center;
+    }
+    .ingest-op-stack .btn-ingest-show-kline {
+      font-size: 0.76rem;
+      padding: 0.26rem 0.5rem;
+      width: 100%;
+      max-width: 7.5rem;
+      text-align: center;
+    }
+    .ingest-vol-num {
+      font-size: 0.88rem;
       color: var(--text);
-      background: var(--panel);
-      border: 1px solid var(--border);
-      white-space: nowrap;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    }
+    .ingest-row-bottom .ingest-vol-num.ingest-vol-live {
+      color: #7dd3fc;
     }
     .btn-ingest-show-kline {
       appearance: none;
@@ -1379,9 +1548,16 @@
     }
     .hot-add-wl-sector:hover,
     .hot-qv-add-wl:hover { background: rgba(110, 231, 183, 0.22); }
+    .hot-kline-btns {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 0.28rem;
+      align-items: center;
+      justify-content: flex-end;
+    }
     .hot-show-kline-btn {
-      font-size: 0.74rem;
-      padding: 0.18rem 0.45rem;
+      font-size: 0.72rem;
+      padding: 0.16rem 0.4rem;
       border-radius: 5px;
       border: 1px solid rgba(201, 184, 124, 0.45);
       background: rgba(201, 184, 124, 0.12);
@@ -1390,8 +1566,36 @@
       font-weight: 600;
       white-space: nowrap;
     }
+    .hot-show-kline-btn.hot-kline-api {
+      border-color: rgba(110, 231, 183, 0.45);
+      background: rgba(110, 231, 183, 0.1);
+      color: #a7f3d0;
+    }
     .hot-show-kline-btn:hover { background: rgba(201, 184, 124, 0.22); }
+    .hot-show-kline-btn.hot-kline-api:hover { background: rgba(110, 231, 183, 0.2); }
     .hot-show-kline-btn:disabled { opacity: 0.5; cursor: wait; }
+    .hot-kline-quote-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.45rem 0.75rem;
+      margin: 0 0 0.65rem;
+      padding: 0.55rem 0.7rem;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .hot-kline-quote-strip .lbl { color: var(--muted); font-size: 0.78rem; }
+    .hot-kline-quote-strip strong { font-size: 1.05rem; color: var(--text); }
+    .hot-kline-quote-strip .src { font-size: 0.74rem; color: var(--muted); }
+    .hot-kline-row-prov td { color: #c4b896; }
+    .hot-kline-row-prov td:first-child::after {
+      content: " · 盘口参考";
+      font-size: 0.68rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
     .hot-kline-expand td {
       padding: 0.35rem 0.5rem 0.65rem !important;
       background: rgba(0, 0, 0, 0.2);
@@ -1766,6 +1970,30 @@
       border: 1px solid var(--border);
     }
     .signals-table-wrap { overflow-x: auto; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 8px; }
+    /* ⑨ 指定股票结果：列多，须横向滚动且勿被 hot-fill-box overflow:hidden 裁切（容器已移到卡片外） */
+    .qss-single-stock-wrap {
+      overflow-x: auto;
+      overflow-y: visible;
+      width: 100%;
+      max-width: 100%;
+      -webkit-overflow-scrolling: touch;
+      padding: 0.35rem 0.25rem 0.5rem;
+    }
+    .qss-single-stock-wrap .signals-main-table {
+      width: max-content;
+      min-width: 100%;
+    }
+    .qss-single-stock-wrap .signals-main-table th,
+    .qss-single-stock-wrap .signals-main-table td {
+      white-space: nowrap;
+    }
+    .qss-single-stock-wrap > .lead {
+      padding: 0.5rem 0.75rem;
+    }
+    .qss-single-stock-wrap .ingest-h3 {
+      padding: 0.65rem 0.75rem 0;
+      margin: 0;
+    }
     .signals-main-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 720px; }
     .signals-main-table th, .signals-main-table td {
       border: 1px solid var(--border);
@@ -1779,6 +2007,15 @@
     .signals-main-table .trend-bear { color: var(--err); }
     .signals-main-table .trend-side { color: #c9b87c; }
     .signals-detail-wrap { margin-top: 1rem; }
+    .signal-op-cell {
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+    .btn-signal-interpret {
+      font-size: 0.78rem;
+      padding: 0.28rem 0.65rem;
+      white-space: nowrap;
+    }
     .signals-detail-block {
       margin-bottom: 0.85rem;
       padding: 0.75rem 1rem;
@@ -1906,11 +2143,13 @@
           <button type="button" class="primary" id="btnSaveKey">保存到本机浏览器</button>
           <button type="button" class="secondary" id="btnTest">测试连接</button>
           <button type="button" class="secondary" id="btnRoot">刷新服务信息</button>
+          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-1" hidden>取消请求</button>
         </div>
+        <p class="cancel-hint" data-cancel-hint="panel-1" hidden>可中断本页进行中的联网检测（不会停止其它模块任务）。</p>
         <div class="ingest-notes" style="margin-top:1rem;">
           <h3 class="ingest-h3">自用功能（与路线图对齐）</h3>
           <p class="lead" style="margin-top:0;font-size:0.82rem;">
-            <strong>⑦ 决策日志</strong>：周趋势结论、计划仓位、是否按计划执行。<strong>扩展因子</strong>在③拉取。<strong>walk-forward 回测</strong>在③「拉取结果」表格内点「开始回测」；命令行仍可用 <code>scripts/run_forecast_validate.py</code>。
+            <strong>⑦ 决策日志</strong>：周趋势结论、计划仓位、是否按计划执行。<strong>⑩ 持仓记录</strong>：成本、股数、浮动盈亏估算。<strong>扩展因子</strong>在③拉取。<strong>walk-forward 回测</strong>在③「拉取结果」表格内点「开始回测」；命令行仍可用 <code>scripts/run_forecast_validate.py</code>。
           </p>
           <button type="button" class="secondary" id="btnSelfUseFromHome">加载自用定位摘要（GET /meta/self-use）</button>
           <pre class="out" id="out-1-selfuse" style="max-height:240px;margin-top:0.5rem" hidden></pre>
@@ -2011,6 +2250,7 @@
             <div class="btns">
               <button type="button" class="secondary" id="btnHotShowCache" title="读取本机浏览器上次缓存，不请求 API">展示上一次缓存数据</button>
               <button type="button" class="primary" id="btnHotFill">获取热门板块候选</button>
+              <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
             </div>
             <p class="m3-hint" style="margin:0.5rem 0 0;font-size:0.78rem"><strong>展示上一次缓存数据</strong>：只读本机上次结果，不联网。<strong>获取热门板块候选</strong>：重新请求 API 并更新缓存。勾选后点「将勾选股加入自选」才写入②自选池。</p>
           </footer>
@@ -2019,6 +2259,7 @@
         </div>
         <dialog id="hotKlineDlg" class="hot-dlg hot-kline-dlg">
           <h3 id="hotKlineDlgTitle">近一月日线</h3>
+          <div id="hotKlineDlgQuote" class="hot-kline-quote-strip" hidden></div>
           <div id="hotKlineDlgBody"></div>
           <p id="hotKlineDlgMeta" class="lead"></p>
           <div class="btns hot-kline-dlg-actions">
@@ -2037,7 +2278,7 @@
         <hr class="panel-rule" aria-hidden="true" />
         <div class="wl-manual-block">
           <h3 class="wl-manual-heading">手动添加与管理</h3>
-          <p class="lead wl-manual-lead">输入 6 位 A 股代码加入自选；可随时刷新列表。勾选后点<strong>删除所选</strong>可删部分；点<strong>清空自动池</strong>可一次删掉全部「热门自动」「量化自动」（保留手动）；点<strong>全部删除</strong>可清空整个自选池。⑨「快照热门股」里<strong>将所选加入自选</strong>会<strong>清空全部自选</strong>后仅保留勾选股票（来源为<strong>热门自动</strong>）。「获取快照热门股票」写入后为<strong>热门自动</strong>（读 <code>data/hot_market_snapshot.json</code>），导入前会清空自动池。若无快照文件，请先在⑨第 2 步里点「刷新热门快照（联网）」落盘。</p>
+          <p class="lead wl-manual-lead">输入 6 位 A 股代码点<strong>确定添加</strong>后，服务端会<strong>自动联网拉取近约 30 个日历日的日线</strong>写入本机（路线与③下拉框一致），列表中即可显示「最近入库 / 收盘参考」，无需再去③单独更新。勾选后点<strong>删除所选</strong>可删部分；点<strong>清空自动池</strong>可一次删掉全部「热门自动」「量化自动」（保留手动）；点<strong>全部删除</strong>可清空整个自选池。⑨「快照热门股」里<strong>将所选加入自选</strong>会<strong>清空全部自选</strong>后仅保留勾选股票（来源为<strong>热门自动</strong>）。「获取快照热门股票」写入后为<strong>热门自动</strong>（读 <code>data/hot_market_snapshot.json</code>），导入前会清空自动池。若无快照文件，请先在⑨第 2 步里点「刷新热门快照（联网）」落盘。</p>
           <div class="row">
             <label for="symAdd">股票代码</label>
             <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
@@ -2049,7 +2290,9 @@
             <button type="button" class="secondary" id="btnWlBatchDelete" title="删除表格中已勾选的股票（可跨页累积勾选）">删除所选</button>
             <button type="button" class="secondary" id="btnWlClearAuto" title="POST /watchlist/delete-all scope=auto">清空自动池</button>
             <button type="button" class="secondary" id="btnWlDeleteAll" title="POST /watchlist/delete-all scope=all" style="border-color:rgba(248,113,113,0.45);color:#ffb4b4">全部删除</button>
+            <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
           </div>
+          <p class="cancel-hint" data-cancel-hint="panel-2" hidden>可中断热门板块预览、刷新列表等本页联网请求。</p>
         </div>
         <div id="wl-table-wrap"></div>
         <pre class="out" id="out-2" hidden></pre>
@@ -2057,7 +2300,7 @@
 
       <section id="panel-3" class="panel" data-module="3">
         <h2>③ 更新行情数据</h2>
-        <p class="lead" style="margin-bottom:0.75rem;">分三块：<strong>① 更新日线</strong>（写库，并触发 ⑦ 自动前向展望）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）→ <strong>③ 扩展因子</strong>（与日线独立）。</p>
+        <p class="lead" style="margin-bottom:0.75rem;">分两块：<strong>① 更新日线</strong>（写库，并触发 ⑦ 自动前向展望；可勾选同时拉扩展因子，结果表内展示）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）。</p>
 
         <div class="m3-stack">
           <article class="m3-card m3-card-ingest">
@@ -2108,13 +2351,22 @@
               <div class="row field-stack">
                 <label for="ingestSubsetSymbols">仅更新部分自选（可选）</label>
                 <textarea id="ingestSubsetSymbols" rows="3" placeholder="留空 = 自选全部。多行或逗号分隔，如：&#10;600519&#10;000001 300750" autocomplete="off"></textarea>
-                <p class="m3-hint">提取 6 位代码并去重；须已在②自选池。下方③扩展因子也共用本框。</p>
+                <p class="m3-hint">提取 6 位代码并去重；须已在②自选池。扩展因子拉取也共用本框。</p>
+              </div>
+              <div class="row" style="margin-top:0.25rem">
+                <label class="fv-live-bars-label">
+                  <input type="checkbox" id="chkIngestIncludeFundamentals" />
+                  <span>同时拉取<strong>扩展因子</strong>（估值 PE/PB；成长 营收/净利同比+财报期；质量 ROE/ROA/毛利率/净利率；杠杆 资产负债率/流动比/速动比；现金流 每股经营现金流；资金 主力净流入+资金流日期；写库后 ④ 可合成 ±15 分）</span>
+                </label>
               </div>
               <div id="ingest-test-wrap" hidden></div>
               <div class="m3-card-actions btns">
                 <button type="button" class="secondary" id="btnIngestTest">测试数据源连接</button>
                 <button type="button" class="primary" id="btnIngest">开始更新自选行情</button>
+                <button type="button" class="secondary" id="btnFundamentals">仅拉取扩展因子</button>
+                <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-3" hidden>取消请求</button>
               </div>
+              <p class="cancel-hint" data-cancel-hint="panel-3" hidden>可中断③批量更新/扩展因子/行内回测等；服务端会停止后续自选拉取（已开始的单只可能仍跑完）。</p>
               <div id="ingest-result-wrap" class="ingest-result-wrap" hidden></div>
             </div>
           </article>
@@ -2181,31 +2433,12 @@
               </div>
             </div>
           </article>
-
-          <article class="m3-card m3-card-fundamentals">
-            <header class="m3-card-head">
-              <span class="m3-card-num" aria-hidden="true">3</span>
-              <div>
-                <h3 class="m3-card-title">扩展因子（量化 Demo）</h3>
-                <p class="m3-card-desc">市盈率、市净率、财报同比、主力净流入等；与日线更新独立。共用 ① 的「仅更新部分自选」范围。</p>
-              </div>
-            </header>
-            <div class="m3-card-body">
-              <p class="m3-hint" style="margin-top:0">
-                完成后在 ④ 可见 <code>fundamentals</code>、<code>technical_score</code> 与 <code>buy_suitability_score</code>。
-              </p>
-              <div class="m3-card-actions btns">
-                <button type="button" class="secondary" id="btnFundamentals">拉取自选扩展因子</button>
-              </div>
-              <div id="fundamentals-result-wrap" class="ingest-result-wrap" hidden></div>
-            </div>
-          </article>
         </div>
         <pre class="out" id="out-3" hidden></pre>
       </section>
       <section id="panel-4" class="panel" data-module="4">
         <h2>④ 查看信号</h2>
-        <p class="lead">需已拉取足够 K 线。可与「③」使用<strong>同一条行情路线</strong>（<code>data_source</code> 会随请求带上）。<strong>自选内各只独立处理</strong>：勾选「计算前先增量更新」时，也是<strong>逐只</strong>更新，某只网络失败或暂无日线<strong>不会阻塞</strong>其它股票出结果。「查看自选全部信号」返回的 JSON <strong>只含成功的行</strong>；若有被跳过的代码，表上方会用一行摘要列出（与响应头 <code>X-Quant-Signals-Failed-*</code> 一致）。PE、PB 等扩展因子列需先在「③」拉取扩展因子。</p>
+        <p class="lead">需已拉取足够 K 线。可与「③」使用<strong>同一条行情路线</strong>（<code>data_source</code> 会随请求带上）。<strong>自选内各只独立处理</strong>：勾选「计算前先增量更新」时，也是<strong>逐只</strong>更新，某只网络失败或暂无日线<strong>不会阻塞</strong>其它股票出结果。「查看自选全部信号」返回的 JSON <strong>只含成功的行</strong>；若有被跳过的代码，表上方会用一行摘要列出（与响应头 <code>X-Quant-Signals-Failed-*</code> 一致）。PE、PB 等扩展因子列需在「③」勾选同时拉取或点「仅拉取扩展因子」，并在<strong>拉取结果</strong>表中查看。</p>
         <p class="lead" style="margin-top:0;font-size:0.82rem;">
           当前路线（与③下拉框联动）：<strong id="routeEchoSignals">—</strong>
         </p>
@@ -2214,7 +2447,11 @@
         </div>
         <div class="btns">
           <button type="button" class="primary" id="btnSignalsAll">查看自选全部信号</button>
+          <button type="button" class="secondary" id="btnSignalsLast" disabled title="需先成功执行一次「查看自选全部信号」后可用">展示上一次自选结果</button>
+          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-4" hidden>取消请求</button>
         </div>
+        <p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted);">「展示上一次自选结果」读取本机浏览器缓存，<strong>不联网</strong>，与⑤服务端对比缓存无关。</p>
+        <p class="cancel-hint" data-cancel-hint="panel-4" hidden>可中断④信号计算（含勾选时的增量更新）。</p>
         <div class="row" style="margin-top:1rem;">
           <label for="symOne">单只股票代码</label>
           <input type="text" id="symOne" placeholder="6 位代码" maxlength="16" />
@@ -2236,7 +2473,9 @@
         </div>
         <div class="btns">
           <button type="button" class="primary" id="btnAlerts">对比上次缓存</button>
+          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-5" hidden>取消请求</button>
         </div>
+        <p class="cancel-hint" data-cancel-hint="panel-5" hidden>可中断⑤变动对比（含增量更新）。</p>
         <div id="alerts-out-wrap" class="signals-out-wrap" hidden></div>
       </section>
 
@@ -2245,6 +2484,7 @@
         <p class="lead">数据源与免责声明全文。</p>
         <div class="btns">
           <button type="button" class="primary" id="btnDisclaimer">加载免责说明</button>
+          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-6" hidden>取消请求</button>
         </div>
         <div id="disclaimer-render"></div>
         <pre class="out" id="out-6" hidden></pre>
@@ -2259,6 +2499,7 @@
         </p>
         <div class="btns" style="margin-bottom:0.45rem;">
           <button type="button" class="secondary" id="btnForwardOutlookRefresh">刷新展望列表</button>
+          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-7" hidden>取消请求</button>
         </div>
         <div id="forwardOutlookWrap" class="ingest-result-wrap" style="margin-bottom:1rem;">
           <p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">打开本页或点刷新加载…</p>
@@ -2308,6 +2549,52 @@
           <button type="button" class="secondary" id="btnJournalList">列出最近 20 条</button>
         </div>
         <pre class="out" id="out-7" hidden></pre>
+      </section>
+
+      <section id="panel-10" class="panel" data-module="10">
+        <h2>⑩ 持仓记录（自用）</h2>
+        <p class="lead">
+          记录你的<strong>实际持仓</strong>（代码、股数、成本价）。列表会按本地 K 线与盘口估算浮动盈亏；持仓中可点<strong>平仓建议</strong>（结合成本浮盈亏 + ④ 同源 MA20/趋势/Demo 止损规则打分，非卖出指令）。与 ② 自选、⑦ 决策日志相互独立。
+        </p>
+        <h3 class="ingest-h3" style="margin-top:0.5rem;">新增 / 买入</h3>
+        <div class="row">
+          <label for="hdSym">股票代码 <span class="hd-req" aria-hidden="true">*</span></label>
+          <input type="text" id="hdSym" placeholder="6 位，如 002979" maxlength="16" required style="max-width:140px;" />
+        </div>
+        <div class="row">
+          <label for="hdShares">持仓股数（1 手 = 100 股） <span class="hd-req" aria-hidden="true">*</span></label>
+          <input type="number" id="hdShares" placeholder="如 500" min="100" step="100" required style="max-width:160px;" />
+        </div>
+        <div class="row">
+          <label for="hdCost">成本价（元/股） <span class="hd-req" aria-hidden="true">*</span></label>
+          <input type="number" id="hdCost" placeholder="买入均价" min="0.0001" step="0.0001" required style="max-width:160px;" />
+        </div>
+        <div class="row">
+          <label for="hdBuyDate">买入日期 <span class="hd-req" aria-hidden="true">*</span></label>
+          <input type="date" id="hdBuyDate" required style="max-width:180px;" />
+        </div>
+        <div class="row">
+          <label for="hdNotes">备注（可选）</label>
+          <input type="text" id="hdNotes" placeholder="策略/批次说明" maxlength="500" style="max-width:420px;" />
+        </div>
+        <div class="btns">
+          <button type="button" class="primary" id="btnHdAdd">保存持仓</button>
+          <button type="button" class="secondary" id="btnHdRefresh">刷新列表</button>
+          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-10" hidden>取消请求</button>
+        </div>
+        <div class="row" style="margin-top:0.75rem;">
+          <label for="hdFilter">显示</label>
+          <select id="hdFilter" style="max-width:200px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;">
+            <option value="">全部</option>
+            <option value="holding" selected>仅持仓中</option>
+            <option value="closed">仅已平仓</option>
+          </select>
+        </div>
+        <div id="hd-table-wrap" class="wl-table-scroll" style="margin-top:0.75rem;">
+          <p class="lead">打开本页或点「刷新列表」加载…</p>
+        </div>
+        <div id="hd-advice-panel" class="hd-advice-panel" hidden aria-live="polite"></div>
+        <pre class="out" id="out-10" hidden></pre>
       </section>
 
       <section id="panel-9" class="panel qss-panel" data-module="9">
@@ -2499,12 +2786,23 @@
               <span class="qss-section-badge" aria-hidden="true">3</span>
               <div class="hot-fill-section-title">运行选股评估（日线 + 回测）</div>
             </div>
-            <div class="btns" style="flex-wrap:wrap;gap:0.5rem;">
+            <div class="btns" style="flex-wrap:wrap;gap:0.5rem;align-items:flex-end;">
               <button type="button" class="secondary" id="btnSectorScreen" style="min-width:11rem;padding:0.55rem 1rem;font-size:0.92rem;">查看上次选股结果</button>
               <button type="button" class="primary" id="btnSectorScreenApi" style="min-width:12rem;padding:0.55rem 1.15rem;font-size:0.95rem;">联网 API 选股评估</button>
+              <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-9" hidden>取消请求</button>
+              <div class="qss-single-stock-inline" style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:0.45rem;margin-left:auto;">
+                <div style="min-width:9.5rem;">
+                  <label for="qssSingleSymbol" style="display:block;font-size:0.78rem;color:var(--muted);margin-bottom:0.2rem;">指定股票（6位）</label>
+                  <input type="text" id="qssSingleSymbol" maxlength="16" placeholder="如 600519" autocomplete="off" style="width:8.5rem;padding:0.45rem 0.55rem;" />
+                </div>
+                <button type="button" class="secondary" id="btnQssSingleStockLast" style="padding:0.5rem 0.85rem;">查看上次指定股票</button>
+                <button type="button" class="secondary" id="btnQssSingleStock" style="padding:0.5rem 0.85rem;">查询指定股票</button>
+                <button type="button" class="secondary" id="btnQssSingleAddWl" hidden style="padding:0.5rem 0.85rem;">加入自选</button>
+              </div>
             </div>
+            <p class="cancel-hint" data-cancel-hint="panel-9" hidden>可中断⑨联网选股；浏览器会立即停止等待，服务端可能需几秒才停。</p>
             <p class="lead" style="margin:0.45rem 0 0;font-size:0.78rem;color:var(--muted);">
-              「查看上次」只读本机缓存，<strong>不请求网络</strong>；「联网 API」会按当前参数调用 <code>POST /research/sector-screen</code> 并覆盖缓存（耗时长，勿连续狂点）。
+              「查看上次」只读本机缓存，<strong>不请求网络</strong>；「联网 API」会按当前参数调用 <code>POST /research/sector-screen</code> 并覆盖缓存（耗时长，勿连续狂点）。「查看上次指定股票」只读本机单股缓存；<strong>仅「查询指定股票」会联网</strong>，结果在下方表格，<strong>不覆盖</strong>全量选股缓存。
             </p>
             <details class="qss-help-details">
               <summary>接口说明与注意</summary>
@@ -2514,6 +2812,8 @@
             </details>
           </footer>
         </div>
+
+        <div id="qssSingleStockWrap" class="signals-table-wrap qss-single-stock-wrap" hidden style="margin-top:0.75rem;"></div>
 
         <p class="lead" id="qssNoteLine" style="font-size:0.8rem; margin-top:0.6rem;" hidden></p>
         <div id="qssSnapshotTimeBar" class="qss-snapshot-timebar" hidden></div>
@@ -2538,12 +2838,15 @@
 (function () {
   var LS_KEY = "quant_monitor_api_key";
   var LS_DS = "quant_monitor_ingest_data_source";
+  var LS_INGEST_FUNDAMENTALS = "quant_monitor_ingest_include_fundamentals";
   var LS_WL_PAGE_SIZE = "quant_monitor_watchlist_page_size";
   var LS_INGEST_PAGE_SIZE = "quant_monitor_ingest_page_size";
   /** 上次成功拉取行情后的响应 JSON（恢复③表格与免责等） */
   var LS_LAST_INGEST_BODY = "quant_monitor_last_ingest_result_v1";
   var LS_LAST_INGEST_REQ = "quant_monitor_last_ingest_request_dates_v1";
   var LS_LAST_INGEST_PAGE = "quant_monitor_last_ingest_result_page_v1";
+  /** 上次「查看自选全部信号」成功返回的响应（本机缓存，非服务端缓存） */
+  var LS_LAST_SIGNALS_ALL = "quant_monitor_last_signals_all_v1";
   var SS_MOD = "quant_console_module";
   var WL_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
   var INGEST_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -2553,6 +2856,8 @@
   /** 自选批量删除：跨页保留勾选（Set 存 6 位代码）。 */
   var wlSelectedSyms = new Set();
   var lastIngestResultBody = null;
+  var ingestLivePollTimer = null;
+  var lastSignalsList = null;
   /** 最近一次点击「开始更新自选行情」时表单上的开始/结束（YYYY-MM-DD 或空），供结果区摘要展示。 */
   var lastIngestRequestDates = { start: null, end: null };
   var ingestResultPage = 1;
@@ -2565,6 +2870,7 @@
     { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
     { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" },
     { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" },
+    { id: "10", title: "⑩ 持仓记录", hint: "成本 · 股数 · 盈亏估算" },
     { id: "9", title: "⑨ 量化选股", hint: "范围 · 数据源 · 运行" }
   ];
 
@@ -2626,6 +2932,100 @@
     try { return JSON.parse(t); } catch (e) { return t; }
   }
 
+  /** 各面板「取消请求」：AbortController + 服务端批量中断 */
+  var activeRequests = {};
+  var PANEL_SERVER_SCOPES = {
+    "panel-1": [],
+    "panel-2": ["hot_sectors"],
+    "panel-3": ["ingest", "fundamentals", "pre_refresh"],
+    "panel-4": ["signals", "pre_refresh"],
+    "panel-5": ["alerts", "pre_refresh"],
+    "panel-6": [],
+    "panel-7": [],
+    "panel-9": ["sector_screen"],
+  };
+
+  function refreshCancelButtons() {
+    document.querySelectorAll(".btn-cancel-request").forEach(function (btn) {
+      var sc = btn.getAttribute("data-cancel-scope");
+      var active = !!(sc && activeRequests[sc]);
+      btn.hidden = !active;
+      btn.disabled = !active;
+    });
+    document.querySelectorAll(".cancel-hint[data-cancel-hint]").forEach(function (p) {
+      var sc = p.getAttribute("data-cancel-hint");
+      p.hidden = !(sc && activeRequests[sc]);
+    });
+  }
+
+  function cancelScope(scope) {
+    var st = activeRequests[scope];
+    if (st && st.controller) {
+      try {
+        st.controller.abort();
+      } catch (eAbort) {}
+    }
+    delete activeRequests[scope];
+    refreshCancelButtons();
+  }
+
+  function beginScope(scope) {
+    cancelScope(scope);
+    var controller = new AbortController();
+    activeRequests[scope] = { controller: controller };
+    refreshCancelButtons();
+    return controller.signal;
+  }
+
+  function endScope(scope) {
+    delete activeRequests[scope];
+    refreshCancelButtons();
+  }
+
+  function isRequestAborted(err) {
+    if (!err) return false;
+    if (err.name === "AbortError") return true;
+    var m = err.message != null ? String(err.message) : "";
+    return m.indexOf("aborted") >= 0 || m.indexOf("Abort") >= 0;
+  }
+
+  async function fetchCancel(scope, url, options) {
+    var signal = beginScope(scope);
+    var opts = Object.assign({}, options || {}, { signal: signal });
+    try {
+      var res = await fetch(url, opts);
+      endScope(scope);
+      return res;
+    } catch (e) {
+      endScope(scope);
+      throw e;
+    }
+  }
+
+  async function notifyServerCancel(scope) {
+    var scopes = PANEL_SERVER_SCOPES[scope];
+    if (!scopes || !scopes.length) return;
+    try {
+      await fetch("/meta/cancel-batch", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({ scopes: scopes }),
+      });
+    } catch (eNotify) {}
+  }
+
+  async function userCancelScope(scope) {
+    cancelScope(scope);
+    await notifyServerCancel(scope);
+  }
+
+  document.querySelectorAll(".btn-cancel-request").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var sc = btn.getAttribute("data-cancel-scope");
+      if (sc) void userCancelScope(sc);
+    });
+  });
+
   function detailToText(detail) {
     if (detail == null) return "";
     if (typeof detail === "string") return detail;
@@ -2657,8 +3057,13 @@
     sessionStorage.setItem(SS_MOD, id);
     updateRouteEchoSpans();
     if (id === "3") tryRestoreLastIngestFromStorage();
-    if (id === "9") tryRestoreLastQssSectorScreenFromStorage();
+    if (id === "4") updateSignalsLastBtnState();
+    if (id === "9") {
+      tryRestoreLastQssSectorScreenFromStorage();
+      tryRestoreLastQssSingleFromStorage();
+    }
     if (id === "7") void refreshForwardOutlookPanel();
+    if (id === "10") void refreshHoldingsTable();
   }
 
   function buildNav() {
@@ -2682,7 +3087,7 @@
       var data = await readBody(res);
       window.__apiKeyRequired = !!(data && data.api_key_required);
       if (window.__apiKeyRequired) {
-        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑨。<span class="status-pill warn">需密钥</span>';
+        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑩、⑨。<span class="status-pill warn">需密钥</span>';
       } else {
         banner.innerHTML = '当前服务器<strong>未启用</strong> API Key，可直接使用各模块（仍可在下方保存备用）。<span class="status-pill ok">无需密钥</span>';
       }
@@ -2764,6 +3169,8 @@
   var LS_LAST_QSS_STOCKS = "quant_monitor_last_sector_screen_stocks_json";
   /** 上次成功 POST /research/sector-screen 的完整响应（含板块表、候选股、区间说明） */
   var LS_LAST_QSS_SCREEN = "quant_monitor_last_sector_screen_v1";
+  /** ⑨ 指定股票查询：上次成功评估的完整响应（仅点「查询指定股票」时联网更新） */
+  var LS_LAST_QSS_SINGLE = "quant_monitor_last_qss_single_stock_v1";
   /** 上次成功「获取热门板块候选」的预览结果（本机浏览器缓存，非服务端） */
   var LS_LAST_HOT_SECTOR_PICK = "quant_monitor_last_hot_sector_pick_v1";
   var _qssCached = null;
@@ -3101,6 +3508,270 @@
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") qssCloseUniverseDropdown();
     });
+  }
+
+  var _qssLastSingleSym = "";
+
+  function qssNormalizeSym6(raw) {
+    var d = String(raw != null ? raw : "").replace(/\D/g, "");
+    if (d.length < 6) return "";
+    return d.slice(-6);
+  }
+
+  function qssBuildSingleStockPayload(sym) {
+    var body = buildSectorScreenPayload();
+    delete body.sector;
+    body.symbols = [sym];
+    body.top_stocks_limit = 1;
+    body.max_stocks_per_sector = 1;
+    return body;
+  }
+
+  function qssCandidateStockCellHtml(k, row) {
+    if (k === "name") {
+      var nm = row.name != null ? String(row.name).trim() : "";
+      return escHtml(nm || "—");
+    }
+    if (k === "latest_close") {
+      var pc = row.latest_close;
+      if (pc == null || pc === "" || !isFinite(Number(pc))) return escHtml("—");
+      return escHtml(Number(pc).toFixed(2));
+    }
+    if (k === "spot_change_pct") {
+      var sc = row.spot_change_pct;
+      if (sc == null || sc === "" || !isFinite(Number(sc))) return escHtml("—");
+      return escHtml(Number(sc).toFixed(2) + "%");
+    }
+    if (k === "latest_trade_date") {
+      var dtx = row.latest_trade_date != null ? String(row.latest_trade_date).trim() : "";
+      return escHtml(dtx || "—");
+    }
+    if (k === "screen_passed") {
+      var ok = row.screen_passed === true || row.screen_passed === "true";
+      var rs = row.reasons != null ? String(row.reasons).trim() : "";
+      var tip = ok
+        ? "初筛通过。依据说明：" + (rs || "—")
+        : "初筛未通过。依据说明：" + (rs || "（无摘要）");
+      var lab = ok ? "是" : "否";
+      return (
+        '<span class="qss-screen-pass-cell" style="cursor:help;border-bottom:1px dotted rgba(158,180,204,0.5);" title="' +
+        escHtml(tip) +
+        '">' +
+        escHtml(lab) +
+        "</span>"
+      );
+    }
+    if (k === "__kline3d") {
+      var codeK = String(row.code != null ? row.code : "")
+        .replace(/\D/g, "")
+        .slice(0, 6);
+      if (codeK.length !== 6) return escHtml("—");
+      var nmK = row.name != null ? String(row.name).trim() : "";
+      return (
+        '<button type="button" class="btn-ingest-show-kline" data-qss-show-kline="1" data-symbol="' +
+        escHtml(codeK) +
+        '" data-stock-name="' +
+        escHtml(nmK) +
+        '" data-trade-date="' +
+        escHtml(row.latest_trade_date != null ? String(row.latest_trade_date).trim() : "") +
+        '">查看</button>'
+      );
+    }
+    if (
+      k === "return_5d" ||
+      k === "return_20d" ||
+      k === "distance_to_60d_high" ||
+      k === "ma20_slope_pct"
+    ) {
+      var pv = row[k];
+      if (pv == null || pv === "" || !isFinite(Number(pv))) return escHtml("—");
+      var pn = Number(pv);
+      var cls = "num";
+      if (k === "return_5d" || k === "return_20d" || k === "ma20_slope_pct") {
+        cls += pn > 0.05 ? " trend-bull" : pn < -0.05 ? " trend-bear" : "";
+      }
+      return '<span class="' + cls + '">' + escHtml(pn.toFixed(2)) + "</span>";
+    }
+    if (k === "short_term_score") {
+      var sts = row.short_term_score;
+      if (sts == null || sts === "" || !isFinite(Number(sts))) return escHtml("—");
+      return escHtml(Number(sts).toFixed(1));
+    }
+    if (
+      k === "final_score" ||
+      k === "screen_score" ||
+      k === "annual_return_pct" ||
+      k === "max_drawdown_pct" ||
+      k === "win_rate_pct"
+    ) {
+      var fv = row[k];
+      if (fv == null || fv === "" || !isFinite(Number(fv))) return escHtml("—");
+      return escHtml(Number(fv).toFixed(2));
+    }
+    if (k === "sharpe_ratio") {
+      var sh = row.sharpe_ratio;
+      if (sh == null || sh === "" || !isFinite(Number(sh))) return escHtml("—");
+      return escHtml(Number(sh).toFixed(3));
+    }
+    if (k === "trade_count") {
+      var tc = row.trade_count;
+      if (tc == null || tc === "") return escHtml("—");
+      return escHtml(String(Number(tc)));
+    }
+    return null;
+  }
+
+  function persistLastQssSingleStock(body, sym, payload) {
+    try {
+      if (!body || typeof body !== "object" || !sym) return;
+      localStorage.setItem(
+        LS_LAST_QSS_SINGLE,
+        JSON.stringify({
+          ts: Date.now(),
+          symbol: sym,
+          body: body,
+          payload: payload || null
+        })
+      );
+    } catch (e) {}
+  }
+
+  function loadLastQssSingleStockCached() {
+    try {
+      var raw = localStorage.getItem(LS_LAST_QSS_SINGLE);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      if (!o || !o.body || typeof o.body !== "object") return null;
+      return o;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function showLastQssSingleStockFromStorage() {
+    var cached = loadLastQssSingleStockCached();
+    if (!cached) {
+      showOut("out-9", "暂无本机缓存的指定股票评估。请先点「查询指定股票」运行一次。", true);
+      return;
+    }
+    var sym = String(cached.symbol || "").replace(/\D/g, "").slice(0, 6);
+    if (sym.length === 6 && $("qssSingleSymbol")) $("qssSingleSymbol").value = sym;
+    _qssLastSingleSym = sym;
+    qssPaintSingleStockWrap(cached.body, sym);
+    var when = formatQssCacheTime(cached.ts);
+    showOut(
+      "out-9",
+      when
+        ? "已加载本机缓存（指定股票 " + sym + "，评估于 " + when + "），未请求网络。"
+        : "已加载本机缓存（指定股票 " + sym + "），未请求网络。",
+      true
+    );
+  }
+
+  function tryRestoreLastQssSingleFromStorage() {
+    var wrap = $("qssSingleStockWrap");
+    if (!wrap || wrap.dataset.restoredSingle === "1") return;
+    var cached = loadLastQssSingleStockCached();
+    if (!cached) return;
+    var sym = String(cached.symbol || "").replace(/\D/g, "").slice(0, 6);
+    if (sym.length !== 6) return;
+    wrap.dataset.restoredSingle = "1";
+    if ($("qssSingleSymbol") && !$("qssSingleSymbol").value.trim()) $("qssSingleSymbol").value = sym;
+    _qssLastSingleSym = sym;
+    qssPaintSingleStockWrap(cached.body, sym);
+  }
+
+  function qssPaintSingleStockWrap(data, sym) {
+    var wrap = $("qssSingleStockWrap");
+    var addBtn = $("btnQssSingleAddWl");
+    if (!wrap) return;
+    wrap.hidden = false;
+    var stocks = (data && data.stocks) || [];
+    var row = null;
+    for (var i = 0; i < stocks.length; i++) {
+      var c = String(stocks[i].code != null ? stocks[i].code : "")
+        .replace(/\D/g, "")
+        .slice(0, 6);
+      if (c === sym) {
+        row = stocks[i];
+        break;
+      }
+    }
+    if (!row && stocks.length) row = stocks[0];
+    if (!row) {
+      if (addBtn) addBtn.hidden = true;
+      wrap.innerHTML =
+        '<h3 class="ingest-h3" style="margin:0 0 0.5rem;">指定股票 · ' +
+        escHtml(sym) +
+        "</h3>" +
+        '<p class="lead" style="margin:0">未返回评估结果（可能行情不足、数据源失败或代码无效）。请查看上方状态栏或终端日志。</p>';
+      return;
+    }
+    _qssLastSingleSym = sym;
+    if (addBtn) addBtn.hidden = false;
+    var sd = formatQssYmdDisplay(data.start_date);
+    var ed = formatQssYmdDisplay(data.end_date);
+    var cols = [
+      "code",
+      "name",
+      "latest_trade_date",
+      "latest_close",
+      "spot_change_pct",
+      "return_5d",
+      "return_20d",
+      "short_term_score",
+      "final_score",
+      "screen_passed",
+      "annual_return_pct",
+      "max_drawdown_pct",
+      "sharpe_ratio",
+      "win_rate_pct",
+      "trade_count",
+      "__kline3d"
+    ];
+    var headers = {
+      code: "代码",
+      name: "名称",
+      latest_trade_date: "最近交易日",
+      latest_close: "最新价",
+      spot_change_pct: "涨幅%",
+      return_5d: "5日%",
+      return_20d: "20日%",
+      short_term_score: "短线分",
+      final_score: "综合分",
+      screen_passed: "短线初筛",
+      annual_return_pct: "年化%",
+      max_drawdown_pct: "回撤%",
+      sharpe_ratio: "夏普",
+      win_rate_pct: "胜率%",
+      trade_count: "交易次数",
+      __kline3d: "近1月K线"
+    };
+    var headerTitles = {
+      return_5d: "最近 5 个交易日涨跌幅（%）。",
+      return_20d: "最近 20 个交易日涨跌幅（%）。",
+      screen_passed:
+        "短线初筛（screen_mode=short_term）：收盘>MA20>MA60 等规则；悬停可看 reasons。",
+      __kline3d: "以本次选股 end_date 为截止日向前约 1 个自然月的本地 bars。"
+    };
+    var dispName = row.name != null ? String(row.name).trim() : "";
+    if (!dispName || dispName === "—") dispName = "";
+    wrap.innerHTML =
+      '<h3 class="ingest-h3" style="margin:0 0 0.45rem;">指定股票 · ' +
+      escHtml(sym) +
+      (dispName ? " · " + escHtml(dispName) : "") +
+      "</h3>" +
+      '<p class="lead" style="margin:0 0 0.55rem;font-size:0.78rem;color:var(--muted);">行情区间 ' +
+      escHtml(sd) +
+      " ～ " +
+      escHtml(ed) +
+      "；数据源 " +
+      escHtml(String(getQssEffectiveDataSource() || "—")) +
+      "。仅评估本只，不覆盖下方「查看上次」全量缓存。</p>" +
+      buildQssStocksTableWithKline([row], cols, headers, {
+        headerTitles: headerTitles,
+        cellHtml: qssCandidateStockCellHtml
+      });
   }
 
   function buildSectorScreenPayload() {
@@ -5323,7 +5994,7 @@
   function hotMonthDateRange() {
     var to = new Date();
     var from = new Date();
-    from.setDate(from.getDate() - 40);
+    from.setDate(from.getDate() - 35);
     function ymd(d) {
       return (
         d.getFullYear() +
@@ -5336,15 +6007,125 @@
     return { from: ymd(from), to: ymd(to) };
   }
 
-  function hotKlineBtnHtml(sym, name) {
+  function hotFilterBarsInRange(bars, fromYmd, toYmd) {
+    if (!bars || !bars.length) return [];
+    return bars.filter(function (b) {
+      var td = String(b.trade_date != null ? b.trade_date : "").slice(0, 10);
+      return td && td >= fromYmd && td <= toYmd;
+    });
+  }
+
+  function hotKlineBtnQuoteAttrs(st) {
+    if (!st || typeof st !== "object") return "";
+    var attrs = "";
+    if (st.latest_close != null && isFinite(Number(st.latest_close))) {
+      attrs += ' data-latest-close="' + escHtml(String(st.latest_close)) + '"';
+    }
+    var chg =
+      st.spot_change_pct != null
+        ? st.spot_change_pct
+        : st.change_pct != null
+          ? st.change_pct
+          : st["涨跌幅"];
+    if (chg != null && chg !== "" && isFinite(Number(chg))) {
+      attrs += ' data-spot-chg="' + escHtml(String(chg)) + '"';
+    }
+    return attrs;
+  }
+
+  function hotKlineBtnHtml(sym, name, st) {
     var nameAttr = name ? ' data-name="' + escHtml(String(name)) + '"' : "";
+    var qAttr = hotKlineBtnQuoteAttrs(st);
     return (
-      '<button type="button" class="hot-show-kline-btn" data-sym="' +
+      '<span class="hot-kline-btns">' +
+      '<button type="button" class="hot-show-kline-btn hot-kline-local" data-mode="local" data-sym="' +
       escHtml(sym) +
       '"' +
       nameAttr +
-      ">展示K线</button>"
+      qAttr +
+      ">本地缓存</button>" +
+      '<button type="button" class="hot-show-kline-btn hot-kline-api" data-mode="api" data-sym="' +
+      escHtml(sym) +
+      '"' +
+      nameAttr +
+      qAttr +
+      ">API最新</button></span>"
     );
+  }
+
+  function hotParseBtnQuote(btn) {
+    if (!btn) return null;
+    var px = btn.getAttribute("data-latest-close");
+    var chg = btn.getAttribute("data-spot-chg");
+    var price = px != null && px !== "" && isFinite(Number(px)) ? Number(px) : null;
+    var change_pct = chg != null && chg !== "" && isFinite(Number(chg)) ? Number(chg) : null;
+    if (price == null && change_pct == null) return null;
+    return { price: price, change_pct: change_pct, source: "列表最新价", trade_date: null };
+  }
+
+  function hotQuoteFromBars(bars, sourceLabel) {
+    if (!bars || !bars.length) return null;
+    var last = bars[bars.length - 1];
+    var price = last.close != null && isFinite(Number(last.close)) ? Number(last.close) : null;
+    var change_pct =
+      last.change_pct != null && isFinite(Number(last.change_pct)) ? Number(last.change_pct) : null;
+    return {
+      price: price,
+      change_pct: change_pct,
+      trade_date: last.trade_date ? String(last.trade_date).slice(0, 10) : null,
+      source: sourceLabel || "日线末根"
+    };
+  }
+
+  async function hotFetchLiveQuote(sym) {
+    try {
+      var res = await fetch("/ingest/live-quotes?symbols=" + encodeURIComponent(sym), {
+        headers: authHeaders()
+      });
+      var body = await readBody(res);
+      if (res.ok && body && Array.isArray(body.quotes) && body.quotes.length) {
+        var q = body.quotes[0];
+        var px = q.live_last_price;
+        if (px != null && isFinite(Number(px)) && Number(px) > 0) {
+          return {
+            price: Number(px),
+            change_pct:
+              q.live_change_pct != null && isFinite(Number(q.live_change_pct))
+                ? Number(q.live_change_pct)
+                : null,
+            trade_date: q.live_quote_date ? String(q.live_quote_date).slice(0, 10) : null,
+            source: "东财单股报价"
+          };
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    return null;
+  }
+
+  function hotRenderKlineQuoteStrip(quoteEl, quote) {
+    if (!quoteEl) return;
+    if (!quote || quote.price == null) {
+      quoteEl.hidden = true;
+      quoteEl.innerHTML = "";
+      return;
+    }
+    quoteEl.hidden = false;
+    var pctHtml =
+      quote.change_pct != null
+        ? hotPctCell(quote.change_pct)
+        : '<span class="hot-pct muted">—</span>';
+    var src = quote.source || "";
+    if (quote.trade_date) src = (src ? src + " · " : "") + quote.trade_date;
+    quoteEl.innerHTML =
+      '<span class="lbl">最新价</span><strong>' +
+      escHtml(hotFmtNum(quote.price, 2)) +
+      "</strong>" +
+      pctHtml +
+      '<span class="src">' +
+      escHtml(src || "—") +
+      "</span>";
   }
 
   function hotCloseKlineDialog() {
@@ -5379,14 +6160,39 @@
     });
   }
 
+  function hotAppendProvisionalTodayBar(bars, quote, shToday) {
+    if (!bars || !bars.length || !quote || quote.price == null || !shToday) return bars;
+    var lastTd = String(bars[bars.length - 1].trade_date || "").slice(0, 10);
+    if (lastTd >= shToday) return bars;
+    var px = Number(quote.price);
+    if (!isFinite(px) || px <= 0) return bars;
+    return bars.concat([
+      {
+        trade_date: shToday,
+        open: px,
+        high: px,
+        low: px,
+        close: px,
+        change_pct: quote.change_pct,
+        volume: null,
+        provisional: true
+      }
+    ]);
+  }
+
   function hotRenderKlineTableHtml(bars, sym) {
     if (!bars || !bars.length) {
       return '<p class="hot-empty-sector" style="margin:0">暂无近一月日线（可先③更新行情或稍后重试）。</p>';
     }
+    var dr = _hotKlineCache[sym] || _hotKlineCache[sym + ":local"] || _hotKlineCache[sym + ":api"] || {};
+    var lastTd = String(bars[bars.length - 1].trade_date || "").slice(0, 10);
     var rows = "";
     bars.forEach(function (b) {
+      var trCls = b.provisional ? ' class="hot-kline-row-prov"' : "";
       rows +=
-        "<tr><td>" +
+        "<tr" +
+        trCls +
+        "><td>" +
         escHtml(b.trade_date || "—") +
         '</td><td class="col-num">' +
         escHtml(hotFmtNum(b.open, 2)) +
@@ -5402,15 +6208,18 @@
         escHtml(b.volume != null ? hotFmtNum(b.volume, 0) : "—") +
         "</td></tr>";
     });
-    var dr = _hotKlineCache[sym] || {};
     var cap =
-      "近一月日线（" +
+      "近一月日线（查询 " +
       (dr.from || "—") +
       " ~ " +
       (dr.to || "—") +
+      "，末根交易日 " +
+      (dr.barsLastTradeDate || lastTd || "—") +
       "，共 " +
       bars.length +
-      " 根）";
+      " 根" +
+      (dr.sourceLabel ? " · " + dr.sourceLabel : "") +
+      "）";
     return (
       '<p class="hot-kline-caption">' +
       escHtml(cap) +
@@ -5424,11 +6233,18 @@
     );
   }
 
-  async function hotFetchMonthBars(sym) {
-    if (_hotKlineCache[sym] && Array.isArray(_hotKlineCache[sym].bars) && _hotKlineCache[sym].bars.length) {
-      return _hotKlineCache[sym].bars;
-    }
+  async function hotFetchMonthBarsLocal(sym, options) {
+    options = options || {};
+    var cacheKey = sym + ":local";
     var dr = hotMonthDateRange();
+    if (
+      !options.forceRefresh &&
+      _hotKlineCache[cacheKey] &&
+      Array.isArray(_hotKlineCache[cacheKey].bars) &&
+      _hotKlineCache[cacheKey].bars.length
+    ) {
+      return _hotKlineCache[cacheKey].bars;
+    }
     var qs =
       "from_date=" +
       encodeURIComponent(dr.from) +
@@ -5438,27 +6254,109 @@
       headers: authHeaders()
     });
     var body = await readBody(res);
-    if (res.ok && Array.isArray(body) && body.length) {
-      _hotKlineCache[sym] = { bars: body, from: dr.from, to: dr.to };
-      return body;
+    if (!res.ok) {
+      throw new Error(await formatError(res, body));
+    }
+    var bars = Array.isArray(body) ? body : [];
+    if (!bars.length) {
+      throw new Error("本地库暂无近一月日线，请先③更新行情，或点「API最新」联网拉取。");
+    }
+    _hotKlineCache[cacheKey] = {
+      bars: bars,
+      from: dr.from,
+      to: dr.to,
+      fetchedAt: Date.now(),
+      sourceLabel: "本地库",
+      note: "仅读 SQLite 已入库日线，不联网。"
+    };
+    return bars;
+  }
+
+  async function hotFetchMonthBarsApi(sym, options) {
+    options = options || {};
+    var cacheKey = sym + ":api";
+    var dr = hotMonthDateRange();
+    if (
+      !options.forceRefresh &&
+      _hotKlineCache[cacheKey] &&
+      Array.isArray(_hotKlineCache[cacheKey].bars) &&
+      _hotKlineCache[cacheKey].bars.length
+    ) {
+      return _hotKlineCache[cacheKey].bars;
     }
     var ds = $("hotSelectorDs") ? $("hotSelectorDs").value : "akshare";
-    var res2 = await fetch("/ingest/web-data-preview", {
-      method: "POST",
-      headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-      body: JSON.stringify({
-        symbol: sym,
-        data_source: ds,
-        refresh_kline: true,
-        bar_limit: 35
-      })
-    });
-    var body2 = await readBody(res2);
-    if (!res2.ok) {
-      throw new Error(await formatError(res2, body2));
+    var bars = [];
+    var refreshNote = "";
+    var shToday = dr.to;
+    var lastTdApi = "";
+    try {
+      var res2 = await fetch("/ingest/web-data-preview", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({
+          symbol: sym,
+          data_source: ds,
+          refresh_kline: true,
+          bar_limit: 35
+        })
+      });
+      var body2 = await readBody(res2);
+      if (!res2.ok) {
+        throw new Error(await formatError(res2, body2));
+      }
+      var raw = Array.isArray(body2.bars) ? body2.bars : [];
+      bars = hotFilterBarsInRange(raw, dr.from, dr.to);
+      if (!bars.length && raw.length) bars = raw;
+      var shToday = body2.shanghai_today ? String(body2.shanghai_today).slice(0, 10) : dr.to;
+      var lastTdApi = body2.bars_last_trade_date
+        ? String(body2.bars_last_trade_date).slice(0, 10)
+        : bars.length
+          ? String(bars[bars.length - 1].trade_date || "").slice(0, 10)
+          : "";
+      if (body2.note && String(body2.note).indexOf("数据源最新完整日线") >= 0) {
+        refreshNote = String(body2.note);
+      }
+      var kr = body2.kline_refresh;
+      if (kr && kr.ok === false && kr.detail) {
+        refreshNote = "联网增量失败：" + String(kr.detail) + "；" + refreshNote;
+      }
+    } catch (eNet) {
+      refreshNote = String(eNet) + "；";
+      bars = [];
     }
-    var bars = Array.isArray(body2.bars) ? body2.bars : [];
-    _hotKlineCache[sym] = { bars: bars, from: dr.from, to: dr.to };
+    if (!bars.length) {
+      var qs =
+        "from_date=" +
+        encodeURIComponent(dr.from) +
+        "&to_date=" +
+        encodeURIComponent(dr.to);
+      var res = await fetch("/quotes/" + encodeURIComponent(sym) + "/bars?" + qs, {
+        headers: authHeaders()
+      });
+      var body = await readBody(res);
+      if (res.ok && Array.isArray(body) && body.length) {
+        bars = body;
+        refreshNote += "已回退本地库区间日线。";
+      } else if (!refreshNote) {
+        throw new Error("API 拉取失败且本地库无数据，请先③更新行情或稍后重试。");
+      } else {
+        throw new Error(refreshNote + "本地库亦无数据。");
+      }
+    }
+    _hotKlineCache[cacheKey] = {
+      bars: bars,
+      from: dr.from,
+      to: dr.to,
+      shanghaiToday: shToday || dr.to,
+      barsLastTradeDate: lastTdApi || (bars.length ? String(bars[bars.length - 1].trade_date || "").slice(0, 10) : ""),
+      fetchedAt: Date.now(),
+      sourceLabel: "API联网",
+      note:
+        refreshNote ||
+        (lastTdApi && shToday && lastTdApi < shToday
+          ? "数据源完整日线止于 " + lastTdApi + "（东八区今日 " + shToday + "）；若已拉取盘口，表末行可能为今日参考价。"
+          : "已按③同源路线增量并返回近一月日线。")
+    };
     return bars;
   }
 
@@ -5466,33 +6364,90 @@
     if (!guardKey()) return;
     var sym = (btn.getAttribute("data-sym") || "").replace(/\D/g, "").slice(-6);
     if (sym.length !== 6) return;
+    var mode = (btn.getAttribute("data-mode") || "api").toLowerCase();
+    var isLocal = mode === "local";
     var nm = (btn.getAttribute("data-name") || "").trim();
     var dlg = $("hotKlineDlg");
     var titleEl = $("hotKlineDlgTitle");
+    var quoteEl = $("hotKlineDlgQuote");
     var bodyEl = $("hotKlineDlgBody");
     var metaEl = $("hotKlineDlgMeta");
     if (!dlg || !bodyEl) return;
     bindHotKlineDialogOnce();
     if (titleEl) {
-      titleEl.textContent = sym + (nm ? " " + nm : "") + " · 近一月日线";
+      titleEl.textContent =
+        sym +
+        (nm ? " " + nm : "") +
+        " · 近一月日线（" +
+        (isLocal ? "本地缓存" : "API最新") +
+        "）";
     }
+    hotRenderKlineQuoteStrip(quoteEl, hotParseBtnQuote(btn));
     if (metaEl) {
-      metaEl.textContent = "再次打开同一只股票将直接使用缓存，不重复请求。";
+      metaEl.textContent = isLocal
+        ? "读取本地 SQLite 已入库日线，不联网；同页再次点「本地缓存」用会话缓存。"
+        : "联网增量 K 线并尝试东财单股报价显示最新价；同页再次点「API最新」用会话缓存。";
     }
-    bodyEl.innerHTML = '<p class="m3-hint" style="margin:0">正在获取近一月日线…</p>';
+    bodyEl.innerHTML =
+      '<p class="m3-hint" style="margin:0">' +
+      (isLocal ? "正在读取本地库近一月日线…" : "正在联网获取最新近一月日线…") +
+      "</p>";
     if (typeof dlg.showModal === "function") dlg.showModal();
-    btn.disabled = true;
+    var wrap = btn.closest(".hot-kline-btns");
+    var btns = wrap ? wrap.querySelectorAll(".hot-show-kline-btn") : [btn];
+    btns.forEach(function (b) {
+      b.disabled = true;
+    });
     var prevText = btn.textContent;
     btn.textContent = "加载中…";
+    var cacheKey = sym + (isLocal ? ":local" : ":api");
     try {
-      var bars = await hotFetchMonthBars(sym);
-      bodyEl.innerHTML = hotRenderKlineTableHtml(bars, sym);
+      if (!isLocal) delete _hotKlineCache[cacheKey];
+      var bars = isLocal
+        ? await hotFetchMonthBarsLocal(sym, { forceRefresh: false })
+        : await hotFetchMonthBarsApi(sym, { forceRefresh: true });
+      var quote = hotParseBtnQuote(btn);
+      if (isLocal) {
+        quote = hotQuoteFromBars(bars, "本地库末根") || quote;
+      } else {
+        quote = (await hotFetchLiveQuote(sym)) || hotQuoteFromBars(bars, "增量后末根") || quote;
+        var cachedApi = _hotKlineCache[cacheKey] || {};
+        var shTodayDlg = cachedApi.shanghaiToday || "";
+        if (quote && quote.source === "东财单股报价") {
+          quote.trade_date = quote.trade_date || shTodayDlg;
+        }
+        bars = hotAppendProvisionalTodayBar(bars, quote, shTodayDlg);
+      }
+      hotRenderKlineQuoteStrip(quoteEl, quote);
+      _hotKlineCache[cacheKey] = _hotKlineCache[cacheKey] || {};
+      _hotKlineCache[cacheKey].quote = quote;
+      bodyEl.innerHTML = hotRenderKlineTableHtml(bars, cacheKey);
+      if (metaEl) {
+        var cached = _hotKlineCache[cacheKey] || {};
+        var extra = cached.note ? String(cached.note) : "";
+        var lastBar = cached.barsLastTradeDate || "";
+        metaEl.textContent =
+          "查询区间 " +
+          (cached.from || "—") +
+          " ~ " +
+          (cached.to || "—") +
+          "；完整日线末根 " +
+          (lastBar || "—") +
+          "，表内共 " +
+          bars.length +
+          " 行。" +
+          (extra ? " " + extra : "");
+      }
     } catch (e) {
       bodyEl.innerHTML =
         '<p class="lead" style="margin:0;color:var(--err)">' + escHtml(String(e)) + "</p>";
     } finally {
-      btn.disabled = false;
-      btn.textContent = prevText || "展示K线";
+      btns.forEach(function (b) {
+        b.disabled = false;
+        if (b === btn) {
+          b.textContent = prevText || (isLocal ? "本地缓存" : "API最新");
+        }
+      });
     }
   }
 
@@ -5867,7 +6822,8 @@
       "</tbody></table>" +
       '<p class="m3-hint" style="margin:0.45rem 0 0;font-size:0.74rem">仅展示有入选股的前 ' +
       escHtml(String(HOT_SECTOR_DISPLAY_MAX)) +
-      " 个板块（入选 0 已隐藏）。点「查看」在<strong>下方</strong>展开板块明细；点「展示K线」<strong>弹窗</strong>查看日线。</p></div>"
+      " 个板块（入选 0 已隐藏）。点「查看」在<strong>下方</strong>展开板块明细；「本地缓存」读库内日线，「API最新」联网增量并显示最新价涨跌。" +
+      "明细表「最新价」在联网预览时会尽量用<strong>东财全 A 列表 / 通达信快照</strong>覆盖技术面日线末根；若仍像旧价请重新点「获取热门板块候选」。</p></div>"
     );
   }
 
@@ -5941,7 +6897,7 @@
           '</td><td class="col-detail">' +
           escHtml(note || "—") +
           '</td><td class="col-num">' +
-          hotKlineBtnHtml(sym, nm) +
+          hotKlineBtnHtml(sym, nm, st) +
           "</td></tr>";
       });
     } else {
@@ -5971,7 +6927,7 @@
           '</td><td class="col-num">' +
           escHtml(tr != null && tr !== "" ? hotFmtNum(tr, 2) : "—") +
           '</td><td class="col-num">' +
-          hotKlineBtnHtml(sym, nm) +
+          hotKlineBtnHtml(sym, nm, st) +
           "</td></tr>";
       });
     }
@@ -6308,10 +7264,10 @@
     var reqBody = hotBuildFillBody();
     showOut("out-2", "正在联网拉取最新热门板块候选（不写入自选）…", true);
     try {
-      var res = await fetch("/watchlist/hot-sectors/preview", {
+      var res = await fetchCancel("panel-2", "/watchlist/hot-sectors/preview", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify(reqBody)
+        body: JSON.stringify(reqBody),
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -6338,9 +7294,67 @@
         if (hw) hw.scrollIntoView();
       }
     } catch (e) {
-      showOut("out-2", String(e), true);
+      if (isRequestAborted(e)) showOut("out-2", "热门板块请求已取消。", true);
+      else showOut("out-2", String(e), true);
     } finally {
       if (btn) btn.disabled = false;
+    }
+  }
+
+  function wlIngestDateRangeDays(days) {
+    var n = Math.max(7, Math.min(120, parseInt(days, 10) || 30));
+    var endD = new Date();
+    var startD = new Date(endD.getTime());
+    startD.setDate(startD.getDate() - n);
+    return {
+      start_date: startD.toISOString().slice(0, 10),
+      end_date: endD.toISOString().slice(0, 10),
+    };
+  }
+
+  async function wlIngestMissingSymbol(sym) {
+    if (!sym) return;
+    if (apiKeyRequired() && !getApiKey()) {
+      showOut("out-2", "请先在「①」保存 API Key。", true);
+      return;
+    }
+    var range = wlIngestDateRangeDays(30);
+    showOut("out-2", "正在拉取 " + sym + " 近约 30 日日线（" + range.start_date + "～" + range.end_date + "），请稍候…", true);
+    try {
+      var res = await fetch("/ingest/update", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({
+          symbols: [sym],
+          start_date: range.start_date,
+          end_date: range.end_date,
+          data_source: getIngestDataSource(),
+        }),
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-2", await formatError(res, body), true);
+        return;
+      }
+      var row =
+        body && Array.isArray(body.results)
+          ? body.results.find(function (r) {
+              return r && r.symbol === sym;
+            })
+          : null;
+      if (row && row.error) {
+        showOut("out-2", sym + " 日线拉取失败：" + row.error + "（可改③行情路线或检查网络/代理）", true);
+      } else {
+        var n = row && row.rows_upserted != null ? row.rows_upserted : "—";
+        showOut(
+          "out-2",
+          sym + " 日线已入库 " + n + " 条" + (row && row.last_close != null ? "，收盘参考 " + row.last_close : ""),
+          false
+        );
+      }
+      await refreshWatchlistTable();
+    } catch (e) {
+      showOut("out-2", String(e), true);
     }
   }
 
@@ -6352,15 +7366,16 @@
       out.hidden = true;
       return;
     }
-    var res = await fetch("/watchlist", { headers: authHeaders() });
-    var body = await readBody(res);
-    if (!res.ok) {
-      _wlJumpToLastPageAfterRefreshOnce = false;
-      wrap.innerHTML = "";
-      showOut("out-2", await formatError(res, body), true);
-      return;
-    }
-    showOut("out-2", "", false);
+    try {
+      var res = await fetchCancel("panel-2", "/watchlist", { headers: authHeaders() });
+      var body = await readBody(res);
+      if (!res.ok) {
+        _wlJumpToLastPageAfterRefreshOnce = false;
+        wrap.innerHTML = "";
+        showOut("out-2", await formatError(res, body), true);
+        return;
+      }
+      showOut("out-2", "", false);
     if (!Array.isArray(body) || body.length === 0) {
       _wlJumpToLastPageAfterRefreshOnce = false;
       wrap.innerHTML = "<p class=\"lead\">暂无自选，请在上方添加或尝试热门填充。</p>";
@@ -6398,13 +7413,49 @@
           : item.origin === "auto_quant"
             ? "量化自动"
             : "手动";
-      var ing = item.bars_last_ingested_at != null && String(item.bars_last_ingested_at).trim()
+      var hasBars =
+        item.bars_last_ingested_at != null && String(item.bars_last_ingested_at).trim();
+      var ing = hasBars
         ? escHtml(String(item.bars_last_ingested_at).trim())
-        : "—";
+        : '<span class="wl-ingest-missing" title="添加时自动拉取失败或尚未写入本地 bars">未入库</span>' +
+          ' <button type="button" class="wl-ingest-fix" data-sym="' +
+          escHtml(sym) +
+          '">补拉近30日</button>';
       var px =
         item.last_close != null && typeof item.last_close === "number" && isFinite(item.last_close)
           ? escHtml(item.last_close.toFixed(4))
           : "—";
+      var spotPx =
+        item.spot_last_price != null &&
+        typeof item.spot_last_price === "number" &&
+        isFinite(item.spot_last_price)
+          ? item.spot_last_price
+          : null;
+      var spotChg =
+        item.spot_change_pct != null &&
+        typeof item.spot_change_pct === "number" &&
+        isFinite(item.spot_change_pct)
+          ? item.spot_change_pct
+          : null;
+      var spotCls = "wl-spot-num wl-spot-flat";
+      if (spotChg != null) {
+        if (spotChg > 0) spotCls = "wl-spot-num wl-spot-up";
+        else if (spotChg < 0) spotCls = "wl-spot-num wl-spot-down";
+      }
+      var spotTitle = "东财 A 股列表快照现价（聚合公开数据，非交易所 tick，可能有延时）";
+      if (item.spot_quote_date != null && String(item.spot_quote_date).trim()) {
+        spotTitle += "；快照日期 " + String(item.spot_quote_date).trim();
+      }
+      var spotCell = "—";
+      if (spotPx != null) {
+        spotCell =
+          escHtml(spotPx.toFixed(2)) +
+          (spotChg != null
+            ? '<span class="wl-spot-chg">' +
+              escHtml((spotChg > 0 ? "+" : "") + spotChg.toFixed(2) + "%") +
+              "</span>"
+            : "");
+      }
       var closeLbl =
         item.last_daily_close_label != null && String(item.last_daily_close_label).trim()
           ? escHtml(String(item.last_daily_close_label).trim())
@@ -6427,6 +7478,12 @@
         ing +
         '</td><td class="wl-close-num" title="本地最新一根日线收盘价，非实时 tick">' +
         px +
+        '</td><td class="' +
+        spotCls +
+        '" title="' +
+        escHtml(spotTitle) +
+        '">' +
+        spotCell +
         '</td><td class="wl-bar-meta">' +
         closeLbl +
         '</td><td><button type="button" class="link-del" data-sym="' +
@@ -6454,7 +7511,7 @@
       pageSizeOptions +
       "</select> 条</label>" +
       "</div>" +
-      '<div class="wl-table-scroll"><table><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th>代码</th><th>名称</th><th>来源</th><th class="wl-bar-meta" title="UTC ISO，任意 K 线最近一次入库">最近入库</th><th class="wl-bar-meta" title="最新日线收盘价">收盘参考</th><th class="wl-bar-meta" title="最后交易日及 A 股常规收盘时刻">最后收盘</th><th>操作</th></tr></thead><tbody>' +
+      '<div class="wl-table-scroll"><table><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th>代码</th><th>名称</th><th>来源</th><th class="wl-bar-meta" title="UTC ISO，任意 K 线最近一次入库">最近入库</th><th class="wl-bar-meta" title="最新日线收盘价">收盘参考</th><th class="wl-spot-num" title="东财列表快照现价，刷新列表时拉取，非交易所 tick">现价（快照）</th><th class="wl-bar-meta" title="最后交易日及 A 股常规收盘时刻">最后收盘</th><th>操作</th></tr></thead><tbody>' +
       rows +
       "</tbody></table></div>" +
       '<div class="wl-pager">' +
@@ -6485,6 +7542,17 @@
     wrap.querySelectorAll(".link-del").forEach(function (el) {
       el.addEventListener("click", function () {
         deleteWl(el.getAttribute("data-sym"));
+      });
+    });
+    wrap.querySelectorAll(".wl-ingest-fix").forEach(function (el) {
+      el.addEventListener("click", async function () {
+        var s = el.getAttribute("data-sym");
+        el.disabled = true;
+        try {
+          await wlIngestMissingSymbol(s);
+        } finally {
+          el.disabled = false;
+        }
       });
     });
     var chkAll = wrap.querySelector("#wlCheckAllPage");
@@ -6548,6 +7616,12 @@
         watchlistPage = 1;
         refreshWatchlistTable();
       });
+    }
+    } catch (e) {
+      _wlJumpToLastPageAfterRefreshOnce = false;
+      wrap.innerHTML = "";
+      if (isRequestAborted(e)) showOut("out-2", "刷新自选已取消。", true);
+      else showOut("out-2", String(e), true);
     }
   }
 
@@ -6668,16 +7742,41 @@
     }
     var btn = $("btnAddWl");
     btn.disabled = true;
+    showOut("out-2", "正在添加并拉取近约 30 日日线，请稍候（需联网）…", true);
     try {
+      var addPayload = {
+        symbol: digits,
+        auto_ingest_kline: true,
+        ingest_days: 30,
+        data_source: getIngestDataSource(),
+      };
       var res = await fetch("/watchlist", {
         method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ symbol: digits })
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify(addPayload),
       });
       var body = await readBody(res);
       if (!res.ok) showOut("out-2", await formatError(res, body), true);
       else {
-        showOut("out-2", "已添加：\n" + JSON.stringify(body, null, 2), true);
+        var msg = "已添加 " + digits;
+        if (body && body.kline_ingest_ok === true) {
+          msg +=
+            "；日线入库 " +
+            (body.kline_ingest_rows != null ? body.kline_ingest_rows + " 条" : "成功") +
+            (body.last_close != null ? "，收盘参考 " + body.last_close : "");
+        } else if (body && body.kline_ingest_ok === false) {
+          msg +=
+            "；日线拉取失败：" +
+            (body.kline_ingest_error || "未知错误") +
+            "（可在该行点「补拉近30日」或到③重试；东财/代理失败时可改路线为 auto）";
+        } else if (
+          body &&
+          body.kline_ingest_ok === true &&
+          (body.bars_last_ingested_at == null || !String(body.bars_last_ingested_at).trim())
+        ) {
+          msg += "；入库条数已上报但列表仍无本地日线，请点「刷新列表」或「补拉近30日」";
+        }
+        showOut("out-2", msg, body && body.kline_ingest_ok === false);
         $("symAdd").value = "";
       }
       await refreshWatchlistTable();
@@ -6726,7 +7825,7 @@
     if (btn) btn.disabled = true;
     showOut("out-2", "正在导入快照热门股…", true);
     try {
-      var res = await fetch("/watchlist/import-hot-market-snapshot", {
+      var res = await fetchCancel("panel-2", "/watchlist/import-hot-market-snapshot", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify({ replace_auto_pool: true })
@@ -6851,6 +7950,114 @@
     });
   }
 
+  var btnQssSingleStockLast = $("btnQssSingleStockLast");
+  if (btnQssSingleStockLast) {
+    btnQssSingleStockLast.addEventListener("click", function () {
+      showLastQssSingleStockFromStorage();
+    });
+  }
+
+  var btnQssSingleStock = $("btnQssSingleStock");
+  if (btnQssSingleStock) {
+    btnQssSingleStock.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      var sym = qssNormalizeSym6($("qssSingleSymbol") && $("qssSingleSymbol").value);
+      if (sym.length !== 6) {
+        showOut("out-9", "请输入 6 位 A 股代码。", true);
+        return;
+      }
+      var btn = $("btnQssSingleStock");
+      var addBtn = $("btnQssSingleAddWl");
+      var payload = qssBuildSingleStockPayload(sym);
+      if (payload.data_source === "tushare" && !payload.tushare_token) {
+        try {
+          var lsTok = localStorage.getItem(LS_TUSHARE);
+          if (lsTok && $("qssTushareToken")) $("qssTushareToken").value = lsTok;
+        } catch (eTok) {}
+        payload = qssBuildSingleStockPayload(sym);
+      }
+      if (payload.data_source === "tushare" && !payload.tushare_token) {
+        showOut("out-9", "TuShare 需要 Token：请填写上方输入框或配置 TUSHARE_TOKEN。", true);
+        return;
+      }
+      btn.disabled = true;
+      if (addBtn) addBtn.hidden = true;
+      showOut("out-9", "正在评估 " + sym + "（联网拉日线+回测，请稍候）…", true);
+      var wrap = $("qssSingleStockWrap");
+      if (wrap) {
+        wrap.hidden = false;
+        wrap.innerHTML = '<p class="lead" style="margin:0">评估中…</p>';
+      }
+      try {
+        var res = await fetchCancel("panel-9", "/research/sector-screen", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+          body: JSON.stringify(payload)
+        });
+        var body = await readBody(res);
+        if (!res.ok) {
+          showOut("out-9", await formatError(res, body), true);
+          if (wrap) wrap.hidden = true;
+          return;
+        }
+        var got = body && Array.isArray(body.stocks) ? body.stocks.length : 0;
+        showOut(
+          "out-9",
+          got > 0
+            ? "指定股票 " + sym + " 评估完成，结果见下方表格。"
+            : "评估完成但未返回该股数据（可能拉取失败），见服务端日志。",
+          got === 0
+        );
+        persistLastQssSingleStock(body, sym, payload);
+        var wrapDone = $("qssSingleStockWrap");
+        if (wrapDone) wrapDone.dataset.restoredSingle = "1";
+        qssPaintSingleStockWrap(body, sym);
+      } catch (e) {
+        if (isRequestAborted(e)) showOut("out-9", "指定股票查询已取消。", true);
+        else showOut("out-9", String(e), true);
+        if (wrap) wrap.hidden = true;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  var btnQssSingleAddWl = $("btnQssSingleAddWl");
+  if (btnQssSingleAddWl) {
+    btnQssSingleAddWl.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      var sym = _qssLastSingleSym || qssNormalizeSym6($("qssSingleSymbol") && $("qssSingleSymbol").value);
+      if (sym.length !== 6) {
+        showOut("out-9", "请先查询指定股票。", true);
+        return;
+      }
+      var btn = $("btnQssSingleAddWl");
+      btn.disabled = true;
+      try {
+        var res = await fetch("/watchlist", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+          body: JSON.stringify({
+            symbol: sym,
+            auto_ingest_kline: true,
+            ingest_days: 30,
+            data_source: getIngestDataSource()
+          })
+        });
+        var body = await readBody(res);
+        if (!res.ok) showOut("out-9", await formatError(res, body), true);
+        else {
+          showOut("out-9", "已将 " + sym + " 加入自选（并尝试拉取近 30 日日线）。", false);
+          await refreshWatchlistTable();
+        }
+      } catch (e) {
+        showOut("out-9", String(e), true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
   var btnSectorScreenApi = $("btnSectorScreenApi");
   if (btnSectorScreenApi) {
     btnSectorScreenApi.addEventListener("click", async function () {
@@ -6882,10 +8089,10 @@
         tbRun.hidden = true;
       }
       try {
-        var res = await fetch("/research/sector-screen", {
+        var res = await fetchCancel("panel-9", "/research/sector-screen", {
           method: "POST",
           headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
         var body = await readBody(res);
         if (!res.ok) {
@@ -6908,7 +8115,8 @@
           applyWlQuantModeUi();
         }
       } catch (e) {
-        showOut("out-9", String(e), true);
+        if (isRequestAborted(e)) showOut("out-9", "联网选股请求已取消。", true);
+        else showOut("out-9", String(e), true);
       } finally {
         btn.disabled = false;
         if (viewBtn) viewBtn.disabled = false;
@@ -7325,8 +8533,152 @@
     return "?pre_refresh=" + pr + "&data_source=" + ds;
   }
 
+  var SIGNALS_HEADER_KEYS = [
+    "X-Quant-Data-Source",
+    "X-Quant-Pre-Refresh",
+    "X-Quant-Signals-Failed-Count",
+    "X-Quant-Signals-Failed-Symbols",
+    "X-Quant-Signals-Success-Count",
+    "X-Quant-Signals-Cancelled",
+  ];
+
+  function signalsResponseFromSnapshot(snap) {
+    var hdr = (snap && snap.headers) || {};
+    return {
+      ok: !!(snap && snap.ok),
+      headers: {
+        get: function (name) {
+          var v = hdr[name];
+          return v != null && v !== "" ? String(v) : null;
+        },
+      },
+    };
+  }
+
+  function persistLastSignalsAllSnapshot(res, bodyText) {
+    try {
+      if (!res || !res.ok || bodyText == null) return;
+      var parsed = JSON.parse(bodyText);
+      var list = Array.isArray(parsed) ? parsed : parsed != null ? [parsed] : [];
+      if (!list.length) return;
+      var headers = {};
+      SIGNALS_HEADER_KEYS.forEach(function (h) {
+        var v = res.headers.get(h);
+        if (v != null) headers[h] = v;
+      });
+      localStorage.setItem(
+        LS_LAST_SIGNALS_ALL,
+        JSON.stringify({
+          ts: Date.now(),
+          ok: true,
+          bodyText: bodyText,
+          headers: headers,
+        })
+      );
+      updateSignalsLastBtnState();
+    } catch (e) {
+      try {
+        console.warn("quant-monitor: 无法缓存上次信号结果", e);
+      } catch (e2) {}
+    }
+  }
+
+  function updateSignalsLastBtnState() {
+    var btn = $("btnSignalsLast");
+    if (!btn) return;
+    var has = false;
+    try {
+      has = !!(localStorage.getItem(LS_LAST_SIGNALS_ALL) || "").trim();
+    } catch (e) {}
+    btn.disabled = !has;
+  }
+
+  function loadLastSignalsAllFromStorage() {
+    var w = $("signals-out-wrap");
+    try {
+      var raw = localStorage.getItem(LS_LAST_SIGNALS_ALL);
+      if (!raw || !String(raw).trim()) {
+        if (w) {
+          w.hidden = false;
+          w.innerHTML =
+            '<p class="lead" style="margin:0">暂无本机缓存。请先点「查看自选全部信号」并成功返回后再试。</p>';
+        }
+        return;
+      }
+      var snap = JSON.parse(raw);
+      if (!snap || !snap.bodyText) throw new Error("invalid snapshot");
+      var res = signalsResponseFromSnapshot(snap);
+      renderSignalsPanel(res, snap.bodyText);
+      if (w) {
+        var ts = snap.ts ? new Date(snap.ts) : null;
+        var when =
+          ts && !isNaN(ts.getTime())
+            ? ts.toLocaleString("zh-CN", { hour12: false })
+            : "—";
+        w.insertAdjacentHTML(
+          "afterbegin",
+          '<p class="lead" style="margin:0 0 0.65rem;padding:0.45rem 0.6rem;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);font-size:0.82rem;">' +
+            "<strong>本机缓存</strong>（非本次联网）· 保存于 " +
+            escapeHtml(when) +
+            " · 关闭标签页后仍保留，直至下次成功「查看自选全部信号」覆盖。</p>"
+        );
+        if (snap.headers && snap.headers["X-Quant-Signals-Cancelled"] === "1") {
+          w.insertAdjacentHTML(
+            "afterbegin",
+            '<p class="lead" style="margin:0 0 0.5rem;color:#c9b87c">该次缓存来自<strong>已中断</strong>的计算，可能只含部分自选。</p>'
+          );
+        }
+      }
+    } catch (e) {
+      if (w) {
+        w.hidden = false;
+        w.innerHTML =
+          '<p class="lead" style="margin:0;color:var(--err)">无法读取上次缓存，请重新执行「查看自选全部信号」。</p>';
+      }
+    }
+  }
+
   var SIGNAL_TREND_ZH = { bullish: "偏多", sideways: "震荡", bearish: "偏空" };
   var SIGNAL_STRENGTH_ZH = { strong: "偏强", neutral: "中性", weak: "偏弱" };
+
+  /** ④ meta.ret_*d 为小数收益率（0.05=5%），格式化为带符号百分比 */
+  function signalRetPctLabel(meta, key) {
+    if (!meta || meta[key] == null) return null;
+    var v = Number(meta[key]);
+    if (!isFinite(v)) return null;
+    var pct = v * 100;
+    var s = (pct >= 0 ? "+" : "") + formatFixed(pct, 2) + "%";
+    return s;
+  }
+
+  function formatSignalStrengthCell(sig) {
+    var strZh = SIGNAL_STRENGTH_ZH[sig.strength] || signalFmtCell(sig.strength);
+    var meta = sig && sig.meta && typeof sig.meta === "object" ? sig.meta : {};
+    var r5 = signalRetPctLabel(meta, "ret_5d");
+    var r10 = signalRetPctLabel(meta, "ret_10d");
+    var parts = [];
+    if (r5) parts.push("5日 " + r5);
+    if (r10) parts.push("10日 " + r10);
+    if (!parts.length) return escapeHtml(strZh);
+    return (
+      escapeHtml(strZh) +
+      '<br><span style="color:var(--muted);font-size:0.76rem;white-space:nowrap">' +
+      escapeHtml(parts.join(" · ")) +
+      "</span>"
+    );
+  }
+
+  function signalStrengthTitle(sig) {
+    var meta = sig && sig.meta && typeof sig.meta === "object" ? sig.meta : {};
+    var bits = [signalFmtCell(sig.strength)];
+    var r5 = signalRetPctLabel(meta, "ret_5d");
+    var r10 = signalRetPctLabel(meta, "ret_10d");
+    var r20 = signalRetPctLabel(meta, "ret_20d");
+    if (r5) bits.push("近5日 " + r5);
+    if (r10) bits.push("近10日 " + r10);
+    if (r20) bits.push("近20日 " + r20);
+    return bits.join("；");
+  }
   var SIGNAL_POSITION_ZH = { avoid: "回避", cautious: "谨慎", trial: "试错", moderate: "适度" };
 
   function signalTrendClass(t) {
@@ -7347,6 +8699,64 @@
     return String(v);
   }
 
+  function signalFmtScore(v) {
+    if (v == null || typeof v !== "number" || !isFinite(v)) return "—";
+    return String(Math.round(v));
+  }
+
+  function formatSignalSpotPriceCell(sig) {
+    var px = sig.spot_last_price;
+    var chg = sig.spot_change_pct;
+    if (px == null || typeof px !== "number" || !isFinite(px)) return "—";
+    var cls = "num";
+    if (chg != null && isFinite(Number(chg))) {
+      if (Number(chg) > 0) cls += " trend-bull";
+      else if (Number(chg) < 0) cls += " trend-bear";
+    }
+    var html = signalFmtNum(px, 2);
+    if (chg != null && isFinite(Number(chg))) {
+      html +=
+        '<br><span style="font-size:0.76rem">' +
+        escapeHtml((Number(chg) > 0 ? "+" : "") + signalFmtNum(chg, 2) + "%") +
+        "</span>";
+    }
+    return (
+      '<span class="' +
+      cls +
+      '" title="日线末根收盘（与③行情路线一致），非 tick 实时">' +
+      html +
+      "</span>"
+    );
+  }
+
+  function formatSignalSpotBuyCell(sig) {
+    var score = sig.spot_buy_suitability_score;
+    var hint = sig.spot_buy_hint;
+    var ph = sig.spot_position_hint;
+    if (score == null && (!hint || !String(hint).trim())) return "—";
+    var posZh = ph ? SIGNAL_POSITION_ZH[ph] || signalFmtCell(ph) : "";
+    var pillCls = "pill";
+    if (ph === "moderate" || ph === "trial") pillCls += " ok";
+    else if (ph === "avoid") pillCls += " err";
+    else if (ph === "cautious") pillCls += " warn";
+    var head =
+      score != null && isFinite(Number(score))
+        ? '<span class="num" style="font-weight:600;margin-right:0.35rem">' +
+          escapeHtml(signalFmtScore(score)) +
+          "</span>"
+        : "";
+    var pill = posZh
+      ? '<span class="' + pillCls + '" style="margin-right:0.35rem">' + escapeHtml(posZh) + "</span>"
+      : "";
+    var txt =
+      hint && String(hint).trim()
+        ? '<span style="font-size:0.76rem;line-height:1.45;color:var(--muted)">' +
+          escapeHtml(String(hint).trim()) +
+          "</span>"
+        : "";
+    return head + pill + txt || "—";
+  }
+
   function signalFmtMoneyYuan(v) {
     if (v == null || typeof v !== "number" || !isFinite(v)) return "—";
     var abs = Math.abs(v);
@@ -7364,8 +8774,9 @@
       "<dt>as_of_date（截止日）</dt><dd>本信号所依据的<strong>最后一根已入库 K 线</strong>的交易日（YYYY-MM-DD）。</dd>" +
       "<dt>close（收盘）</dt><dd>截止日收盘价；与本地前复权日线一致，非实时盘口。</dd>" +
       "<dt>trend（趋势）</dt><dd>bullish 偏多 / sideways 震荡 / bearish 偏空；由均线关系等规则归纳，仅供参考。</dd>" +
-      "<dt>strength（强度）</dt><dd>strong 偏强 / neutral 中性 / weak 偏弱；反映动能与相对波动等。</dd>" +
-      "<dt>buy_suitability_score（买入适合度）</dt><dd>0–100 综合得分：在<strong>技术分</strong>基础上叠加<strong>扩展因子调整</strong>后的 Demo 合成结果，<strong>不构成买卖建议</strong>。</dd>" +
+      "<dt>strength（强度）</dt><dd>strong 偏强 / neutral 中性 / weak 偏弱；反映动能与相对波动等。单元格内另附 <code>meta.ret_5d</code>、<code>meta.ret_10d</code> 换算的<strong>近5日、近10日涨幅%</strong>（相对截止日前第 N 个交易日的收盘）。</dd>" +
+      "<dt>spot_last_price / spot_buy_*</dt><dd><strong>现价（日线）</strong>与③相同路线的<strong>本地日线末根收盘</strong>（如新浪 <code>stock_zh_a_daily</code> 入库后读取）；<strong>当前买入适合度/建议</strong>用该价代入重算；<strong>非东财全市场列表、非 tick 实时</strong>。</dd>" +
+      "<dt>buy_suitability_score（买入适合度）</dt><dd>0–100 综合得分：基于<strong>最新入库日线收盘</strong>与扩展因子调整的 Demo 合成，<strong>不构成买卖建议</strong>。</dd>" +
       "<dt>technical_score（技术分）</dt><dd>0–100，仅技术面启发式打分（合成前）。</dd>" +
       "<dt>fundamental_adjustment（扩展调整）</dt><dd>扩展因子对总分的有界加减（Demo，常见约 -15～+15）。</dd>" +
       "<dt>fundamentals（扩展因子面板）</dt><dd>在「③」执行<strong>拉取扩展因子</strong>后从本地快照读取；未拉取时多项为空。</dd>" +
@@ -7390,6 +8801,88 @@
       "</strong> · 计算前增量更新：<strong>" +
       (pr === "1" ? "是" : "否") +
       "</strong></p>"
+    );
+  }
+
+  function buildSignalDetailBlockHtml(sig) {
+    var title =
+      escapeHtml(signalFmtCell(sig.symbol)) +
+      (sig.name ? " " + escapeHtml(String(sig.name)) : "");
+    var reasons = Array.isArray(sig.reasons) ? sig.reasons : [];
+    var reasonLis = reasons
+      .map(function (r) {
+        var c = r && r.code != null ? String(r.code) : "";
+        var t = r && r.text != null ? String(r.text) : "";
+        return (
+          "<li><span class=\"reason-code\">" +
+          escapeHtml(c) +
+          "</span>" +
+          escapeHtml(t) +
+          "</li>"
+        );
+      })
+      .join("");
+    if (!reasonLis) reasonLis = "<li>（无）</li>";
+    var metaBlock = "";
+    if (sig.meta && typeof sig.meta === "object" && Object.keys(sig.meta).length) {
+      metaBlock =
+        '<p class="lead" style="margin:0.5rem 0 0;font-size:0.78rem;color:var(--muted)">meta：' +
+        escapeHtml(JSON.stringify(sig.meta)) +
+        "</p>";
+    }
+    return (
+      '<div class="signals-detail-block">' +
+      "<h4>" +
+      title +
+      "</h4>" +
+      '<p class="pos-range">' +
+      escapeHtml(signalFmtCell(sig.position_range_text)) +
+      "</p>" +
+      (function () {
+        var sp = sig.suggested_position_pct;
+        if (!sp || typeof sp.low_pct !== "number" || typeof sp.high_pct !== "number") return "";
+        return (
+          '<div class="signal-hint-card signal-hint-buy">' +
+          '<div class="hint-label">建仓示例（总资金 · 非指令）</div>' +
+          "<div><strong>" +
+          escapeHtml(String(sp.low_pct)) +
+          "% – " +
+          escapeHtml(String(sp.high_pct)) +
+          "%</strong>，与 <code>position_hint</code> 对应。</div>" +
+          "</div>"
+        );
+      })() +
+      (function () {
+        var te = sig.trial_exit_guidance;
+        if (!te || typeof te !== "object") return "";
+        var sl = te.stop_loss_pct_from_entry_demo;
+        var ma = te.reference_exit_ma20;
+        var slStr =
+          sl != null && typeof sl === "number" && isFinite(sl)
+            ? "约 " + signalFmtNum(sl, 0) + "%（相对建仓成本）"
+            : "—";
+        var maStr =
+          ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 4) : "—";
+        return (
+          '<div class="signal-hint-card signal-hint-exit">' +
+          '<div class="hint-label">试错离场（Demo · 非卖出指令）</div>' +
+          '<p class="lead" style="margin:0;font-size:0.8rem;line-height:1.55">' +
+          escapeHtml(te.note != null ? String(te.note) : "") +
+          "</p>" +
+          '<p class="lead" style="margin:0.35rem 0 0;font-size:0.76rem;color:var(--muted)">示例止损：' +
+          escapeHtml(slStr) +
+          " · MA20 参考收盘：" +
+          escapeHtml(maStr) +
+          "</p>" +
+          "</div>"
+        );
+      })() +
+      "<strong style=\"font-size:0.8rem;color:var(--muted)\">解读（reasons）</strong>" +
+      "<ul>" +
+      reasonLis +
+      "</ul>" +
+      metaBlock +
+      "</div>"
     );
   }
 
@@ -7418,6 +8911,7 @@
     }
 
     var list = Array.isArray(body) ? body : [body];
+    lastSignalsList = list;
     if (!list.length) {
       wrap.innerHTML =
         headHtml +
@@ -7431,10 +8925,13 @@
         "股票代码",
         "名称",
         "截止日",
+        "操作",
         "收盘",
+        "现价（日线）",
+        "当前买入建议",
         "趋势",
         "强度",
-        "买入适合度",
+        "买入适合度(日线)",
         "技术分",
         "扩展调整",
         "PE(动)",
@@ -7443,9 +8940,12 @@
         "净利同比%",
         "财报期",
         "ROE%",
+        "ROA%",
+        "毛利率%",
+        "净利率%",
         "资产负债%",
         "流动比",
-        "毛利率%",
+        "速动比",
         "每股经营现金流",
         "主力净流入",
         "资金流日",
@@ -7455,10 +8955,10 @@
         "风险标签",
         "状态",
       ]
-        .map(function (h, idx) {
+        .map(function (h) {
           var cls = "";
-          if (idx === 22) cls = ' class="signal-th-buy"';
-          if (idx === 23) cls = ' class="signal-th-exit"';
+          if (h === "建仓示例%") cls = ' class="signal-th-buy"';
+          if (h === "试错离场 Demo") cls = ' class="signal-th-exit"';
           return "<th" + cls + ">" + escapeHtml(h) + "</th>";
         })
         .join("") +
@@ -7469,7 +8969,6 @@
         var f = sig.fundamentals || {};
         var tr = signalTrendClass(sig.trend);
         var trendZh = SIGNAL_TREND_ZH[sig.trend] || signalFmtCell(sig.trend);
-        var strZh = SIGNAL_STRENGTH_ZH[sig.strength] || signalFmtCell(sig.strength);
         var posZh = SIGNAL_POSITION_ZH[sig.position_hint] || signalFmtCell(sig.position_hint);
         var sp = sig.suggested_position_pct;
         var spStr =
@@ -7500,17 +8999,32 @@
           teCell = "—";
         }
         var risk = Array.isArray(sig.risk_tags) ? sig.risk_tags.join("、") : "";
+        var symRaw = String(sig.symbol || "")
+          .replace(/\D/g, "")
+          .slice(0, 6);
         return (
-          "<tr>" +
+          "<tr data-symbol=\"" +
+          escapeHtml(symRaw) +
+          '">' +
           "<td>" + escapeHtml(signalFmtCell(sig.symbol)) + "</td>" +
           "<td>" + escapeHtml(signalFmtCell(sig.name)) + "</td>" +
           "<td>" + escapeHtml(signalFmtCell(sig.as_of_date)) + "</td>" +
+          '<td class="signal-op-cell">' +
+          '<button type="button" class="secondary btn-signal-interpret" data-symbol="' +
+          escapeHtml(symRaw) +
+          '">解读</button></td>' +
           '<td class="num">' + escapeHtml(signalFmtNum(sig.close, 2)) + "</td>" +
+          '<td class="num">' + formatSignalSpotPriceCell(sig) + "</td>" +
+          '<td class="signal-spot-buy" title="基于快照现价计算的适合度与仓位提示">' +
+          formatSignalSpotBuyCell(sig) +
+          "</td>" +
           '<td class="' + tr + '" title="' + escapeHtml(signalFmtCell(sig.trend)) + '">' +
           escapeHtml(trendZh) +
           "</td>" +
-          '<td title="' + escapeHtml(signalFmtCell(sig.strength)) + '">' + escapeHtml(strZh) + "</td>" +
-          '<td class="num">' + escapeHtml(signalFmtCell(sig.buy_suitability_score)) + "</td>" +
+          '<td title="' + escapeHtml(signalStrengthTitle(sig)) + '">' + formatSignalStrengthCell(sig) + "</td>" +
+          '<td class="num" title="基于最新入库日线收盘">' +
+          escapeHtml(signalFmtScore(sig.buy_suitability_score)) +
+          "</td>" +
           '<td class="num">' + escapeHtml(signalFmtCell(sig.technical_score)) + "</td>" +
           '<td class="num">' + escapeHtml(signalFmtCell(sig.fundamental_adjustment)) + "</td>" +
           '<td class="num">' + escapeHtml(signalFmtNum(f.pe_dynamic, 2)) + "</td>" +
@@ -7519,9 +9033,12 @@
           '<td class="num">' + escapeHtml(signalFmtNum(f.profit_yoy_pct, 2)) + "</td>" +
           "<td>" + escapeHtml(signalFmtCell(f.financial_report_date)) + "</td>" +
           '<td class="num">' + escapeHtml(signalFmtNum(f.roe_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.roa_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.gross_margin_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.net_margin_pct, 2)) + "</td>" +
           '<td class="num">' + escapeHtml(signalFmtNum(f.debt_to_assets_pct, 2)) + "</td>" +
           '<td class="num">' + escapeHtml(signalFmtNum(f.current_ratio, 2)) + "</td>" +
-          '<td class="num">' + escapeHtml(signalFmtNum(f.gross_margin_pct, 2)) + "</td>" +
+          '<td class="num">' + escapeHtml(signalFmtNum(f.quick_ratio, 2)) + "</td>" +
           '<td class="num">' + escapeHtml(signalFmtNum(f.ocf_per_share, 4)) + "</td>" +
           '<td class="num" title="' +
           escapeHtml(f.main_net_inflow != null ? String(f.main_net_inflow) : "") +
@@ -7542,88 +9059,6 @@
           "<td>" + escapeHtml(risk || "—") + "</td>" +
           '<td><span class="pill ok">成功</span></td>' +
           "</tr>"
-        );
-      })
-      .join("");
-
-    var detailsHtml = list
-      .map(function (sig) {
-        var title =
-          escapeHtml(signalFmtCell(sig.symbol)) +
-          (sig.name ? " " + escapeHtml(String(sig.name)) : "");
-        var reasons = Array.isArray(sig.reasons) ? sig.reasons : [];
-        var reasonLis = reasons
-          .map(function (r) {
-            var c = r && r.code != null ? String(r.code) : "";
-            var t = r && r.text != null ? String(r.text) : "";
-            return (
-              "<li><span class=\"reason-code\">" +
-              escapeHtml(c) +
-              "</span>" +
-              escapeHtml(t) +
-              "</li>"
-            );
-          })
-          .join("");
-        if (!reasonLis) reasonLis = "<li>（无）</li>";
-        var metaBlock = "";
-        if (sig.meta && typeof sig.meta === "object" && Object.keys(sig.meta).length) {
-          metaBlock =
-            '<p class="lead" style="margin:0.5rem 0 0;font-size:0.78rem;color:var(--muted)">meta：' +
-            escapeHtml(JSON.stringify(sig.meta)) +
-            "</p>";
-        }
-        return (
-          '<div class="signals-detail-block">' +
-          "<h4>" +
-          title +
-          "</h4>" +
-          '<p class="pos-range">' +
-          escapeHtml(signalFmtCell(sig.position_range_text)) +
-          "</p>" +
-          (function () {
-            var sp = sig.suggested_position_pct;
-            if (!sp || typeof sp.low_pct !== "number" || typeof sp.high_pct !== "number") return "";
-            return (
-              '<div class="signal-hint-card signal-hint-buy">' +
-              '<div class="hint-label">建仓示例（总资金 · 非指令）</div>' +
-              "<div><strong>" +
-              escapeHtml(String(sp.low_pct)) +
-              "% – " +
-              escapeHtml(String(sp.high_pct)) +
-              "%</strong>，与 <code>position_hint</code> 对应。</div>" +
-              "</div>"
-            );
-          })() +
-          (function () {
-            var te = sig.trial_exit_guidance;
-            if (!te || typeof te !== "object") return "";
-            var sl = te.stop_loss_pct_from_entry_demo;
-            var ma = te.reference_exit_ma20;
-            var slStr =
-              sl != null && typeof sl === "number" && isFinite(sl) ? "约 " + signalFmtNum(sl, 0) + "%（相对建仓成本）" : "—";
-            var maStr =
-              ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 4) : "—";
-            return (
-              '<div class="signal-hint-card signal-hint-exit">' +
-              '<div class="hint-label">试错离场（Demo · 非卖出指令）</div>' +
-              '<p class="lead" style="margin:0;font-size:0.8rem;line-height:1.55">' +
-              escapeHtml(te.note != null ? String(te.note) : "") +
-              "</p>" +
-              '<p class="lead" style="margin:0.35rem 0 0;font-size:0.76rem;color:var(--muted)">示例止损：' +
-              escapeHtml(slStr) +
-              " · MA20 参考收盘：" +
-              escapeHtml(maStr) +
-              "</p>" +
-              "</div>"
-            );
-          })() +
-          "<strong style=\"font-size:0.8rem;color:var(--muted)\">解读（reasons）</strong>" +
-          "<ul>" +
-          reasonLis +
-          "</ul>" +
-          metaBlock +
-          "</div>"
         );
       })
       .join("");
@@ -7662,6 +9097,11 @@
       }
     }
 
+    var interpretPanel = $("signals-interpret-panel");
+    var interpretInner = $("signals-interpret-inner");
+    if (interpretPanel) interpretPanel.hidden = true;
+    if (interpretInner) interpretInner.innerHTML = "";
+
     wrap.innerHTML =
       headHtml +
       skipNote +
@@ -7672,13 +9112,14 @@
       rows +
       "</tbody></table></div>" +
       notesHtml +
-      '<div class="signals-detail-wrap"><h3 class="ingest-h3">解读 · 建仓与试错离场</h3>' +
-      detailsHtml +
-      "</div>" +
+      '<div id="signals-interpret-panel" class="signals-detail-wrap" hidden>' +
+      '<h3 class="ingest-h3">解读 · 建仓与试错离场</h3>' +
+      '<div id="signals-interpret-inner"></div></div>' +
       signalsFieldGlossaryHtml() +
       '<details class="ingest-raw" style="margin-top:0.75rem"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:360px">' +
       escapeHtml(JSON.stringify(body, null, 2)) +
       "</pre></details>";
+    initSignalsInterpretClick();
   }
 
   function alertsFieldGlossaryHtml() {
@@ -7979,22 +9420,134 @@
     }
     try {
       var ds = encodeURIComponent(getIngestDataSource());
-      var res = await fetch("/ingest/test-connection?data_source=" + ds, { headers: authHeaders() });
+      var res = await fetchCancel("panel-3", "/ingest/test-connection?data_source=" + ds, {
+        headers: authHeaders(),
+      });
       var body = await readBody(res);
       if (res.ok && body && typeof body === "object") renderIngestTestResult(body);
       else if (w) w.innerHTML = "<div class=\"ingest-test-box fail\"><pre class=\"out\" style=\"margin:0;border:none;max-height:200px\">" + escapeHtml(await formatError(res, body)) + "</pre></div>";
     } catch (e) {
-      if (w) w.innerHTML = "<div class=\"ingest-test-box fail\">" + escapeHtml(String(e)) + "</div>";
+      if (isRequestAborted(e)) {
+        if (w) w.innerHTML = "<div class=\"ingest-test-box\"><span style=\"color:var(--muted)\">已取消。</span></div>";
+      } else if (w) w.innerHTML = "<div class=\"ingest-test-box fail\">" + escapeHtml(String(e)) + "</div>";
     } finally {
       btn.disabled = false;
     }
   });
 
-  function clearFundamentalsResult() {
-    var w = $("fundamentals-result-wrap");
-    if (!w) return;
-    w.innerHTML = "";
-    w.hidden = true;
+  function bodyHasFundamentals(body) {
+    return !!(body && Array.isArray(body.fundamentals_results) && body.fundamentals_results.length);
+  }
+
+  /** ③ 扩展因子列（与 fundamental_snapshots / ④ 对齐） */
+  var INGEST_FUND_COLUMNS = [
+    { key: "pe_dynamic", label: "PE(动)", digits: 2 },
+    { key: "pb", label: "PB", digits: 2 },
+    { key: "revenue_yoy_pct", label: "营收同比%", digits: 2 },
+    { key: "profit_yoy_pct", label: "净利同比%", digits: 2 },
+    { key: "financial_report_date", label: "财报期", text: true },
+    { key: "roe_pct", label: "ROE%", digits: 2 },
+    { key: "roa_pct", label: "ROA%", digits: 2 },
+    { key: "gross_margin_pct", label: "毛利率%", digits: 2 },
+    { key: "net_margin_pct", label: "净利率%", digits: 2 },
+    { key: "debt_to_assets_pct", label: "资产负债%", digits: 2 },
+    { key: "current_ratio", label: "流动比", digits: 2 },
+    { key: "quick_ratio", label: "速动比", digits: 2 },
+    { key: "ocf_per_share", label: "每股经营现金流", digits: 4 },
+    { key: "main_net_inflow", label: "主力净流入", money: true },
+    { key: "fund_flow_date", label: "资金流日", text: true },
+  ];
+
+  function ingestFundColumnCount(body) {
+    return bodyHasFundamentals(body) ? INGEST_FUND_COLUMNS.length : 0;
+  }
+
+  function mergeFundamentalsIntoBody(body) {
+    if (!body || typeof body !== "object") return body;
+    var idx = {};
+    if (Array.isArray(body.fundamentals_results)) {
+      body.fundamentals_results.forEach(function (fr) {
+        var s = String(fr.symbol || "")
+          .replace(/\D/g, "")
+          .slice(0, 6);
+        if (s.length === 6) idx[s] = fr;
+      });
+    }
+    if (Array.isArray(body.results)) {
+      body.results.forEach(function (r) {
+        var s = String(r.symbol || "")
+          .replace(/\D/g, "")
+          .slice(0, 6);
+        if (idx[s]) r._fundamental = idx[s];
+      });
+    }
+    return body;
+  }
+
+  function buildIngestFundamentalTdsHtml(fundRec, nFund) {
+    if (!nFund) return "";
+    if (!fundRec || !fundRec.ok) {
+      var errMsg =
+        fundRec && fundRec.error
+          ? String(fundRec.error)
+          : "未拉取";
+      return (
+        '<td class="cell-err cell-pre ingest-fund-cell" rowspan="2" colspan="' +
+        nFund +
+        '"><span class="pill err">扩展因子</span> ' +
+        escapeHtml(errMsg.slice(0, 120)) +
+        "</td>"
+      );
+    }
+    var snap = fundRec.snapshot && typeof fundRec.snapshot === "object" ? fundRec.snapshot : {};
+    return INGEST_FUND_COLUMNS.map(function (col) {
+      var v = snap[col.key];
+      var inner;
+      if (col.money) {
+        inner = escapeHtml(signalFmtMoneyYuan(v));
+      } else if (col.text) {
+        inner = escapeHtml(v != null && String(v).trim() ? String(v).trim() : "—");
+      } else {
+        inner = escapeHtml(signalFmtNum(v, col.digits != null ? col.digits : 2));
+      }
+      return (
+        '<td class="num ingest-fund-cell wl-bar-meta" rowspan="2" title="' +
+        escapeHtml(col.label) +
+        '">' +
+        inner +
+        "</td>"
+      );
+    }).join("");
+  }
+
+  function ingestResultFromFundamentalsOnly(fundBody) {
+    var rows = Array.isArray(fundBody.results) ? fundBody.results : [];
+    return {
+      results: rows.map(function (r) {
+        return {
+          symbol: r.symbol,
+          _fundamental: r,
+        };
+      }),
+      fundamentals_results: rows,
+      fundamentals_note: fundBody.note || "",
+      fundamentals_cancelled: !!fundBody.cancelled,
+      ingest_data_source: "—",
+    };
+  }
+
+  function applyFundamentalsResponseToIngestView(fundBody) {
+    mergeFundamentalsIntoBody(fundBody);
+    if (lastIngestResultBody && Array.isArray(lastIngestResultBody.results)) {
+      var next = JSON.parse(JSON.stringify(lastIngestResultBody));
+      next.fundamentals_results = fundBody.results;
+      next.fundamentals_note = fundBody.note || "";
+      next.fundamentals_cancelled = !!fundBody.cancelled;
+      mergeFundamentalsIntoBody(next);
+      renderIngestResult(next);
+      return;
+    }
+    renderIngestResult(ingestResultFromFundamentalsOnly(fundBody));
   }
 
   function clearForecastValidateResult() {
@@ -8526,99 +10079,10 @@
     );
   }
 
-  function renderFundamentalsResult(body) {
-    clearFundamentalsResult();
-    var wrap = $("fundamentals-result-wrap");
-    if (!wrap) return;
-    if (!body || typeof body !== "object" || !Array.isArray(body.results)) {
-      showOut("out-3", "扩展因子返回格式异常：缺少 results。", true);
-      return;
-    }
-    var fundColspanErr = 15;
-    var trs = body.results.map(function (r) {
-      var sym = escapeHtml(r.symbol || "—");
-      if (!r.ok) {
-        return (
-          "<tr><td>" +
-          sym +
-          '</td><td class="cell-err cell-pre" colspan="' +
-          fundColspanErr +
-          '"><span class="pill err">失败</span> ' +
-          escapeHtml(String(r.error || "未知错误")) +
-          "</td></tr>"
-        );
-      }
-      var snap = r.snapshot && typeof r.snapshot === "object" ? r.snapshot : {};
-      function fundCellNum(v, digits) {
-        return escapeHtml(signalFmtNum(v, digits));
-      }
-      var pe = fundCellNum(snap.pe_dynamic, 2);
-      var pb = fundCellNum(snap.pb, 2);
-      var ry = fundCellNum(snap.revenue_yoy_pct, 2);
-      var py = fundCellNum(snap.profit_yoy_pct, 2);
-      var roe = fundCellNum(snap.roe_pct, 2);
-      var roa = fundCellNum(snap.roa_pct, 2);
-      var gm = fundCellNum(snap.gross_margin_pct, 2);
-      var nm = fundCellNum(snap.net_margin_pct, 2);
-      var da = fundCellNum(snap.debt_to_assets_pct, 2);
-      var cr = fundCellNum(snap.current_ratio, 2);
-      var qr = fundCellNum(snap.quick_ratio, 2);
-      var ocf = fundCellNum(snap.ocf_per_share, 4);
-      var frd = snap.financial_report_date != null ? escapeHtml(String(snap.financial_report_date)) : "—";
-      var fd = snap.fund_flow_date != null ? escapeHtml(String(snap.fund_flow_date)) : "—";
-      return (
-        "<tr><td>" +
-        sym +
-        '</td><td><span class="pill ok">成功</span></td><td class="num">' +
-        pe +
-        '</td><td class="num">' +
-        pb +
-        '</td><td class="num">' +
-        ry +
-        '</td><td class="num">' +
-        py +
-        '</td><td class="num">' +
-        roe +
-        '</td><td class="num">' +
-        roa +
-        '</td><td class="num">' +
-        gm +
-        '</td><td class="num">' +
-        nm +
-        '</td><td class="num">' +
-        da +
-        '</td><td class="num">' +
-        cr +
-        '</td><td class="num">' +
-        qr +
-        '</td><td class="num">' +
-        ocf +
-        "</td><td>" +
-        frd +
-        "</td><td>" +
-        fd +
-        "</td></tr>"
-      );
-    }).join("");
-    var html = '<h3 class="ingest-h3">扩展因子拉取结果</h3>';
-    if (body.note) html += '<p class="lead" style="margin:0 0 0.5rem;font-size:0.82rem;">' + escapeHtml(body.note) + "</p>";
-    html +=
-      '<div class="signals-table-wrap" style="overflow-x:auto"><table class="ingest-table"><thead><tr>' +
-      "<th>代码</th><th>状态</th><th>市盈率(动)</th><th>市净率</th><th>营收同比%</th><th>净利同比%</th>" +
-      "<th>ROE%</th><th>ROA%</th><th>毛利率%</th><th>净利率%</th><th>资产负债%</th><th>流动比</th><th>速动比</th><th>每股经营现金流</th><th>财报期</th><th>资金流日</th>" +
-      "</tr></thead><tbody>";
-    html += trs + "</tbody></table></div>";
-    html += '<details class="ingest-raw"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:240px">' + escapeHtml(JSON.stringify(body, null, 2)) + "</pre></details>";
-    wrap.innerHTML = html;
-    wrap.hidden = false;
-    showOut("out-3", "", false);
-  }
-
   $("btnFundamentals").addEventListener("click", async function () {
     if (!guardKey()) return;
     var btn = $("btnFundamentals");
     btn.disabled = true;
-    clearFundamentalsResult();
     showOut("out-3", "正在拉取扩展因子，请稍候…", true);
     try {
       var subset = parseIngestSubsetSymbols();
@@ -8629,20 +10093,23 @@
       }
       var fundPayload = {};
       if (subset !== null) fundPayload.symbols = subset;
-      var res = await fetch("/ingest/fundamentals", {
+      var res = await fetchCancel("panel-3", "/ingest/fundamentals", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(fundPayload),
       });
       var body = await readBody(res);
-      if (res.ok) renderFundamentalsResult(body);
-      else {
-        clearFundamentalsResult();
-        showOut("out-3", await formatError(res, body), true);
-      }
+      if (res.ok) {
+        applyFundamentalsResponseToIngestView(body);
+        if (body && body.cancelled) {
+          showOut("out-3", "扩展因子拉取已取消，详见拉取结果表。", true);
+        } else {
+          showOut("out-3", "扩展因子已写入拉取结果表，④ 信号可读取合成得分。", false);
+        }
+      } else showOut("out-3", await formatError(res, body), true);
     } catch (e) {
-      clearFundamentalsResult();
-      showOut("out-3", String(e), true);
+      if (isRequestAborted(e)) showOut("out-3", "扩展因子拉取已取消。", true);
+      else showOut("out-3", String(e), true);
     } finally {
       btn.disabled = false;
     }
@@ -8755,7 +10222,9 @@
       }
     }
     try {
-      var res = await fetch("/research/forecast-validate?" + qs, { headers: authHeaders() });
+      var res = await fetchCancel("panel-3", "/research/forecast-validate?" + qs, {
+        headers: authHeaders(),
+      });
       var body = await readBody(res);
       if (res.ok) {
         var innerH = forecastValidateResultHtml(body);
@@ -8794,10 +10263,12 @@
         }
       }
     } catch (e) {
-      var errMsg = String(e);
+      var errMsg = isRequestAborted(e) ? "回测请求已取消。" : String(e);
       detailCtx.innerEl.innerHTML =
         '<div class="ingest-inline-bt-header">' +
-        '<span class="ingest-h3" style="margin:0;font-size:0.95rem;color:var(--err)">回测异常</span>' +
+        '<span class="ingest-h3" style="margin:0;font-size:0.95rem;color:var(--err)">' +
+        (isRequestAborted(e) ? "已取消" : "回测异常") +
+        '</span>' +
         '<button type="button" class="secondary btn-close-ingest-detail">收起</button></div>' +
         '<pre class="out" style="margin:0;border:none;max-height:220px;white-space:pre-wrap">' +
         escapeHtml(errMsg) +
@@ -8851,13 +10322,14 @@
     if (!guardKey()) return;
     var btn = $("btnIngest");
     btn.disabled = true;
-    clearFundamentalsResult();
-    showOut("out-3", "正在拉取，请稍候…", true);
+    var withFund = $("chkIngestIncludeFundamentals") && $("chkIngestIncludeFundamentals").checked;
+    showOut("out-3", withFund ? "正在拉取日线与扩展因子，请稍候…" : "正在拉取，请稍候…", true);
     try {
       var startVal = $("ingestStartDate").value.trim();
       var endVal = $("ingestEndDate").value.trim();
       lastIngestRequestDates = { start: startVal || null, end: endVal || null };
       var payload = { data_source: getIngestDataSource() };
+      if (withFund) payload.include_fundamentals = true;
       if (startVal) payload.start_date = startVal;
       if (endVal) payload.end_date = endVal;
       var subset = parseIngestSubsetSymbols();
@@ -8867,7 +10339,7 @@
         return;
       }
       if (subset !== null) payload.symbols = subset;
-      var res = await fetch("/ingest/update", {
+      var res = await fetchCancel("panel-3", "/ingest/update", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(payload),
@@ -8875,12 +10347,24 @@
       var body = await readBody(res);
       if (res.ok) {
         renderIngestResult(body);
+        if (body && body.cancelled) {
+          showOut("out-3", "更新已取消：仅完成部分自选入库，详见下方表格。", true);
+        } else if (body && body.fundamentals_cancelled) {
+          showOut("out-3", "日线已更新；扩展因子拉取已取消，详见拉取结果表。", true);
+        } else if (withFund) {
+          showOut("out-3", "日线与扩展因子已处理，详见下方表格。", false);
+        }
       } else showOut("out-3", await formatError(res, body), true);
     } catch (e) {
-      showOut("out-3", String(e), true);
+      if (isRequestAborted(e)) showOut("out-3", "请求已取消（服务端将停止后续自选拉取）。", true);
+      else showOut("out-3", String(e), true);
     } finally {
       btn.disabled = false;
     }
+  });
+
+  $("btnSignalsLast").addEventListener("click", function () {
+    loadLastSignalsAllFromStorage();
   });
 
   $("btnSignalsAll").addEventListener("click", async function () {
@@ -8893,13 +10377,24 @@
       w.innerHTML = '<p class="lead" style="margin:0">计算中（若勾选增量更新可能较慢）…</p>';
     }
     try {
-      var res = await fetch("/signals" + signalsQuerySuffix(), { headers: authHeaders() });
+      var res = await fetchCancel("panel-4", "/signals" + signalsQuerySuffix(), {
+        headers: authHeaders(),
+      });
       var t = await res.text();
+      if (res.ok) persistLastSignalsAllSnapshot(res, t);
       renderSignalsPanel(res, t);
+      if (res.headers.get("X-Quant-Signals-Cancelled") === "1" && w) {
+        w.insertAdjacentHTML(
+          "afterbegin",
+          '<p class="lead" style="margin:0 0 0.5rem;color:#c9b87c">信号计算已取消：仅返回部分自选结果。</p>'
+        );
+      }
     } catch (e) {
       if (w) {
         w.hidden = false;
-        w.innerHTML = '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
+        w.innerHTML = isRequestAborted(e)
+          ? '<p class="lead" style="margin:0">请求已取消。</p>'
+          : '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
       }
     } finally {
       btn.disabled = false;
@@ -8925,15 +10420,19 @@
       w1.innerHTML = '<p class="lead" style="margin:0">查询中…</p>';
     }
     try {
-      var res = await fetch("/signals/" + encodeURIComponent(raw) + signalsQuerySuffix(), {
-        headers: authHeaders(),
-      });
+      var res = await fetchCancel(
+        "panel-4",
+        "/signals/" + encodeURIComponent(raw) + signalsQuerySuffix(),
+        { headers: authHeaders() }
+      );
       var t = await res.text();
       renderSignalsPanel(res, t);
     } catch (e) {
       if (w1) {
         w1.hidden = false;
-        w1.innerHTML = '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
+        w1.innerHTML = isRequestAborted(e)
+          ? '<p class="lead" style="margin:0">请求已取消。</p>'
+          : '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
       }
     } finally {
       btn.disabled = false;
@@ -8954,9 +10453,9 @@
         pre_refresh: !!($("chkPreRefreshAlerts") && $("chkPreRefreshAlerts").checked),
         data_source: getIngestDataSource(),
       };
-      var res = await fetch("/alerts/preview", {
+      var res = await fetchCancel("panel-5", "/alerts/preview", {
         method: "POST",
-        headers: authHeaders(),
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(payload),
       });
       var body = await readBody(res);
@@ -8969,10 +10468,18 @@
         return;
       }
       renderAlertsPanel(body);
+      if (body && body.cancelled && aw) {
+        aw.insertAdjacentHTML(
+          "afterbegin",
+          '<p class="lead" style="margin:0 0 0.5rem;color:#c9b87c">变动对比已取消：仅对比部分自选。</p>'
+        );
+      }
     } catch (e) {
       if (aw) {
         aw.hidden = false;
-        aw.innerHTML = '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
+        aw.innerHTML = isRequestAborted(e)
+          ? '<p class="lead" style="margin:0">请求已取消。</p>'
+          : '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
       }
     } finally {
       btn.disabled = false;
@@ -9089,6 +10596,584 @@
       btn.disabled = false;
     }
   });
+
+  var HD_LOT_SIZE = 100;
+
+  function hdNormalizeShares(raw) {
+    var n = parseInt(String(raw).trim(), 10);
+    if (!isFinite(n) || n < HD_LOT_SIZE) return null;
+    if (n % HD_LOT_SIZE !== 0) return null;
+    return n;
+  }
+
+  function hdFmtNum(v, digits) {
+    if (v == null || typeof v !== "number" || !isFinite(v)) return "—";
+    return v.toFixed(digits != null ? digits : 2);
+  }
+
+  function hdPnlClass(pct) {
+    if (pct == null || typeof pct !== "number" || !isFinite(pct)) return "hd-pnl-flat";
+    if (pct > 0) return "hd-pnl-up";
+    if (pct < 0) return "hd-pnl-down";
+    return "hd-pnl-flat";
+  }
+
+  function hdStatusZh(st) {
+    return st === "closed" ? "已平仓" : "持仓中";
+  }
+
+  async function refreshHoldingsTable() {
+    var wrap = $("hd-table-wrap");
+    if (!wrap) return;
+    if (apiKeyRequired() && !getApiKey()) {
+      wrap.innerHTML = "<p class=\"lead\">请先在「①」保存 API Key。</p>";
+      return;
+    }
+    var filt = ($("hdFilter") && $("hdFilter").value) || "";
+    var q = filt ? "?status=" + encodeURIComponent(filt) + "&limit=200" : "?limit=200";
+    try {
+      var res = await fetchCancel("panel-10", "/holdings" + q, { headers: authHeaders() });
+      var body = await readBody(res);
+      if (!res.ok) {
+        wrap.innerHTML = "";
+        showOut("out-10", await formatError(res, body), true);
+        return;
+      }
+      showOut("out-10", "", false);
+      if (!Array.isArray(body) || body.length === 0) {
+        wrap.innerHTML =
+          '<p class="lead">暂无记录。请在上方填写代码、股数、成本价后点「保存持仓」。</p>';
+        return;
+      }
+      var rows = body
+        .map(function (item) {
+          var sym = item.symbol;
+          var nm = item.name && String(item.name).trim() ? escHtml(String(item.name).trim()) : "—";
+          var stCls = item.status === "closed" ? "hd-status-closed" : "hd-status-holding";
+          var pnlPct =
+            item.status === "closed" ? item.realized_pnl_pct : item.unrealized_pnl_pct;
+          var pnlAmt =
+            item.status === "closed" ? item.realized_pnl_amt : item.unrealized_pnl_amt;
+          var refPx = item.ref_price;
+          var refNote = "";
+          if (item.ref_price_source === "spot") refNote = "盘口";
+          else if (item.ref_price_source === "daily_close") refNote = "日线";
+          else if (item.ref_price_source === "sell") refNote = "卖出价";
+          var pnlCell =
+            '<span class="' +
+            hdPnlClass(pnlPct) +
+            '">' +
+            (pnlPct != null ? (pnlPct > 0 ? "+" : "") + hdFmtNum(pnlPct, 2) + "%" : "—") +
+            (pnlAmt != null ? "<br><span style=\"font-size:0.82rem\">" + hdFmtNum(pnlAmt, 0) + " 元</span>" : "") +
+            "</span>";
+          var buyDisp = item.buy_date ? escHtml(String(item.buy_date).trim()) : "—";
+          var buyVal = item.buy_date ? escHtml(String(item.buy_date).trim()) : "";
+          var notesFull = item.notes != null ? String(item.notes).trim() : "";
+          var notesDisp = notesFull ? escHtml(notesFull.slice(0, 80)) : "—";
+          var notesVal = escHtml(notesFull);
+          var daysCell = "—";
+          if (item.holding_days != null && typeof item.holding_days === "number") {
+            var dayHint =
+              item.status === "closed" && item.sell_date
+                ? "买入日算第1天，至卖出日（含首尾）"
+                : "买入日算第1天，至今日（含首尾）";
+            daysCell =
+              '<span class="hd-days-num" title="' +
+              escHtml(dayHint) +
+              '">' +
+              escHtml(String(item.holding_days)) +
+              " 天</span>";
+          }
+          var buyCell =
+            '<td class="hd-ed-cell wl-bar-meta">' +
+            '<span class="hd-ed-val">' +
+            buyDisp +
+            '</span><button type="button" class="hd-ed-btn" data-field="buy_date" data-id="' +
+            item.id +
+            '" data-value="' +
+            buyVal +
+            '">编</button></td>';
+          var notesCell =
+            '<td class="hd-ed-cell wl-bar-meta" style="max-width:200px">' +
+            '<span class="hd-ed-val" title="' +
+            (notesFull ? escHtml(notesFull) : "") +
+            '">' +
+            notesDisp +
+            '</span><button type="button" class="hd-ed-btn" data-field="notes" data-id="' +
+            item.id +
+            '" data-value="' +
+            notesVal +
+            '">编</button></td>';
+          var acts =
+            '<button type="button" class="link-del hd-del" data-id="' +
+            item.id +
+            '">删除</button>';
+          if (item.status === "holding") {
+            acts +=
+              ' <button type="button" class="wl-ingest-fix hd-exit-advice" data-id="' +
+              item.id +
+              '" data-sym="' +
+              escHtml(sym) +
+              '">平仓建议</button>' +
+              ' <button type="button" class="wl-ingest-fix hd-edit" data-id="' +
+              item.id +
+              '">改</button>' +
+              ' <button type="button" class="wl-ingest-fix hd-close" data-id="' +
+              item.id +
+              '">平仓</button>';
+          } else {
+            acts +=
+              ' <button type="button" class="wl-ingest-fix hd-reopen" data-id="' +
+              item.id +
+              '">恢复持仓</button>';
+          }
+          return (
+            "<tr><td>" +
+            escHtml(sym) +
+            "</td><td>" +
+            nm +
+            '</td><td class="' +
+            stCls +
+            '">' +
+            hdStatusZh(item.status) +
+            "</td><td>" +
+            hdFmtNum(item.shares, 0) +
+            "</td><td>" +
+            hdFmtNum(item.cost_price, 4) +
+            "</td><td>" +
+            (item.cost_basis != null ? hdFmtNum(item.cost_basis, 0) : "—") +
+            "</td><td title=\"" +
+            escHtml(refNote) +
+            '">' +
+            (refPx != null ? hdFmtNum(refPx, 4) : "—") +
+            "</td><td>" +
+            (item.market_value != null ? hdFmtNum(item.market_value, 0) : "—") +
+            "</td><td>" +
+            pnlCell +
+            "</td><td class=\"wl-bar-meta hd-days-col\">" +
+            daysCell +
+            "</td>" +
+            buyCell +
+            notesCell +
+            "<td>" +
+            acts +
+            "</td></tr>"
+          );
+        })
+        .join("");
+      wrap.innerHTML =
+        '<table><thead><tr><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th>参考价</th><th>市值估</th><th>盈亏</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
+        rows +
+        "</tbody></table>";
+      wrap.querySelectorAll(".hd-del").forEach(function (el) {
+        el.addEventListener("click", function () {
+          hdDelete(parseInt(el.getAttribute("data-id"), 10));
+        });
+      });
+      wrap.querySelectorAll(".hd-edit").forEach(function (el) {
+        el.addEventListener("click", function () {
+          hdEdit(parseInt(el.getAttribute("data-id"), 10));
+        });
+      });
+      wrap.querySelectorAll(".hd-exit-advice").forEach(function (el) {
+        el.addEventListener("click", function () {
+          hdExitAdvice(parseInt(el.getAttribute("data-id"), 10), el.getAttribute("data-sym"));
+        });
+      });
+      wrap.querySelectorAll(".hd-close").forEach(function (el) {
+        el.addEventListener("click", function () {
+          hdClose(parseInt(el.getAttribute("data-id"), 10));
+        });
+      });
+      wrap.querySelectorAll(".hd-reopen").forEach(function (el) {
+        el.addEventListener("click", function () {
+          hdReopen(parseInt(el.getAttribute("data-id"), 10));
+        });
+      });
+      wrap.querySelectorAll(".hd-ed-btn").forEach(function (el) {
+        el.addEventListener("click", function () {
+          hdStartInlineEdit(el);
+        });
+      });
+    } catch (e) {
+      if (isRequestAborted(e)) showOut("out-10", "刷新持仓已取消。", true);
+      else showOut("out-10", String(e), true);
+    }
+  }
+
+  var HD_EXIT_ACTION_ZH = {
+    strong_close: "倾向减仓/平仓",
+    consider_close: "可考虑减仓",
+    watch: "继续观察",
+    hold: "暂不建议卖",
+  };
+
+  var HD_EXIT_ACTION_CLS = {
+    strong_close: "hd-advice-strong",
+    consider_close: "hd-advice-consider",
+    watch: "hd-advice-watch",
+    hold: "hd-advice-hold",
+  };
+
+  function renderHoldingExitAdvice(advice) {
+    var panel = $("hd-advice-panel");
+    if (!panel || !advice) return;
+    var act = advice.action || "watch";
+    var cls = HD_EXIT_ACTION_CLS[act] || "hd-advice-watch";
+    var title =
+      (advice.symbol || "") +
+      (advice.name ? " " + advice.name : "") +
+      " · " +
+      (HD_EXIT_ACTION_ZH[act] || act);
+    var reasons = Array.isArray(advice.reasons) ? advice.reasons : [];
+    var lis = reasons
+      .map(function (r) {
+        return "<li>" + escHtml(String(r)) + "</li>";
+      })
+      .join("");
+    var meta =
+      "成本 " +
+      hdFmtNum(advice.cost_price, 4) +
+      (advice.ref_price != null ? " · 参考价 " + hdFmtNum(advice.ref_price, 4) : "") +
+      (advice.unrealized_pnl_pct != null
+        ? " · 浮盈亏 " + (advice.unrealized_pnl_pct > 0 ? "+" : "") + hdFmtNum(advice.unrealized_pnl_pct, 2) + "%"
+        : "") +
+      (advice.reference_exit_ma20 != null ? " · MA20 " + hdFmtNum(advice.reference_exit_ma20, 4) : "") +
+      (advice.stop_loss_demo_pct != null ? " · Demo止损线 −" + hdFmtNum(advice.stop_loss_demo_pct, 0) + "%" : "") +
+      (advice.signal_as_of_date ? " · 信号日 " + escHtml(advice.signal_as_of_date) : "");
+    panel.innerHTML =
+      '<p class="hd-advice-title ' +
+      cls +
+      '">' +
+      escHtml(title) +
+      '</p><p class="hd-advice-score">离场压力得分 <strong>' +
+      escHtml(String(advice.score != null ? advice.score : "—")) +
+      "</strong>/100" +
+      (advice.suggest_close ? " · <span class=\"hd-advice-strong\">达到「可考虑离场」阈值</span>" : "") +
+      "</p><p>" +
+      escHtml(advice.summary_zh || "") +
+      "</p><p class=\"hd-advice-score\">" +
+      escHtml(meta) +
+      "</p>" +
+      (lis ? '<ul class="hd-advice-reasons">' + lis + "</ul>" : "") +
+      '<p class="hd-advice-score" style="margin-top:0.65rem">' +
+      escHtml(advice.disclaimer_note || "规则化 Demo，非卖出指令。") +
+      "</p>";
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  async function hdExitAdvice(id, symLabel) {
+    if (!id || !guardKey()) return;
+    var panel = $("hd-advice-panel");
+    if (panel) {
+      panel.hidden = false;
+      panel.innerHTML =
+        "<p class=\"lead\" style=\"margin:0\">正在计算 " +
+        escHtml(symLabel || String(id)) +
+        " 的平仓建议（读取本地 K 线 + ④ 规则）…</p>";
+    }
+    showOut("out-10", "", false);
+    try {
+      var ds = getIngestDataSource();
+      var q = ds ? "?data_source=" + encodeURIComponent(ds) : "";
+      var res = await fetchCancel("panel-10", "/holdings/" + id + "/exit-advice" + q, {
+        headers: authHeaders(),
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        if (panel) panel.hidden = true;
+        showOut("out-10", await formatError(res, body), true);
+        return;
+      }
+      renderHoldingExitAdvice(body);
+      showOut("out-10", (body.symbol || "") + " 平仓建议已生成，见下方说明区。", false);
+    } catch (e) {
+      if (panel) panel.hidden = true;
+      if (isRequestAborted(e)) showOut("out-10", "平仓建议请求已取消。", true);
+      else showOut("out-10", String(e), true);
+    }
+  }
+
+  async function hdDelete(id) {
+    if (!id || !guardKey()) return;
+    if (!confirm("确定删除该持仓记录？")) return;
+    try {
+      var res = await fetch("/holdings/" + id, { method: "DELETE", headers: authHeaders() });
+      var body = await readBody(res);
+      if (!res.ok) showOut("out-10", await formatError(res, body), true);
+      else {
+        showOut("out-10", "已删除。", false);
+        await refreshHoldingsTable();
+      }
+    } catch (e) {
+      showOut("out-10", String(e), true);
+    }
+  }
+
+  function hdAttrEsc(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;");
+  }
+
+  async function hdPatch(id, payload) {
+    if (!id || !guardKey()) return false;
+    try {
+      var res = await fetch("/holdings/" + id, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-10", await formatError(res, body), true);
+        return false;
+      }
+      showOut("out-10", "已更新。", false);
+      await refreshHoldingsTable();
+      return true;
+    } catch (e) {
+      showOut("out-10", String(e), true);
+      return false;
+    }
+  }
+
+  function hdStartInlineEdit(btn) {
+    var td = btn.closest("td");
+    if (!td) return;
+    var field = btn.getAttribute("data-field");
+    var id = parseInt(btn.getAttribute("data-id"), 10);
+    var val = btn.getAttribute("data-value") || "";
+    if (!field || !id) return;
+    var todayStr = new Date().toISOString().slice(0, 10);
+    if (field === "buy_date") {
+      td.innerHTML =
+        '<input type="date" class="hd-inline-in hd-inline-date" max="' +
+        todayStr +
+        '" value="' +
+        hdAttrEsc(val) +
+        '" />' +
+        '<button type="button" class="hd-inline-save">存</button>' +
+        '<button type="button" class="hd-inline-cancel">消</button>';
+      var inp = td.querySelector(".hd-inline-date");
+      if (inp) inp.focus();
+    } else if (field === "notes") {
+      td.innerHTML =
+        '<input type="text" class="hd-inline-in hd-inline-notes" maxlength="500" value="' +
+        hdAttrEsc(val) +
+        '" style="max-width:11rem" />' +
+        '<button type="button" class="hd-inline-save">存</button>' +
+        '<button type="button" class="hd-inline-cancel">消</button>';
+      var inpN = td.querySelector(".hd-inline-notes");
+      if (inpN) inpN.focus();
+    } else {
+      return;
+    }
+    td.querySelector(".hd-inline-cancel").addEventListener("click", function () {
+      void refreshHoldingsTable();
+    });
+    td.querySelector(".hd-inline-save").addEventListener("click", async function () {
+      var payload = {};
+      if (field === "buy_date") {
+        var d = td.querySelector(".hd-inline-date");
+        var dv = d ? d.value.trim() : "";
+        if (!dv) {
+          showOut("out-10", "请选择买入日期。", true);
+          return;
+        }
+        if (dv > todayStr) {
+          showOut("out-10", "买入日期不能晚于今天。", true);
+          return;
+        }
+        payload.buy_date = dv;
+      } else if (field === "notes") {
+        var n = td.querySelector(".hd-inline-notes");
+        payload.notes = n ? n.value.trim() : "";
+      }
+      await hdPatch(id, payload);
+    });
+  }
+
+  async function hdEdit(id) {
+    if (!id || !guardKey()) return;
+    var sh = prompt("持仓股数（留空不修改；须为 100 的整数倍，如 500）", "");
+    var cost = prompt("成本价 元/股（留空表示不修改）", "");
+    var payload = {};
+    if (sh != null && String(sh).trim() !== "") {
+      var n = hdNormalizeShares(sh);
+      if (n == null) {
+        showOut("out-10", "股数须为 100 的整数倍（1 手 = 100 股）。", true);
+        return;
+      }
+      payload.shares = n;
+    }
+    if (cost != null && String(cost).trim() !== "") {
+      var c = parseFloat(cost);
+      if (!isFinite(c) || c <= 0) {
+        showOut("out-10", "成本价须为正数。", true);
+        return;
+      }
+      payload.cost_price = c;
+    }
+    if (!Object.keys(payload).length) return;
+    try {
+      var res = await fetch("/holdings/" + id, {
+        method: "PATCH",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      var body = await readBody(res);
+      if (!res.ok) showOut("out-10", await formatError(res, body), true);
+      else {
+        showOut("out-10", "已更新 " + (body.symbol || ""), false);
+        await refreshHoldingsTable();
+      }
+    } catch (e) {
+      showOut("out-10", String(e), true);
+    }
+  }
+
+  async function hdClose(id) {
+    if (!id || !guardKey()) return;
+    var sp = prompt("卖出均价（元/股）", "");
+    if (sp == null) return;
+    var px = parseFloat(String(sp).trim());
+    if (!isFinite(px) || px <= 0) {
+      showOut("out-10", "卖出价须为正数。", true);
+      return;
+    }
+    try {
+      var res = await fetch("/holdings/" + id + "/close", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ sell_price: px }),
+      });
+      var body = await readBody(res);
+      if (!res.ok) showOut("out-10", await formatError(res, body), true);
+      else {
+        showOut("out-10", "已标记平仓 " + (body.symbol || ""), false);
+        await refreshHoldingsTable();
+      }
+    } catch (e) {
+      showOut("out-10", String(e), true);
+    }
+  }
+
+  async function hdReopen(id) {
+    if (!id || !guardKey()) return;
+    if (!confirm("恢复为持仓中？将清除卖出价/日期。")) return;
+    try {
+      var res = await fetch("/holdings/" + id + "/reopen", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      var body = await readBody(res);
+      if (!res.ok) showOut("out-10", await formatError(res, body), true);
+      else {
+        showOut("out-10", "已恢复持仓 " + (body.symbol || ""), false);
+        await refreshHoldingsTable();
+      }
+    } catch (e) {
+      showOut("out-10", String(e), true);
+    }
+  }
+
+  var btnHdAdd = $("btnHdAdd");
+  if (btnHdAdd) {
+    btnHdAdd.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      var raw = ($("hdSym").value || "").trim();
+      if (!raw) {
+        showOut("out-10", "请填写股票代码。", true);
+        return;
+      }
+      var digits = raw.replace(/\D/g, "");
+      if (digits.length !== 6) {
+        showOut("out-10", "A 股代码须为 6 位数字。", true);
+        return;
+      }
+      var sharesRaw = ($("hdShares").value || "").trim();
+      if (!sharesRaw) {
+        showOut("out-10", "请填写持仓股数。", true);
+        return;
+      }
+      var shares = hdNormalizeShares(sharesRaw);
+      var costRaw = ($("hdCost").value || "").trim();
+      if (!costRaw) {
+        showOut("out-10", "请填写成本价。", true);
+        return;
+      }
+      var cost = parseFloat(costRaw);
+      if (shares == null) {
+        showOut("out-10", "股数须为 100 的整数倍（1 手 = 100 股），如 100、500、1000。", true);
+        return;
+      }
+      if (!isFinite(cost) || cost <= 0) {
+        showOut("out-10", "请填写有效成本价。", true);
+        return;
+      }
+      var buyRaw = $("hdBuyDate") ? $("hdBuyDate").value : "";
+      if (!buyRaw) {
+        showOut("out-10", "请选择买入日期。", true);
+        return;
+      }
+      var todayStr = new Date().toISOString().slice(0, 10);
+      if (buyRaw > todayStr) {
+        showOut("out-10", "买入日期不能晚于今天。", true);
+        return;
+      }
+      var payload = {
+        symbol: digits,
+        shares: shares,
+        cost_price: cost,
+        buy_date: buyRaw,
+        notes: ($("hdNotes").value || "").trim() || null,
+      };
+      btnHdAdd.disabled = true;
+      showOut("out-10", "保存中…", true);
+      try {
+        var res = await fetch("/holdings", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        });
+        var body = await readBody(res);
+        if (!res.ok) showOut("out-10", await formatError(res, body), true);
+        else {
+          showOut("out-10", "已保存 " + digits + (body.name ? " " + body.name : ""), false);
+          $("hdSym").value = "";
+          $("hdShares").value = "";
+          $("hdCost").value = "";
+          if ($("hdBuyDate")) $("hdBuyDate").value = "";
+          if ($("hdNotes")) $("hdNotes").value = "";
+          await refreshHoldingsTable();
+        }
+      } catch (e) {
+        showOut("out-10", String(e), true);
+      } finally {
+        btnHdAdd.disabled = false;
+      }
+    });
+  }
+  var btnHdRefresh = $("btnHdRefresh");
+  if (btnHdRefresh) {
+    btnHdRefresh.addEventListener("click", async function () {
+      btnHdRefresh.disabled = true;
+      try {
+        await refreshHoldingsTable();
+      } finally {
+        btnHdRefresh.disabled = false;
+      }
+    });
+  }
+  var hdFilterEl = $("hdFilter");
+  if (hdFilterEl) {
+    hdFilterEl.addEventListener("change", function () {
+      void refreshHoldingsTable();
+    });
+  }
 
   function escapeHtml(s) {
     var d = document.createElement("div");
@@ -9239,6 +11324,7 @@
   }
 
   function clearIngestResult() {
+    stopIngestLivePoll();
     lastIngestResultBody = null;
     ingestResultPage = 1;
     var w = $("ingest-result-wrap");
@@ -9330,6 +11416,132 @@
     return '<span class="' + cls + '">' + escapeHtml(parts.join(" · ")) + "</span>";
   }
 
+  function ingestEffectiveSpotPx(r) {
+    if (r.live_last_price != null && isFinite(Number(r.live_last_price))) {
+      return Number(r.live_last_price);
+    }
+    if (r.spot_last_price != null && isFinite(Number(r.spot_last_price))) {
+      return Number(r.spot_last_price);
+    }
+    return null;
+  }
+
+  function ingestLiveChangePct(r) {
+    if (r.live_change_pct != null && isFinite(Number(r.live_change_pct))) {
+      return Number(r.live_change_pct);
+    }
+    if (r.spot_change_pct != null && isFinite(Number(r.spot_change_pct))) {
+      return Number(r.spot_change_pct);
+    }
+    return null;
+  }
+
+  function formatIngestSpotCloseCell(r) {
+    var px =
+      r.last_close != null && isFinite(Number(r.last_close)) ? Number(r.last_close) : null;
+    if (px == null) {
+      return (
+        '<span class="ingest-cell-empty" title="本次入库尚未写入有效收盘价">—</span>'
+      );
+    }
+    var title =
+      "本次执行入库的日线收盘价（固定，不随下方现价刷新变化）";
+    return (
+      '<span class="num ingest-spot-close" title="' +
+      escapeHtml(title) +
+      '">' +
+      escapeHtml(formatFixed(px, 2)) +
+      "</span>"
+    );
+  }
+
+  function formatIngestSpotDateCell(r) {
+    var ymd =
+      r.spot_quote_date != null && String(r.spot_quote_date).trim()
+        ? String(r.spot_quote_date).trim().slice(0, 10)
+        : "";
+    if (!ymd) {
+      var ft = formatQssSnapshotFetchedAt(r.spot_fetched_at);
+      ymd = ft.beijingYmd !== "—" ? ft.beijingYmd : "—";
+    }
+    var ltd =
+      r.last_trade_date != null && String(r.last_trade_date).trim()
+        ? String(r.last_trade_date).trim().slice(0, 10)
+        : ymd;
+    if (ltd && ltd !== "—") ymd = ltd;
+    var title = "本次入库交易日；下方时间为现价最近刷新时刻";
+    var sub = "";
+    var liveAt = r.live_fetched_at || r.spot_fetched_at;
+    if (liveAt) {
+      var t2 = formatQssSnapshotFetchedAt(liveAt);
+      if (t2.beijingDt && t2.beijingDt !== "—") {
+        sub =
+          '<div class="ingest-spot-time-sub" title="单股报价最近刷新（约每 12 秒自动更新现价）">' +
+          escapeHtml(t2.beijingDt) +
+          "</div>";
+      }
+    }
+    return (
+      '<span class="ingest-spot-date" title="' +
+      escapeHtml(title) +
+      '">' +
+      escapeHtml(ymd) +
+      "</span>" +
+      sub
+    );
+  }
+
+  function formatSpotPriceCell(r) {
+    var px = ingestEffectiveSpotPx(r);
+    var chg = ingestLiveChangePct(r);
+    if (px == null) return "—";
+    var cls = "trend-side";
+    if (chg != null && isFinite(Number(chg))) {
+      if (Number(chg) > 0) cls = "trend-bull";
+      else if (Number(chg) < 0) cls = "trend-bear";
+    }
+    var line = formatFixed(px, 2);
+    if (chg != null && isFinite(Number(chg))) {
+      line +=
+        ' <span style="font-size:0.76rem">(' +
+        escapeHtml((Number(chg) > 0 ? "+" : "") + formatFixed(chg, 2) + "%") +
+        ")</span>";
+    }
+    var src = r.live_price_source || r.spot_price_source || "live";
+    var title =
+      "现价：东财单股报价，约每 12 秒自动刷新；非交易所 tick。来源 " + src;
+    if (r.live_fetched_at) {
+      title += "；更新 " + formatQssSnapshotFetchedAt(r.live_fetched_at).beijingDt;
+    }
+    return (
+      '<span class="' +
+      cls +
+      ' ingest-live-px" data-symbol="' +
+      escapeHtml(String(r.symbol || "").replace(/\D/g, "").slice(0, 6)) +
+      '" title="' +
+      escapeHtml(title) +
+      '">' +
+      line +
+      "</span>"
+    );
+  }
+
+  function formatIngestVolumeCell(vol, title, live) {
+    if (vol == null || !isFinite(Number(vol))) {
+      return '<span class="ingest-cell-empty" title="' + escapeHtml(title) + '">—</span>';
+    }
+    var cls = "ingest-vol-num" + (live ? " ingest-vol-live" : "");
+    return (
+      '<span class="' +
+      cls +
+      '" title="' +
+      escapeHtml(title) +
+      '">' +
+      escapeHtml(Number(vol).toLocaleString("zh-CN", { maximumFractionDigits: 0 })) +
+      "</span>"
+    );
+  }
+
   function buildIngestResultDataRowHtml(r) {
     var symRaw = String(r.symbol || "").replace(/\D/g, "").slice(0, 6);
     var sym = escapeHtml(symRaw || "—");
@@ -9337,6 +11549,8 @@
       r.watchlist_name && String(r.watchlist_name).trim()
         ? escapeHtml(String(r.watchlist_name).trim())
         : "—";
+    var nFund = ingestFundColumnCount(lastIngestResultBody);
+    var dataColSpan = 7 + nFund;
     if (r.error) {
       return (
         '<tr class="ingest-data-tr ingest-data-err" data-symbol="' +
@@ -9345,59 +11559,96 @@
         sym +
         "</td><td>" +
         wnameE +
-        '</td><td class="cell-err cell-pre" colspan="4"><span class="pill err">失败</span> ' +
+        '</td><td class="cell-err cell-pre" colspan="' +
+        dataColSpan +
+        '"><span class="pill err">失败</span> ' +
         escapeHtml(String(r.error)) +
         "</td></tr>"
       );
     }
-    var volStr =
-      r.last_volume != null && isFinite(Number(r.last_volume))
-        ? '<span class="ingest-last-vol" title="最新一根日线成交量（单位与数据源一致）">量 ' +
-          escapeHtml(
-            Number(r.last_volume).toLocaleString("zh-CN", {
-              maximumFractionDigits: 0,
-            })
-          ) +
-          "</span>"
-        : '<span class="ingest-last-vol">量 —</span>';
-    var bt =
-      '<div class="ingest-action-cell">' +
-      '<label style="display:inline-flex;align-items:center;gap:0.3rem;color:var(--muted);font-size:0.78rem;margin:0;">H' +
-      '<input type="number" class="ingest-row-h" min="1" max="60" value="5" /></label>' +
+    var prevVol = r.prev_volume != null ? r.prev_volume : null;
+    var liveVol =
+      r.live_volume != null && isFinite(Number(r.live_volume))
+        ? r.live_volume
+        : r.last_volume != null && isFinite(Number(r.last_volume))
+          ? r.last_volume
+          : null;
+    var opCell =
+      '<td class="ingest-op-cell" rowspan="2">' +
+      '<div class="ingest-op-stack">' +
+      '<div class="ingest-op-days"><span>天数</span>' +
+      '<label class="ingest-action-h" style="margin:0">H' +
+      '<input type="number" class="ingest-row-h" min="1" max="60" value="5" aria-label="持有天数" /></label></div>' +
       '<button type="button" class="primary btn-ingest-backtest" data-symbol="' +
       escapeHtml(symRaw) +
       '">开始回测</button>' +
-      volStr +
       '<button type="button" class="btn-ingest-show-kline" data-symbol="' +
       escapeHtml(symRaw) +
-      '" title="展开所选日期区间内的本地日线 OHLCV">K 线明细</button></div>';
-    var lastTd =
-      r.last_trade_date != null && String(r.last_trade_date).trim()
-        ? escapeHtml(String(r.last_trade_date).trim())
+      '" title="展开所选日期区间内的本地日线 OHLCV">K 线明细</button></div></td>';
+    var prevTd =
+      r.prev_trade_date != null && String(r.prev_trade_date).trim()
+        ? escapeHtml(String(r.prev_trade_date).trim().slice(0, 10))
+        : r.last_trade_date != null && String(r.last_trade_date).trim()
+          ? escapeHtml(String(r.last_trade_date).trim().slice(0, 10))
+          : "—";
+    var prevCls =
+      r.prev_close != null && isFinite(Number(r.prev_close))
+        ? formatFixed(r.prev_close, 2)
         : "—";
-    var lastCls = formatFixed(r.last_close, 2);
-    return (
-      '<tr class="ingest-data-tr" data-symbol="' +
+    var empty = '<span class="ingest-cell-empty">—</span>';
+    var rowTop =
+      '<tr class="ingest-data-tr ingest-row-top" data-symbol="' +
       escapeHtml(symRaw) +
-      '"><td>' +
+      '"><td class="ingest-sym-cell" rowspan="2">' +
       sym +
-      "</td><td>" +
+      '</td><td class="ingest-name-cell" rowspan="2">' +
       wnameE +
+      "</td><td title=\"入库前上一根完整日线（昨收，用于信号/回测对照）\">" +
+      prevTd +
+      '</td><td class="num" title="上一交易日收盘价">' +
+      prevCls +
       "</td><td>" +
-      lastTd +
+      empty +
       "</td><td>" +
-      lastCls +
+      empty +
+      '</td><td title="基于昨收日 K 线的强弱">' +
+      formatStrengthCell(r.prev_strength || r.strength) +
+      "</td>" +
+      buildIngestFundamentalTdsHtml(r._fundamental, nFund) +
+      '<td class="ingest-vol-cell" title="上一交易日日线成交量（股）">' +
+      formatIngestVolumeCell(prevVol, "上一交易日成交量", false) +
+      "</td>" +
+      opCell +
+      "</tr>";
+    var rowBottom =
+      '<tr class="ingest-data-tr ingest-row-bottom" data-symbol="' +
+      escapeHtml(symRaw) +
+      '"><td class="wl-bar-meta" title="本次快照参考日（东八区自然日或列表日期列）">' +
+      formatIngestSpotDateCell(r) +
+      '</td><td class="num wl-bar-meta" title="本次请求的收盘/现价参考（盘后≈当日收盘）">' +
+      formatIngestSpotCloseCell(r) +
       "</td><td>" +
-      formatStrengthCell(r.strength) +
+      formatSpotPriceCell(r) +
       "</td><td>" +
-      bt +
-      "</td></tr>" +
+      formatStrengthCell(r.spot_strength) +
+      "</td><td>" +
+      empty +
+      '</td><td class="ingest-vol-cell ingest-vol-live-cell" title="当日实时成交量（东财总手，约12秒刷新；盘后为当日累计）">' +
+      formatIngestVolumeCell(liveVol, "当日实时成交量（总手）", true) +
+      "</td></tr>";
+    return (
+      rowTop +
+      rowBottom +
       '<tr class="ingest-detail-tr" data-detail-for="' +
       escapeHtml(symRaw) +
-      '" hidden><td colspan="6"><div class="ingest-detail-inner"></div></td></tr>' +
+      '" hidden><td colspan="' +
+      (9 + nFund) +
+      '"><div class="ingest-detail-inner"></div></td></tr>' +
       '<tr class="ingest-kline-exp-tr" hidden data-kline-for="' +
       escapeHtml(symRaw) +
-      '"><td colspan="6"><div class="ingest-kline-exp-inner" style="padding:0.35rem 0 0.5rem"></div></td></tr>'
+      '"><td colspan="' +
+      (9 + nFund) +
+      '"><div class="ingest-kline-exp-inner" style="padding:0.35rem 0 0.5rem"></div></td></tr>'
     );
   }
 
@@ -9557,6 +11808,18 @@
     return null;
   }
 
+  /** 双行展示后详情/K 线行不再紧贴 data-tr，按 data-detail-for / data-kline-for 查找。 */
+  function findIngestExpandTrs(sym, tbody) {
+    if (!tbody || !sym) return { detailTr: null, klineTr: null };
+    var detailTr = tbody.querySelector(
+      'tr.ingest-detail-tr[data-detail-for="' + sym + '"]'
+    );
+    var klineTr = tbody.querySelector(
+      'tr.ingest-kline-exp-tr[data-kline-for="' + sym + '"]'
+    );
+    return { detailTr: detailTr, klineTr: klineTr };
+  }
+
   function renderIngestTablePage() {
     var body = lastIngestResultBody;
     var tb = $("ingest-result-tbody");
@@ -9607,6 +11870,7 @@
       showOut("out-3", "返回数据格式异常：缺少 results 列表。", true);
       return;
     }
+    mergeFundamentalsIntoBody(body);
     lastIngestResultBody = body;
     if (opts.fromStorage && opts.savedPage != null) {
       var sp = parseInt(String(opts.savedPage), 10);
@@ -9695,8 +11959,39 @@
       '<button type="button" class="wl-page-btn ingest-page-prev" id="ingest-page-prev">上一页</button>' +
       '<button type="button" class="wl-page-btn ingest-page-next" id="ingest-page-next">下一页</button>' +
       "</div>";
+    var nFund = ingestFundColumnCount(body);
+    var fundHead =
+      nFund > 0
+        ? INGEST_FUND_COLUMNS.map(function (col) {
+            return (
+              '<th rowspan="2" class="ingest-fund-th" title="东财/AkShare 扩展因子">' +
+              escapeHtml(col.label) +
+              "</th>"
+            );
+          }).join("")
+        : "";
+    if (body.fundamentals_note) {
+      html +=
+        '<p class="lead" style="margin:0 0 0.5rem;font-size:0.82rem;color:var(--muted);">' +
+        escapeHtml(String(body.fundamentals_note)) +
+        "</p>";
+    }
     html +=
-      '<div class="wl-table-scroll"><table class="ingest-table"><thead><tr><th>股票代码</th><th>名称</th><th>最新收盘日</th><th>收盘价</th><th>强弱(本地K线)</th><th>回测</th></tr></thead><tbody id="ingest-result-tbody"></tbody></table></div>';
+      '<div class="wl-table-scroll"><table class="ingest-table ingest-table-split"><thead><tr>' +
+      "<th>股票代码</th><th>名称</th>" +
+      '<th class="wl-bar-meta">最新收盘日</th><th class="wl-bar-meta">收盘价</th>' +
+      '<th title="东财单股报价，约 12 秒自动刷新">现价（刷新）</th>' +
+      '<th title="用日线末根收盘代入本地 K 线计算的强弱">当前强弱</th>' +
+      '<th title="基于最新入库日线收盘">强弱(本地K线)</th>' +
+      fundHead +
+      '<th class="wl-bar-meta">量</th><th>操作</th>' +
+      '</tr><tr class="ingest-subhead">' +
+      '<th colspan="2"></th>' +
+      '<th colspan="3" style="font-weight:400;font-size:0.72rem;color:var(--muted)">↑ 上：入库日线（昨收）</th>' +
+      '<th colspan="2" style="font-weight:400;font-size:0.72rem;color:var(--muted)">↓ 下：本次收盘 + 现价刷新</th>' +
+      '<th style="font-weight:400;font-size:0.72rem;color:var(--muted)">↑ 昨量</th>' +
+      '<th style="font-weight:400;font-size:0.72rem;color:var(--muted)">↓ 实时量</th>' +
+      "</tr></thead><tbody id=\"ingest-result-tbody\"></tbody></table></div>";
     if (errN > 0) {
       var errRows = results
         .filter(function (r) {
@@ -9752,7 +12047,79 @@
     $("ingest-result-wrap").hidden = false;
     renderIngestTablePage();
     persistLastIngestSnapshot();
+    startIngestLivePoll();
     void refreshForwardOutlookPanel();
+  }
+
+  function stopIngestLivePoll() {
+    if (ingestLivePollTimer) {
+      clearInterval(ingestLivePollTimer);
+      ingestLivePollTimer = null;
+    }
+  }
+
+  async function refreshIngestLiveQuotes() {
+    var body = lastIngestResultBody;
+    var wrap = $("ingest-result-wrap");
+    if (!body || !wrap || wrap.hidden || !Array.isArray(body.results)) return;
+    var syms = body.results
+      .filter(function (r) {
+        return r && r.symbol && !r.error;
+      })
+      .map(function (r) {
+        return String(r.symbol).replace(/\D/g, "").slice(0, 6);
+      })
+      .filter(function (s) {
+        return s.length === 6;
+      });
+    if (!syms.length) return;
+    try {
+      var res = await fetch(
+        api("/ingest/live-quotes?symbols=" + encodeURIComponent(syms.join(","))),
+        { headers: apiHeaders() }
+      );
+      if (!res.ok) return;
+      var data = await res.json();
+      var bySym = {};
+      (data.quotes || []).forEach(function (q) {
+        var s = String(q.symbol || "")
+          .replace(/\D/g, "")
+          .slice(0, 6);
+        if (s.length === 6) bySym[s] = q;
+      });
+      var changed = false;
+      body.results.forEach(function (r) {
+        if (!r || r.error) return;
+        var s = String(r.symbol).replace(/\D/g, "").slice(0, 6);
+        var q = bySym[s];
+        if (!q || q.live_last_price == null) return;
+        r.live_last_price = q.live_last_price;
+        r.live_change_pct = q.live_change_pct;
+        r.live_fetched_at = q.live_fetched_at;
+        r.live_price_source = q.live_price_source;
+        r.spot_last_price = q.live_last_price;
+        r.spot_change_pct = q.live_change_pct;
+        r.spot_fetched_at = q.live_fetched_at;
+        if (q.live_volume != null && isFinite(Number(q.live_volume))) {
+          r.live_volume = q.live_volume;
+        }
+        changed = true;
+      });
+      if (changed) {
+        renderIngestTablePage();
+        persistLastIngestSnapshot();
+      }
+    } catch (e) {
+      /* 静默：网络抖动时不打断表格 */
+    }
+  }
+
+  function startIngestLivePoll() {
+    stopIngestLivePoll();
+    void refreshIngestLiveQuotes();
+    ingestLivePollTimer = setInterval(function () {
+      void refreshIngestLiveQuotes();
+    }, 12000);
   }
 
   var ingestResultWrapEl = $("ingest-result-wrap");
@@ -9796,19 +12163,17 @@
         ev.preventDefault();
         var ksym = (kbtn.getAttribute("data-symbol") || "").replace(/\D/g, "");
         if (ksym.length !== 6) return;
-        var dataTrK = kbtn.closest("tr.ingest-data-tr");
-        if (!dataTrK || dataTrK.classList.contains("ingest-data-err")) return;
-        var detailTrK = dataTrK.nextElementSibling;
-        if (!detailTrK || !detailTrK.classList.contains("ingest-detail-tr")) return;
-        var klineTr = detailTrK.nextElementSibling;
-        if (!klineTr || !klineTr.classList.contains("ingest-kline-exp-tr")) return;
+        var tbK = $("ingest-result-tbody");
+        if (!tbK) return;
+        var expK = findIngestExpandTrs(ksym, tbK);
+        var klineTr = expK.klineTr;
+        if (!klineTr) return;
         var innerK = klineTr.querySelector(".ingest-kline-exp-inner");
         if (!innerK) return;
         if (!klineTr.hidden && innerK.dataset.loaded === "1") {
           klineTr.hidden = true;
           return;
         }
-        var tbK = dataTrK.parentElement;
         if (tbK) {
           var allDK = tbK.querySelectorAll(".ingest-detail-tr");
           for (var dik = 0; dik < allDK.length; dik++) {
@@ -9853,15 +12218,17 @@
       ev.preventDefault();
       var sym = (btn.getAttribute("data-symbol") || "").replace(/\D/g, "");
       if (sym.length !== 6) return;
-      var dataTr = btn.closest("tr.ingest-data-tr");
-      if (!dataTr || dataTr.classList.contains("ingest-data-err")) return;
-      var detailTr = dataTr.nextElementSibling;
-      if (!detailTr || !detailTr.classList.contains("ingest-detail-tr")) return;
+      var tb = $("ingest-result-tbody");
+      if (!tb) return;
+      var expB = findIngestExpandTrs(sym, tb);
+      var detailTr = expB.detailTr;
+      if (!detailTr) return;
       var inner = detailTr.querySelector(".ingest-detail-inner");
       if (!inner) return;
-      var hInput = dataTr.querySelector(".ingest-row-h");
+      var hInput = tb.querySelector(
+        'tr.ingest-data-tr[data-symbol="' + sym + '"] .ingest-row-h'
+      );
       var hz = hInput ? parseInt(hInput.value, 10) : NaN;
-      var tb = dataTr.parentElement;
       if (tb) {
         var allD = tb.querySelectorAll(".ingest-detail-tr");
         for (var di = 0; di < allD.length; di++) {
@@ -9883,7 +12250,43 @@
     });
   }
 
+  function initSignalsInterpretClick() {
+    var wrap = $("signals-out-wrap");
+    if (!wrap || wrap.dataset.interpretBound === "1") return;
+    wrap.dataset.interpretBound = "1";
+    wrap.addEventListener("click", function (ev) {
+      var btn = ev.target.closest(".btn-signal-interpret");
+      if (!btn) return;
+      ev.preventDefault();
+      var sym = (btn.getAttribute("data-symbol") || "").replace(/\D/g, "").slice(0, 6);
+      if (sym.length !== 6) return;
+      var panel = $("signals-interpret-panel");
+      var inner = $("signals-interpret-inner");
+      if (!panel || !inner || !lastSignalsList) return;
+      var sig = null;
+      for (var i = 0; i < lastSignalsList.length; i++) {
+        var s = String(lastSignalsList[i].symbol || "")
+          .replace(/\D/g, "")
+          .slice(0, 6);
+        if (s === sym) {
+          sig = lastSignalsList[i];
+          break;
+        }
+      }
+      if (!sig) return;
+      inner.innerHTML = buildSignalDetailBlockHtml(sig);
+      panel.hidden = false;
+      try {
+        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (eScroll) {
+        panel.scrollIntoView(true);
+      }
+    });
+  }
+
   buildNav();
+  initSignalsInterpretClick();
+  updateSignalsLastBtnState();
   var initial = sessionStorage.getItem(SS_MOD) || "1";
   if (!modules.some(function (m) { return m.id === initial; })) initial = "1";
   showPanel(initial);
@@ -9893,6 +12296,18 @@
   initForecastMethodChecks();
   initForecastLiveBars();
   loadIngestDataSourceSelect();
+
+  var chkFund = $("chkIngestIncludeFundamentals");
+  if (chkFund) {
+    try {
+      chkFund.checked = localStorage.getItem(LS_INGEST_FUNDAMENTALS) === "1";
+    } catch (eFund) {}
+    chkFund.addEventListener("change", function () {
+      try {
+        localStorage.setItem(LS_INGEST_FUNDAMENTALS, chkFund.checked ? "1" : "0");
+      } catch (eFund2) {}
+    });
+  }
 
   var selDs = $("ingestDataSource");
   if (selDs)

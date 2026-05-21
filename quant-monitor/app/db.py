@@ -28,6 +28,7 @@ from app.db_models import (
     DecisionJournalRow,
     ForwardOutlookRow,
     FundamentalSnapshotRow,
+    HoldingRow,
     SignalCacheRow,
     WatchlistRow,
 )
@@ -53,6 +54,7 @@ __all__ = [
     "FundamentalSnapshotRow",
     "DecisionJournalRow",
     "ForwardOutlookRow",
+    "HoldingRow",
     # 会话/引擎
     "init_db",
     "get_engine",

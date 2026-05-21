@@ -125,3 +125,21 @@ class DecisionJournalRow(Base):
     executed_as_planned: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     actual_action: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
+
+class HoldingRow(Base):
+    """⑩ 持仓记录：成本、数量、状态；行情盈亏由服务端按本地日线/盘口估算。"""
+
+    __tablename__ = "holdings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), index=True)
+    name: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    status: Mapped[str] = mapped_column(String(16), default="holding", index=True)
+    shares: Mapped[float] = mapped_column(Float)
+    cost_price: Mapped[float] = mapped_column(Float)
+    buy_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    sell_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sell_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32), index=True)
+    updated_at: Mapped[str] = mapped_column(String(32))

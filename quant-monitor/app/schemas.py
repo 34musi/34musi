@@ -28,6 +28,15 @@ class IngestDataSource(str, Enum):
     tushare = "tushare"
 
 
+class CancelBatchIn(BaseModel):
+    """POST /meta/cancel-batch：中断进行中的批量任务（与控制台「取消请求」配合）。"""
+
+    scopes: list[str] = Field(
+        default_factory=lambda: ["all"],
+        description="ingest / signals / alerts / fundamentals / pre_refresh / hot_sectors / sector_screen / all",
+    )
+
+
 class AlertsPreviewIn(BaseModel):
     """POST /alerts/preview：可选先按指定路线增量更新日线再对比信号。"""
 
@@ -86,6 +95,14 @@ class IngestUpdateIn(IngestSymbolSubsetOptional):
             "tushare=TuShare 日线（需 TUSHARE_TOKEN 或配置 tushare_token）；其余为仅使用该源。"
         ),
     )
+    include_fundamentals: bool = Field(
+        False,
+        description=(
+            "为 true 时，在日线入库完成后对同一批标的（同 symbols 子集规则）"
+            "拉取扩展因子并写入 fundamental_snapshots：PE/PB、营收与净利同比、财报期、"
+            "ROE/ROA/毛利率/净利率、资产负债率/流动比/速动比、每股经营现金流、主力净流入与资金流日期。"
+        ),
+    )
 
 
 class IngestFundamentalsIn(IngestSymbolSubsetOptional):
@@ -131,6 +148,20 @@ class WatchlistIn(BaseModel):
         ...,
         description="股票代码，填 6 位数字即可（可带 sz/sh 等前缀，系统会自动去掉）。示例：茅台 600519，平安银行 000001。",
         examples=["600519"],
+    )
+    auto_ingest_kline: bool = Field(
+        True,
+        description="为 true 时添加成功后自动联网拉取近 ingest_days 个日历日的日线并写入本地 bars（默认开启）",
+    )
+    ingest_days: int | None = Field(
+        None,
+        ge=7,
+        le=120,
+        description="自动拉取日线的日历天数；不传则用服务端 WATCHLIST_AUTO_INGEST_DAYS（默认 30）",
+    )
+    data_source: IngestDataSource | None = Field(
+        None,
+        description="自动拉取使用的行情路线；不传则用 INGEST_DATA_SOURCE",
     )
 
 
@@ -208,6 +239,30 @@ class WatchlistItem(BaseModel):
     last_daily_close_label: str | None = Field(
         None,
         description="给人看的「最后收盘」说明（含交易日与 A 股常规收盘时刻）",
+    )
+    spot_last_price: float | None = Field(
+        None,
+        description="东财 A 股列表快照现价（聚合公开数据，非交易所 tick，可能有延时）",
+    )
+    spot_change_pct: float | None = Field(
+        None,
+        description="快照涨跌幅（%），与 spot_last_price 同源",
+    )
+    spot_quote_date: str | None = Field(
+        None,
+        description="快照列表中的日期/更新时间（若有，YYYY-MM-DD）",
+    )
+    kline_ingest_ok: bool | None = Field(
+        None,
+        description="本次 POST /watchlist 是否已成功执行自动日线入库；未开启 auto_ingest_kline 时为 null",
+    )
+    kline_ingest_error: str | None = Field(
+        None,
+        description="自动拉取失败时的简要原因；成功时为 null",
+    )
+    kline_ingest_rows: int | None = Field(
+        None,
+        description="本次自动入库 upsert 的 K 线条数（成功时）",
     )
 
 
@@ -737,6 +792,25 @@ class SignalOut(BaseModel):
     name: str | None = None
     as_of_date: str | None = None
     close: float | None = None
+    spot_last_price: float | None = Field(
+        None,
+        description="东财列表快照现价（聚合公开数据，非 tick 实时）",
+    )
+    spot_change_pct: float | None = Field(None, description="快照涨跌幅 %")
+    spot_buy_suitability_score: int | None = Field(
+        None,
+        ge=0,
+        le=100,
+        description="用快照现价代入技术面规则后的买入适合度（0–100 Demo）",
+    )
+    spot_buy_hint: str | None = Field(
+        None,
+        description="基于快照现价与合成得分给出的仓位提示文案（非交易指令）",
+    )
+    spot_position_hint: PositionHint | None = Field(
+        None,
+        description="与 spot_buy_hint 对应的仓位档位",
+    )
     trend: TrendRegime
     strength: StrengthRegime
     buy_suitability_score: int = Field(..., ge=0, le=100)
@@ -807,6 +881,146 @@ class JournalOut(BaseModel):
     actual_action: str | None = None
 
 
+HoldingStatus = Literal["holding", "closed"]
+HOLDING_LOT_SIZE = 100
+
+
+def _validate_holding_lot_shares(v: float) -> float:
+    n = int(v)
+    if n < HOLDING_LOT_SIZE or abs(v - n) > 1e-6 or n % HOLDING_LOT_SIZE != 0:
+        raise ValueError(f"股数须为 {HOLDING_LOT_SIZE} 的整数倍（1 手 = {HOLDING_LOT_SIZE} 股）")
+    return float(n)
+
+
+class HoldingIn(BaseModel):
+    """POST /holdings：新增一条持仓记录。"""
+
+    symbol: str = Field(..., description="6 位 A 股代码", examples=["600519"])
+    shares: float = Field(..., gt=0, description="持仓股数，须为 100 的整数倍（1 手 = 100 股）")
+    cost_price: float = Field(..., gt=0, description="成本价（元/股）")
+    buy_date: date = Field(..., description="买入日期 YYYY-MM-DD，不能晚于今天")
+    notes: str | None = Field(None, max_length=2000, description="备注")
+    name: str | None = Field(None, max_length=64, description="简称；不传则联网解析")
+
+    @field_validator("shares")
+    @classmethod
+    def _shares_lot(cls, v: float) -> float:
+        return _validate_holding_lot_shares(v)
+
+    @field_validator("buy_date")
+    @classmethod
+    def _buy_date_not_future(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError("买入日期不能晚于今天")
+        return v
+
+
+class HoldingUpdateIn(BaseModel):
+    """PATCH /holdings/{id}：更新持仓字段（仅传要改的项）。"""
+
+    shares: float | None = Field(None, gt=0, description="须为 100 的整数倍")
+    cost_price: float | None = Field(None, gt=0)
+    buy_date: date | None = Field(None, description="买入日期；不能晚于今天")
+    notes: str | None = Field(None, max_length=2000)
+    name: str | None = Field(None, max_length=64)
+
+    @field_validator("shares")
+    @classmethod
+    def _shares_lot(cls, v: float | None) -> float | None:
+        if v is None:
+            return None
+        return _validate_holding_lot_shares(v)
+
+    @field_validator("buy_date")
+    @classmethod
+    def _buy_date_not_future(cls, v: date | None) -> date | None:
+        if v is not None and v > date.today():
+            raise ValueError("买入日期不能晚于今天")
+        return v
+
+
+class HoldingCloseIn(BaseModel):
+    """POST /holdings/{id}/close：标记已平仓。"""
+
+    sell_price: float = Field(..., gt=0, description="卖出均价（元/股）")
+    sell_date: date | None = Field(None, description="卖出日期；默认今天")
+    notes: str | None = Field(None, max_length=2000, description="平仓备注（追加到原备注后）")
+
+
+class HoldingOut(BaseModel):
+    """持仓单条输出（含估算盈亏，非交易所回报）。"""
+
+    id: int
+    symbol: str
+    name: str = ""
+    status: HoldingStatus
+    shares: float
+    cost_price: float
+    buy_date: str | None = None
+    sell_price: float | None = None
+    sell_date: str | None = None
+    notes: str | None = None
+    holding_days: int | None = Field(
+        None,
+        description="持仓天数（含买入日当天为第 1 天）：至今日（持仓中）或至卖出日（已平仓）；无买入日为 null",
+    )
+    created_at: str
+    updated_at: str
+    last_close: float | None = Field(None, description="本地最新日线收盘价")
+    bars_last_trade_date: str | None = None
+    spot_last_price: float | None = Field(None, description="盘口现价估算（非 tick）")
+    spot_change_pct: float | None = None
+    ref_price: float | None = Field(None, description="用于浮动盈亏的参考价")
+    ref_price_source: str | None = Field(
+        None, description="spot=盘口；daily_close=日线收盘；sell=已平仓卖出价"
+    )
+    cost_basis: float | None = Field(None, description="成本总额 = 股数 × 成本价")
+    market_value: float | None = Field(None, description="市值估算")
+    unrealized_pnl_amt: float | None = Field(None, description="浮动盈亏（元），仅 holding")
+    unrealized_pnl_pct: float | None = Field(None, description="浮动盈亏（%），仅 holding")
+    realized_pnl_amt: float | None = Field(None, description="已实现盈亏（元），仅 closed")
+    realized_pnl_pct: float | None = Field(None, description="已实现盈亏（%），仅 closed")
+
+
+HoldingExitAction = Literal["strong_close", "consider_close", "watch", "hold"]
+
+
+class HoldingExitAdviceOut(BaseModel):
+    """持仓平仓建议：结合成本浮盈亏 + ④ 同源技术面规则（Demo，非交易指令）。"""
+
+    holding_id: int
+    symbol: str
+    name: str = ""
+    suggest_close: bool = Field(
+        ...,
+        description="为 true 时表示综合得分达到「可考虑减仓/平仓」阈值（≥45 分）",
+    )
+    action: HoldingExitAction = Field(
+        ...,
+        description="strong_close=倾向离场；consider_close=可考虑减仓；watch=观察；hold=暂不卖",
+    )
+    score: int = Field(..., ge=0, le=100, description="离场压力得分，越高越倾向减仓")
+    summary_zh: str = Field(..., description="一句话结论")
+    reasons: list[str] = Field(default_factory=list, description="触发因子说明（最多约 8 条）")
+    cost_price: float
+    ref_price: float | None = None
+    ref_price_source: str | None = None
+    unrealized_pnl_pct: float | None = None
+    stop_loss_demo_pct: float | None = Field(
+        None, description="与 ④ 一致的 Demo 止损参考 %（相对您的成本）"
+    )
+    reference_exit_ma20: float | None = None
+    trend: TrendRegime | None = None
+    strength: StrengthRegime | None = None
+    buy_suitability_score: int | None = None
+    position_hint: PositionHint | None = None
+    signal_as_of_date: str | None = None
+    disclaimer_note: str = Field(
+        default="以下为规则化 Demo 参考，不记录券商成交，不构成卖出指令。",
+        description="固定免责提示",
+    )
+
+
 class ForwardOutlookSyncIn(BaseModel):
     """POST /forward-outlook/sync：③ 后手动触发或补同步。"""
 
@@ -854,6 +1068,7 @@ class SelfUseMetaOut(BaseModel):
     risk_checklist: list[str]
     related_doc_files: list[str]
     journal_api: str
+    holdings_api: str = "/holdings"
     example_risk_policy_file: str
 
 

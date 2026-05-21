@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import random
 import re
@@ -25,6 +26,7 @@ import time
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo
 
 import akshare as ak
 import pandas as pd
@@ -158,6 +160,10 @@ def _fetch_and_upsert(
     sym: str, start: str, end: str, mode: str, *, data_source: str | None = None
 ) -> dict:
     try:
+        try:
+            before_rows = list_bars_from_db(sym, limit=3)
+        except ValueError:
+            before_rows = []
         df, provider = fetch_daily_with_provider(sym, start, end, data_source=data_source)
         n = upsert_bars(df)
         out: dict = {
@@ -170,14 +176,27 @@ def _fetch_and_upsert(
             "provider": provider,
         }
         try:
-            last_rows = list_bars_from_db(sym, limit=1)
+            after_rows = list_bars_from_db(sym, limit=3)
         except ValueError:
-            last_rows = []
-        if last_rows:
-            lb = last_rows[-1]
+            after_rows = []
+        if after_rows:
+            lb = after_rows[-1]
+            last_td = str(lb["trade_date"])[:10]
             out["last_trade_date"] = lb["trade_date"]
             out["last_close"] = round(float(lb["close"]), 4)
             out["last_volume"] = round(float(lb.get("volume") or 0), 4)
+            prev_bar: dict[str, Any] | None = None
+            if len(after_rows) >= 2 and str(after_rows[-2]["trade_date"])[:10] < last_td:
+                prev_bar = after_rows[-2]
+            else:
+                for row in reversed(before_rows):
+                    if str(row.get("trade_date") or "")[:10] < last_td:
+                        prev_bar = row
+                        break
+            if prev_bar is not None:
+                out["prev_trade_date"] = prev_bar["trade_date"]
+                out["prev_close"] = round(float(prev_bar["close"]), 4)
+                out["prev_volume"] = round(float(prev_bar.get("volume") or 0), 4)
         else:
             out["last_trade_date"] = None
             out["last_close"] = None
@@ -196,9 +215,14 @@ def normalize_symbol(symbol: str) -> str:
     return s
 
 
+def shanghai_today_date() -> date:
+    """东八区自然日（A 股行情截止日对齐用）。"""
+    return datetime.now(ZoneInfo("Asia/Shanghai")).date()
+
+
 def _today_str() -> str:
-    """AkShare 日期参数格式 YYYYMMDD。"""
-    return date.today().strftime("%Y%m%d")
+    """AkShare 日期参数格式 YYYYMMDD（东八区今日）。"""
+    return shanghai_today_date().strftime("%Y%m%d")
 
 
 def _legacy_sh_sz_symbol(sym: str) -> str:
@@ -636,11 +660,17 @@ def list_bars_from_db(
     return out2
 
 
-def strength_snapshot_for_symbol(symbol: str, *, bar_limit: int = 120) -> dict[str, Any] | None:
+def strength_snapshot_for_symbol(
+    symbol: str,
+    *,
+    bar_limit: int = 120,
+    last_price_override: float | None = None,
+) -> dict[str, Any] | None:
     """
     基于本地已入库日线做简要强弱摘要（教学/自览用，非投资建议）。
 
     使用最近约 5 / 20 个交易日的收盘涨跌与收盘相对 MA20 位置打标签。
+    last_price_override：用快照现价等替代最后一根日线收盘，供「当前强弱」列展示。
     """
     try:
         bars = list_bars_from_db(symbol, limit=bar_limit)
@@ -649,7 +679,10 @@ def strength_snapshot_for_symbol(symbol: str, *, bar_limit: int = 120) -> dict[s
     if len(bars) < 2:
         return None
     closes = [float(b["close"]) for b in bars]
-    last = closes[-1]
+    if last_price_override is not None and math.isfinite(float(last_price_override)):
+        last = float(last_price_override)
+    else:
+        last = closes[-1]
     out: dict[str, Any] = {}
     if len(closes) >= 6:
         base5 = closes[-6]
@@ -678,6 +711,232 @@ def strength_snapshot_for_symbol(symbol: str, *, bar_limit: int = 120) -> dict[s
     else:
         out["strength_label"] = "数据不足"
     return out
+
+
+def _prev_bar_close_before(sym: str, before_ymd: str) -> float | None:
+    """取 strictly 早于 before_ymd 的最近一根日线收盘，用于涨跌幅回退计算。"""
+    try:
+        rows = list_bars_from_db(sym, limit=8)
+    except ValueError:
+        return None
+    before = before_ymd[:10]
+    for row in reversed(rows):
+        td = str(row.get("trade_date") or "")[:10]
+        if not td or td >= before:
+            continue
+        c = float(row.get("close") or 0)
+        if math.isfinite(c) and c > 0:
+            return c
+    return None
+
+
+def _parse_bid_ask_em_df(df: pd.DataFrame) -> dict[str, float | None]:
+    """东财单股 push2 报价表 → 最新价、涨跌幅%、昨收。"""
+    if df is None or df.empty or "item" not in df.columns or "value" not in df.columns:
+        return {}
+    m = {
+        str(r["item"]).strip(): r["value"]
+        for _, r in df.iterrows()
+        if pd.notna(r.get("value"))
+    }
+    out: dict[str, float | None] = {"px": None, "chg": None, "prev_close": None, "volume": None}
+    for key in ("最新", "最新价", "现价"):
+        if key in m:
+            try:
+                v = float(m[key])
+                if math.isfinite(v) and v > 0:
+                    out["px"] = v
+                    break
+            except (TypeError, ValueError):
+                pass
+    if "涨幅" in m:
+        try:
+            v = float(m["涨幅"])
+            if math.isfinite(v):
+                out["chg"] = round(v, 2)
+        except (TypeError, ValueError):
+            pass
+    if "昨收" in m:
+        try:
+            v = float(m["昨收"])
+            if math.isfinite(v) and v > 0:
+                out["prev_close"] = v
+        except (TypeError, ValueError):
+            pass
+    if out["px"] is not None and out["chg"] is None and out["prev_close"]:
+        out["chg"] = round((float(out["px"]) / float(out["prev_close"]) - 1) * 100, 2)
+    if "总手" in m:
+        try:
+            v = float(m["总手"])
+            if math.isfinite(v) and v >= 0:
+                out["volume"] = v
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def live_quote_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
+    """
+    单股东财 push2 报价（stock_bid_ask_em），供 ③ 下行现价定时刷新；不用全市场 stock_zh_a_spot_em。
+    """
+    from app.fundamentals import _now_iso, _shanghai_today_ymd
+
+    uniq: list[str] = []
+    seen: set[str] = set()
+    for c in codes:
+        nc = normalize_symbol(c) if c else ""
+        if len(nc) != 6 or nc in seen:
+            continue
+        seen.add(nc)
+        uniq.append(nc)
+    out: dict[str, dict[str, Any]] = {c: {} for c in uniq}
+    if not uniq:
+        return out
+    s = get_settings()
+    sh_today = _shanghai_today_ymd()
+    fetched_at = _now_iso()
+    for sym in uniq:
+        try:
+            with _temporary_clear_proxy_env(enabled=bool(s.ingest_eastmoney_bypass_proxy)):
+                df = ak.stock_bid_ask_em(symbol=sym)
+            parsed = _parse_bid_ask_em_df(df)
+            px = parsed.get("px")
+            if px is None or not math.isfinite(float(px)) or float(px) <= 0:
+                continue
+            row: dict[str, Any] = {
+                "live_last_price": round(float(px), 4),
+                "live_quote_date": sh_today,
+                "live_fetched_at": fetched_at,
+                "live_price_source": "eastmoney_bid_ask",
+            }
+            chg = parsed.get("chg")
+            if chg is not None and math.isfinite(float(chg)):
+                row["live_change_pct"] = round(float(chg), 2)
+            vol = parsed.get("volume")
+            if vol is not None and math.isfinite(float(vol)) and float(vol) >= 0:
+                row["live_volume"] = round(float(vol), 4)
+            out[sym] = row
+        except Exception as e:
+            logger.debug("live_quote %s: %s", sym, e)
+    return out
+
+
+def _daily_snapshot_fields_for_symbol(
+    sym: str,
+    ingest_row: dict[str, Any],
+    *,
+    data_source: str | None = None,
+) -> dict[str, Any]:
+    """
+    ③/④ 用与入库一致的日线末根作为「现价」：本地 bars 或按 data_source 短拉日线（如新浪 stock_zh_a_daily）。
+    不调用东财全市场 stock_zh_a_spot_em。
+    """
+    from app.fundamentals import _now_iso
+
+    route = resolve_data_source(data_source)
+    td_raw = ingest_row.get("last_trade_date")
+    lc_raw = ingest_row.get("last_close")
+    td = str(td_raw)[:10] if td_raw else None
+    lc: float | None = None
+    if lc_raw is not None and math.isfinite(float(lc_raw)) and float(lc_raw) > 0:
+        lc = float(lc_raw)
+    if lc is None or not td:
+        try:
+            bars = list_bars_from_db(sym, limit=3)
+        except ValueError:
+            bars = []
+        if bars:
+            last = bars[-1]
+            td = str(last.get("trade_date") or "")[:10] or td
+            c = float(last.get("close") or 0)
+            if math.isfinite(c) and c > 0:
+                lc = c
+    if lc is None:
+        try:
+            end_y = _today_str()
+            start_d = date.today() - timedelta(days=14)
+            start_y = start_d.strftime("%Y%m%d")
+            df, prov = _single_source_daily(sym, start_y, end_y, route)
+            if df is not None and not df.empty:
+                row = df.iloc[-1]
+                td = str(row["trade_date"])[:10]
+                c = float(row["close"])
+                if math.isfinite(c) and c > 0:
+                    lc = c
+                    route = str(prov or route)
+        except Exception as e:
+            logger.debug("daily snapshot short fetch %s route=%s: %s", sym, route, e)
+    if lc is None or not td:
+        return {}
+    out: dict[str, Any] = {
+        "spot_last_price": round(lc, 4),
+        "spot_quote_date": td,
+        "spot_fetched_at": _now_iso(),
+        "spot_price_source": f"daily_{route}",
+    }
+    prev = _prev_bar_close_before(sym, td)
+    if prev is not None:
+        out["spot_change_pct"] = round((lc / prev - 1) * 100, 2)
+    return out
+
+
+def enrich_ingest_results_with_spot(
+    results: list[dict[str, Any]],
+    *,
+    data_source: str | None = None,
+) -> None:
+    """
+    ③ 结果：上行用 prev_*（昨收），下行用 last_*（本次入库收盘）+ live_*（单股实时报价）。
+    """
+    from app.fundamentals import _now_iso
+
+    ok_syms = [str(r["symbol"]) for r in results if r.get("symbol") and "error" not in r]
+    live_by = live_quote_fields_for_codes(ok_syms) if ok_syms else {}
+    req_at = _now_iso()
+    for r in results:
+        if r.get("error"):
+            continue
+        sym = str(r["symbol"])
+        pc = r.get("prev_close")
+        if pc is not None and math.isfinite(float(pc)) and float(pc) > 0:
+            ps = strength_snapshot_for_symbol(sym, last_price_override=float(pc))
+            if ps is not None:
+                r["prev_strength"] = ps
+        live = live_by.get(sym) or {}
+        if not live:
+            snap = _daily_snapshot_fields_for_symbol(sym, r, data_source=data_source)
+            if snap.get("spot_last_price") is not None:
+                live = {
+                    "live_last_price": snap["spot_last_price"],
+                    "live_change_pct": snap.get("spot_change_pct"),
+                    "live_quote_date": snap.get("spot_quote_date"),
+                    "live_fetched_at": snap.get("spot_fetched_at") or req_at,
+                    "live_price_source": snap.get("spot_price_source", "daily_fallback"),
+                }
+        if live:
+            for k, v in live.items():
+                r[k] = v
+            if live.get("live_volume") is not None:
+                r["live_volume"] = live["live_volume"]
+            r["spot_last_price"] = live.get("live_last_price")
+            r["spot_change_pct"] = live.get("live_change_pct")
+            r["spot_quote_date"] = live.get("live_quote_date") or r.get("last_trade_date")
+            r["spot_fetched_at"] = live.get("live_fetched_at") or req_at
+            r["spot_price_source"] = live.get("live_price_source")
+        elif r.get("last_close") is not None:
+            lc = float(r["last_close"])
+            r["live_last_price"] = round(lc, 4)
+            r["live_fetched_at"] = req_at
+            r["live_price_source"] = "last_close_static"
+            r["spot_last_price"] = round(lc, 4)
+            if r.get("prev_close") and float(r["prev_close"]) > 0:
+                r["live_change_pct"] = round((lc / float(r["prev_close"]) - 1) * 100, 2)
+                r["spot_change_pct"] = r["live_change_pct"]
+        px = r.get("live_last_price") or r.get("spot_last_price")
+        if px is not None and math.isfinite(float(px)) and float(px) > 0:
+            st = strength_snapshot_for_symbol(sym, last_price_override=float(px))
+            if st is not None:
+                r["spot_strength"] = st
 
 
 def upsert_bars(df: pd.DataFrame) -> int:
@@ -767,10 +1026,10 @@ def incremental_fetch_window_yyyymmdd(
     用于「只拉不写库」时与 fetch_daily_with_provider 对齐的窗口。
     """
     sym = normalize_symbol(symbol)
-    today = date.today()
+    today = shanghai_today_date()
     end_d = as_of_date if as_of_date is not None else today
     if end_d > today:
-        raise ValueError("截止日期不能晚于今天")
+        raise ValueError("截止日期不能晚于东八区今日")
     end = end_d.strftime("%Y%m%d")
     last = max_stored_date(sym)
     if last:

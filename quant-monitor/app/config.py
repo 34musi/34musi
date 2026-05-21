@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     ingest_data_source: str = "auto"
     # TuShare ingest 路线用；亦可仅设环境变量 TUSHARE_TOKEN
     tushare_token: str = ""
+    # POST /watchlist 添加自选后自动拉取日线的大致日历天数（约近 N 日，非精确交易日）
+    watchlist_auto_ingest_days: int = 30
 
     @field_validator("ingest_data_source")
     @classmethod

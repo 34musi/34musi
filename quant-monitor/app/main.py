@@ -20,7 +20,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request, Response, Security
@@ -33,6 +33,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import delete, or_, select
 
+from app.batch_cancel import KNOWN_SCOPES, cancel_many, clear, is_cancelled
 from app.config import get_settings
 from app.db import (
     WATCHLIST_ORIGIN_AUTO_HOT,
@@ -40,6 +41,7 @@ from app.db import (
     WATCHLIST_ORIGIN_MANUAL,
     DecisionJournalRow,
     ForwardOutlookRow,
+    HoldingRow,
     SignalCacheRow,
     WatchlistRow,
     init_db,
@@ -58,8 +60,11 @@ from app.ingest import (
     ingest_symbol_range,
     list_bars_from_db,
     normalize_symbol,
+    resolve_data_source,
     strength_snapshot_for_symbol,
     test_akshare_connectivity,
+    enrich_ingest_results_with_spot,
+    live_quote_fields_for_codes,
     watchlist_bar_fields_for_session,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
@@ -71,10 +76,18 @@ from app.quant_stock_selector.datasources import (
     load_sector_rankings_snapshot,
     save_sector_rankings_snapshot,
 )
+from app.holdings import (
+    HOLDING_STATUS_CLOSED,
+    HOLDING_STATUS_HOLDING,
+    apply_holding_defaults,
+    build_holdings_list,
+    compute_holding_exit_advice,
+)
 from app.quant_stock_selector.cli import validate_args
 from app.quant_stock_selector.pipeline import run_analysis
 from app.schemas import (
     AlertsPreviewIn,
+    CancelBatchIn,
     DailyBarOut,
     DisclaimerOut,
     FillHotSectorsIn,
@@ -91,6 +104,11 @@ from app.schemas import (
     ForwardOutlookOut,
     ForwardOutlookSyncIn,
     ForwardOutlookSyncOut,
+    HoldingCloseIn,
+    HoldingExitAdviceOut,
+    HoldingIn,
+    HoldingOut,
+    HoldingUpdateIn,
     JournalIn,
     JournalOut,
     QuantWatchlistSyncIn,
@@ -285,12 +303,21 @@ def _resolve_ingest_route(data_source: IngestDataSource | None) -> str:
     return str(get_settings().ingest_data_source or "auto").strip().lower()
 
 
-def _pre_refresh_symbols(symbols: list[str], *, route: str, pre_refresh: bool) -> None:
-    """按路线对各标的 incremental_refresh；失败仅打日志。"""
+def _pre_refresh_symbols(
+    symbols: list[str],
+    *,
+    route: str,
+    pre_refresh: bool,
+    cancel_scope: str = "pre_refresh",
+) -> None:
+    """按路线对各标的 incremental_refresh；失败仅打日志。cancel_scope 供批量中断检查。"""
     if not pre_refresh or not symbols:
         return
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
     for i, sym in enumerate(symbols):
+        if is_cancelled(cancel_scope):
+            logger.info("pre_refresh cancelled (scope=%s) before %s", cancel_scope, sym)
+            return
         if i > 0 and pause > 0:
             time.sleep(pause)
         try:
@@ -367,6 +394,164 @@ def _names_from_hot_sectors_detail(sectors_detail: list[dict]) -> dict[str, str]
     return out
 
 
+def _codes_from_hot_sectors_detail(sectors_detail: list[dict[str, Any]]) -> list[str]:
+    """热门板块明细中全部成分股代码（去重、保序）。"""
+    out: list[str] = []
+    seen: set[str] = set()
+    for bundle in sectors_detail:
+        for st in bundle.get("stocks") or []:
+            if not isinstance(st, dict):
+                continue
+            nk = normalize_code(str(st.get("code") or st.get("代码") or ""))
+            if len(nk) != 6 or nk in seen:
+                continue
+            seen.add(nk)
+            out.append(nk)
+    return out
+
+
+def _live_quote_map_for_hot_sector_codes(
+    codes: list[str],
+    *,
+    selector_data_source: str,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """
+    为热门板块明细合并「最新价」：mootdx 用通达信批量快照，其余用东财全 A 列表；
+    列表未命中且数量较少时再逐股东财 push2 报价。
+    """
+    warnings: list[str] = []
+    qmap: dict[str, dict[str, Any]] = {}
+    if not codes:
+        return qmap, warnings
+
+    ds_key = (selector_data_source or "akshare").strip().lower()
+    if ds_key == "mootdx":
+        try:
+            ds_mx = get_data_source("mootdx")
+            fn = getattr(ds_mx, "quote_snapshot_for_codes", None)
+            if callable(fn):
+                raw = fn(codes)
+                for k, row in (raw or {}).items():
+                    nk = normalize_code(str(k))
+                    if len(nk) != 6 or not isinstance(row, dict):
+                        continue
+                    p = row.get("tdx_last_price")
+                    if p is None or not math.isfinite(float(p)) or float(p) <= 0:
+                        continue
+                    chg = row.get("tdx_change_pct")
+                    chg_f = None
+                    if chg is not None and math.isfinite(float(chg)):
+                        chg_f = round(float(chg), 2)
+                    qd = row.get("tdx_quote_date")
+                    qmap[nk] = {
+                        "price": float(p),
+                        "change_pct": chg_f,
+                        "quote_date": qd if isinstance(qd, str) else None,
+                        "source": "mootdx_snapshot",
+                    }
+        except Exception as e:
+            logger.warning("hot sectors mootdx quote overlay skipped: %s", e)
+            warnings.append(f"热门板块「最新价」：通达信快照失败，仍展示日线末根收盘价（{e}）")
+    else:
+        try:
+            spot_by = spot_liquidity_fields_for_codes(codes, force_refresh=True)
+            for sym in codes:
+                row = spot_by.get(sym) or {}
+                p = row.get("spot_last_price")
+                if p is None or not math.isfinite(float(p)) or float(p) <= 0:
+                    continue
+                chg = row.get("spot_change_pct")
+                chg_f = None
+                if chg is not None and math.isfinite(float(chg)):
+                    chg_f = round(float(chg), 2)
+                qmap[sym] = {
+                    "price": float(p),
+                    "change_pct": chg_f,
+                    "quote_date": row.get("spot_quote_date"),
+                    "source": "eastmoney_spot",
+                }
+        except Exception as e:
+            logger.warning("hot sectors spot overlay skipped: %s", e)
+            warnings.append(f"热门板块「最新价」：东财全 A 列表快照失败，仍展示日线末根收盘价（{e}）")
+
+    missing = [c for c in codes if c not in qmap]
+    if missing and len(missing) <= 40:
+        try:
+            live_by = live_quote_fields_for_codes(missing)
+            for sym in missing:
+                row = live_by.get(sym) or {}
+                p = row.get("live_last_price")
+                if p is None or not math.isfinite(float(p)) or float(p) <= 0:
+                    continue
+                chg = row.get("live_change_pct")
+                chg_f = None
+                if chg is not None and math.isfinite(float(chg)):
+                    chg_f = round(float(chg), 2)
+                qmap[sym] = {
+                    "price": float(p),
+                    "change_pct": chg_f,
+                    "quote_date": row.get("live_quote_date"),
+                    "source": "eastmoney_bid_ask",
+                }
+        except Exception as e:
+            logger.debug("hot sectors live_quote fallback skipped: %s", e)
+
+    return qmap, warnings
+
+
+def _overlay_live_prices_on_hot_sectors_detail(
+    sectors_detail: list[dict[str, Any]],
+    *,
+    selector_data_source: str,
+) -> list[str]:
+    """用实时/盘口快照覆盖技术面里的 latest_close（日线末根），返回追加 warnings。"""
+    codes = _codes_from_hot_sectors_detail(sectors_detail)
+    if not codes:
+        return []
+    qmap, warnings = _live_quote_map_for_hot_sector_codes(
+        codes, selector_data_source=selector_data_source
+    )
+    sh_today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
+    updated = 0
+    for bundle in sectors_detail:
+        for st in bundle.get("stocks") or []:
+            if not isinstance(st, dict):
+                continue
+            nk = normalize_code(str(st.get("code") or st.get("代码") or ""))
+            if len(nk) != 6:
+                continue
+            row = qmap.get(nk)
+            if not row:
+                continue
+            p = row.get("price")
+            if p is None or not math.isfinite(float(p)) or float(p) <= 0:
+                continue
+            bar_close = st.get("latest_close")
+            if bar_close is not None:
+                try:
+                    st["latest_close_bar"] = round(float(bar_close), 4)
+                except (TypeError, ValueError):
+                    st["latest_close_bar"] = bar_close
+            st["latest_close"] = round(float(p), 2)
+            st["latest_price_source"] = row.get("source")
+            qd = row.get("quote_date")
+            if isinstance(qd, str) and len(qd) >= 10 and qd[4] == "-" and qd[7] == "-":
+                st["latest_trade_date"] = qd[:10]
+            else:
+                st["latest_trade_date"] = sh_today
+            chg = row.get("change_pct")
+            if chg is not None and math.isfinite(float(chg)):
+                st["spot_change_pct"] = round(float(chg), 2)
+            updated += 1
+    if updated < len(codes):
+        n_miss = len(codes) - updated
+        if not any("最新价" in w for w in warnings):
+            warnings.append(
+                f"热门板块「最新价」：{n_miss} 只未能合并实时快照，仍展示技术面计算用的日线末根收盘价。"
+            )
+    return warnings
+
+
 def _run_hot_pick_common(
     *,
     top_sectors: int,
@@ -401,7 +586,7 @@ def _run_hot_pick_common(
             save_sector_rankings_snapshot(rankings_override, snapshot_path)
         except Exception as exc:
             logger.warning("sector snapshot save failed: %s", exc)
-    return pick_from_hot_sectors(
+    hot = pick_from_hot_sectors(
         ds,
         top_sectors=top_sectors,
         stocks_per_sector=stocks_per_sector,
@@ -416,6 +601,13 @@ def _run_hot_pick_common(
         enable_liquidity_filter=enable_liquidity_filter,
         min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
     )
+    price_warnings = _overlay_live_prices_on_hot_sectors_detail(
+        hot.sectors_detail,
+        selector_data_source=selector_data_source,
+    )
+    if price_warnings:
+        hot.warnings.extend(price_warnings)
+    return hot
 
 
 def _hot_sectors_preview_payload(
@@ -494,6 +686,26 @@ def meta_auth_status():
     return {"api_key_required": bool(get_settings().api_key)}
 
 
+@app.post(
+    "/meta/cancel-batch",
+    tags=["① 入门必读"],
+    summary="中断进行中的批量任务",
+    description="图形控制台「取消请求」调用。scopes 可为 ingest、signals、alerts、fundamentals、pre_refresh、hot_sectors、sector_screen 或 all。",
+)
+@limiter.limit("60/minute")
+def meta_cancel_batch(
+    request: Request,
+    body: CancelBatchIn = Body(default_factory=CancelBatchIn),
+    _: None = Depends(optional_api_key),
+):
+    touched = cancel_many(body.scopes or ["all"])
+    return {
+        "ok": True,
+        "cancelled_scopes": touched,
+        "known_scopes": sorted(KNOWN_SCOPES),
+    }
+
+
 @app.get(
     "/meta/data-sources",
     tags=["① 入门必读"],
@@ -563,6 +775,7 @@ def meta_self_use():
         ],
         related_doc_files=["docs/SELF_USE_GUIDE.md"],
         journal_api="/journal",
+        holdings_api="/holdings",
         example_risk_policy_file="examples/risk_policy.example.json",
     )
 
@@ -623,14 +836,94 @@ def meta_hot_market_snapshot_refresh(
     )
 
 
+def _build_watchlist_items(s, rows: list[WatchlistRow]) -> list[WatchlistItem]:
+    """批量附带本地 bars 摘要与东财列表快照现价（共用 spot 内存缓存）。"""
+    symbols = [r.symbol for r in rows]
+    bar_by = watchlist_bar_fields_for_session(s, symbols)
+    spot_by = spot_liquidity_fields_for_codes(symbols, force_refresh=False)
+    out: list[WatchlistItem] = []
+    for r in rows:
+        meta = bar_by.get(r.symbol, {})
+        spot = spot_by.get(r.symbol) or {}
+        out.append(
+            WatchlistItem(
+                symbol=r.symbol,
+                name=(r.name or "").strip(),
+                origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
+                spot_last_price=spot.get("spot_last_price"),
+                spot_change_pct=spot.get("spot_change_pct"),
+                spot_quote_date=spot.get("spot_quote_date"),
+                **meta,
+            )
+        )
+    return out
+
+
 def _watchlist_item_with_bars(s, r: WatchlistRow) -> WatchlistItem:
-    meta = watchlist_bar_fields_for_session(s, [r.symbol]).get(r.symbol, {})
-    return WatchlistItem(
-        symbol=r.symbol,
-        name=(r.name or "").strip(),
-        origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
-        **meta,
-    )
+    items = _build_watchlist_items(s, [r])
+    return items[0]
+
+
+def _auto_ingest_watchlist_kline(
+    sym: str,
+    *,
+    ingest_days: int,
+    data_source: str | None,
+) -> dict[str, Any]:
+    """添加自选后拉取近若干日历日的日线并 upsert 到 bars。"""
+    days = max(7, min(120, int(ingest_days)))
+    today = date.today()
+    start = today - timedelta(days=days)
+    primary = resolve_data_source(data_source)
+    routes: list[str] = [primary]
+    if primary != "auto":
+        routes.append("auto")
+    errors: list[str] = []
+    for route in routes:
+        try:
+            rec = ingest_symbol_range(
+                sym,
+                range_start=start,
+                range_end=today,
+                data_source=route,
+            )
+            n = int(rec.get("rows_upserted") or 0)
+            if n <= 0:
+                msg = f"路线 {route} 未收到日线（返回 0 条）"
+                errors.append(msg)
+                logger.warning("watchlist auto ingest %s: %s", sym, msg)
+                continue
+            return {
+                "ok": True,
+                "rows_upserted": n,
+                "start": rec.get("start"),
+                "end": rec.get("end"),
+                "data_source": rec.get("data_source"),
+                "provider": rec.get("provider"),
+                "ingest_rec": rec,
+                "route_used": route,
+            }
+        except Exception as e:
+            err = str(e)
+            errors.append(f"{route}: {err}")
+            logger.warning("watchlist auto ingest %s via %s: %s", sym, route, e)
+    return {"ok": False, "error": "；".join(errors) if errors else "拉取失败"}
+
+
+def _watchlist_item_after_ingest(
+    s,
+    r: WatchlistRow,
+    ingest: dict[str, Any] | None,
+) -> WatchlistItem:
+    item = _watchlist_item_with_bars(s, r)
+    if ingest is None:
+        return item
+    d = item.model_dump()
+    d["kline_ingest_ok"] = bool(ingest.get("ok"))
+    d["kline_ingest_error"] = None if ingest.get("ok") else str(ingest.get("error") or "拉取失败")
+    rows = ingest.get("rows_upserted")
+    d["kline_ingest_rows"] = int(rows) if ingest.get("ok") and rows is not None else None
+    return WatchlistItem(**d)
 
 
 @app.get(
@@ -639,7 +932,7 @@ def _watchlist_item_with_bars(s, r: WatchlistRow) -> WatchlistItem:
     tags=["② 管理自选股票"],
     summary="列出当前已添加的股票",
     description="""
-返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_last_ingested_at**（最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明）。
+返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_last_ingested_at**（最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明），以及东财列表快照 **spot_last_price** / **spot_change_pct**（聚合公开数据，非交易所实时 tick，可能有延时）。
 
 - 若配置了 `API_KEY`，请先点右上角 **Authorize**。
 - 若列表为空，下一步请用 `POST /watchlist` 添加。
@@ -657,7 +950,7 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
                 r = by_sym.get(sym)
                 if r is not None and not (r.name or "").strip():
                     r.name = nm
-        return [_watchlist_item_with_bars(s, r) for r in rows]
+        return _build_watchlist_items(s, rows)
 
 
 @app.post(
@@ -673,15 +966,20 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
 3. 点 **Execute**
 
 已存在相同代码时不会报错，会原样返回该代码。
+
+默认 **`auto_ingest_kline=true`**：添加成功后自动联网拉取近 **30 个日历日**（可用 `ingest_days` 或环境变量 `WATCHLIST_AUTO_INGEST_DAYS` 调整）的日线写入本地 `bars`，② 列表即可显示「最近入库 / 收盘参考」。可选 **`data_source`** 与 ③ 行情路线一致。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
 def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optional_api_key)):
-    """添加自选；代码规范化后若已存在则幂等返回该标的。"""
+    """添加自选；代码规范化后若已存在则幂等返回该标的；默认自动拉取近一月日线。"""
     try:
         sym = normalize_symbol(body.symbol)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    days = body.ingest_days if body.ingest_days is not None else get_settings().watchlist_auto_ingest_days
+    ds = body.data_source.value if body.data_source is not None else None
+    ingest: dict[str, Any] | None = None
     with session_scope() as s:
         existing = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
         if existing:
@@ -689,12 +987,24 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
                 existing.origin = WATCHLIST_ORIGIN_MANUAL
             if not (existing.name or "").strip():
                 existing.name = fetch_stock_name(sym) or ""
-            return _watchlist_item_with_bars(s, existing)
-        nm = fetch_stock_name(sym) or ""
-        s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL, name=nm))
-        s.flush()
+        else:
+            nm = fetch_stock_name(sym) or ""
+            s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL, name=nm))
+    if body.auto_ingest_kline:
+        ingest = _auto_ingest_watchlist_kline(sym, ingest_days=days, data_source=ds)
+        if ingest.get("ok"):
+            try:
+                meta = ingest.get("ingest_rec") or {}
+                sync_after_ingest(
+                    [sym],
+                    horizon=DEFAULT_HORIZON,
+                    ingest_meta_by_sym={sym: meta} if meta else None,
+                )
+            except Exception as e:
+                logger.warning("forward outlook sync after watchlist add %s: %s", sym, e)
+    with session_scope() as s:
         row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one()
-        return _watchlist_item_with_bars(s, row)
+        return _watchlist_item_after_ingest(s, row, ingest)
 
 
 @app.delete(
@@ -1289,11 +1599,12 @@ def _watchlist_subset_symbols(
 - 传 **`start_date` + `end_date`**：按该闭区间拉取；仅 **`start_date`**：从该日拉到今日；仅 **`end_date`**：增量更新到该日。
 - **`symbols`**（可选）：只拉取列表中的代码（**须在自选池**）；不传或空表示**自选全部**。不在池内的代码会在 `results` 里单独返回 `error`，不阻塞其余标的。
 - **`data_source`**：行情路线（`auto` / `eastmoney` / `akshare` / `sina` / `tencent` / `baostock` / `mootdx` / `tushare`）；不传则用 **`INGEST_DATA_SOURCE`**（默认 `auto`）。`eastmoney` 与 `akshare` 均为东财日线（后者与选股脚本命名对齐），东财路线有 **3–5 秒随机间隔**；`mootdx` / `tushare` 经 `quant_stock_selector` 核心拉取（需依赖与 TuShare token）。
+- **`include_fundamentals`**：为 `true` 时，日线完成后对**同一批**标的再拉扩展因子（估值/财报同比/主力净流入等），写入 `fundamental_snapshots`；响应含 **`fundamentals_results`**（与 `POST /ingest/fundamentals` 单条结构相同）。
 - **`GET /ingest/test-connection`**：探测本机能否访问数据源（短区间测试，需 API Key 时同上）；可带 Query **`data_source`**。
 - 需要能访问外网（通过 AkShare 拉公开数据）。
 - 自选为空时会返回错误，请先用 `POST /watchlist` 添加股票。
 - 某一只股票拉取失败时，结果里该条会带 `error`，其它股票仍会继续。
-- 成功条目中附带 **`watchlist_name`**（自选里存的简称，可能为空）、**`last_trade_date` / `last_close`**（拉取后本地库中**最新一根**日线交易日与收盘价，前复权）、**`strength`**（基于拉取后本地 K 线的简要强弱摘要：约 5/20 日涨跌与相对 MA20，仅供自览）。
+- 成功条目中附带 **`watchlist_name`**（自选里存的简称，可能为空）、**`last_trade_date` / `last_close`**（拉取后本地库中**最新一根**日线交易日与收盘价，前复权）、**`strength`**（基于拉取后本地 K 线的简要强弱摘要）、**`spot_last_price` / `spot_change_pct` / `spot_strength`**（与③相同行情路线的**日线末根收盘**及涨跌，非东财全市场列表、非 tick 实时）。
 
 **注意**：接口有「每分钟次数」限制，不要连续狂点。
 """,
@@ -1323,8 +1634,16 @@ def ingest_update(
     ds = body.data_source.value if body.data_source is not None else None
     resolved_ds = ds if ds is not None else get_settings().ingest_data_source
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
+    clear("ingest")
     results = []
+    cancelled = False
+    processed_syms: list[str] = []
     for i, sym in enumerate(symbols):
+        if is_cancelled("ingest"):
+            cancelled = True
+            logger.info("ingest/update cancelled by user at %s", sym)
+            break
+        processed_syms.append(sym)
         if i > 0 and pause > 0:
             time.sleep(pause)
         nm = wl_name_by_sym.get(sym, "").strip() or None
@@ -1340,6 +1659,20 @@ def ingest_update(
         except Exception as e:
             results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
     results.extend(suffix_errs)
+    fundamentals_results: list[dict[str, Any]] | None = None
+    fundamentals_cancelled = False
+    if body.include_fundamentals and processed_syms:
+        clear("fundamentals")
+        fundamentals_results = []
+        for i, sym in enumerate(processed_syms):
+            if is_cancelled("fundamentals"):
+                fundamentals_cancelled = True
+                logger.info("ingest/update fundamentals cancelled by user at %s", sym)
+                break
+            if i > 0 and pause > 0:
+                time.sleep(pause)
+            fundamentals_results.append(upsert_fundamental_snapshot(sym))
+    enrich_ingest_results_with_spot(results, data_source=resolved_ds)
     ok_syms = [str(r["symbol"]) for r in results if r.get("symbol") and "error" not in r]
     meta_by_sym: dict[str, dict[str, Any]] = {}
     for r in results:
@@ -1355,12 +1688,58 @@ def ingest_update(
             )
         except Exception as e:
             logger.warning("forward outlook auto-sync after ingest: %s", e)
-    return {
+    out: dict[str, Any] = {
         "results": results,
         "ingest_data_source": resolved_ds,
+        "cancelled": cancelled,
         "disclaimer": _disclaimer_payload().model_dump(),
         "forward_outlook_sync": outlook_sync,
     }
+    if fundamentals_results is not None:
+        out["fundamentals_results"] = fundamentals_results
+        out["fundamentals_cancelled"] = fundamentals_cancelled
+        out["fundamentals_note"] = (
+            "扩展因子为 Demo 合成规则；数据源为东财/AkShare 聚合接口，可能存在延时或缺项。"
+        )
+    return out
+
+
+@app.get(
+    "/ingest/live-quotes",
+    tags=["③ 更新行情数据"],
+    summary="刷新自选标的单股实时报价（③ 表格下行现价）",
+    description="""
+对 `symbols` 中的 6 位代码逐个拉东财 **单股** 报价（`stock_bid_ask_em`，非全市场 `stock_zh_a_spot_em`）。
+
+供控制台 ③ 拉取结果表 **定时刷新下行「现价」**；上行「昨收」仍来自入库前一根日线，不在此接口更新。
+""",
+)
+@limiter.limit("60/minute")
+def ingest_live_quotes(
+    request: Request,
+    symbols: str = Query(..., description="逗号分隔的 6 位代码，如 600619,600519"),
+    _: None = Depends(optional_api_key),
+):
+    codes: list[str] = []
+    seen: set[str] = set()
+    for part in symbols.split(","):
+        try:
+            nc = normalize_symbol(part.strip())
+        except ValueError:
+            continue
+        if nc not in seen:
+            seen.add(nc)
+            codes.append(nc)
+    if not codes:
+        raise HTTPException(status_code=400, detail="请提供至少一个有效 6 位代码")
+    if len(codes) > 50:
+        raise HTTPException(status_code=400, detail="单次最多 50 只")
+    by_sym = live_quote_fields_for_codes(codes)
+    quotes = []
+    for sym in codes:
+        row = by_sym.get(sym) or {}
+        quotes.append({"symbol": sym, **row})
+    return {"quotes": quotes, "disclaimer": _disclaimer_payload().model_dump()}
 
 
 @app.post(
@@ -1370,9 +1749,12 @@ def ingest_update(
     description="""
 对自选池拉取并入库（默认**每一只**；也可传 **`symbols`** 只处理子集，规则与 `POST /ingest/update` 相同）。
 
-- **估值**：东财沪深京 A 股列表中的市盈率(动)、市净率（全表有短 TTL 内存缓存，减轻限流）。
-- **成长**：最近一期财报的营业收入/归属净利润**同比 %**（`stock_financial_analysis_indicator_em`）。
-- **资金流**：最近交易日**主力净流入净额**（东财日级）。
+- **估值**：市盈率(动)、市净率（东财全 A 列表，短 TTL 缓存）。
+- **成长**：营业收入/归属净利润**同比 %**、财报报告期。
+- **质量**：ROE、ROA、销售毛利率、销售净利率。
+- **杠杆与偿债**：资产负债率、流动比率、速动比率。
+- **现金流**：每股经营活动现金流量净额。
+- **资金流**：最近交易日**主力净流入净额**及对应日期（东财日级）。
 
 完成后 `GET /signals` 会读取本地快照，在技术面得分上做 **有界** 合成（通常 ±15 分）。**非投资建议**；接口有频率限制，勿连续狂点。
 """,
@@ -1391,14 +1773,21 @@ def ingest_fundamentals(
         raise HTTPException(status_code=400, detail="自选池为空，请先 POST /watchlist 添加标的")
     symbols, _, suffix_errs = _watchlist_subset_symbols(body.symbols, wl_pairs)
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
+    clear("fundamentals")
     results: list[dict] = []
+    cancelled = False
     for i, sym in enumerate(symbols):
+        if is_cancelled("fundamentals"):
+            cancelled = True
+            logger.info("ingest/fundamentals cancelled by user at %s", sym)
+            break
         if i > 0 and pause > 0:
             time.sleep(pause)
         results.append(upsert_fundamental_snapshot(sym))
     results.extend(suffix_errs)
     return {
         "results": results,
+        "cancelled": cancelled,
         "disclaimer": _disclaimer_payload().model_dump(),
         "note": "扩展因子为 Demo 合成规则；数据源为东财/AkShare 聚合接口，可能存在延时或缺项。",
     }
@@ -1453,10 +1842,15 @@ def ingest_web_data_preview(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     route = _resolve_ingest_route(body.data_source)
+    from app.ingest import shanghai_today_date
+
+    sh_today = shanghai_today_date().isoformat()
     refresh: dict[str, object] = {"attempted": body.refresh_kline, "ok": None, "detail": None, "result": None}
     if body.refresh_kline:
         try:
-            refresh["result"] = incremental_refresh(sym, data_source=route)
+            refresh["result"] = incremental_refresh(
+                sym, data_source=route, as_of_date=shanghai_today_date()
+            )
             refresh["ok"] = True
         except Exception as e:
             refresh["ok"] = False
@@ -1466,11 +1860,22 @@ def ingest_web_data_preview(
         bars = list_bars_from_db(sym, limit=body.bar_limit)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    last_td: str | None = None
+    if bars:
+        last_td = str(bars[-1].get("trade_date") or "")[:10] or None
+    lag_note = ""
+    if last_td and last_td < sh_today:
+        lag_note = (
+            f"数据源最新完整日线为 {last_td}（东八区今日 {sh_today}）。"
+            "盘中或收盘后源站未出当日 K 线时，末根会少一日；弹窗顶部「最新价」为盘口报价（若拉取成功）。"
+        )
     fund_rows = fetch_individual_fund_flow_recent_rows(sym, limit_rows=body.fund_flow_recent_days)
     fund_latest = fund_rows[-1] if fund_rows else None
     return {
         "symbol": sym,
         "data_source": route,
+        "shanghai_today": sh_today,
+        "bars_last_trade_date": last_td,
         "kline_refresh": refresh,
         "bars": bars,
         "fund_flow_recent": fund_rows,
@@ -1479,6 +1884,7 @@ def ingest_web_data_preview(
         "note": (
             "实现上通过 AkShare 聚合公开页面接口，非浏览器自动化爬虫；"
             "资金流为日级汇总，「最新一行」对应数据源最近交易日。"
+            + (f" {lag_note}" if lag_note else "")
         ),
     }
 
@@ -1565,15 +1971,25 @@ def signals_batch(
         symbols = [r.symbol for r in rows]
     if not symbols:
         return []
-    _pre_refresh_symbols(symbols, route=route, pre_refresh=pre_refresh)
+    clear("signals")
+    _pre_refresh_symbols(
+        symbols, route=route, pre_refresh=pre_refresh, cancel_scope="signals"
+    )
     out: list[SignalOut] = []
     failed_syms: list[str] = []
+    cancelled = False
     for sym in symbols:
+        if is_cancelled("signals"):
+            cancelled = True
+            logger.info("signals batch cancelled by user before %s", sym)
+            break
         try:
             out.append(compute_signal(sym, data_source=route))
         except Exception as e:
             failed_syms.append(sym)
             logger.debug("signal skipped %s: %s", sym, e)
+    if cancelled:
+        response.headers["X-Quant-Signals-Cancelled"] = "1"
     response.headers["X-Quant-Signals-Success-Count"] = str(len(out))
     response.headers["X-Quant-Signals-Failed-Count"] = str(len(failed_syms))
     if failed_syms:
@@ -2024,6 +2440,22 @@ def _run_sector_screen(body: SectorScreenIn) -> SectorScreenOut:
         )
         for s in merged
     ]
+    missing_names: list[str] = []
+    for row in stock_rows:
+        c = normalize_symbol(str(row.get("code") or ""))
+        nm = str(row.get("name") or "").strip()
+        if c and (not nm or nm.lower() == "nan"):
+            missing_names.append(c)
+    if missing_names:
+        try:
+            nm_by = fetch_stock_names_map(list(dict.fromkeys(missing_names)))
+            for row in stock_rows:
+                c = normalize_symbol(str(row.get("code") or ""))
+                if not (str(row.get("name") or "").strip()) and nm_by.get(c):
+                    row["name"] = str(nm_by[c]).strip()
+        except Exception as e:
+            logger.debug("sector-screen: fetch_stock_names_map skipped: %s", e)
+
     return SectorScreenOut(
         sectors=[asdict(s) for s in sectors],
         stocks=stock_rows,
@@ -2257,9 +2689,20 @@ def alerts_preview(
         watch = s.execute(select(WatchlistRow)).scalars().all()
         prev_map = {row.symbol: json.loads(row.payload_json) for row in cached}
         watch_symbols = [w.symbol for w in watch]
-    _pre_refresh_symbols(watch_symbols, route=route, pre_refresh=body.pre_refresh)
+    clear("alerts")
+    _pre_refresh_symbols(
+        watch_symbols,
+        route=route,
+        pre_refresh=body.pre_refresh,
+        cancel_scope="alerts",
+    )
     current: dict[str, SignalOut] = {}
+    cancelled = False
     for sym in watch_symbols:
+        if is_cancelled("alerts"):
+            cancelled = True
+            logger.info("alerts preview cancelled by user before %s", sym)
+            break
         try:
             current[sym] = compute_signal(sym, data_source=route)
         except Exception:
@@ -2279,12 +2722,214 @@ def alerts_preview(
                 s.add(SignalCacheRow(symbol=sym, payload_json=payload, updated_at=now))
     return {
         "events": events,
+        "cancelled": cancelled,
         "disclaimer": _disclaimer_payload().model_dump(),
         "request": {
             "pre_refresh": body.pre_refresh,
             "data_source": route,
         },
     }
+
+
+def _holding_one_out(s, row: HoldingRow) -> HoldingOut:
+    return build_holdings_list(s, [row])[0]
+
+
+@app.get(
+    "/holdings",
+    response_model=list[HoldingOut],
+    tags=["⑩ 持仓记录（自用）"],
+    summary="列出持仓记录",
+    description="""
+返回本机 SQLite 中的持仓列表（新记录在前）。可选 `status`：`holding` 仅持仓中、`closed` 仅已平仓；不传为全部。
+
+每条附带**估算**浮动/已实现盈亏：参考价为盘口现价（若有）或本地最新日线收盘；**非**券商成交回报，不构成投资建议。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def holdings_list(
+    request: Request,
+    status: str | None = Query(
+        None,
+        description="holding=仅持仓中；closed=仅已平仓；省略=全部",
+    ),
+    limit: int = Query(200, ge=1, le=500),
+    _: None = Depends(optional_api_key),
+):
+    st = (status or "").strip().lower() or None
+    if st is not None and st not in (HOLDING_STATUS_HOLDING, HOLDING_STATUS_CLOSED):
+        raise HTTPException(status_code=400, detail="status 须为 holding 或 closed")
+    with session_scope() as s:
+        q = select(HoldingRow).order_by(HoldingRow.id.desc()).limit(limit)
+        if st:
+            q = q.where(HoldingRow.status == st)
+        rows = list(s.execute(q).scalars().all())
+        return build_holdings_list(s, rows)
+
+
+@app.post(
+    "/holdings",
+    response_model=HoldingOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="新增一条持仓",
+    description="记录买入代码、股数、成本价、买入日期（均必填）；备注可选。数据仅存本机，非投资建议。",
+)
+@limiter.limit("30/minute")
+def holdings_create(body: HoldingIn, request: Request, _: None = Depends(optional_api_key)):
+    try:
+        sym = normalize_symbol(body.symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    buy_d = body.buy_date.isoformat()
+    row = HoldingRow(
+        symbol=sym,
+        name=(body.name or "").strip(),
+        status=HOLDING_STATUS_HOLDING,
+        shares=float(body.shares),
+        cost_price=float(body.cost_price),
+        buy_date=buy_d,
+        notes=body.notes.strip() if body.notes else None,
+        created_at="",
+        updated_at="",
+    )
+    with session_scope() as s:
+        apply_holding_defaults(row, sym=sym)
+        s.add(row)
+        s.flush()
+        s.refresh(row)
+        return _holding_one_out(s, row)
+
+
+@app.get(
+    "/holdings/{holding_id}/exit-advice",
+    response_model=HoldingExitAdviceOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="平仓建议（成本 + ④ 信号规则）",
+    description="""
+对**持仓中**记录计算是否倾向减仓/平仓（0–100 分）。因子包括：相对成本的浮盈亏、是否跌破 MA20、趋势/强度、④ 仓位提示、Demo 止损线等。
+
+**非**卖出指令；需本地已有 K 线（③ 拉取）。可选 Query `data_source` 与 ③/④ 一致。
+""",
+)
+@limiter.limit("40/minute")
+def holdings_exit_advice(
+    holding_id: int,
+    request: Request,
+    data_source: IngestDataSource | None = Query(None),
+    _: None = Depends(optional_api_key),
+):
+    ds = data_source.value if data_source is not None else None
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        try:
+            return compute_holding_exit_advice(row, session=s, data_source=ds)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.patch(
+    "/holdings/{holding_id}",
+    response_model=HoldingOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="更新持仓（数量/成本/备注等）",
+)
+@limiter.limit("30/minute")
+def holdings_update(
+    holding_id: int,
+    body: HoldingUpdateIn,
+    request: Request,
+    _: None = Depends(optional_api_key),
+):
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        if row.status == HOLDING_STATUS_CLOSED:
+            raise HTTPException(status_code=400, detail="已平仓记录请新建或删除后重录")
+        if body.shares is not None:
+            row.shares = float(body.shares)
+        if body.cost_price is not None:
+            row.cost_price = float(body.cost_price)
+        if body.buy_date is not None:
+            row.buy_date = body.buy_date.isoformat()
+        if body.notes is not None:
+            row.notes = body.notes.strip() or None
+        if body.name is not None:
+            row.name = body.name.strip()
+        row.updated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        s.flush()
+        s.refresh(row)
+        return _holding_one_out(s, row)
+
+
+@app.post(
+    "/holdings/{holding_id}/close",
+    response_model=HoldingOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="标记为已平仓",
+)
+@limiter.limit("30/minute")
+def holdings_close(
+    holding_id: int,
+    body: HoldingCloseIn,
+    request: Request,
+    _: None = Depends(optional_api_key),
+):
+    sell_d = (body.sell_date or date.today()).isoformat()
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        if row.status == HOLDING_STATUS_CLOSED:
+            raise HTTPException(status_code=400, detail="已是平仓状态")
+        row.status = HOLDING_STATUS_CLOSED
+        row.sell_price = float(body.sell_price)
+        row.sell_date = sell_d
+        if body.notes and body.notes.strip():
+            extra = body.notes.strip()
+            row.notes = (row.notes + "\n" if row.notes else "") + f"[平仓] {extra}"
+        row.updated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        s.flush()
+        s.refresh(row)
+        return _holding_one_out(s, row)
+
+
+@app.post(
+    "/holdings/{holding_id}/reopen",
+    response_model=HoldingOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="恢复为持仓中（误点平仓时用）",
+)
+@limiter.limit("30/minute")
+def holdings_reopen(holding_id: int, request: Request, _: None = Depends(optional_api_key)):
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        row.status = HOLDING_STATUS_HOLDING
+        row.sell_price = None
+        row.sell_date = None
+        row.updated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        s.flush()
+        s.refresh(row)
+        return _holding_one_out(s, row)
+
+
+@app.delete(
+    "/holdings/{holding_id}",
+    tags=["⑩ 持仓记录（自用）"],
+    summary="删除一条持仓记录",
+)
+@limiter.limit("30/minute")
+def holdings_delete(holding_id: int, request: Request, _: None = Depends(optional_api_key)):
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        s.delete(row)
+    return {"ok": True, "id": holding_id}
 
 
 def _journal_row_to_out(row: DecisionJournalRow) -> JournalOut:
@@ -2512,6 +3157,7 @@ def root():
             "docs": "/docs",
             "self_use": "/meta/self-use",
             "journal": "/journal",
+            "holdings": "/holdings",
             "research_forecast_validate": "/research/forecast-validate",
             "research_sector_screen": "/research/sector-screen",
             "disclaimer": d.disclaimer,

@@ -13,6 +13,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import akshare as ak
 import numpy as np
@@ -31,10 +32,15 @@ logger = logging.getLogger(__name__)
 _spot_lock = threading.Lock()
 _spot_mono_ts: float = 0.0
 _spot_df: pd.DataFrame | None = None
+_spot_fetched_at_iso: str | None = None
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _shanghai_today_ymd() -> str:
+    return datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
 
 
 def em_seccode(sym: str) -> str:
@@ -59,7 +65,7 @@ def _get_spot_em_df(*, force_refresh: bool = False) -> pd.DataFrame | None:
     """
     东财全 A 列表快照。默认 TTL 内存缓存；force_refresh=True 时跳过 TTL，尽量拉取新表（失败则仍回退到旧缓存）。
     """
-    global _spot_mono_ts, _spot_df
+    global _spot_mono_ts, _spot_df, _spot_fetched_at_iso
     ttl = max(10.0, float(get_settings().fundamentals_spot_cache_ttl_sec))
     now = time.monotonic()
     with _spot_lock:
@@ -73,9 +79,11 @@ def _get_spot_em_df(*, force_refresh: bool = False) -> pd.DataFrame | None:
             if _spot_df is not None:
                 return _spot_df
         return None
+    fetched_at = _now_iso()
     with _spot_lock:
         _spot_df = df
         _spot_mono_ts = time.monotonic()
+        _spot_fetched_at_iso = fetched_at
     return df
 
 
@@ -270,13 +278,17 @@ def spot_liquidity_fields_for_codes(
             chg = round(float(chg), 2)
         else:
             chg = None
+        qd = _spot_quote_calendar_date_str(row) or _shanghai_today_ymd()
+        with _spot_lock:
+            fetched_at = _spot_fetched_at_iso
         out[sym] = {
             "spot_last_price": px,
             "spot_prev_close": _fin_float(row, "昨收"),
             "spot_change_pct": chg,
             "spot_volume": _fin_float(row, "成交量"),
             "spot_amount": _fin_float(row, "成交额"),
-            "spot_quote_date": _spot_quote_calendar_date_str(row),
+            "spot_quote_date": qd,
+            "spot_fetched_at": fetched_at or _now_iso(),
         }
     return out
 
