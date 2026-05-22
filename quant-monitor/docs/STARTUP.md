@@ -4,9 +4,24 @@
 
 ---
 
+## 一键启动（推荐，Windows）
+
+在资源管理器中进入 **`quant-monitor`** 文件夹，**双击**：
+
+| 文件 | 作用 |
+|------|------|
+| **`start.bat`** | 自动进入目录、用 `.venv` 启动服务（无需先 `cd` / `Activate`） |
+| **`start-and-open-ui.bat`** | 同上，约 3 秒后自动打开浏览器 `http://127.0.0.1:8000/ui` |
+
+可把 `start.bat` **固定到任务栏** 或 **发送到桌面快捷方式**，以后只点一次即可。
+
+> 首次使用前需已创建 `.venv` 并 `pip install -r requirements.txt`（见下方「首次安装」）。
+
+---
+
 <div style="background:linear-gradient(135deg,#0d47a1,#1565c0);color:#ffffff;padding:18px 22px;border-radius:10px;border:2px solid #42a5f5;margin:16px 0;box-shadow:0 4px 14px rgba(21,101,192,0.35);">
 
-<strong style="font-size:1.15em;">① 进入项目并激活虚拟环境（Windows PowerShell）</strong>
+<strong style="font-size:1.15em;">① 进入项目并激活虚拟环境（Windows PowerShell，手动方式）</strong>
 
 <pre style="background:rgba(0,0,0,0.25);padding:12px;border-radius:6px;margin:10px 0 0;overflow-x:auto;color:#e3f2fd;"><code>cd "d:\Program Files\project_musi\Project\34musi\quant-monitor"
 .\.venv\Scripts\Activate.ps1</code></pre>

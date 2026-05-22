@@ -33,7 +33,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy import delete, or_, select
 
-from app.batch_cancel import KNOWN_SCOPES, cancel_many, clear, is_cancelled
+from app.batch_cancel import KNOWN_SCOPES, cancel_many, clear, clear_many, is_cancelled
 from app.config import get_settings
 from app.db import (
     WATCHLIST_ORIGIN_AUTO_HOT,
@@ -65,6 +65,7 @@ from app.ingest import (
     test_akshare_connectivity,
     enrich_ingest_results_with_spot,
     live_quote_fields_for_codes,
+    live_quote_fields_for_codes_enhanced,
     watchlist_bar_fields_for_session,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
@@ -552,6 +553,20 @@ def _overlay_live_prices_on_hot_sectors_detail(
     return warnings
 
 
+_HOT_SECTOR_DS_LABELS: dict[str, str] = {
+    "akshare": "AkShare（东财）",
+    "mootdx": "mootdx（通达信）",
+    "tushare": "TuShare",
+    "hot_chain": "热门链",
+    "baostock": "BaoStock",
+}
+
+
+def _raise_if_hot_sectors_cancelled() -> None:
+    if is_cancelled("hot_sectors"):
+        raise HTTPException(status_code=499, detail="热门板块任务已取消")
+
+
 def _run_hot_pick_common(
     *,
     top_sectors: int,
@@ -568,7 +583,16 @@ def _run_hot_pick_common(
     max_return_20d_pct: float = 25.0,
     enable_liquidity_filter: bool = False,
     min_avg_turnover_20d_100m: float = 1.0,
+    enable_ma5_capital_pick: bool = True,
+    ma5_stand_min_days: int = 3,
+    capital_flow_lookback_days: int = 3,
+    capital_min_positive_days: int = 2,
 ):
+    clear("hot_sectors")
+    ds_key = (selector_data_source or "akshare").strip().lower()
+    ds_label = _HOT_SECTOR_DS_LABELS.get(ds_key, ds_key)
+    logger.info("hot_sectors pick start: route=%s (%s)", ds_key, ds_label)
+    _raise_if_hot_sectors_cancelled()
     ds = _resolve_sector_datasource(selector_data_source, tushare_token=tushare_token)
     board_key = (board_type or "all").strip().lower() or "all"
     snapshot_path = default_sector_snapshot_path(
@@ -578,14 +602,24 @@ def _run_hot_pick_common(
     if use_sector_snapshot and snapshot_path.exists():
         try:
             rankings_override = load_sector_rankings_snapshot(snapshot_path)
+            logger.info("hot_sectors: loaded sector snapshot %s", snapshot_path)
         except Exception as exc:
             logger.warning("sector snapshot load failed, fallback to live fetch: %s", exc)
     if rankings_override is None:
-        rankings_override = ds.get_sector_rankings(board_key)
+        logger.info("hot_sectors: live fetch sector rankings via %s (board=%s)", ds_key, board_key)
+        _raise_if_hot_sectors_cancelled()
+        try:
+            rankings_override = ds.get_sector_rankings(board_key)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"热门板块列表拉取失败（当前路线：{ds_label}）：{exc}",
+            ) from exc
         try:
             save_sector_rankings_snapshot(rankings_override, snapshot_path)
         except Exception as exc:
             logger.warning("sector snapshot save failed: %s", exc)
+    _raise_if_hot_sectors_cancelled()
     hot = pick_from_hot_sectors(
         ds,
         top_sectors=top_sectors,
@@ -600,13 +634,26 @@ def _run_hot_pick_common(
         max_return_20d_pct=max_return_20d_pct,
         enable_liquidity_filter=enable_liquidity_filter,
         min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
+        should_cancel=lambda: is_cancelled("hot_sectors"),
+        enable_ma5_capital_pick=enable_ma5_capital_pick,
+        ma5_stand_min_days=ma5_stand_min_days,
+        capital_flow_lookback_days=capital_flow_lookback_days,
+        capital_min_positive_days=capital_min_positive_days,
     )
+    _raise_if_hot_sectors_cancelled()
     price_warnings = _overlay_live_prices_on_hot_sectors_detail(
         hot.sectors_detail,
         selector_data_source=selector_data_source,
     )
     if price_warnings:
         hot.warnings.extend(price_warnings)
+    if enable_ma5_capital_pick and hot.ma5_capital_sectors_detail:
+        mc_warnings = _overlay_live_prices_on_hot_sectors_detail(
+            hot.ma5_capital_sectors_detail,
+            selector_data_source=selector_data_source,
+        )
+        if mc_warnings:
+            hot.warnings.extend(mc_warnings)
     return hot
 
 
@@ -626,6 +673,10 @@ def _hot_sectors_preview_payload(
     max_return_20d_pct: float,
     enable_liquidity_filter: bool,
     min_avg_turnover_20d_100m: float,
+    enable_ma5_capital_pick: bool = True,
+    ma5_stand_min_days: int = 3,
+    capital_flow_lookback_days: int = 3,
+    capital_min_positive_days: int = 2,
 ) -> FillHotSectorsOut:
     hot = _run_hot_pick_common(
         top_sectors=top_sectors,
@@ -642,9 +693,14 @@ def _hot_sectors_preview_payload(
         max_return_20d_pct=max_return_20d_pct,
         enable_liquidity_filter=enable_liquidity_filter,
         min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
+        enable_ma5_capital_pick=enable_ma5_capital_pick,
+        ma5_stand_min_days=ma5_stand_min_days,
+        capital_flow_lookback_days=capital_flow_lookback_days,
+        capital_min_positive_days=capital_min_positive_days,
     )
     return FillHotSectorsOut(
         sectors_detail=hot.sectors_detail,
+        ma5_capital_sectors_detail=hot.ma5_capital_sectors_detail,
         summary=FillHotSectorsSummary(
             added=0,
             skipped_existing_manual=0,
@@ -704,6 +760,22 @@ def meta_cancel_batch(
         "cancelled_scopes": touched,
         "known_scopes": sorted(KNOWN_SCOPES),
     }
+
+
+@app.post(
+    "/meta/clear-batch",
+    tags=["① 入门必读"],
+    summary="清除批量任务的中断标记",
+    description="新一批请求开始前由控制台调用，避免上次「取消」标记影响本次任务。scopes 与 cancel-batch 相同。",
+)
+@limiter.limit("60/minute")
+def meta_clear_batch(
+    request: Request,
+    body: CancelBatchIn = Body(default_factory=CancelBatchIn),
+    _: None = Depends(optional_api_key),
+):
+    clear_many(body.scopes or list(KNOWN_SCOPES))
+    return {"ok": True, "cleared_scopes": body.scopes or list(KNOWN_SCOPES)}
 
 
 @app.get(
@@ -836,23 +908,35 @@ def meta_hot_market_snapshot_refresh(
     )
 
 
-def _build_watchlist_items(s, rows: list[WatchlistRow]) -> list[WatchlistItem]:
-    """批量附带本地 bars 摘要与东财列表快照现价（共用 spot 内存缓存）。"""
+def _build_watchlist_items(
+    s,
+    rows: list[WatchlistRow],
+    *,
+    force_spot_refresh: bool = False,
+) -> list[WatchlistItem]:
+    """批量附带本地 bars 摘要与现价（东财 push2/列表 → 通达信快照兜底）。"""
     symbols = [r.symbol for r in rows]
     bar_by = watchlist_bar_fields_for_session(s, symbols)
-    spot_by = spot_liquidity_fields_for_codes(symbols, force_refresh=False)
+    route = get_settings().ingest_data_source
+    live_by = (
+        live_quote_fields_for_codes_enhanced(
+            symbols, data_source=route, force_spot_refresh=force_spot_refresh
+        )
+        if symbols
+        else {}
+    )
     out: list[WatchlistItem] = []
     for r in rows:
         meta = bar_by.get(r.symbol, {})
-        spot = spot_by.get(r.symbol) or {}
+        live = live_by.get(r.symbol) or {}
         out.append(
             WatchlistItem(
                 symbol=r.symbol,
                 name=(r.name or "").strip(),
                 origin=r.origin or WATCHLIST_ORIGIN_MANUAL,
-                spot_last_price=spot.get("spot_last_price"),
-                spot_change_pct=spot.get("spot_change_pct"),
-                spot_quote_date=spot.get("spot_quote_date"),
+                spot_last_price=live.get("live_last_price"),
+                spot_change_pct=live.get("live_change_pct"),
+                spot_quote_date=live.get("live_quote_date"),
                 **meta,
             )
         )
@@ -932,14 +1016,22 @@ def _watchlist_item_after_ingest(
     tags=["② 管理自选股票"],
     summary="列出当前已添加的股票",
     description="""
-返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_last_ingested_at**（最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明），以及东财列表快照 **spot_last_price** / **spot_change_pct**（聚合公开数据，非交易所实时 tick，可能有延时）。
+返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_last_ingested_at**（最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明），以及 **spot_last_price** / **spot_change_pct**（东财单股/列表快照；东财失败时用通达信批量行情兜底，非交易所 tick）。
 
+- Query **`refresh_spot=true`**（控制台「刷新列表」会带上）：跳过 spot 内存缓存并重新拉现价。
 - 若配置了 `API_KEY`，请先点右上角 **Authorize**。
 - 若列表为空，下一步请用 `POST /watchlist` 添加。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
-def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
+def watchlist_list(
+    request: Request,
+    refresh_spot: bool = Query(
+        False,
+        description="为 true 时强制重新拉现价（东财→通达信兜底），控制台「刷新列表」应传 true",
+    ),
+    _: None = Depends(optional_api_key),
+):
     """列出自选池全部标的（按 id 升序）。"""
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all()
@@ -950,7 +1042,7 @@ def watchlist_list(request: Request, _: None = Depends(optional_api_key)):
                 r = by_sym.get(sym)
                 if r is not None and not (r.name or "").strip():
                     r.name = nm
-        return _build_watchlist_items(s, rows)
+        return _build_watchlist_items(s, rows, force_spot_refresh=refresh_spot)
 
 
 @app.post(
@@ -1413,6 +1505,10 @@ def watchlist_fill_hot_sectors(
             max_return_20d_pct=body.max_return_20d_pct,
             enable_liquidity_filter=body.enable_liquidity_filter,
             min_avg_turnover_20d_100m=body.min_avg_turnover_20d_100m,
+            enable_ma5_capital_pick=body.enable_ma5_capital_pick,
+            ma5_stand_min_days=body.ma5_stand_min_days,
+            capital_flow_lookback_days=body.capital_flow_lookback_days,
+            capital_min_positive_days=body.capital_min_positive_days,
         )
     except HTTPException:
         raise
@@ -1425,6 +1521,7 @@ def watchlist_fill_hot_sectors(
     added = 0
     removed_auto = 0
     hot_names = _names_from_hot_sectors_detail(hot.sectors_detail)
+    hot_names.update(_names_from_hot_sectors_detail(hot.ma5_capital_sectors_detail))
     with session_scope() as s:
         res = s.execute(
             delete(WatchlistRow).where(
@@ -1454,7 +1551,11 @@ def watchlist_fill_hot_sectors(
         removed_auto=removed_auto,
         warnings=warnings,
     )
-    return FillHotSectorsOut(sectors_detail=hot.sectors_detail, summary=summary)
+    return FillHotSectorsOut(
+        sectors_detail=hot.sectors_detail,
+        ma5_capital_sectors_detail=hot.ma5_capital_sectors_detail,
+        summary=summary,
+    )
 
 
 @app.get(
@@ -1481,6 +1582,10 @@ def watchlist_hot_sectors_preview(
     max_return_20d_pct: float = Query(25.0, ge=0, le=500),
     enable_liquidity_filter: bool = Query(False),
     min_avg_turnover_20d_100m: float = Query(1.0, ge=0, le=10000),
+    enable_ma5_capital_pick: bool = Query(True),
+    ma5_stand_min_days: int = Query(3, ge=2, le=10),
+    capital_flow_lookback_days: int = Query(3, ge=1, le=10),
+    capital_min_positive_days: int = Query(2, ge=1, le=10),
     _: None = Depends(optional_api_key),
 ):
     try:
@@ -1499,6 +1604,10 @@ def watchlist_hot_sectors_preview(
             max_return_20d_pct=max_return_20d_pct,
             enable_liquidity_filter=enable_liquidity_filter,
             min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
+            enable_ma5_capital_pick=enable_ma5_capital_pick,
+            ma5_stand_min_days=ma5_stand_min_days,
+            capital_flow_lookback_days=capital_flow_lookback_days,
+            capital_min_positive_days=capital_min_positive_days,
         )
     except HTTPException:
         raise
@@ -1520,14 +1629,29 @@ def watchlist_hot_sectors_preview_post(
     body: FillHotSectorsIn = Body(...),
     _: None = Depends(optional_api_key),
 ):
+    route = body.selector_data_source.value
+    t0 = time.monotonic()
+    logger.info(
+        "hot_sectors preview POST start: route=%s top=%s per_sector=%s board=%s snapshot=%s "
+        "trend_sort=%s tech_pass=%s liq_filter=%s ma5_capital=%s",
+        route,
+        body.top_sectors,
+        body.stocks_per_sector,
+        body.board_type,
+        body.use_sector_snapshot,
+        body.sort_by_trend_strength,
+        body.require_technical_pass,
+        body.enable_liquidity_filter,
+        body.enable_ma5_capital_pick,
+    )
     try:
-        return _hot_sectors_preview_payload(
+        out = _hot_sectors_preview_payload(
             top_sectors=body.top_sectors,
             stocks_per_sector=body.stocks_per_sector,
             board_type=body.board_type,
             exclude_st=body.exclude_st,
             exclude_kcb=body.exclude_kcb,
-            selector_data_source=body.selector_data_source.value,
+            selector_data_source=route,
             use_sector_snapshot=body.use_sector_snapshot,
             tushare_token=body.tushare_token,
             sort_by_trend_strength=body.sort_by_trend_strength,
@@ -1536,11 +1660,39 @@ def watchlist_hot_sectors_preview_post(
             max_return_20d_pct=body.max_return_20d_pct,
             enable_liquidity_filter=body.enable_liquidity_filter,
             min_avg_turnover_20d_100m=body.min_avg_turnover_20d_100m,
+            enable_ma5_capital_pick=body.enable_ma5_capital_pick,
+            ma5_stand_min_days=body.ma5_stand_min_days,
+            capital_flow_lookback_days=body.capital_flow_lookback_days,
+            capital_min_positive_days=body.capital_min_positive_days,
         )
-    except HTTPException:
+        n_stocks = sum(len(b.get("stocks") or []) for b in out.sectors_detail)
+        n_mc = sum(len(b.get("stocks") or []) for b in out.ma5_capital_sectors_detail)
+        logger.info(
+            "hot_sectors preview POST done: %.1fs route=%s sectors=%s stocks=%s ma5_capital_stocks=%s warnings=%s",
+            time.monotonic() - t0,
+            route,
+            len(out.sectors_detail),
+            n_stocks,
+            n_mc,
+            len(out.summary.warnings),
+        )
+        return out
+    except HTTPException as e:
+        logger.warning(
+            "hot_sectors preview POST aborted: %.1fs route=%s status=%s detail=%s",
+            time.monotonic() - t0,
+            route,
+            e.status_code,
+            e.detail,
+        )
         raise
     except Exception as e:
-        logger.exception("hot_pick preview post failed: %s", e)
+        logger.exception(
+            "hot_pick preview post failed: %.1fs route=%s err=%s",
+            time.monotonic() - t0,
+            route,
+            e,
+        )
         raise HTTPException(status_code=502, detail=f"热门板块预览失败：{e}") from e
 
 
@@ -1604,7 +1756,7 @@ def _watchlist_subset_symbols(
 - 需要能访问外网（通过 AkShare 拉公开数据）。
 - 自选为空时会返回错误，请先用 `POST /watchlist` 添加股票。
 - 某一只股票拉取失败时，结果里该条会带 `error`，其它股票仍会继续。
-- 成功条目中附带 **`watchlist_name`**（自选里存的简称，可能为空）、**`last_trade_date` / `last_close`**（拉取后本地库中**最新一根**日线交易日与收盘价，前复权）、**`strength`**（基于拉取后本地 K 线的简要强弱摘要）、**`spot_last_price` / `spot_change_pct` / `spot_strength`**（与③相同行情路线的**日线末根收盘**及涨跌，非东财全市场列表、非 tick 实时）。
+- 成功条目中附带 **`watchlist_name`**、**`last_trade_date` / `last_close`**（入库日线末根）、**`strength`**、**`live_last_price` / `live_change_pct`**（优先东财单股 push2，失败则东财全 A 列表快照；仍失败时标为 `daily_close_not_realtime` 的收盘参考，非 tick 实时）。
 
 **注意**：接口有「每分钟次数」限制，不要连续狂点。
 """,
@@ -1659,6 +1811,10 @@ def ingest_update(
         except Exception as e:
             results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
     results.extend(suffix_errs)
+    enrich_ingest_results_with_spot(results, data_source=resolved_ds)
+    row_by_sym = {
+        str(r["symbol"]): r for r in results if r.get("symbol") and "error" not in r
+    }
     fundamentals_results: list[dict[str, Any]] | None = None
     fundamentals_cancelled = False
     if body.include_fundamentals and processed_syms:
@@ -1671,8 +1827,9 @@ def ingest_update(
                 break
             if i > 0 and pause > 0:
                 time.sleep(pause)
-            fundamentals_results.append(upsert_fundamental_snapshot(sym))
-    enrich_ingest_results_with_spot(results, data_source=resolved_ds)
+            fundamentals_results.append(
+                upsert_fundamental_snapshot(sym, ingest_row=row_by_sym.get(sym))
+            )
     ok_syms = [str(r["symbol"]) for r in results if r.get("symbol") and "error" not in r]
     meta_by_sym: dict[str, dict[str, Any]] = {}
     for r in results:
@@ -1699,7 +1856,9 @@ def ingest_update(
         out["fundamentals_results"] = fundamentals_results
         out["fundamentals_cancelled"] = fundamentals_cancelled
         out["fundamentals_note"] = (
-            "扩展因子为 Demo 合成规则；数据源为东财/AkShare 聚合接口，可能存在延时或缺项。"
+            "扩展因子为 Demo 合成规则；数据源为东财/AkShare。"
+            "PE/PB 来自东财全 A 列表（拉取时刷新，近实时）；主力净流入为日级资金表（非 tick）；"
+            "盘中若无「当日」资金行则下行标「末收」；财报指标为最近一期，上下行相同。"
         )
     return out
 
@@ -1709,9 +1868,9 @@ def ingest_update(
     tags=["③ 更新行情数据"],
     summary="刷新自选标的单股实时报价（③ 表格下行现价）",
     description="""
-对 `symbols` 中的 6 位代码逐个拉东财 **单股** 报价（`stock_bid_ask_em`，非全市场 `stock_zh_a_spot_em`）。
+对 `symbols` 拉现价：东财单股 push2 → 东财全 A 列表快照 → **通达信批量行情**（东财失败时兜底，与日线 `data_source` 无关）。
 
-供控制台 ③ 拉取结果表 **定时刷新下行「现价」**；上行「昨收」仍来自入库前一根日线，不在此接口更新。
+供控制台 ③ 拉取结果表 **定时刷新下行「现价」**；上行「昨收」仍来自入库前一根日线。
 """,
 )
 @limiter.limit("60/minute")
@@ -1734,7 +1893,10 @@ def ingest_live_quotes(
         raise HTTPException(status_code=400, detail="请提供至少一个有效 6 位代码")
     if len(codes) > 50:
         raise HTTPException(status_code=400, detail="单次最多 50 只")
-    by_sym = live_quote_fields_for_codes(codes)
+    route = get_settings().ingest_data_source
+    by_sym = live_quote_fields_for_codes_enhanced(
+        codes, data_source=route, force_spot_refresh=True
+    )
     quotes = []
     for sym in codes:
         row = by_sym.get(sym) or {}
@@ -1783,13 +1945,32 @@ def ingest_fundamentals(
             break
         if i > 0 and pause > 0:
             time.sleep(pause)
-        results.append(upsert_fundamental_snapshot(sym))
+        ctx_row: dict[str, Any] | None = None
+        try:
+            bars = list_bars_from_db(sym, limit=3)
+            if bars:
+                lb = bars[-1]
+                ctx_row = {
+                    "symbol": sym,
+                    "last_trade_date": lb["trade_date"],
+                    "last_close": lb["close"],
+                }
+                if len(bars) >= 2:
+                    pb = bars[-2]
+                    ctx_row["prev_trade_date"] = pb["trade_date"]
+                    ctx_row["prev_close"] = pb["close"]
+        except ValueError:
+            ctx_row = None
+        results.append(upsert_fundamental_snapshot(sym, ingest_row=ctx_row))
     results.extend(suffix_errs)
     return {
         "results": results,
         "cancelled": cancelled,
         "disclaimer": _disclaimer_payload().model_dump(),
-        "note": "扩展因子为 Demo 合成规则；数据源为东财/AkShare 聚合接口，可能存在延时或缺项。",
+        "note": (
+            "扩展因子为 Demo 合成规则；数据源为东财/AkShare。"
+            "今行优先执行日资金表，无则回退末根日；昨行为其上一日。PE/PB 为拉取时东财列表快照。"
+        ),
     }
 
 
@@ -2808,7 +2989,7 @@ def holdings_create(body: HoldingIn, request: Request, _: None = Depends(optiona
     description="""
 对**持仓中**记录计算是否倾向减仓/平仓（0–100 分）。因子包括：相对成本的浮盈亏、是否跌破 MA20、趋势/强度、④ 仓位提示、Demo 止损线等。
 
-**非**卖出指令；需本地已有 K 线（③ 拉取）。可选 Query `data_source` 与 ③/④ 一致。
+**非**卖出指令；需本地已有 K 线（③ 拉取）。可选 Query：`data_source`（与 ③/④ 一致）、`current_price`（与列表「当前价格」列一致，用于浮盈亏与 MA20 比较）。
 """,
 )
 @limiter.limit("40/minute")
@@ -2816,6 +2997,11 @@ def holdings_exit_advice(
     holding_id: int,
     request: Request,
     data_source: IngestDataSource | None = Query(None),
+    current_price: float | None = Query(
+        None,
+        gt=0,
+        description="表格「当前价格」列取值；传入则按该价计算浮盈亏与 MA20 对比（非 tick 实时）",
+    ),
     _: None = Depends(optional_api_key),
 ):
     ds = data_source.value if data_source is not None else None
@@ -2824,7 +3010,9 @@ def holdings_exit_advice(
         if row is None:
             raise HTTPException(status_code=404, detail="记录不存在")
         try:
-            return compute_holding_exit_advice(row, session=s, data_source=ds)
+            return compute_holding_exit_advice(
+                row, session=s, data_source=ds, current_price=current_price
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
 

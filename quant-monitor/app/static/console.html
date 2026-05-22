@@ -78,6 +78,10 @@
       overflow-y: auto;
       max-width: 960px;
     }
+    main:has(#panel-3.active) {
+      max-width: min(1520px, calc(100vw - var(--nav-w) - 2rem));
+      padding-right: 1.75rem;
+    }
     .panel { display: none; }
     .panel.active { display: block; }
     .panel h2 { margin-top: 0; font-size: 1.15rem; }
@@ -228,6 +232,8 @@
     .hd-ed-cell .hd-inline-save { color: var(--accent); }
     .hd-ed-cell .hd-inline-cancel { color: var(--muted); }
     .hd-days-num { font-variant-numeric: tabular-nums; }
+    .hd-cur-px-cell { text-align: right; font-variant-numeric: tabular-nums; }
+    .hd-cur-px { font-weight: 600; }
     .hd-advice-reasons { margin: 0.5rem 0 0; padding-left: 1.2rem; }
     .hd-advice-reasons li { margin-bottom: 0.25rem; }
     .wl-toolbar, .wl-pager {
@@ -337,7 +343,7 @@
     .disclaimer-box p { margin: 0 0 0.75rem; }
     details { margin-top: 0.75rem; color: var(--muted); font-size: 0.85rem; }
     .ingest-h3 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--text); }
-    .ingest-result-wrap { margin-top: 1rem; }
+    .ingest-result-wrap { margin-top: 1rem; width: 100%; }
     .m3-stack {
       display: flex;
       flex-direction: column;
@@ -350,6 +356,11 @@
       border-radius: 10px;
       padding: 0.95rem 1.1rem 1.05rem;
       max-width: 44rem;
+    }
+    .m3-card.m3-card-ingest {
+      max-width: none;
+      width: 100%;
+      padding: 1rem 1.25rem 1.15rem;
     }
     .m3-card-ingest { border-left: 3px solid var(--accent); }
     .m3-card-backtest { border-left: 3px solid #c9b87c; }
@@ -494,6 +505,47 @@
       color: var(--text);
     }
     .fv-live-bars-label input { margin-top: 0.2rem; flex-shrink: 0; }
+    .ingest-result-table-wrap {
+      margin-top: 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(18, 26, 36, 0.95) 0%, rgba(15, 20, 25, 0.88) 100%);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.22);
+    }
+    .ingest-result-table-wrap .ingest-table-split {
+      min-width: 1120px;
+      font-size: 0.92rem;
+    }
+    .ingest-result-table-wrap .ingest-table-split th,
+    .ingest-result-table-wrap .ingest-table-split td {
+      padding: 0.62rem 0.88rem;
+      vertical-align: middle;
+    }
+    .ingest-result-table-wrap .ingest-table-split thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #1e2a3a;
+      box-shadow: 0 1px 0 var(--border);
+    }
+    .ingest-result-table-wrap .ingest-subhead th {
+      top: 2.35rem;
+      background: #172230;
+      font-size: 0.74rem;
+      padding: 0.38rem 0.65rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .ingest-result-table-wrap .ingest-col-sym { min-width: 5.5rem; }
+    .ingest-result-table-wrap .ingest-col-name { min-width: 5.5rem; }
+    .ingest-result-table-wrap .ingest-col-date { min-width: 7.5rem; }
+    .ingest-result-table-wrap .ingest-col-price { min-width: 5.25rem; text-align: right; }
+    .ingest-result-table-wrap .ingest-col-spot { min-width: 6.5rem; text-align: right; }
+    .ingest-result-table-wrap .ingest-col-strength { min-width: 10.5rem; }
+    .ingest-result-table-wrap .ingest-col-fund { min-width: 4.75rem; }
+    .ingest-result-table-wrap .ingest-col-vol { min-width: 5.5rem; }
     .ingest-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
     .ingest-table th, .ingest-table td { border: 1px solid var(--border); padding: 0.5rem 0.65rem; text-align: left; }
     .ingest-table th { background: var(--panel); color: var(--muted); font-weight: 500; white-space: nowrap; }
@@ -502,8 +554,14 @@
     .ingest-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
     .ingest-table th.ingest-fund-th,
     .ingest-table td.ingest-fund-cell {
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       white-space: nowrap;
+    }
+    .ingest-result-table-wrap .ingest-table th.ingest-fund-th,
+    .ingest-result-table-wrap .ingest-table td.ingest-fund-cell {
+      font-size: 0.82rem;
+      padding-left: 0.65rem;
+      padding-right: 0.65rem;
     }
     .ingest-table td.trend-bull { color: var(--ok); }
     .ingest-table td.trend-bear { color: var(--err); }
@@ -512,10 +570,79 @@
     table.ingest-kline-mini { font-size: 0.78rem; }
     .ingest-table-split .ingest-row-top td {
       background: rgba(255, 255, 255, 0.03);
-      border-bottom: 1px dashed var(--border);
+      border-bottom: 1px dashed rgba(45, 58, 79, 0.85);
     }
     .ingest-table-split .ingest-row-bottom td {
-      background: rgba(56, 189, 248, 0.06);
+      background: rgba(61, 139, 253, 0.07);
+    }
+    .ingest-lane-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.35rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 0.12rem 0.32rem;
+      border-radius: 4px;
+      margin-right: 0.45rem;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .ingest-lane-prev {
+      background: rgba(139, 156, 179, 0.22);
+      color: #b8c5d6;
+      border: 1px solid rgba(139, 156, 179, 0.35);
+    }
+    .ingest-lane-today {
+      background: rgba(61, 139, 253, 0.28);
+      color: #b8d4ff;
+      border: 1px solid rgba(61, 139, 253, 0.45);
+    }
+    .ingest-date-cell {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.15rem;
+      flex-wrap: wrap;
+    }
+    .ingest-price-main {
+      font-size: 1.02rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .ingest-spot-chg {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-top: 0.15rem;
+      opacity: 0.92;
+    }
+    .ingest-strength-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.32rem;
+      line-height: 1.38;
+    }
+    .ingest-strength-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .ingest-strength-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.28rem 0.4rem;
+    }
+    .ingest-strength-metrics span {
+      font-size: 0.78rem;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.14rem 0.4rem;
+      border-radius: 4px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .ingest-fund-fallback {
+      color: #c9b87c;
     }
     .ingest-spot-time-sub {
       font-size: 0.68rem;
@@ -627,7 +754,25 @@
     .ingest-detail-tr td { background: var(--panel); vertical-align: top; }
     .ingest-detail-inner { max-height: 520px; overflow: auto; padding: 0.25rem 0 0.5rem; }
     .ingest-inline-bt-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
-    .ingest-pager-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem; margin: 0.5rem 0; font-size: 0.82rem; color: var(--muted); }
+    .ingest-pager-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+      margin: 0.5rem 0;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.86rem;
+      color: var(--muted);
+      background: rgba(26, 35, 50, 0.55);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .ingest-result-lead {
+      font-size: 0.86rem;
+      line-height: 1.6;
+      color: var(--muted);
+      margin: 0 0 0.5rem;
+    }
     .ingest-pager-bar .wl-page-btn { padding: 0.28rem 0.65rem; }
     .ingest-test-box {
       margin-top: 0.75rem;
@@ -1262,6 +1407,18 @@
       border-top: 1px solid rgba(45, 58, 79, 0.55);
       background: rgba(0, 0, 0, 0.18);
     }
+    pre.hot-pick-log {
+      flex: 1 1 100%;
+      width: 100%;
+      margin: 0.35rem 0 0;
+      max-height: 7.5rem;
+      overflow: auto;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      opacity: 0.92;
+      border: 1px dashed var(--border, #3a4556);
+      box-sizing: border-box;
+    }
     .hot-fill-actions .btns {
       margin: 0;
     }
@@ -1272,6 +1429,21 @@
     .hot-fill-box > .hot-sectors-wrap {
       margin: 0.75rem 1.35rem 1.1rem;
       border-radius: 10px;
+    }
+    .hot-pick-group-block {
+      margin-bottom: 1.25rem;
+    }
+    .hot-pick-group-block:last-child {
+      margin-bottom: 0;
+    }
+    .hot-pick-group-title {
+      margin: 0 0 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent, #6eb5ff);
+    }
+    .hot-pick-group-title.is-ma5 {
+      color: #7dcea0;
     }
     .panel-rule {
       border: none;
@@ -1595,6 +1767,10 @@
       font-size: 0.68rem;
       color: var(--muted);
       font-weight: 400;
+    }
+    .ingest-live-px.ingest-live-stale {
+      color: var(--muted);
+      border-bottom: 1px dashed rgba(201, 184, 124, 0.45);
     }
     .hot-kline-expand td {
       padding: 0.35rem 0.5rem 0.65rem !important;
@@ -2226,6 +2402,13 @@
             </div>
           </div>
           <div class="hot-fill-section">
+            <div class="hot-fill-section-title">五日强承接（与上方分表展示，同属热门候选）</div>
+            <div class="hot-options-grid">
+              <label class="hot-check-full"><input type="checkbox" id="hotEnableMa5Capital" checked /> 启用「连续站上五日线 + 资金承接强」筛选</label>
+            </div>
+            <p class="hot-field-hint" style="margin:0.35rem 0 0">日线与板块成分走上方<strong>热门数据路线</strong>（如 mootdx）；主力净流入为东财日级资金表。默认：末根起连续 ≥3 日收盘≥MA5，且近 3 日中至少 2 日主力净流入为正、合计为正，且最新一日大单+超大单净占比≥0。</p>
+          </div>
+          <div class="hot-fill-section">
             <div class="hot-fill-section-title">涨幅与流动性（勾选后按阈值过滤）</div>
             <div class="hot-threshold-grid">
               <div class="hot-threshold-card">
@@ -2253,6 +2436,7 @@
               <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
             </div>
             <p class="m3-hint" style="margin:0.5rem 0 0;font-size:0.78rem"><strong>展示上一次缓存数据</strong>：只读本机上次结果，不联网。<strong>获取热门板块候选</strong>：重新请求 API 并更新缓存。勾选后点「将勾选股加入自选」才写入②自选池。</p>
+            <pre class="out hot-pick-log" id="hotPickLog" hidden title="请求过程日志（同时写入浏览器 F12 控制台）"></pre>
           </footer>
           <div id="hotSummaryLine" style="padding:0 1.35rem 0.25rem;" hidden></div>
           <div id="hotSectorsWrap" class="hot-sectors-wrap" hidden></div>
@@ -2298,7 +2482,7 @@
         <pre class="out" id="out-2" hidden></pre>
       </section>
 
-      <section id="panel-3" class="panel" data-module="3">
+      <section id="panel-3" class="panel panel-ingest-module" data-module="3">
         <h2>③ 更新行情数据</h2>
         <p class="lead" style="margin-bottom:0.75rem;">分两块：<strong>① 更新日线</strong>（写库，并触发 ⑦ 自动前向展望；可勾选同时拉扩展因子，结果表内展示）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）。</p>
 
@@ -2554,7 +2738,7 @@
       <section id="panel-10" class="panel" data-module="10">
         <h2>⑩ 持仓记录（自用）</h2>
         <p class="lead">
-          记录你的<strong>实际持仓</strong>（代码、股数、成本价）。列表会按本地 K 线与盘口估算浮动盈亏；持仓中可点<strong>平仓建议</strong>（结合成本浮盈亏 + ④ 同源 MA20/趋势/Demo 止损规则打分，非卖出指令）。与 ② 自选、⑦ 决策日志相互独立。
+          记录你的<strong>实际持仓</strong>（代码、股数、成本价）。列表含<strong>当前价格</strong>（优先盘口快照）；点<strong>平仓建议</strong>时按该列价格计算浮盈亏并与 MA20 对比（④ 同源规则，非卖出指令）。与 ② 自选、⑦ 决策日志相互独立。
         </p>
         <h3 class="ingest-h3" style="margin-top:0.5rem;">新增 / 买入</h3>
         <div class="row">
@@ -2991,6 +3175,7 @@
 
   async function fetchCancel(scope, url, options) {
     var signal = beginScope(scope);
+    await clearServerCancelFlags(scope);
     var opts = Object.assign({}, options || {}, { signal: signal });
     try {
       var res = await fetch(url, opts);
@@ -3012,6 +3197,22 @@
         body: JSON.stringify({ scopes: scopes }),
       });
     } catch (eNotify) {}
+  }
+
+  async function clearServerCancelFlags(scope) {
+    var scopes = PANEL_SERVER_SCOPES[scope];
+    if (!scopes || !scopes.length) return;
+    try {
+      await fetch("/meta/clear-batch", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({ scopes: scopes }),
+      });
+    } catch (eClear) {}
+  }
+
+  function hotSelectorDsLabel(v) {
+    return HOT_SELECTOR_DS_LABELS[v] || v || "akshare";
   }
 
   async function userCancelScope(scope) {
@@ -3042,6 +3243,7 @@
     if (res.status === 401)
       head += "（请回到「①」检查 API Key 是否与服务器一致并已点击保存）";
     if (res.status === 400) head += "（请求参数问题，见下方说明）";
+    if (res.status === 499) head += "（任务已取消）";
     if (body && typeof body === "object" && body.detail !== undefined)
       return head + "\n\n" + detailToText(body.detail);
     return head + "\n\n" + (typeof body === "string" ? body : JSON.stringify(body, null, 2));
@@ -3164,6 +3366,12 @@
   }
 
   var LS_TUSHARE = "quant_monitor_tushare_token";
+  var LS_HOT_SELECTOR_DS = "quant_monitor_hot_selector_ds";
+  var HOT_SELECTOR_DS_LABELS = {
+    akshare: "AkShare（东财）",
+    mootdx: "通达信 mootdx",
+    tushare: "TuShare",
+  };
   var LS_QSS_SECTOR_TOP_CACHE = "quant_monitor_qss_sector_top_cache_v1";
   var LS_USE_QUANT_WL = "quant_monitor_use_quant_watchlist";
   var LS_LAST_QSS_STOCKS = "quant_monitor_last_sector_screen_stocks_json";
@@ -5646,6 +5854,29 @@
     qssPaintSectorScreenTables();
   }
 
+  var HOT_PICK_LOG_MAX_LINES = 12;
+
+  function hotPickLogClear() {
+    var el = $("hotPickLog");
+    if (!el) return;
+    el.textContent = "";
+    el.hidden = true;
+  }
+
+  /** 热门板块「获取候选」过程日志：页面 #hotPickLog + 浏览器控制台 */
+  function hotPickLog(stage, detail) {
+    var ts = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    var line = "[" + ts + "] " + stage + (detail != null && detail !== "" ? " — " + detail : "");
+    console.log("[热门板块]", line);
+    var el = $("hotPickLog");
+    if (!el) return;
+    var prev = el.textContent ? el.textContent.split("\n") : [];
+    prev.push(line);
+    if (prev.length > HOT_PICK_LOG_MAX_LINES) prev = prev.slice(prev.length - HOT_PICK_LOG_MAX_LINES);
+    el.textContent = prev.join("\n");
+    el.hidden = false;
+  }
+
   function hotBuildFillBody() {
     var tok = ($("hotTushareToken") && $("hotTushareToken").value || "").trim();
     var body = {
@@ -5661,7 +5892,11 @@
       exclude_overextended: $("hotExcludeOverextended").checked,
       max_return_20d_pct: parseFloat($("hotMax20dReturnPct").value) || 25,
       enable_liquidity_filter: $("hotEnableLiquidityFilter").checked,
-      min_avg_turnover_20d_100m: parseFloat($("hotMinTurnover20d100m").value) || 0
+      min_avg_turnover_20d_100m: parseFloat($("hotMinTurnover20d100m").value) || 0,
+      enable_ma5_capital_pick: $("hotEnableMa5Capital") ? $("hotEnableMa5Capital").checked : true,
+      ma5_stand_min_days: 3,
+      capital_flow_lookback_days: 3,
+      capital_min_positive_days: 2
     };
     if (tok) body.tushare_token = tok;
     return body;
@@ -5756,11 +5991,18 @@
       var ls = localStorage.getItem(LS_TUSHARE);
       if (ls && $("hotTushareToken")) $("hotTushareToken").value = ls;
     } catch (e) {}
-    syncHotTushareTokenRow();
     var sel = $("hotSelectorDs");
+    try {
+      var savedDs = localStorage.getItem(LS_HOT_SELECTOR_DS);
+      if (sel && savedDs && sel.querySelector('option[value="' + savedDs + '"]')) sel.value = savedDs;
+    } catch (eDs) {}
+    syncHotTushareTokenRow();
     if (sel && !sel._hotTsBound) {
       sel._hotTsBound = true;
       sel.addEventListener("change", function () {
+        try {
+          localStorage.setItem(LS_HOT_SELECTOR_DS, sel.value);
+        } catch (eStore) {}
         syncHotTushareTokenRow();
         if (sel.value === "tushare") {
           var t = ($("hotTushareToken").value || "").trim();
@@ -5968,6 +6210,10 @@
   }
 
   var _hotSectorDetailByRank = {};
+  var _hotMa5SectorDetailByRank = {};
+  var _hotLastMa5CapitalDetail = [];
+  var _hotLastMa5DisplayDetail = [];
+  var _hotActivePickGroup = "sector_hot";
   var _hotLastSectorsDetail = [];
   /** 概览/明细仅展示有入选股的板块（最多 10 个） */
   var _hotLastDisplayDetail = [];
@@ -6545,15 +6791,24 @@
     }
   }
 
-  function hotSectorDisplayIndex(rank) {
-    var blocks = hotSectorsWithStocks(_hotLastSectorsDetail, HOT_SECTOR_DISPLAY_MAX);
+  function hotMergeHotPickDetails(a, b) {
+    return (a || []).concat(b || []);
+  }
+
+  function hotSectorDisplayIndex(rank, pickGroup) {
+    var src =
+      pickGroup === "ma5_capital"
+        ? _hotLastMa5CapitalDetail
+        : _hotLastSectorsDetail;
+    var blocks = hotSectorsWithStocks(src, HOT_SECTOR_DISPLAY_MAX);
     for (var i = 0; i < blocks.length; i++) {
       if (String(blocks[i].sector_rank) === String(rank)) return i + 1;
     }
     return rank;
   }
 
-  function hotRenderSectorDetailCard(block, displayNum, withTechnical) {
+  function hotRenderSectorDetailCard(block, displayNum, withTechnical, pickGroup) {
+    pickGroup = pickGroup || "sector_hot";
     var rank = block.sector_rank != null ? String(block.sector_rank) : "";
     var metrics = block.sector_metrics || {};
     var stocks = Array.isArray(block.stocks) ? block.stocks : [];
@@ -6618,9 +6873,15 @@
       '<button type="button" class="secondary hot-sector-detail-close" id="btnHotSectorDetailClose">收起</button>' +
       "</div></header>" +
       '<div class="hot-sector-detail-body">' +
-      hotRenderStocksTable(stocks, withTechnical) +
+      (pickGroup === "ma5_capital"
+        ? hotRenderMa5CapitalStocksTable(stocks)
+        : hotRenderStocksTable(stocks, withTechnical)) +
       "</div>" +
-      '<p class="m3-hint hot-sector-detail-foot">涨跌与成交额为行情事实；「短线初筛」「趋势初筛」为系统技术面规则（与 screening.py / ⑨ 一致），显示通过与否及服务端打分，非页面自评。详情见备注或悬停单元格。请重新获取候选以刷新指标。</p>' +
+      '<p class="m3-hint hot-sector-detail-foot">' +
+      (pickGroup === "ma5_capital"
+        ? "本表为「连续站上五日线 + 资金承接强」候选，与上方热门筛选表独立；日线走热门数据路线，资金流为东财日级。"
+        : "涨跌与成交额为行情事实；「短线初筛」「趋势初筛」为系统技术面规则（与 screening.py / ⑨ 一致），显示通过与否及服务端打分，非页面自评。") +
+      " 请重新获取候选以刷新指标。</p>" +
       "</section>"
     );
   }
@@ -6632,6 +6893,7 @@
     pane.innerHTML =
       '<p class="hot-sector-detail-empty">点击上方板块概览中的「N 只 · 查看」，在此展开该板块入选股票明细。</p>';
     _hotActiveSectorRank = null;
+    _hotActivePickGroup = "sector_hot";
     var wrap = $("hotSectorsWrap");
     if (wrap) {
       wrap.querySelectorAll(".hot-sector-view-btn").forEach(function (b) {
@@ -6640,18 +6902,27 @@
     }
   }
 
-  function hotShowSectorDetailBelow(rank, withTechnical) {
+  function hotShowSectorDetailBelow(rank, withTechnical, pickGroup) {
+    pickGroup = pickGroup || "sector_hot";
     var pane = $("hotSectorDetailPane");
-    var block = _hotSectorDetailByRank[String(rank)];
+    var block =
+      pickGroup === "ma5_capital"
+        ? _hotMa5SectorDetailByRank[String(rank)]
+        : _hotSectorDetailByRank[String(rank)];
     if (!pane || !block) return;
-    var displayNum = hotSectorDisplayIndex(rank);
-    pane.innerHTML = hotRenderSectorDetailCard(block, displayNum, withTechnical);
+    var displayNum = hotSectorDisplayIndex(rank, pickGroup);
+    pane.innerHTML = hotRenderSectorDetailCard(block, displayNum, withTechnical, pickGroup);
     pane.hidden = false;
     _hotActiveSectorRank = String(rank);
+    _hotActivePickGroup = pickGroup;
     var wrap = $("hotSectorsWrap");
     if (wrap) {
       wrap.querySelectorAll(".hot-sector-view-btn").forEach(function (b) {
-        b.classList.toggle("active", b.getAttribute("data-hot-sector-rank") === String(rank));
+        b.classList.toggle(
+          "active",
+          b.getAttribute("data-hot-sector-rank") === String(rank) &&
+            (b.getAttribute("data-hot-pick-group") || "sector_hot") === pickGroup
+        );
       });
     }
     hotSyncPickSelectAllCheckbox();
@@ -6676,11 +6947,17 @@
         var viewBtn = ev.target.closest(".hot-sector-view-btn");
         if (viewBtn) {
           var rank = viewBtn.getAttribute("data-hot-sector-rank");
+          var grp = viewBtn.getAttribute("data-hot-pick-group") || "sector_hot";
           if (rank != null && !viewBtn.disabled) {
-            if (_hotActiveSectorRank === String(rank) && $("hotSectorDetailPane") && !$("hotSectorDetailPane").hidden) {
+            if (
+              _hotActiveSectorRank === String(rank) &&
+              _hotActivePickGroup === grp &&
+              $("hotSectorDetailPane") &&
+              !$("hotSectorDetailPane").hidden
+            ) {
               hotHideSectorDetailPane();
             } else {
-              hotShowSectorDetailBelow(rank, withTechnical);
+              hotShowSectorDetailBelow(rank, withTechnical, grp);
             }
           }
           return;
@@ -6719,7 +6996,12 @@
         }
         if (ev.target.closest("#btnHotAddWlAll")) {
           void hotAddStocksToWatchlist(
-            hotCollectAllPickRows(_hotLastDisplayDetail.length ? _hotLastDisplayDetail : _hotLastSectorsDetail),
+            hotCollectAllPickRows(
+              hotMergeHotPickDetails(
+                _hotLastDisplayDetail.length ? _hotLastDisplayDetail : _hotLastSectorsDetail,
+                _hotLastMa5DisplayDetail.length ? _hotLastMa5DisplayDetail : _hotLastMa5CapitalDetail
+              )
+            ),
             "全部入选加入自选"
           );
         }
@@ -6768,10 +7050,16 @@
     );
   }
 
-  function hotRenderSectorOverviewTable(detail) {
+  function hotRenderSectorOverviewTable(detail, pickGroup, sectionHint) {
+    pickGroup = pickGroup || "sector_hot";
+    sectionHint = sectionHint || "";
     var blocks = hotSectorsWithStocks(detail, HOT_SECTOR_DISPLAY_MAX);
     if (!blocks.length) {
-      return '<p class="lead" style="margin:0 0 0.75rem">暂无含入选股票的板块（入选为 0 的板块已隐藏）。</p>';
+      return (
+        '<p class="lead" style="margin:0 0 0.75rem">' +
+        escHtml(pickGroup === "ma5_capital" ? "本组暂无满足「五日+资金承接」的入选股。" : "暂无含入选股票的板块（入选为 0 的板块已隐藏）。") +
+        "</p>"
+      );
     }
     var rows = "";
     blocks.forEach(function (block, displayIdx) {
@@ -6791,7 +7079,9 @@
         })
         .join("；");
       var countCell =
-        '<button type="button" class="hot-sector-view-btn" data-hot-sector-rank="' +
+        '<button type="button" class="hot-sector-view-btn" data-hot-pick-group="' +
+        escHtml(pickGroup) +
+        '" data-hot-sector-rank="' +
         escHtml(rank) +
         '" title="' +
         escHtml("入选：" + preview) +
@@ -6820,10 +7110,65 @@
       "</tr></thead><tbody>" +
       rows +
       "</tbody></table>" +
-      '<p class="m3-hint" style="margin:0.45rem 0 0;font-size:0.74rem">仅展示有入选股的前 ' +
-      escHtml(String(HOT_SECTOR_DISPLAY_MAX)) +
-      " 个板块（入选 0 已隐藏）。点「查看」在<strong>下方</strong>展开板块明细；「本地缓存」读库内日线，「API最新」联网增量并显示最新价涨跌。" +
-      "明细表「最新价」在联网预览时会尽量用<strong>东财全 A 列表 / 通达信快照</strong>覆盖技术面日线末根；若仍像旧价请重新点「获取热门板块候选」。</p></div>"
+      '<p class="m3-hint" style="margin:0.45rem 0 0;font-size:0.74rem">' +
+      escHtml(sectionHint || "仅展示有入选股的前 " + HOT_SECTOR_DISPLAY_MAX + " 个板块。") +
+      " 点「查看」在<strong>下方</strong>展开本组明细；K 线按钮「本地缓存」/「API最新」与上方热门数据路线一致；资金流为东财日级。</p></div>"
+    );
+  }
+
+  function hotFmtMainInflowWan(v) {
+    if (v == null || v === "" || !isFinite(Number(v))) return "—";
+    return hotFmtNum(Number(v) / 1e4, 2);
+  }
+
+  function hotRenderMa5CapitalStocksTable(stocks) {
+    if (!stocks.length) {
+      return '<p class="hot-empty-sector">本板块无满足五日+资金承接的入选股。</p>';
+    }
+    var head =
+      "<th>选</th><th>排名</th><th>代码</th><th>名称</th><th>连续站MA5</th>" +
+      "<th>主力3日(万)</th><th>正流入天</th><th>大单占比%</th><th>最新主力(万)</th><th>5日%</th><th>最新价</th><th>操作</th>";
+    var body = "";
+    stocks.forEach(function (st, idx) {
+      var sr = st.stock_rank_in_sector != null ? st.stock_rank_in_sector : idx + 1;
+      var sym = hotStockCode(st);
+      var nm = hotStockName(st);
+      body +=
+        "<tr><td><input type=\"checkbox\" class=\"hot-pick-cb hot-stock-pick-cb\" data-sym=\"" +
+        escHtml(sym) +
+        "\" data-name=\"" +
+        escHtml(nm) +
+        "\" checked /></td><td class=\"col-num\">" +
+        escHtml(String(sr)) +
+        '</td><td class="col-code">' +
+        escHtml(sym) +
+        "</td><td>" +
+        escHtml(nm) +
+        '</td><td class="col-num">' +
+        escHtml(st.ma5_consecutive_days != null ? String(st.ma5_consecutive_days) : "—") +
+        '</td><td class="col-num">' +
+        escHtml(hotFmtMainInflowWan(st.main_net_inflow_3d)) +
+        '</td><td class="col-num">' +
+        escHtml(st.fund_flow_positive_days != null ? String(st.fund_flow_positive_days) : "—") +
+        '</td><td class="col-num">' +
+        escHtml(st.em_large_net_pct != null ? hotFmtNum(st.em_large_net_pct, 2) : "—") +
+        '</td><td class="col-num">' +
+        escHtml(hotFmtMainInflowWan(st.main_net_inflow)) +
+        '</td><td class="col-num">' +
+        hotPctCell(st.return_5d) +
+        '</td><td class="col-num">' +
+        escHtml(hotFmtNum(st.latest_close, 2)) +
+        '</td><td class="col-num">' +
+        hotKlineBtnHtml(sym, nm, st) +
+        "</td></tr>";
+    });
+    return (
+      '<div class="hot-result-table-wrap">' +
+      '<table class="hot-result-table hot-stocks-rich-table"><thead><tr>' +
+      head +
+      '</tr></thead><tbody>' +
+      body +
+      "</tbody></table></div>"
     );
   }
 
@@ -6948,11 +7293,14 @@
     var sumLine = $("hotSummaryLine");
     if (!wrap || !sumLine) return;
     var detail = payload.sectors_detail || [];
+    var ma5Detail = payload.ma5_capital_sectors_detail || [];
     var displayDetail = hotSectorsWithStocks(detail, HOT_SECTOR_DISPLAY_MAX);
+    var displayMa5 = hotSectorsWithStocks(ma5Detail, HOT_SECTOR_DISPLAY_MAX);
     var summ = payload.summary || {};
     sumLine.hidden = false;
     var warnings = Array.isArray(summ.warnings) ? summ.warnings : [];
     var totalStocks = 0;
+    var totalMa5 = 0;
     var anyTechnical = false;
     displayDetail.forEach(function (block) {
       var stocks = Array.isArray(block.stocks) ? block.stocks : [];
@@ -6960,6 +7308,9 @@
       stocks.forEach(function (st) {
         if (hotStockHasTechnical(st)) anyTechnical = true;
       });
+    });
+    displayMa5.forEach(function (block) {
+      totalMa5 += (Array.isArray(block.stocks) ? block.stocks : []).length;
     });
     var cachedWhen =
       opts.cachedAt != null ? formatQssCacheTime(opts.cachedAt) : "";
@@ -6977,9 +7328,12 @@
           : "请在下方勾选要保留的股票，再点「将勾选股加入自选」；未勾选不会进入②自选池。") +
         "</p>" +
         '<div class="hot-summary-grid">' +
-        '<div class="hot-summary-stat ok"><span class="lbl">候选股票数</span><span class="val">' +
+        '<div class="hot-summary-stat ok"><span class="lbl">热门筛选候选</span><span class="val">' +
         escHtml(String(totalStocks)) +
-        "</span></div>" +
+        " 只</span></div>" +
+        '<div class="hot-summary-stat ok"><span class="lbl">五日+资金候选</span><span class="val">' +
+        escHtml(String(totalMa5)) +
+        " 只</span></div>" +
         '<div class="hot-summary-stat"><span class="lbl">展示板块数</span><span class="val">' +
         escHtml(String(displayDetail.length)) +
         "</span></div>" +
@@ -7005,36 +7359,65 @@
     statHtml += "</div>";
     sumLine.innerHTML = statHtml;
     _hotSectorDetailByRank = {};
+    _hotMa5SectorDetailByRank = {};
     _hotLastSectorsDetail = detail;
+    _hotLastMa5CapitalDetail = ma5Detail;
     _hotLastDisplayDetail = displayDetail;
+    _hotLastMa5DisplayDetail = displayMa5;
     detail.forEach(function (block) {
       if (block.sector_rank != null) {
         _hotSectorDetailByRank[String(block.sector_rank)] = block;
       }
     });
+    ma5Detail.forEach(function (block) {
+      if (block.sector_rank != null) {
+        _hotMa5SectorDetailByRank[String(block.sector_rank)] = block;
+      }
+    });
     _hotLastWithTechnical = anyTechnical;
     _hotActiveSectorRank = null;
+    _hotActivePickGroup = "sector_hot";
     bindHotSectorOverviewActions(anyTechnical);
-    if (!displayDetail.length) {
+    if (!displayDetail.length && !displayMa5.length) {
       wrap.innerHTML =
         '<p class="lead" style="margin:0">暂无含入选股票的板块（入选为 0 的板块已隐藏）。可查看上方筛选提示。</p>';
       wrap.hidden = false;
       return;
     }
+    var groupsHtml = "";
+    if (displayDetail.length) {
+      groupsHtml +=
+        '<div class="hot-pick-group-block" data-hot-pick-group="sector_hot">' +
+        '<h4 class="hot-pick-group-title">一、热门板块筛选（原条件）</h4>' +
+        hotRenderSectorOverviewTable(
+          detail,
+          "sector_hot",
+          "按上方「筛选与排序 / 涨幅与流动性」等条件入选；与下方五日+资金表独立。"
+        ) +
+        "</div>";
+    }
+    if (displayMa5.length) {
+      groupsHtml +=
+        '<div class="hot-pick-group-block" data-hot-pick-group="ma5_capital">' +
+        '<h4 class="hot-pick-group-title is-ma5">二、五日强承接（连续≥3日站上MA5 + 资金承接强）</h4>' +
+        hotRenderSectorOverviewTable(
+          ma5Detail,
+          "ma5_capital",
+          "与组一同批热门板块成分内筛选；日线走热门数据路线，资金流为东财日级。"
+        ) +
+        "</div>";
+    }
     wrap.innerHTML =
-      '<h4 class="hot-summary-title" style="margin:0 0 0.5rem;font-size:0.88rem">板块概览（有入选的前 ' +
-      escHtml(String(HOT_SECTOR_DISPLAY_MAX)) +
-      " 个）</h4>" +
-      hotRenderSectorOverviewTable(detail) +
+      groupsHtml +
       '<div class="hot-pick-toolbar">' +
       '<div class="btns">' +
       '<button type="button" class="primary" id="btnHotAddWlPicked">将勾选股加入自选</button>' +
       '<button type="button" class="secondary" id="btnHotAddWlAll">全部入选加入自选</button>' +
       "</div>" +
-      '<label class="hot-pick-all-label"><input type="checkbox" id="hotPickSelectAll" checked /> 全选当前明细中的股票</label>' +
+      '<label class="hot-pick-all-label"><input type="checkbox" id="hotPickSelectAll" checked /> 全选下方明细中的股票（含两组）</label>' +
       "</div>" +
       '<div id="hotSectorDetailPane" class="hot-sector-detail-pane">' +
-      '<p class="hot-sector-detail-empty">点击上方「N 只 · 查看」，在此展开该板块入选股票明细。</p>' +
+      '<p class="hot-sector-detail-empty">点击上方某一组「N 只 · 查看」，在此展开该板块入选股票明细。</p>' +
       "</div>";
     wrap.hidden = false;
     hotSyncPickSelectAllCheckbox();
@@ -7262,29 +7645,81 @@
     var btn = $("btnHotFill");
     if (btn) btn.disabled = true;
     var reqBody = hotBuildFillBody();
-    showOut("out-2", "正在联网拉取最新热门板块候选（不写入自选）…", true);
+    hotPickLogClear();
+    hotPickLog(
+      "开始",
+      "路线=" +
+        reqBody.selector_data_source +
+        " 板块数=" +
+        reqBody.top_sectors +
+        " 每板块=" +
+        reqBody.stocks_per_sector +
+        " 类型=" +
+        reqBody.board_type +
+        " 快照=" +
+        (reqBody.use_sector_snapshot ? "是" : "否") +
+        " 五日资金=" +
+        (reqBody.enable_ma5_capital_pick ? "是" : "否")
+    );
+    showOut(
+      "out-2",
+      "正在用「" +
+        hotSelectorDsLabel(reqBody.selector_data_source) +
+        "」联网拉取热门板块候选（不写入自选）…",
+      true
+    );
+    var t0 = Date.now();
     try {
+      hotPickLog("请求", "POST /watchlist/hot-sectors/preview …");
       var res = await fetchCancel("panel-2", "/watchlist/hot-sectors/preview", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(reqBody),
       });
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      hotPickLog("响应", "HTTP " + res.status + "，耗时 " + elapsed + "s");
       var body = await readBody(res);
       if (!res.ok) {
-        showOut("out-2", await formatError(res, body), true);
+        if (res.status === 499) {
+          hotPickLog("结束", "已取消");
+          showOut("out-2", "热门板块请求已取消。", true);
+          return;
+        }
+        var errTxt = await formatError(res, body);
+        hotPickLog("失败", "HTTP " + res.status);
+        showOut("out-2", errTxt, true);
         return;
       }
       persistLastHotSectorPick(body, reqBody);
       renderHotSectorsDetail(body, { preview: true });
       var shown = hotSectorsWithStocks(body.sectors_detail || [], HOT_SECTOR_DISPLAY_MAX);
+      var shownMa5 = hotSectorsWithStocks(body.ma5_capital_sectors_detail || [], HOT_SECTOR_DISPLAY_MAX);
       var n = hotCollectAllPickRows(shown).length;
+      var nMa5 = hotCollectAllPickRows(shownMa5).length;
+      var warnN =
+        body.summary && body.summary.warnings && body.summary.warnings.length
+          ? body.summary.warnings.length
+          : 0;
+      hotPickLog(
+        "成功",
+        "热门 " +
+          n +
+          " 只 + 五日资金 " +
+          nMa5 +
+          " 只（" +
+          shown.length +
+          "/" +
+          shownMa5.length +
+          " 板块有入选）" +
+          (warnN ? "、警告 " + warnN + " 条" : "")
+      );
       showOut(
         "out-2",
-        "已拉取最新候选（展示 " +
-          shown.length +
-          " 个板块、共 " +
+        "已拉取最新候选：热门筛选 " +
           n +
-          " 只股票，入选为 0 的板块已隐藏）并写入本机缓存。请勾选后点「将勾选股加入自选」。",
+          " 只，五日+资金 " +
+          nMa5 +
+          " 只（分表展示，已写入本机缓存）。请勾选后点「将勾选股加入自选」。",
         true
       );
       var hw = $("hotSectorsWrap");
@@ -7294,8 +7729,14 @@
         if (hw) hw.scrollIntoView();
       }
     } catch (e) {
-      if (isRequestAborted(e)) showOut("out-2", "热门板块请求已取消。", true);
-      else showOut("out-2", String(e), true);
+      var elapsedErr = ((Date.now() - t0) / 1000).toFixed(1);
+      if (isRequestAborted(e)) {
+        hotPickLog("结束", "浏览器中断请求（" + elapsedErr + "s）");
+        showOut("out-2", "热门板块请求已取消。", true);
+      } else {
+        hotPickLog("异常", String(e) + "（" + elapsedErr + "s）");
+        showOut("out-2", String(e), true);
+      }
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -7367,7 +7808,7 @@
       return;
     }
     try {
-      var res = await fetchCancel("panel-2", "/watchlist", { headers: authHeaders() });
+      var res = await fetchCancel("panel-2", "/watchlist?refresh_spot=true", { headers: authHeaders() });
       var body = await readBody(res);
       if (!res.ok) {
         _wlJumpToLastPageAfterRefreshOnce = false;
@@ -7442,7 +7883,8 @@
         if (spotChg > 0) spotCls = "wl-spot-num wl-spot-up";
         else if (spotChg < 0) spotCls = "wl-spot-num wl-spot-down";
       }
-      var spotTitle = "东财 A 股列表快照现价（聚合公开数据，非交易所 tick，可能有延时）";
+      var spotTitle =
+        "现价：东财单股/全 A 列表快照；东财失败时用通达信批量行情。非交易所 tick，可能有延时";
       if (item.spot_quote_date != null && String(item.spot_quote_date).trim()) {
         spotTitle += "；快照日期 " + String(item.spot_quote_date).trim();
       }
@@ -7511,7 +7953,7 @@
       pageSizeOptions +
       "</select> 条</label>" +
       "</div>" +
-      '<div class="wl-table-scroll"><table><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th>代码</th><th>名称</th><th>来源</th><th class="wl-bar-meta" title="UTC ISO，任意 K 线最近一次入库">最近入库</th><th class="wl-bar-meta" title="最新日线收盘价">收盘参考</th><th class="wl-spot-num" title="东财列表快照现价，刷新列表时拉取，非交易所 tick">现价（快照）</th><th class="wl-bar-meta" title="最后交易日及 A 股常规收盘时刻">最后收盘</th><th>操作</th></tr></thead><tbody>' +
+      '<div class="wl-table-scroll"><table><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th>代码</th><th>名称</th><th>来源</th><th class="wl-bar-meta" title="UTC ISO，任意 K 线最近一次入库">最近入库</th><th class="wl-bar-meta" title="最新日线收盘价">收盘参考</th><th class="wl-spot-num" title="刷新列表：东财单股/列表→通达信兜底；非交易所 tick">现价（快照）</th><th class="wl-bar-meta" title="最后交易日及 A 股常规收盘时刻">最后收盘</th><th>操作</th></tr></thead><tbody>' +
       rows +
       "</tbody></table></div>" +
       '<div class="wl-pager">' +
@@ -8720,10 +9162,20 @@
         escapeHtml((Number(chg) > 0 ? "+" : "") + signalFmtNum(chg, 2) + "%") +
         "</span>";
     }
+    var meta = sig.meta && typeof sig.meta === "object" ? sig.meta : {};
+    var src = meta.spot_price_source != null ? String(meta.spot_price_source) : "";
+    var stale = src === "daily_close" || String(src).indexOf("daily_") === 0;
+    if (stale) cls += " ingest-live-stale";
+    var title = stale
+      ? "非实时：盘口未拉到，现为截止日 K 线收盘价。请检查网络/代理或确认通达信可用。来源 " + src
+      : "现价：东财或通达信快照代入买入适合度重算；截止日/收盘列仍为入库末根 K 线。来源 " +
+        (src || "live_quote");
     return (
       '<span class="' +
       cls +
-      '" title="日线末根收盘（与③行情路线一致），非 tick 实时">' +
+      '" title="' +
+      escapeHtml(title) +
+      '">' +
       html +
       "</span>"
     );
@@ -8775,7 +9227,7 @@
       "<dt>close（收盘）</dt><dd>截止日收盘价；与本地前复权日线一致，非实时盘口。</dd>" +
       "<dt>trend（趋势）</dt><dd>bullish 偏多 / sideways 震荡 / bearish 偏空；由均线关系等规则归纳，仅供参考。</dd>" +
       "<dt>strength（强度）</dt><dd>strong 偏强 / neutral 中性 / weak 偏弱；反映动能与相对波动等。单元格内另附 <code>meta.ret_5d</code>、<code>meta.ret_10d</code> 换算的<strong>近5日、近10日涨幅%</strong>（相对截止日前第 N 个交易日的收盘）。</dd>" +
-      "<dt>spot_last_price / spot_buy_*</dt><dd><strong>现价（日线）</strong>与③相同路线的<strong>本地日线末根收盘</strong>（如新浪 <code>stock_zh_a_daily</code> 入库后读取）；<strong>当前买入适合度/建议</strong>用该价代入重算；<strong>非东财全市场列表、非 tick 实时</strong>。</dd>" +
+      "<dt>spot_last_price / spot_buy_*</dt><dd><strong>现价（日线）</strong>优先<strong>东财单股/列表或通达信快照</strong>（与②③相同链路）；拉取失败时回退<strong>末根 K 线收盘</strong>（见 <code>meta.spot_price_source</code>）。<strong>截止日/收盘</strong>列始终是入库末根日线。<strong>当前买入适合度</strong>用现价代入重算；非交易所 tick。</dd>" +
       "<dt>buy_suitability_score（买入适合度）</dt><dd>0–100 综合得分：基于<strong>最新入库日线收盘</strong>与扩展因子调整的 Demo 合成，<strong>不构成买卖建议</strong>。</dd>" +
       "<dt>technical_score（技术分）</dt><dd>0–100，仅技术面启发式打分（合成前）。</dd>" +
       "<dt>fundamental_adjustment（扩展调整）</dt><dd>扩展因子对总分的有界加减（Demo，常见约 -15～+15）。</dd>" +
@@ -9484,13 +9936,95 @@
     return body;
   }
 
-  function buildIngestFundamentalTdsHtml(fundRec, nFund) {
+  function ingestFundCellTitle(col, snap, whichRow) {
+    var title = col.label;
+    var b = snap && snap.fund_flow_pick_basis != null ? String(snap.fund_flow_pick_basis) : "";
+    if (whichRow === "top") {
+      if (col.key === "fund_flow_date") title = "相对今行 · 上一档资金流日";
+      else if (col.key === "main_net_inflow") title = "相对今行 · 上一档主力净流入";
+      else if (col.key === "pe_dynamic" || col.key === "pb") title += "（当日 PE/PB 见下行）";
+      else title += "（财报指标与下行相同，最近一期）";
+    } else {
+      if (col.key === "fund_flow_date") {
+        if (b === "today" || b === "exec_today") title += "（执行日当日资金表）";
+        else if (b === "exec_fallback_bar") title += "（执行日无行，用入库末根日，近实时）";
+        else if (b === "last_close") title += "（上一完整交易日）";
+        else if (b === "fallback_last") title += "（资金表末行）";
+      }
+      if (col.key === "pe_dynamic" || col.key === "pb") {
+        title += "；拉取时刷新东财列表";
+      }
+      if (
+        col.key === "roe_pct" ||
+        col.key === "revenue_yoy_pct" ||
+        col.key === "financial_report_date"
+      ) {
+        title += "；最近一期财报";
+      }
+    }
+    return title;
+  }
+
+  function ingestFundFlowDateLabel(v, basis, whichRow) {
+    var d = v != null && String(v).trim() ? String(v).trim().slice(0, 10) : "";
+    if (!d) return "—";
+    if (whichRow !== "bottom") return d;
+    if (basis === "today" || basis === "exec_today") return d + " · 执行日";
+    if (basis === "exec_fallback_bar") return d + " · 末收(当日无)";
+    if (basis === "last_close") return d + " · 末收";
+    if (basis === "fallback_last") return d + " · 末行";
+    return d;
+  }
+
+  function buildIngestFundCellsFromSnap(snap, whichRow, fundMeta) {
+    fundMeta = fundMeta && typeof fundMeta === "object" ? fundMeta : {};
+    var panel = snap && typeof snap === "object" ? snap : {};
+    var basis =
+      panel.fund_flow_pick_basis != null ? String(panel.fund_flow_pick_basis) : "";
+    var staleHint =
+      whichRow === "bottom" &&
+      fundMeta._fundFlowSameAsPrev &&
+      (basis === "exec_fallback_bar" || basis === "last_close" || basis === "fallback_last");
+    return INGEST_FUND_COLUMNS.map(function (col) {
+      var v = panel[col.key];
+      if (whichRow === "top" && (col.key === "pe_dynamic" || col.key === "pb")) {
+        v = null;
+      }
+      var inner;
+      if (col.money) {
+        inner = escapeHtml(signalFmtMoneyYuan(v));
+      } else if (col.text) {
+        if (col.key === "fund_flow_date") {
+          inner = escapeHtml(ingestFundFlowDateLabel(v, basis, whichRow));
+        } else {
+          inner = escapeHtml(v != null && String(v).trim() ? String(v).trim() : "—");
+        }
+      } else {
+        inner = escapeHtml(signalFmtNum(v, col.digits != null ? col.digits : 2));
+      }
+      var tdCls =
+        "num ingest-fund-cell ingest-col-fund wl-bar-meta" +
+        (staleHint && (col.key === "fund_flow_date" || col.key === "main_net_inflow")
+          ? " ingest-fund-fallback"
+          : "");
+      return (
+        '<td class="' +
+        tdCls +
+        '" title="' +
+        escapeHtml(ingestFundCellTitle(col, panel, whichRow)) +
+        '">' +
+        inner +
+        "</td>"
+      );
+    }).join("");
+  }
+
+  function buildIngestFundamentalTdsHtml(fundRec, nFund, whichRow) {
+    whichRow = whichRow === "bottom" ? "bottom" : "top";
     if (!nFund) return "";
-    if (!fundRec || !fundRec.ok) {
+    if (whichRow === "top" && (!fundRec || !fundRec.ok)) {
       var errMsg =
-        fundRec && fundRec.error
-          ? String(fundRec.error)
-          : "未拉取";
+        fundRec && fundRec.error ? String(fundRec.error) : "未拉取";
       return (
         '<td class="cell-err cell-pre ingest-fund-cell" rowspan="2" colspan="' +
         nFund +
@@ -9499,25 +10033,31 @@
         "</td>"
       );
     }
-    var snap = fundRec.snapshot && typeof fundRec.snapshot === "object" ? fundRec.snapshot : {};
-    return INGEST_FUND_COLUMNS.map(function (col) {
-      var v = snap[col.key];
-      var inner;
-      if (col.money) {
-        inner = escapeHtml(signalFmtMoneyYuan(v));
-      } else if (col.text) {
-        inner = escapeHtml(v != null && String(v).trim() ? String(v).trim() : "—");
-      } else {
-        inner = escapeHtml(signalFmtNum(v, col.digits != null ? col.digits : 2));
-      }
-      return (
-        '<td class="num ingest-fund-cell wl-bar-meta" rowspan="2" title="' +
-        escapeHtml(col.label) +
-        '">' +
-        inner +
-        "</td>"
-      );
-    }).join("");
+    if (!fundRec || !fundRec.ok) {
+      return buildIngestFundCellsFromSnap(null, whichRow, fundRec);
+    }
+    var snapTop =
+      fundRec.snapshot_prev && typeof fundRec.snapshot_prev === "object"
+        ? fundRec.snapshot_prev
+        : null;
+    var snapBot =
+      fundRec.snapshot && typeof fundRec.snapshot === "object" ? fundRec.snapshot : {};
+    var topD =
+      snapTop && snapTop.fund_flow_date != null
+        ? String(snapTop.fund_flow_date).slice(0, 10)
+        : "";
+    var botD =
+      snapBot && snapBot.fund_flow_date != null
+        ? String(snapBot.fund_flow_date).slice(0, 10)
+        : "";
+    var meta = {
+      ingest_exec_date: fundRec.ingest_exec_date,
+      _fundFlowSameAsPrev: !!(topD && botD && topD === botD),
+    };
+    if (whichRow === "top") {
+      return buildIngestFundCellsFromSnap(snapTop, "top", meta);
+    }
+    return buildIngestFundCellsFromSnap(snapBot, "bottom", meta);
   }
 
   function ingestResultFromFundamentalsOnly(fundBody) {
@@ -10654,11 +11194,41 @@
             item.status === "closed" ? item.realized_pnl_pct : item.unrealized_pnl_pct;
           var pnlAmt =
             item.status === "closed" ? item.realized_pnl_amt : item.unrealized_pnl_amt;
+          var curPx =
+            item.current_price != null && isFinite(Number(item.current_price))
+              ? Number(item.current_price)
+              : item.ref_price != null && isFinite(Number(item.ref_price))
+                ? Number(item.ref_price)
+                : null;
+          var curNote = "";
+          var curSrc = item.current_price_source || item.ref_price_source;
+          if (curSrc === "spot") curNote = "盘口";
+          else if (curSrc === "daily_close") curNote = "日线";
+          else if (curSrc === "sell") curNote = "卖出价";
+          else if (curSrc === "table_current") curNote = "表格传入";
           var refPx = item.ref_price;
           var refNote = "";
           if (item.ref_price_source === "spot") refNote = "盘口";
           else if (item.ref_price_source === "daily_close") refNote = "日线";
           else if (item.ref_price_source === "sell") refNote = "卖出价";
+          var curChg =
+            item.spot_change_pct != null && isFinite(Number(item.spot_change_pct))
+              ? Number(item.spot_change_pct)
+              : null;
+          var curPxCell =
+            curPx != null
+              ? '<span class="hd-cur-px">' +
+                hdFmtNum(curPx, 4) +
+                (curChg != null
+                  ? '<br><span style="font-size:0.82rem" class="' +
+                    hdPnlClass(curChg) +
+                    '">' +
+                    (curChg > 0 ? "+" : "") +
+                    hdFmtNum(curChg, 2) +
+                    "%</span>"
+                  : "") +
+                "</span>"
+              : "—";
           var pnlCell =
             '<span class="' +
             hdPnlClass(pnlPct) +
@@ -10714,6 +11284,8 @@
               item.id +
               '" data-sym="' +
               escHtml(sym) +
+              '" data-current-price="' +
+              (curPx != null ? escHtml(String(curPx)) : "") +
               '">平仓建议</button>' +
               ' <button type="button" class="wl-ingest-fix hd-edit" data-id="' +
               item.id +
@@ -10742,7 +11314,11 @@
             hdFmtNum(item.cost_price, 4) +
             "</td><td>" +
             (item.cost_basis != null ? hdFmtNum(item.cost_basis, 0) : "—") +
-            "</td><td title=\"" +
+            '</td><td class="hd-cur-px-cell" title="' +
+            escHtml(curNote || "当前价格") +
+            '">' +
+            curPxCell +
+            '</td><td title="' +
             escHtml(refNote) +
             '">' +
             (refPx != null ? hdFmtNum(refPx, 4) : "—") +
@@ -10762,7 +11338,7 @@
         })
         .join("");
       wrap.innerHTML =
-        '<table><thead><tr><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th>参考价</th><th>市值估</th><th>盈亏</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
+        '<table><thead><tr><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="优先盘口快照，平仓建议按此价计算">当前价格</th><th>参考价</th><th>市值估</th><th>盈亏</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
         rows +
         "</tbody></table>";
       wrap.querySelectorAll(".hd-del").forEach(function (el) {
@@ -10777,7 +11353,12 @@
       });
       wrap.querySelectorAll(".hd-exit-advice").forEach(function (el) {
         el.addEventListener("click", function () {
-          hdExitAdvice(parseInt(el.getAttribute("data-id"), 10), el.getAttribute("data-sym"));
+          var cp = el.getAttribute("data-current-price");
+          hdExitAdvice(
+            parseInt(el.getAttribute("data-id"), 10),
+            el.getAttribute("data-sym"),
+            cp && String(cp).trim() ? Number(cp) : null
+          );
         });
       });
       wrap.querySelectorAll(".hd-close").forEach(function (el) {
@@ -10831,10 +11412,20 @@
         return "<li>" + escHtml(String(r)) + "</li>";
       })
       .join("");
+    var pxUsed =
+      advice.current_price != null ? advice.current_price : advice.ref_price;
+    var pxSrc = advice.current_price_source || advice.ref_price_source;
     var meta =
       "成本 " +
       hdFmtNum(advice.cost_price, 4) +
-      (advice.ref_price != null ? " · 参考价 " + hdFmtNum(advice.ref_price, 4) : "") +
+      (pxUsed != null ? " · 当前价 " + hdFmtNum(pxUsed, 4) : "") +
+      (pxSrc === "spot"
+        ? "（盘口）"
+        : pxSrc === "daily_close"
+          ? "（日线）"
+          : pxSrc === "table_current"
+            ? "（表格当前价）"
+            : "") +
       (advice.unrealized_pnl_pct != null
         ? " · 浮盈亏 " + (advice.unrealized_pnl_pct > 0 ? "+" : "") + hdFmtNum(advice.unrealized_pnl_pct, 2) + "%"
         : "") +
@@ -10863,7 +11454,7 @@
     panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  async function hdExitAdvice(id, symLabel) {
+  async function hdExitAdvice(id, symLabel, currentPrice) {
     if (!id || !guardKey()) return;
     var panel = $("hd-advice-panel");
     if (panel) {
@@ -10871,12 +11462,17 @@
       panel.innerHTML =
         "<p class=\"lead\" style=\"margin:0\">正在计算 " +
         escHtml(symLabel || String(id)) +
-        " 的平仓建议（读取本地 K 线 + ④ 规则）…</p>";
+        " 的平仓建议（按当前价格 + 本地 K 线 + ④ 规则）…</p>";
     }
     showOut("out-10", "", false);
     try {
       var ds = getIngestDataSource();
-      var q = ds ? "?data_source=" + encodeURIComponent(ds) : "";
+      var qParts = [];
+      if (ds) qParts.push("data_source=" + encodeURIComponent(ds));
+      if (currentPrice != null && isFinite(Number(currentPrice)) && Number(currentPrice) > 0) {
+        qParts.push("current_price=" + encodeURIComponent(String(currentPrice)));
+      }
+      var q = qParts.length ? "?" + qParts.join("&") : "";
       var res = await fetchCancel("panel-10", "/holdings/" + id + "/exit-advice" + q, {
         headers: authHeaders(),
       });
@@ -11401,18 +11997,52 @@
     });
   }
 
-  function formatStrengthCell(st) {
+  function ingestLaneBadge(lane) {
+    var isToday = lane === "bottom";
+    return (
+      '<span class="ingest-lane-badge ' +
+      (isToday ? "ingest-lane-today" : "ingest-lane-prev") +
+      '" title="' +
+      (isToday ? "当日行：入库收盘 + 现价 + 当日因子" : "上一交易日行：昨收对照 + 昨因子") +
+      '">' +
+      (isToday ? "今" : "昨") +
+      "</span>"
+    );
+  }
+
+  function formatStrengthCell(st, layout) {
     if (!st || typeof st !== "object") return "—";
+    var lab = String(st.strength_label || "");
+    var cls = "trend-side";
+    if (lab.indexOf("强") >= 0 && lab.indexOf("弱") < 0) cls = "trend-bull";
+    else if (lab.indexOf("弱") >= 0) cls = "trend-bear";
+    if (layout === "stack") {
+      var chips = [];
+      if (st.ret_5d_pct != null && isFinite(Number(st.ret_5d_pct))) {
+        chips.push("<span>5日 " + escapeHtml(formatFixed(st.ret_5d_pct, 2)) + "%</span>");
+      }
+      if (st.ret_20d_pct != null && isFinite(Number(st.ret_20d_pct))) {
+        chips.push("<span>20日 " + escapeHtml(formatFixed(st.ret_20d_pct, 2)) + "%</span>");
+      }
+      if (st.vs_ma20_pct != null && isFinite(Number(st.vs_ma20_pct))) {
+        chips.push("<span>距MA20 " + escapeHtml(formatFixed(st.vs_ma20_pct, 2)) + "%</span>");
+      }
+      if (!lab && !chips.length) return "—";
+      return (
+        '<div class="ingest-strength-block">' +
+        (lab
+          ? '<span class="ingest-strength-label ' + cls + '">' + escapeHtml(lab) + "</span>"
+          : "") +
+        (chips.length ? '<div class="ingest-strength-metrics">' + chips.join("") + "</div>" : "") +
+        "</div>"
+      );
+    }
     var parts = [];
     if (st.strength_label) parts.push(String(st.strength_label));
     if (st.ret_5d_pct != null && isFinite(Number(st.ret_5d_pct))) parts.push("5日 " + formatFixed(st.ret_5d_pct, 2) + "%");
     if (st.ret_20d_pct != null && isFinite(Number(st.ret_20d_pct))) parts.push("20日 " + formatFixed(st.ret_20d_pct, 2) + "%");
     if (st.vs_ma20_pct != null && isFinite(Number(st.vs_ma20_pct))) parts.push("距MA20 " + formatFixed(st.vs_ma20_pct, 2) + "%");
     if (!parts.length) return "—";
-    var lab = String(st.strength_label || "");
-    var cls = "trend-side";
-    if (lab.indexOf("强") >= 0 && lab.indexOf("弱") < 0) cls = "trend-bull";
-    else if (lab.indexOf("弱") >= 0) cls = "trend-bear";
     return '<span class="' + cls + '">' + escapeHtml(parts.join(" · ")) + "</span>";
   }
 
@@ -11447,7 +12077,7 @@
     var title =
       "本次执行入库的日线收盘价（固定，不随下方现价刷新变化）";
     return (
-      '<span class="num ingest-spot-close" title="' +
+      '<span class="num ingest-spot-close ingest-price-main" title="' +
       escapeHtml(title) +
       '">' +
       escapeHtml(formatFixed(px, 2)) +
@@ -11456,26 +12086,36 @@
   }
 
   function formatIngestSpotDateCell(r) {
-    var ymd =
-      r.spot_quote_date != null && String(r.spot_quote_date).trim()
-        ? String(r.spot_quote_date).trim().slice(0, 10)
-        : "";
-    if (!ymd) {
-      var ft = formatQssSnapshotFetchedAt(r.spot_fetched_at);
-      ymd = ft.beijingYmd !== "—" ? ft.beijingYmd : "—";
+    var execD =
+      r.ingest_exec_date != null && String(r.ingest_exec_date).trim()
+        ? String(r.ingest_exec_date).trim().slice(0, 10)
+        : r.display_today_trade_date != null && String(r.display_today_trade_date).trim()
+          ? String(r.display_today_trade_date).trim().slice(0, 10)
+          : "";
+    var barD =
+      r.display_bar_trade_date != null && String(r.display_bar_trade_date).trim()
+        ? String(r.display_bar_trade_date).trim().slice(0, 10)
+        : r.last_trade_date != null && String(r.last_trade_date).trim()
+          ? String(r.last_trade_date).trim().slice(0, 10)
+          : "";
+    var ymd = execD || barD || "—";
+    var title =
+      "今行：东八区执行日（本次点「更新」的自然日）；收盘/现价参照最近一根完整日线";
+    if (barD && execD && barD !== execD) {
+      title += "（收盘日 " + barD + "）";
     }
-    var ltd =
-      r.last_trade_date != null && String(r.last_trade_date).trim()
-        ? String(r.last_trade_date).trim().slice(0, 10)
-        : ymd;
-    if (ltd && ltd !== "—") ymd = ltd;
-    var title = "本次入库交易日；下方时间为现价最近刷新时刻";
     var sub = "";
+    if (barD && execD && barD !== execD) {
+      sub +=
+        '<div class="ingest-spot-time-sub" title="本地入库末根交易日">收盘日 ' +
+        escapeHtml(barD) +
+        "</div>";
+    }
     var liveAt = r.live_fetched_at || r.spot_fetched_at;
     if (liveAt) {
       var t2 = formatQssSnapshotFetchedAt(liveAt);
       if (t2.beijingDt && t2.beijingDt !== "—") {
-        sub =
+        sub +=
           '<div class="ingest-spot-time-sub" title="单股报价最近刷新（约每 12 秒自动更新现价）">' +
           escapeHtml(t2.beijingDt) +
           "</div>";
@@ -11494,25 +12134,36 @@
   function formatSpotPriceCell(r) {
     var px = ingestEffectiveSpotPx(r);
     var chg = ingestLiveChangePct(r);
-    if (px == null) return "—";
+    if (px == null) {
+      return (
+        '<span class="ingest-cell-empty ingest-live-miss" title="东财报价与通达信快照均未拉到；约 12 秒后会自动重试。可检查网络/代理或设 INGEST_EASTMONEY_BYPASS_PROXY=true">未拉到</span>'
+      );
+    }
     var cls = "trend-side";
     if (chg != null && isFinite(Number(chg))) {
       if (Number(chg) > 0) cls = "trend-bull";
       else if (Number(chg) < 0) cls = "trend-bear";
     }
-    var line = formatFixed(px, 2);
+    var line =
+      '<span class="ingest-price-main">' + escapeHtml(formatFixed(px, 2)) + "</span>";
     if (chg != null && isFinite(Number(chg))) {
       line +=
-        ' <span style="font-size:0.76rem">(' +
+        '<span class="ingest-spot-chg">' +
         escapeHtml((Number(chg) > 0 ? "+" : "") + formatFixed(chg, 2) + "%") +
-        ")</span>";
+        "</span>";
     }
     var src = r.live_price_source || r.spot_price_source || "live";
-    var title =
-      "现价：东财单股报价，约每 12 秒自动刷新；非交易所 tick。来源 " + src;
+    var stale =
+      src === "daily_close_not_realtime" ||
+      src === "last_close_static" ||
+      String(src).indexOf("daily_") === 0;
+    var title = stale
+      ? "非实时：东财单股/列表报价未拉到，当前为日线收盘价参考。请检查网络/代理或等待约 12 秒自动重试。来源 " + src
+      : "现价：东财单股或全 A 列表快照（约每 12 秒刷新）；mootdx 路线可能为通达信快照。非交易所 tick。来源 " + src;
     if (r.live_fetched_at) {
       title += "；更新 " + formatQssSnapshotFetchedAt(r.live_fetched_at).beijingDt;
     }
+    if (stale) cls += " ingest-live-stale";
     return (
       '<span class="' +
       cls +
@@ -11585,17 +12236,26 @@
       '<button type="button" class="btn-ingest-show-kline" data-symbol="' +
       escapeHtml(symRaw) +
       '" title="展开所选日期区间内的本地日线 OHLCV">K 线明细</button></div></td>';
-    var prevTd =
-      r.prev_trade_date != null && String(r.prev_trade_date).trim()
-        ? escapeHtml(String(r.prev_trade_date).trim().slice(0, 10))
-        : r.last_trade_date != null && String(r.last_trade_date).trim()
-          ? escapeHtml(String(r.last_trade_date).trim().slice(0, 10))
-          : "—";
-    var prevCls =
-      r.prev_close != null && isFinite(Number(r.prev_close))
-        ? formatFixed(r.prev_close, 2)
-        : "—";
-    var empty = '<span class="ingest-cell-empty">—</span>';
+    var prevTdRaw =
+      r.display_prev_trade_date != null && String(r.display_prev_trade_date).trim()
+        ? String(r.display_prev_trade_date).trim().slice(0, 10)
+        : r.prev_trade_date != null && String(r.prev_trade_date).trim()
+          ? String(r.prev_trade_date).trim().slice(0, 10)
+          : r.last_trade_date != null && String(r.last_trade_date).trim()
+            ? String(r.last_trade_date).trim().slice(0, 10)
+            : "";
+    var prevTd = prevTdRaw ? escapeHtml(prevTdRaw) : "—";
+    var prevClsNum =
+      r.display_prev_close != null && isFinite(Number(r.display_prev_close))
+        ? Number(r.display_prev_close)
+        : r.prev_close != null && isFinite(Number(r.prev_close))
+          ? Number(r.prev_close)
+          : null;
+    var prevCls = prevClsNum != null ? formatFixed(prevClsNum, 2) : "—";
+    var prevVolUse =
+      r.display_prev_volume != null ? r.display_prev_volume : prevVol;
+    var empty =
+      '<span class="ingest-cell-empty" title="上行为昨收对照，盘中现价请看本列下一行">—</span>';
     var rowTop =
       '<tr class="ingest-data-tr ingest-row-top" data-symbol="' +
       escapeHtml(symRaw) +
@@ -11603,37 +12263,41 @@
       sym +
       '</td><td class="ingest-name-cell" rowspan="2">' +
       wnameE +
-      "</td><td title=\"入库前上一根完整日线（昨收，用于信号/回测对照）\">" +
+      '</td><td class="ingest-col-date" title="昨收参照：执行日晚于入库末根时=最近一根完整日线（盘中昨收）；否则=末根的前一根"><div class="ingest-date-cell">' +
+      ingestLaneBadge("top") +
       prevTd +
-      '</td><td class="num" title="上一交易日收盘价">' +
+      '</div></td><td class="num ingest-col-price" title="上一交易日收盘价"><span class="ingest-price-main">' +
       prevCls +
-      "</td><td>" +
+      '</span></td><td class="ingest-col-spot">' +
       empty +
-      "</td><td>" +
+      '</td><td class="ingest-col-strength">' +
       empty +
-      '</td><td title="基于昨收日 K 线的强弱">' +
-      formatStrengthCell(r.prev_strength || r.strength) +
+      '</td><td class="ingest-col-strength" title="基于昨收日 K 线的强弱">' +
+      formatStrengthCell(r.prev_strength || r.strength, "stack") +
       "</td>" +
-      buildIngestFundamentalTdsHtml(r._fundamental, nFund) +
-      '<td class="ingest-vol-cell" title="上一交易日日线成交量（股）">' +
-      formatIngestVolumeCell(prevVol, "上一交易日成交量", false) +
+      buildIngestFundamentalTdsHtml(r._fundamental, nFund, "top") +
+      '<td class="ingest-vol-cell ingest-col-vol" title="上一交易日日线成交量（股）">' +
+      formatIngestVolumeCell(prevVolUse, "昨收参照日成交量", false) +
       "</td>" +
       opCell +
       "</tr>";
     var rowBottom =
       '<tr class="ingest-data-tr ingest-row-bottom" data-symbol="' +
       escapeHtml(symRaw) +
-      '"><td class="wl-bar-meta" title="本次快照参考日（东八区自然日或列表日期列）">' +
+      '"><td class="wl-bar-meta ingest-col-date" title="本次快照参考日（东八区自然日或列表日期列）"><div class="ingest-date-cell">' +
+      ingestLaneBadge("bottom") +
       formatIngestSpotDateCell(r) +
-      '</td><td class="num wl-bar-meta" title="本次请求的收盘/现价参考（盘后≈当日收盘）">' +
+      '</div></td><td class="num wl-bar-meta ingest-col-price" title="本次请求的收盘/现价参考（盘后≈当日收盘）">' +
       formatIngestSpotCloseCell(r) +
-      "</td><td>" +
+      '</td><td class="ingest-col-spot">' +
       formatSpotPriceCell(r) +
-      "</td><td>" +
-      formatStrengthCell(r.spot_strength) +
-      "</td><td>" +
-      empty +
-      '</td><td class="ingest-vol-cell ingest-vol-live-cell" title="当日实时成交量（东财总手，约12秒刷新；盘后为当日累计）">' +
+      '</td><td class="ingest-col-strength">' +
+      formatStrengthCell(r.spot_strength, "stack") +
+      '</td><td class="ingest-col-strength" title="基于最新入库日线收盘">' +
+      formatStrengthCell(r.strength, "stack") +
+      "</td>" +
+      buildIngestFundamentalTdsHtml(r._fundamental, nFund, "bottom") +
+      '<td class="ingest-vol-cell ingest-vol-live-cell ingest-col-vol" title="当日实时成交量（东财总手，约12秒刷新；盘后为当日累计）">' +
       formatIngestVolumeCell(liveVol, "当日实时成交量（总手）", true) +
       "</td></tr>";
     return (
@@ -11944,7 +12608,10 @@
       }
     }
     html +=
-      '<p class="lead" style="margin:0 0 0.65rem;font-size:0.82rem;line-height:1.55;color:var(--muted);">' +
+      '<p class="ingest-result-lead">' +
+      "每只股票占<strong>两行</strong>：<span class=\"ingest-lane-badge ingest-lane-prev\">昨</span> 上行 = 昨收价 + <strong>上一交易日</strong>资金流；<span class=\"ingest-lane-badge ingest-lane-today\">今</span> 下行 = 执行日价 + <strong>PE/PB（东财列表刷新）</strong> + 当日/最近资金流。" +
+      "资金流为<strong>日级</strong>非 tick 实时；盘中若东财尚无「当日」行，下行会标「末收」并沿用最近交易日。财报类上下行相同。</p>" +
+      '<p class="ingest-result-lead" style="margin-bottom:0.65rem">' +
       formRng +
       '<span style="color:var(--text)">' +
       srvExtra +
@@ -11964,7 +12631,7 @@
       nFund > 0
         ? INGEST_FUND_COLUMNS.map(function (col) {
             return (
-              '<th rowspan="2" class="ingest-fund-th" title="东财/AkShare 扩展因子">' +
+              '<th class="ingest-fund-th" title="扩展因子：上行=上一交易日，下行=当日">' +
               escapeHtml(col.label) +
               "</th>"
             );
@@ -11977,20 +12644,20 @@
         "</p>";
     }
     html +=
-      '<div class="wl-table-scroll"><table class="ingest-table ingest-table-split"><thead><tr>' +
-      "<th>股票代码</th><th>名称</th>" +
-      '<th class="wl-bar-meta">最新收盘日</th><th class="wl-bar-meta">收盘价</th>' +
-      '<th title="东财单股报价，约 12 秒自动刷新">现价（刷新）</th>' +
-      '<th title="用日线末根收盘代入本地 K 线计算的强弱">当前强弱</th>' +
-      '<th title="基于最新入库日线收盘">强弱(本地K线)</th>' +
+      '<div class="ingest-result-table-wrap wl-table-scroll"><table class="ingest-table ingest-table-split"><thead><tr>' +
+      '<th class="ingest-col-sym">股票代码</th><th class="ingest-col-name">名称</th>' +
+      '<th class="wl-bar-meta ingest-col-date">最新收盘日</th><th class="wl-bar-meta ingest-col-price">收盘价</th>' +
+      '<th class="ingest-col-spot" title="东财单股 push2 → 全 A 列表快照 →（失败时）收盘参考；约 12 秒自动刷新">现价（刷新）</th>' +
+      '<th class="ingest-col-strength" title="用现价代入计算的盘中强弱">当前强弱</th>' +
+      '<th class="ingest-col-strength" title="基于最新入库日线收盘">强弱(本地K线)</th>' +
       fundHead +
-      '<th class="wl-bar-meta">量</th><th>操作</th>' +
+      '<th class="wl-bar-meta ingest-col-vol">量</th><th>操作</th>' +
       '</tr><tr class="ingest-subhead">' +
       '<th colspan="2"></th>' +
-      '<th colspan="3" style="font-weight:400;font-size:0.72rem;color:var(--muted)">↑ 上：入库日线（昨收）</th>' +
-      '<th colspan="2" style="font-weight:400;font-size:0.72rem;color:var(--muted)">↓ 下：本次收盘 + 现价刷新</th>' +
-      '<th style="font-weight:400;font-size:0.72rem;color:var(--muted)">↑ 昨量</th>' +
-      '<th style="font-weight:400;font-size:0.72rem;color:var(--muted)">↓ 实时量</th>' +
+      '<th colspan="3">↑ 上：昨收（现价列 —）</th>' +
+      '<th colspan="2">↓ 下：入库收盘 + 现价</th>' +
+      (nFund > 0 ? '<th colspan="' + nFund + '">扩展因子 ↑昨 / ↓当</th>' : "") +
+      '<th>↑ 昨量</th><th>↓ 实时量</th>' +
       "</tr></thead><tbody id=\"ingest-result-tbody\"></tbody></table></div>";
     if (errN > 0) {
       var errRows = results

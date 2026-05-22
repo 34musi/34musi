@@ -242,7 +242,7 @@ class WatchlistItem(BaseModel):
     )
     spot_last_price: float | None = Field(
         None,
-        description="东财 A 股列表快照现价（聚合公开数据，非交易所 tick，可能有延时）",
+        description="现价：东财单股/全 A 列表；东财失败时通达信批量快照兜底（非交易所 tick）",
     )
     spot_change_pct: float | None = Field(
         None,
@@ -380,6 +380,28 @@ class FillHotSectorsIn(BaseModel):
         le=10000,
         description="enable_liquidity_filter=true 时使用：近 20 日平均成交额下限，单位亿元",
     )
+    enable_ma5_capital_pick: bool = Field(
+        True,
+        description="是否额外筛选「连续站上 MA5 + 资金承接强」候选，并在响应 ma5_capital_sectors_detail 中分表展示",
+    )
+    ma5_stand_min_days: int = Field(
+        3,
+        ge=2,
+        le=10,
+        description="连续站上五日线最少交易日数（收盘>=MA5）",
+    )
+    capital_flow_lookback_days: int = Field(
+        3,
+        ge=1,
+        le=10,
+        description="资金承接判定：考察最近几个交易日的主力净流入",
+    )
+    capital_min_positive_days: int = Field(
+        2,
+        ge=1,
+        le=10,
+        description="上述窗口内至少几日主力净流入为正，且合计为正",
+    )
 
 
 class FillHotSectorsSummary(BaseModel):
@@ -399,7 +421,11 @@ class FillHotSectorsOut(BaseModel):
 
     sectors_detail: list[dict[str, Any]] = Field(
         ...,
-        description="按热度顺序的板块列表；每项含 sector_rank、sector_metrics、stocks（全列字典）",
+        description="按热度顺序的板块列表（原热门筛选条件）；每项含 sector_rank、sector_metrics、stocks",
+    )
+    ma5_capital_sectors_detail: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="同一批热门板块下「连续站上 MA5 + 资金承接强」候选，与原表分开展示",
     )
     summary: FillHotSectorsSummary
 
@@ -741,6 +767,10 @@ class FundamentalPanel(BaseModel):
     financial_report_date: str | None = Field(None, description="上述同比对应的报告期日期")
     main_net_inflow: float | None = Field(None, description="最近交易日主力净流入净额（元，东财日级）")
     fund_flow_date: str | None = Field(None, description="资金流向数据对应日期")
+    fund_flow_pick_basis: str | None = Field(
+        None,
+        description="主力净流入取值说明：today=当日行；last_close=上一完整交易日；fallback_last=表末行",
+    )
     roe_pct: float | None = Field(None, description="净资产收益率 ROE（加权 %，东财 ROEJQ）")
     roa_pct: float | None = Field(None, description="总资产净利率 %（东财 ZZCJLL）")
     net_margin_pct: float | None = Field(None, description="销售净利率 %（东财 XSJLL）")
@@ -794,9 +824,9 @@ class SignalOut(BaseModel):
     close: float | None = None
     spot_last_price: float | None = Field(
         None,
-        description="东财列表快照现价（聚合公开数据，非 tick 实时）",
+        description="现价：东财单股/列表或通达信快照；失败时为日线末根收盘（见 meta.spot_price_source）",
     )
-    spot_change_pct: float | None = Field(None, description="快照涨跌幅 %")
+    spot_change_pct: float | None = Field(None, description="现价涨跌幅 %，与 spot_last_price 同源")
     spot_buy_suitability_score: int | None = Field(
         None,
         ge=0,
@@ -970,6 +1000,12 @@ class HoldingOut(BaseModel):
     bars_last_trade_date: str | None = None
     spot_last_price: float | None = Field(None, description="盘口现价估算（非 tick）")
     spot_change_pct: float | None = None
+    current_price: float | None = Field(
+        None, description="当前价格（优先盘口现价，用于展示与平仓建议）"
+    )
+    current_price_source: str | None = Field(
+        None, description="spot=盘口；daily_close=日线收盘；sell=已平仓卖出价"
+    )
     ref_price: float | None = Field(None, description="用于浮动盈亏的参考价")
     ref_price_source: str | None = Field(
         None, description="spot=盘口；daily_close=日线收盘；sell=已平仓卖出价"
@@ -1003,7 +1039,9 @@ class HoldingExitAdviceOut(BaseModel):
     summary_zh: str = Field(..., description="一句话结论")
     reasons: list[str] = Field(default_factory=list, description="触发因子说明（最多约 8 条）")
     cost_price: float
-    ref_price: float | None = None
+    current_price: float | None = Field(None, description="计算建议时采用的当前价")
+    current_price_source: str | None = None
+    ref_price: float | None = Field(None, description="同 current_price（兼容）")
     ref_price_source: str | None = None
     unrealized_pnl_pct: float | None = None
     stop_loss_demo_pct: float | None = Field(

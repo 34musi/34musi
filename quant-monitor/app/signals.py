@@ -17,7 +17,12 @@ import numpy as np
 import pandas as pd
 
 from app.fundamentals import fundamental_score_delta, load_fundamental_panel_from_db
-from app.ingest import fetch_stock_name, load_bars_df, normalize_symbol
+from app.ingest import (
+    fetch_stock_name,
+    live_quote_fields_for_codes_enhanced,
+    load_bars_df,
+    normalize_symbol,
+)
 from app.schemas import (
     PositionHint,
     SignalOut,
@@ -271,10 +276,51 @@ def _build_signal_metrics(
     }
 
 
-def _daily_overlay_for_symbol(sym: str, df: pd.DataFrame, fund_panel: Any) -> dict[str, Any]:
-    """用本地日线末根收盘作现价对照（与③入库同源，不用东财 stock_zh_a_spot_em）。"""
+def _spot_overlay_for_symbol(
+    sym: str,
+    df: pd.DataFrame,
+    fund_panel: Any,
+    *,
+    data_source: str | None = None,
+) -> dict[str, Any]:
+    """
+    「现价（日线）」列：优先东财单股/列表或通达信快照；失败时回退本地日线末根收盘。
+    截止日/收盘列仍用 base 中最后一根已入库 K 线，与现价可不同日。
+    """
     if df is None or df.empty:
         return {}
+    sym_n = normalize_symbol(sym)
+    live = (
+        live_quote_fields_for_codes_enhanced(
+            [sym_n], data_source=data_source, force_spot_refresh=True
+        ).get(sym_n)
+        or {}
+    )
+    px_live = live.get("live_last_price")
+    use_live = px_live is not None and math.isfinite(float(px_live)) and float(px_live) > 0
+    if use_live:
+        px_f = float(px_live)
+        chg = live.get("live_change_pct")
+        if chg is not None and math.isfinite(float(chg)):
+            chg_f: float | None = round(float(chg), 2)
+        else:
+            chg_f = None
+            bar_c = float(df["close"].iloc[-1])
+            if math.isfinite(bar_c) and bar_c > 0:
+                chg_f = round((px_f / bar_c - 1) * 100, 2)
+        spot_m = _build_signal_metrics(df, sym, fund_panel, last_close_override=px_f)
+        out: dict[str, Any] = {
+            "spot_last_price": round(px_f, 4),
+            "spot_buy_suitability_score": spot_m["buy_suitability_score"],
+            "spot_buy_hint": spot_m["position_range_text"],
+            "spot_position_hint": spot_m["position_hint"],
+            "spot_price_source": live.get("live_price_source") or "live_quote",
+            "spot_price_basis": "live_quote",
+        }
+        if chg_f is not None:
+            out["spot_change_pct"] = chg_f
+        return out
+
     px = float(df["close"].iloc[-1])
     if not math.isfinite(px) or px <= 0:
         return {}
@@ -284,11 +330,13 @@ def _daily_overlay_for_symbol(sym: str, df: pd.DataFrame, fund_panel: Any) -> di
         if math.isfinite(prev) and prev > 0:
             chg = round((px / prev - 1) * 100, 2)
     spot_m = _build_signal_metrics(df, sym, fund_panel, last_close_override=px)
-    out: dict[str, Any] = {
+    out = {
         "spot_last_price": round(px, 4),
         "spot_buy_suitability_score": spot_m["buy_suitability_score"],
         "spot_buy_hint": spot_m["position_range_text"],
         "spot_position_hint": spot_m["position_hint"],
+        "spot_price_source": "daily_close",
+        "spot_price_basis": "daily_bar",
     }
     if chg is not None:
         out["spot_change_pct"] = chg
@@ -309,7 +357,16 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
 
     fund_panel = load_fundamental_panel_from_db(sym)
     base = _build_signal_metrics(df, sym, fund_panel)
-    spot_extra = _daily_overlay_for_symbol(sym, df, fund_panel)
+    spot_extra = _spot_overlay_for_symbol(sym, df, fund_panel, data_source=data_source)
+    src = spot_extra.pop("spot_price_source", None)
+    basis = spot_extra.pop("spot_price_basis", None)
+    if src or basis:
+        meta = dict(base.get("meta") or {})
+        if src:
+            meta["spot_price_source"] = src
+        if basis:
+            meta["spot_price_basis"] = basis
+        base["meta"] = meta
     name = fetch_stock_name(sym)
 
     return SignalOut(

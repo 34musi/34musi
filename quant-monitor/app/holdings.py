@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.db_models import HoldingRow
 from app.ingest import (
     fetch_stock_name,
-    live_quote_fields_for_codes,
+    live_quote_fields_for_codes_enhanced,
     watchlist_bar_fields_for_session,
 )
 from app.schemas import HoldingExitAdviceOut, HoldingOut
@@ -50,15 +50,17 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _ref_price(
+def _price_from_bar_spot(
     sym: str,
     *,
     bar_by: dict[str, dict[str, Any]],
     spot_by: dict[str, dict[str, Any]],
 ) -> tuple[float | None, str | None]:
-    """持仓中用于估算市值的参考价：优先盘口现价，否则最新日线收盘。"""
+    """优先盘口现价（live/spot），否则最新日线收盘。"""
     spot = spot_by.get(sym) or {}
-    px = spot.get("spot_last_price")
+    px = spot.get("live_last_price")
+    if px is None or not (isinstance(px, (int, float)) and float(px) > 0):
+        px = spot.get("spot_last_price")
     src = "spot"
     if px is None or not (isinstance(px, (int, float)) and float(px) > 0):
         bar = bar_by.get(sym, {})
@@ -73,6 +75,16 @@ def _ref_price(
     if not (v > 0):
         return None, None
     return round(v, 4), src
+
+
+def _ref_price(
+    sym: str,
+    *,
+    bar_by: dict[str, dict[str, Any]],
+    spot_by: dict[str, dict[str, Any]],
+) -> tuple[float | None, str | None]:
+    """持仓中用于估算市值的参考价（与当前价同源）。"""
+    return _price_from_bar_spot(sym, bar_by=bar_by, spot_by=spot_by)
 
 
 def _pnl_fields(
@@ -121,6 +133,11 @@ def holding_row_to_out(
     bar = bar_by.get(sym, {})
     spot = spot_by.get(sym) or {}
     ref_price, ref_src = _ref_price(sym, bar_by=bar_by, spot_by=spot_by)
+    if row.status == HOLDING_STATUS_CLOSED and row.sell_price is not None and float(row.sell_price) > 0:
+        cur_px = round(float(row.sell_price), 4)
+        cur_src = "sell"
+    else:
+        cur_px, cur_src = ref_price, ref_src
     pnl = _pnl_fields(row, ref_price=ref_price)
     return HoldingOut(
         id=row.id,
@@ -137,8 +154,10 @@ def holding_row_to_out(
         updated_at=row.updated_at,
         last_close=bar.get("last_close"),
         bars_last_trade_date=bar.get("bars_last_trade_date"),
-        spot_last_price=spot.get("spot_last_price"),
-        spot_change_pct=spot.get("spot_change_pct"),
+        spot_last_price=spot.get("spot_last_price") or spot.get("live_last_price"),
+        spot_change_pct=spot.get("spot_change_pct") or spot.get("live_change_pct"),
+        current_price=cur_px,
+        current_price_source=cur_src,
         ref_price=ref_price,
         ref_price_source=ref_src if row.status == HOLDING_STATUS_HOLDING else "sell",
         holding_days=holding_days_for_row(row),
@@ -149,7 +168,11 @@ def holding_row_to_out(
 def build_holdings_list(session: Session, rows: list[HoldingRow]) -> list[HoldingOut]:
     symbols = list({r.symbol for r in rows})
     bar_by = watchlist_bar_fields_for_session(session, symbols) if symbols else {}
-    spot_by = live_quote_fields_for_codes(symbols) if symbols else {}
+    spot_by = (
+        live_quote_fields_for_codes_enhanced(symbols, force_spot_refresh=True)
+        if symbols
+        else {}
+    )
     return [holding_row_to_out(r, bar_by=bar_by, spot_by=spot_by) for r in rows]
 
 
@@ -167,6 +190,7 @@ def compute_holding_exit_advice(
     *,
     session: Session,
     data_source: str | None = None,
+    current_price: float | None = None,
 ) -> HoldingExitAdviceOut:
     """
     是否建议平仓：成本浮盈亏 + ④ 信号（趋势/MA20/仓位提示/Demo 止损线）加权打分。
@@ -176,10 +200,34 @@ def compute_holding_exit_advice(
 
     sym = row.symbol
     cost = float(row.cost_price)
+    shares = float(row.shares)
+    cost_basis = round(shares * cost, 2)
     item = build_holdings_list(session, [row])[0]
-    ref_price = item.ref_price
-    ref_src = item.ref_price_source
-    pnl_pct = item.unrealized_pnl_pct
+
+    ref_price: float | None
+    ref_src: str | None
+    pnl_pct: float | None
+
+    if current_price is not None:
+        try:
+            px = float(current_price)
+        except (TypeError, ValueError) as e:
+            raise ValueError("current_price 无效") from e
+        if not (px > 0):
+            raise ValueError("current_price 须大于 0")
+        ref_price = round(px, 4)
+        ref_src = "table_current"
+        mv = round(shares * ref_price, 2)
+        pnl_pct = (
+            round((mv - cost_basis) / cost_basis * 100.0, 2) if cost_basis > 0 else None
+        )
+    else:
+        ref_price = item.current_price if item.current_price is not None else item.ref_price
+        ref_src = item.current_price_source or item.ref_price_source
+        pnl_pct = item.unrealized_pnl_pct
+        if ref_price is not None and pnl_pct is None and cost_basis > 0:
+            mv = round(shares * float(ref_price), 2)
+            pnl_pct = round((mv - cost_basis) / cost_basis * 100.0, 2)
 
     try:
         sig = compute_signal(sym, data_source=data_source)
@@ -210,7 +258,7 @@ def compute_holding_exit_advice(
 
     if ref_price is not None and ma20 is not None and float(ref_price) < float(ma20):
         score += 24
-        reasons.append(f"参考价 {ref_price} 低于 MA20 {ma20}（结构偏弱）")
+        reasons.append(f"当前价 {ref_price} 低于 MA20 {ma20}（结构偏弱）")
 
     if sig.trend == "bearish":
         score += 22
@@ -271,6 +319,8 @@ def compute_holding_exit_advice(
         summary_zh=summary,
         reasons=reasons[:8],
         cost_price=round(cost, 4),
+        current_price=ref_price,
+        current_price_source=ref_src,
         ref_price=ref_price,
         ref_price_source=ref_src,
         unrealized_pnl_pct=pnl_pct,

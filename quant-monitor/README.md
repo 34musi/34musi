@@ -38,6 +38,8 @@ pip install -r requirements.txt
 
 ## 启动服务
 
+**Windows 一键启动**：在 `quant-monitor` 目录 **双击 `start.bat`**（自动用 `.venv` 起服务，无需每次 `cd` + 激活环境）。可选 **`start-and-open-ui.bat`** 自动打开 `/ui`。
+
 **标准启动步骤（含本机 / ngrok 外网访问、彩色速查）见 → [docs/STARTUP.md](docs/STARTUP.md)**
 
 ```bash

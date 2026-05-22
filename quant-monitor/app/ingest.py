@@ -821,6 +821,123 @@ def live_quote_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _live_row_has_price(row: dict[str, Any] | None) -> bool:
+    if not row:
+        return False
+    p = row.get("live_last_price")
+    return p is not None and math.isfinite(float(p)) and float(p) > 0
+
+
+def augment_live_quote_fields(
+    codes: list[str],
+    live_by: dict[str, dict[str, Any]] | None = None,
+    *,
+    data_source: str | None = None,
+    force_spot_refresh: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """
+    ③ 现价：东财单股 push2 → 东财全 A 列表快照 → 通达信批量行情（东财失败时兜底，与日线路线无关）。
+    """
+    from app.fundamentals import _now_iso, _shanghai_today_ymd, spot_liquidity_fields_for_codes
+
+    uniq: list[str] = []
+    seen: set[str] = set()
+    for c in codes:
+        try:
+            nc = normalize_symbol(c)
+        except ValueError:
+            continue
+        if len(nc) != 6 or nc in seen:
+            continue
+        seen.add(nc)
+        uniq.append(nc)
+    out: dict[str, dict[str, Any]] = dict(live_by or {})
+    for c in uniq:
+        if c not in out:
+            out[c] = {}
+    if not uniq:
+        return out
+
+    missing = [s for s in uniq if not _live_row_has_price(out.get(s))]
+    if missing:
+        try:
+            spot_by = spot_liquidity_fields_for_codes(missing, force_refresh=force_spot_refresh)
+        except Exception as e:
+            logger.warning("augment_live_quote spot list failed: %s", e)
+            spot_by = {}
+        fetched_at = _now_iso()
+        sh_today = _shanghai_today_ymd()
+        for sym in missing:
+            row = spot_by.get(sym) or {}
+            p = row.get("spot_last_price")
+            if p is None or not math.isfinite(float(p)) or float(p) <= 0:
+                continue
+            chg = row.get("spot_change_pct")
+            chg_f = round(float(chg), 2) if chg is not None and math.isfinite(float(chg)) else None
+            out[sym] = {
+                "live_last_price": round(float(p), 4),
+                "live_change_pct": chg_f,
+                "live_quote_date": row.get("spot_quote_date") or sh_today,
+                "live_fetched_at": row.get("spot_fetched_at") or fetched_at,
+                "live_price_source": "eastmoney_spot_list",
+            }
+            vol = row.get("spot_volume")
+            if vol is not None and math.isfinite(float(vol)) and float(vol) >= 0:
+                out[sym]["live_volume"] = round(float(vol), 4)
+
+    missing = [s for s in uniq if not _live_row_has_price(out.get(s))]
+    if missing:
+        try:
+            from app.quant_stock_selector import get_data_source
+            from app.quant_stock_selector.market_utils import normalize_code
+
+            ds_mx = get_data_source("mootdx")
+            fn = getattr(ds_mx, "quote_snapshot_for_codes", None)
+            if callable(fn):
+                raw = fn(missing)
+                fetched_at = _now_iso()
+                sh_today = _shanghai_today_ymd()
+                for k, row in (raw or {}).items():
+                    if not isinstance(row, dict):
+                        continue
+                    sym = normalize_code(str(k))
+                    if len(sym) != 6 or _live_row_has_price(out.get(sym)):
+                        continue
+                    p = row.get("tdx_last_price")
+                    if p is None or not math.isfinite(float(p)) or float(p) <= 0:
+                        continue
+                    chg = row.get("tdx_change_pct")
+                    chg_f = round(float(chg), 2) if chg is not None and math.isfinite(float(chg)) else None
+                    qd = row.get("tdx_quote_date")
+                    out[sym] = {
+                        "live_last_price": round(float(p), 4),
+                        "live_change_pct": chg_f,
+                        "live_quote_date": (
+                            str(qd)[:10]
+                            if isinstance(qd, str) and len(qd) >= 10
+                            else sh_today
+                        ),
+                        "live_fetched_at": fetched_at,
+                        "live_price_source": "mootdx_snapshot",
+                    }
+        except Exception as e:
+            logger.debug("augment_live_quote mootdx: %s", e)
+    return out
+
+
+def live_quote_fields_for_codes_enhanced(
+    codes: list[str],
+    *,
+    data_source: str | None = None,
+    force_spot_refresh: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """单股 push2 + 列表快照 + mootdx（按路线）的现价合并。"""
+    base = live_quote_fields_for_codes(codes)
+    return augment_live_quote_fields(
+        codes, base, data_source=data_source, force_spot_refresh=force_spot_refresh
+    )
+
+
 def _daily_snapshot_fields_for_symbol(
     sym: str,
     ingest_row: dict[str, Any],
@@ -854,7 +971,7 @@ def _daily_snapshot_fields_for_symbol(
     if lc is None:
         try:
             end_y = _today_str()
-            start_d = date.today() - timedelta(days=14)
+            start_d = shanghai_today_date() - timedelta(days=14)
             start_y = start_d.strftime("%Y%m%d")
             df, prov = _single_source_daily(sym, start_y, end_y, route)
             if df is not None and not df.empty:
@@ -880,30 +997,79 @@ def _daily_snapshot_fields_for_symbol(
     return out
 
 
+def resolve_ingest_row_display_pair(sym: str, row: dict[str, Any]) -> None:
+    """
+    ③ 双行「昨/今」与东八区执行日对齐。
+
+    - **今（下行）**：`ingest_exec_date` = 本次执行自然日；收盘/入库参考 `display_bar_trade_date`（最近一根完整日线）。
+    - **昨（上行）**：执行日晚于末根交易日时，昨行 = 该末根（即盘中「昨收」参照，而非库中倒数第二根）。
+      执行日等于末根日时，昨行 = 末根的前一根日线。
+    """
+    exec_d = shanghai_today_date().isoformat()
+    row["ingest_exec_date"] = exec_d
+    last_td = str(row.get("last_trade_date") or "")[:10] or None
+    last_close = row.get("last_close")
+    last_vol = row.get("last_volume")
+    row["display_bar_trade_date"] = last_td
+    row["display_today_trade_date"] = exec_d
+
+    if not last_td:
+        row["display_prev_trade_date"] = row.get("prev_trade_date")
+        row["display_prev_close"] = row.get("prev_close")
+        row["display_prev_volume"] = row.get("prev_volume")
+        row["display_pair_basis"] = "no_last_bar"
+        return
+
+    if exec_d > last_td:
+        row["display_prev_trade_date"] = last_td
+        row["display_prev_close"] = last_close
+        row["display_prev_volume"] = last_vol
+        row["display_pair_basis"] = "exec_after_last_bar"
+    elif exec_d == last_td:
+        row["display_prev_trade_date"] = row.get("prev_trade_date")
+        row["display_prev_close"] = row.get("prev_close")
+        row["display_prev_volume"] = row.get("prev_volume")
+        row["display_pair_basis"] = "exec_same_as_last_bar"
+    else:
+        row["display_prev_trade_date"] = row.get("prev_trade_date")
+        row["display_prev_close"] = row.get("prev_close")
+        row["display_prev_volume"] = row.get("prev_volume")
+        row["display_pair_basis"] = "exec_before_last_bar"
+
+
 def enrich_ingest_results_with_spot(
     results: list[dict[str, Any]],
     *,
     data_source: str | None = None,
 ) -> None:
     """
-    ③ 结果：上行用 prev_*（昨收），下行用 last_*（本次入库收盘）+ live_*（单股实时报价）。
+    ③ 结果：上行用 display_prev_*（昨收参照），下行用 last_* + live_*；并写入 ingest_exec_date 等展示字段。
     """
     from app.fundamentals import _now_iso
 
     ok_syms = [str(r["symbol"]) for r in results if r.get("symbol") and "error" not in r]
-    live_by = live_quote_fields_for_codes(ok_syms) if ok_syms else {}
+    live_by = (
+        live_quote_fields_for_codes_enhanced(
+            ok_syms, data_source=data_source, force_spot_refresh=True
+        )
+        if ok_syms
+        else {}
+    )
     req_at = _now_iso()
     for r in results:
         if r.get("error"):
             continue
         sym = str(r["symbol"])
-        pc = r.get("prev_close")
-        if pc is not None and math.isfinite(float(pc)) and float(pc) > 0:
-            ps = strength_snapshot_for_symbol(sym, last_price_override=float(pc))
+        resolve_ingest_row_display_pair(sym, r)
+        ref_prev = r.get("display_prev_close")
+        if ref_prev is None or not math.isfinite(float(ref_prev)) or float(ref_prev) <= 0:
+            ref_prev = r.get("prev_close")
+        if ref_prev is not None and math.isfinite(float(ref_prev)) and float(ref_prev) > 0:
+            ps = strength_snapshot_for_symbol(sym, last_price_override=float(ref_prev))
             if ps is not None:
                 r["prev_strength"] = ps
         live = live_by.get(sym) or {}
-        if not live:
+        if not _live_row_has_price(live):
             snap = _daily_snapshot_fields_for_symbol(sym, r, data_source=data_source)
             if snap.get("spot_last_price") is not None:
                 live = {
@@ -911,7 +1077,7 @@ def enrich_ingest_results_with_spot(
                     "live_change_pct": snap.get("spot_change_pct"),
                     "live_quote_date": snap.get("spot_quote_date"),
                     "live_fetched_at": snap.get("spot_fetched_at") or req_at,
-                    "live_price_source": snap.get("spot_price_source", "daily_fallback"),
+                    "live_price_source": "daily_close_not_realtime",
                 }
         if live:
             for k, v in live.items():
@@ -929,9 +1095,22 @@ def enrich_ingest_results_with_spot(
             r["live_fetched_at"] = req_at
             r["live_price_source"] = "last_close_static"
             r["spot_last_price"] = round(lc, 4)
-            if r.get("prev_close") and float(r["prev_close"]) > 0:
-                r["live_change_pct"] = round((lc / float(r["prev_close"]) - 1) * 100, 2)
-                r["spot_change_pct"] = r["live_change_pct"]
+        ref_close = r.get("display_prev_close") or r.get("prev_close")
+        px_live = r.get("live_last_price") or r.get("spot_last_price")
+        if (
+            px_live is not None
+            and math.isfinite(float(px_live))
+            and ref_close is not None
+            and math.isfinite(float(ref_close))
+            and float(ref_close) > 0
+            and (
+                r.get("display_pair_basis") == "exec_after_last_bar"
+                or r.get("live_change_pct") is None
+            )
+        ):
+            chg = round((float(px_live) / float(ref_close) - 1) * 100, 2)
+            r["live_change_pct"] = chg
+            r["spot_change_pct"] = chg
         px = r.get("live_last_price") or r.get("spot_last_price")
         if px is not None and math.isfinite(float(px)) and float(px) > 0:
             st = strength_snapshot_for_symbol(sym, last_price_override=float(px))

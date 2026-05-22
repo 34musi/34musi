@@ -330,6 +330,37 @@ def count_stand_on_ma5_bars(
     return int(mask.sum())
 
 
+def consecutive_close_on_ma5_streak(
+    frame: pd.DataFrame,
+    *,
+    ma_period: int = 5,
+) -> int:
+    """从末根向前：连续「收盘 >= MA5」的交易日数（不要求收涨）。"""
+    data = standardize_price_frame(frame).copy()
+    if len(data) < ma_period + 1:
+        return 0
+    data["ma5"] = data["close"].rolling(ma_period).mean()
+    streak = 0
+    for i in range(len(data) - 1, ma_period - 2, -1):
+        row = data.iloc[i]
+        ma5_v = row["ma5"]
+        close_v = float(row["close"])
+        if pd.isna(ma5_v) or close_v < float(ma5_v):
+            break
+        streak += 1
+    return streak
+
+
+def last_n_days_close_on_ma5(
+    frame: pd.DataFrame,
+    *,
+    min_days: int = 3,
+    ma_period: int = 5,
+) -> bool:
+    """末根起至少 min_days 个交易日收盘站在 MA5 上。"""
+    return consecutive_close_on_ma5_streak(frame, ma_period=ma_period) >= max(1, int(min_days))
+
+
 def consecutive_ma5_stand_no_drop_streak(
     frame: pd.DataFrame,
     *,

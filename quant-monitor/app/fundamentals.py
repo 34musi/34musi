@@ -140,8 +140,10 @@ def _fetch_valuation_from_value_em(sym: str) -> tuple[float | None, float | None
     return pe, pb
 
 
-def fetch_valuation_from_spot(sym: str) -> tuple[float | None, float | None]:
-    df = _get_spot_em_df(force_refresh=False)
+def fetch_valuation_from_spot(
+    sym: str, *, force_refresh: bool = False
+) -> tuple[float | None, float | None]:
+    df = _get_spot_em_df(force_refresh=force_refresh)
     row = _spot_row_for_symbol(sym, df) if df is not None else None
     pe, pb = (None, None) if row is None else _read_pe_pb_from_spot_row(row)
     if pe is None or pb is None:
@@ -193,6 +195,11 @@ def fetch_financial_em_main(sym: str) -> dict[str, Any]:
         return out
     if df is None or df.empty:
         return out
+    if "REPORT_DATE" in df.columns:
+        try:
+            df = df.sort_values("REPORT_DATE", ascending=False, na_position="last")
+        except Exception:
+            pass
     row = df.iloc[0]
     out["revenue_yoy_pct"] = _fin_float(row, "TOTALOPERATEREVETZ")
     out["profit_yoy_pct"] = _fin_float(row, "PARENTNETPROFITTZ")
@@ -293,29 +300,128 @@ def spot_liquidity_fields_for_codes(
     return out
 
 
-def fetch_individual_fund_flow_latest_metrics(sym: str) -> dict[str, Any] | None:
-    """
-    东财个股日级资金流向表最后一行（旧→新取末行）：收盘价、交易日、大单/小单净流入净占比。
+def _parse_fund_flow_row_date(row: pd.Series) -> str | None:
+    dt = row.get("日期")
+    if dt is None or (isinstance(dt, float) and pd.isna(dt)):
+        return None
+    try:
+        if hasattr(dt, "strftime"):
+            return dt.strftime("%Y-%m-%d")[:10]
+        s = str(dt).strip()
+        if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+            return s[:10]
+        if len(s) >= 8 and s[:8].isdigit():
+            return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+    except (ValueError, TypeError, OSError):
+        return None
+    return None
 
-    「大单」为东财口径下「大单 + 超大单」净占比之和；非交易所逐笔拆单，盘中请以官方披露为准。
-    """
+
+def _preferred_fund_flow_dates(sym: str) -> list[str]:
+    """优先东八区今日，再按本地 bars 最近交易日（新→旧）。"""
+    seen: set[str] = set()
+    out: list[str] = []
+    for d in (_shanghai_today_ymd(),):
+        if d not in seen:
+            seen.add(d)
+            out.append(d)
+    try:
+        from app.ingest import list_bars_from_db
+
+        rows = list_bars_from_db(sym, limit=10)
+        for r in reversed(rows):
+            td = str(r.get("trade_date") or "")[:10]
+            if len(td) == 10 and td not in seen:
+                seen.add(td)
+                out.append(td)
+    except Exception as e:
+        logger.debug("preferred_fund_flow_dates %s: %s", sym, e)
+    return out
+
+
+def _load_individual_fund_flow_df(sym: str) -> pd.DataFrame | None:
     sym_n = normalize_symbol(sym)
     mkt = em_fund_flow_market(sym_n)
     try:
         df = ak.stock_individual_fund_flow(stock=sym_n, market=mkt)
     except Exception as e:
-        logger.debug("fund_flow latest metrics %s: %s", sym_n, e)
+        logger.debug("fund_flow df %s: %s", sym_n, e)
         return None
     if df is None or df.empty:
         return None
-    last = df.iloc[-1]
-    dt = last.get("日期")
-    trade_date: str | None = None
-    if dt is not None and not pd.isna(dt):
-        if hasattr(dt, "isoformat"):
-            trade_date = dt.isoformat()[:10]
-        else:
-            trade_date = str(dt)[:10]
+    return df
+
+
+def _fund_flow_pick_basis(want: str, *, exec_d: str, bar_d: str | None) -> str:
+    """资金流行选用依据（供 ③ 下行 tooltip）。"""
+    sh_today = _shanghai_today_ymd()
+    want = want[:10]
+    exec_d = exec_d[:10]
+    bar_d = (bar_d or "")[:10] or None
+    if want == sh_today and want == exec_d:
+        return "today"
+    if want == exec_d:
+        return "exec_today"
+    if bar_d and want == bar_d:
+        return "exec_fallback_bar"
+    return "last_close"
+
+
+def _pick_fund_flow_row_for_dates(
+    df: pd.DataFrame,
+    prefer_dates: list[str],
+    *,
+    exec_d: str,
+    bar_d: str | None = None,
+) -> tuple[pd.Series | None, str | None, str]:
+    """
+    按给定日期顺序在资金表中取第一行命中；均不命中则表末行。
+    prefer_dates 通常：执行日 → 入库末根日 → 其它候选。
+    """
+    exec_d = exec_d[:10]
+    row_dates: list[str | None] = [_parse_fund_flow_row_date(df.iloc[i]) for i in range(len(df))]
+    seen: set[str] = set()
+    for raw in prefer_dates:
+        want = str(raw or "")[:10]
+        if not want or want in seen:
+            continue
+        seen.add(want)
+        for i, d in enumerate(row_dates):
+            if d != want:
+                continue
+            return df.iloc[i], d, _fund_flow_pick_basis(want, exec_d=exec_d, bar_d=bar_d)
+    i = len(df) - 1
+    d_last = row_dates[i]
+    return df.iloc[i], d_last, "fallback_last"
+
+
+def _pick_fund_flow_row(
+    df: pd.DataFrame, sym: str
+) -> tuple[pd.Series, str | None, str]:
+    """
+    优先取「当日」资金流行；若无则按本地 K 线最近交易日；再否则表末行。
+    返回 (行, 选用日期, basis)。
+    """
+    exec_d = _shanghai_today_ymd()
+    prefer = _preferred_fund_flow_dates(sym)
+    row, d, basis = _pick_fund_flow_row_for_dates(df, [exec_d, *prefer], exec_d=exec_d)
+    if row is None:
+        i = len(df) - 1
+        d_last = _parse_fund_flow_row_date(df.iloc[i])
+        return df.iloc[i], d_last, "fallback_last"
+    return row, d, basis
+
+
+def fetch_individual_fund_flow_latest_metrics(sym: str) -> dict[str, Any] | None:
+    """
+    东财个股日级资金流向：优先当日行，否则上一完整交易日（与本地 bars 末根对齐）。
+
+    「大单」为东财口径下「大单 + 超大单」净占比之和；非交易所逐笔拆单，盘中请以官方披露为准。
+    """
+    df = _load_individual_fund_flow_df(sym)
+    if df is None or df.empty:
+        return None
+    last, trade_date, basis = _pick_fund_flow_row(df, sym)
     d_big = _fin_float(last, "大单净流入-净占比")
     d_sup = _fin_float(last, "超大单净流入-净占比")
     large_combined: float | None = None
@@ -328,24 +434,194 @@ def fetch_individual_fund_flow_latest_metrics(sym: str) -> dict[str, Any] | None
         "em_close": _fin_float(last, "收盘价"),
         "em_small_net_pct": _fin_float(last, "小单净流入-净占比"),
         "em_large_net_pct": large_combined,
+        "fund_flow_pick_basis": basis,
     }
 
 
-def fetch_latest_main_flow(sym: str) -> tuple[float | None, str | None]:
-    mkt = em_fund_flow_market(sym)
+def _main_flow_from_row(row: pd.Series) -> float | None:
+    amt = row.get("主力净流入-净额")
+    if amt is None or (isinstance(amt, float) and pd.isna(amt)):
+        return None
     try:
-        df = ak.stock_individual_fund_flow(stock=normalize_symbol(sym), market=mkt)
-    except Exception as e:
-        logger.debug("fund_flow %s: %s", sym, e)
-        return None, None
+        flow = float(amt)
+    except (TypeError, ValueError):
+        return None
+    return flow if math.isfinite(flow) else None
+
+
+def _pick_fund_flow_row_for_date(df: pd.DataFrame, want_date: str) -> pd.Series | None:
+    for i in range(len(df)):
+        if _parse_fund_flow_row_date(df.iloc[i]) == want_date:
+            return df.iloc[i]
+    return None
+
+
+def _resolve_prev_trade_date(sym: str, cur_date: str | None) -> str | None:
+    """相对「当日/当前」因子行，取上一交易日（本地 bars 次新一根）。"""
+    prefer = _preferred_fund_flow_dates(sym)
+    if not prefer:
+        return None
+    if not cur_date:
+        return prefer[1] if len(prefer) > 1 else None
+    try:
+        idx = prefer.index(cur_date)
+    except ValueError:
+        return prefer[1] if len(prefer) > 1 else None
+    if idx + 1 < len(prefer):
+        return prefer[idx + 1]
+    return None
+
+
+def fetch_latest_main_flow(sym: str) -> tuple[float | None, str | None, str | None]:
+    """主力净流入净额与对应交易日；第三项为取值 basis（today / last_close / fallback_last）。"""
+    df = _load_individual_fund_flow_df(sym)
     if df is None or df.empty:
-        return None, None
-    last = df.iloc[-1]
-    amt = last.get("主力净流入-净额")
-    dt = last.get("日期")
-    flow = float(amt) if amt is not None and pd.notna(amt) else None
-    ds = str(dt) if dt is not None and pd.notna(dt) else None
-    return flow, ds
+        return None, None, None
+    last, trade_date, basis = _pick_fund_flow_row(df, sym)
+    return _main_flow_from_row(last), trade_date, basis
+
+
+def _assemble_fundamental_panel(
+    fin: dict[str, Any],
+    *,
+    pe_dynamic: float | None = None,
+    pb: float | None = None,
+    main_net_inflow: float | None = None,
+    fund_flow_date: str | None = None,
+    fund_flow_pick_basis: str | None = None,
+) -> FundamentalPanel:
+    return FundamentalPanel(
+        pe_dynamic=pe_dynamic,
+        pb=pb,
+        revenue_yoy_pct=fin["revenue_yoy_pct"],
+        profit_yoy_pct=fin["profit_yoy_pct"],
+        financial_report_date=fin["financial_report_date"],
+        main_net_inflow=main_net_inflow,
+        fund_flow_date=fund_flow_date,
+        fund_flow_pick_basis=fund_flow_pick_basis,
+        roe_pct=fin["roe_pct"],
+        roa_pct=fin["roa_pct"],
+        net_margin_pct=fin["net_margin_pct"],
+        gross_margin_pct=fin["gross_margin_pct"],
+        debt_to_assets_pct=fin["debt_to_assets_pct"],
+        current_ratio=fin["current_ratio"],
+        quick_ratio=fin["quick_ratio"],
+        ocf_per_share=fin["ocf_per_share"],
+    )
+
+
+def _ingest_context_for_fundamentals(sym: str, ingest_row: dict[str, Any] | None) -> dict[str, str | None]:
+    """从 ③ 入库行或本地 bars 推导执行日 / 末根日，供因子双行对齐。"""
+    row: dict[str, Any] = dict(ingest_row) if ingest_row else {}
+    if not row.get("last_trade_date"):
+        try:
+            from app.ingest import list_bars_from_db, resolve_ingest_row_display_pair
+
+            bars = list_bars_from_db(sym, limit=3)
+            if bars:
+                lb = bars[-1]
+                row["last_trade_date"] = lb["trade_date"]
+                row["last_close"] = lb["close"]
+                if len(bars) >= 2:
+                    pb = bars[-2]
+                    row["prev_trade_date"] = pb["trade_date"]
+                    row["prev_close"] = pb["close"]
+            resolve_ingest_row_display_pair(sym, row)
+        except Exception as e:
+            logger.debug("ingest context for fundamentals %s: %s", sym, e)
+    else:
+        try:
+            from app.ingest import resolve_ingest_row_display_pair
+
+            resolve_ingest_row_display_pair(sym, row)
+        except Exception as e:
+            logger.debug("resolve display pair for fundamentals %s: %s", sym, e)
+    exec_d = str(row.get("ingest_exec_date") or _shanghai_today_ymd())[:10]
+    bar_d = str(row.get("display_bar_trade_date") or row.get("last_trade_date") or "")[:10] or None
+    return {"exec_date": exec_d, "bar_trade_date": bar_d}
+
+
+def build_fundamental_panels_dual(
+    sym: str,
+    *,
+    force_spot_refresh: bool = False,
+    ingest_row: dict[str, Any] | None = None,
+) -> tuple[FundamentalPanel, FundamentalPanel | None]:
+    """
+    返回 (今/执行日因子, 昨/上一档因子)。
+
+    - **今**：优先东八区执行日资金流行；无则入库末根日；再否则表末行。PE/PB 拉取时刷新东财列表。
+    - **昨**：相对「今」命中日期在资金表中的上一日（与行情昨收参照可不同日）。
+    """
+    sym_n = normalize_symbol(sym)
+    ctx = _ingest_context_for_fundamentals(sym_n, ingest_row)
+    exec_d = ctx["exec_date"] or _shanghai_today_ymd()
+    bar_d = ctx["bar_trade_date"]
+    fin = fetch_financial_em_main(sym_n)
+    pe, pb = fetch_valuation_from_spot(sym_n, force_refresh=force_spot_refresh)
+    df = _load_individual_fund_flow_df(sym_n)
+
+    cur_prefs: list[str] = [exec_d]
+    if bar_d and bar_d not in cur_prefs:
+        cur_prefs.append(bar_d)
+    for d in _preferred_fund_flow_dates(sym_n):
+        if d not in cur_prefs:
+            cur_prefs.append(d)
+
+    if df is not None and not df.empty:
+        cur_row, cur_d, cur_basis = _pick_fund_flow_row_for_dates(
+            df, cur_prefs, exec_d=exec_d, bar_d=bar_d
+        )
+        if cur_row is None:
+            i = len(df) - 1
+            cur_row = df.iloc[i]
+            cur_d = _parse_fund_flow_row_date(cur_row)
+            cur_basis = "fallback_last"
+        cur_flow = _main_flow_from_row(cur_row)
+    else:
+        cur_row, cur_d, cur_basis, cur_flow = None, None, "none", None
+
+    panel_cur = _assemble_fundamental_panel(
+        fin,
+        pe_dynamic=pe,
+        pb=pb,
+        main_net_inflow=cur_flow,
+        fund_flow_date=cur_d,
+        fund_flow_pick_basis=cur_basis,
+    )
+
+    prev_d = _resolve_prev_trade_date(sym_n, cur_d)
+    panel_prev: FundamentalPanel | None = None
+    if prev_d and df is not None and not df.empty:
+        prev_row = _pick_fund_flow_row_for_date(df, prev_d)
+        if prev_row is not None:
+            panel_prev = _assemble_fundamental_panel(
+                fin,
+                main_net_inflow=_main_flow_from_row(prev_row),
+                fund_flow_date=prev_d,
+                fund_flow_pick_basis="prev_day",
+            )
+        else:
+            panel_prev = _assemble_fundamental_panel(
+                fin,
+                fund_flow_date=prev_d,
+                fund_flow_pick_basis="prev_day_missing_row",
+            )
+    elif cur_d and df is not None and not df.empty:
+        row_dates = [_parse_fund_flow_row_date(df.iloc[i]) for i in range(len(df))]
+        for i, d in enumerate(row_dates):
+            if d == cur_d and i > 0:
+                prev_row = df.iloc[i - 1]
+                prev_d2 = row_dates[i - 1]
+                panel_prev = _assemble_fundamental_panel(
+                    fin,
+                    main_net_inflow=_main_flow_from_row(prev_row),
+                    fund_flow_date=prev_d2,
+                    fund_flow_pick_basis="prev_day",
+                )
+                break
+
+    return panel_cur, panel_prev
 
 
 def _jsonable_fund_flow_cell(v: Any) -> Any:
@@ -392,29 +668,10 @@ def fetch_individual_fund_flow_recent_rows(sym: str, *, limit_rows: int = 10) ->
     return out
 
 
-def build_fundamental_panel(sym: str) -> FundamentalPanel:
-    """拉取远端并组装为面板（不写库）。"""
-    sym = normalize_symbol(sym)
-    pe, pb = fetch_valuation_from_spot(sym)
-    fin = fetch_financial_em_main(sym)
-    flow, flow_d = fetch_latest_main_flow(sym)
-    return FundamentalPanel(
-        pe_dynamic=pe,
-        pb=pb,
-        revenue_yoy_pct=fin["revenue_yoy_pct"],
-        profit_yoy_pct=fin["profit_yoy_pct"],
-        financial_report_date=fin["financial_report_date"],
-        main_net_inflow=flow,
-        fund_flow_date=flow_d,
-        roe_pct=fin["roe_pct"],
-        roa_pct=fin["roa_pct"],
-        net_margin_pct=fin["net_margin_pct"],
-        gross_margin_pct=fin["gross_margin_pct"],
-        debt_to_assets_pct=fin["debt_to_assets_pct"],
-        current_ratio=fin["current_ratio"],
-        quick_ratio=fin["quick_ratio"],
-        ocf_per_share=fin["ocf_per_share"],
-    )
+def build_fundamental_panel(sym: str, *, force_spot_refresh: bool = False) -> FundamentalPanel:
+    """拉取远端并组装为「当前」因子面板（不写库）；与 build_fundamental_panels_dual 的 cur 一致。"""
+    panel_cur, _ = build_fundamental_panels_dual(sym, force_spot_refresh=force_spot_refresh)
+    return panel_cur
 
 
 def fundamental_score_delta(panel: FundamentalPanel) -> tuple[int, list[SignalReason]]:
@@ -545,11 +802,15 @@ def load_fundamental_panel_from_db(symbol: str) -> FundamentalPanel | None:
         )
 
 
-def upsert_fundamental_snapshot(sym: str) -> dict[str, Any]:
-    """拉取远端并 upsert；返回 JSON 友好摘要。"""
+def upsert_fundamental_snapshot(
+    sym: str, *, ingest_row: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """拉取远端并 upsert；返回 JSON 友好摘要（含 snapshot / snapshot_prev 双行）。"""
     sym = normalize_symbol(sym)
     try:
-        panel = build_fundamental_panel(sym)
+        panel, panel_prev = build_fundamental_panels_dual(
+            sym, force_spot_refresh=True, ingest_row=ingest_row
+        )
     except Exception as e:
         logger.warning("build_fundamental_panel %s: %s", sym, e)
         return {"symbol": sym, "ok": False, "error": str(e)}
@@ -596,9 +857,15 @@ def upsert_fundamental_snapshot(sym: str) -> dict[str, Any]:
     )
     with session_scope() as s:
         s.execute(stmt)
-    return {
+    ctx = _ingest_context_for_fundamentals(sym, ingest_row)
+    out: dict[str, Any] = {
         "symbol": sym,
         "ok": True,
         "updated_at": now,
+        "ingest_exec_date": ctx.get("exec_date"),
+        "display_bar_trade_date": ctx.get("bar_trade_date"),
         "snapshot": panel.model_dump(),
     }
+    if panel_prev is not None:
+        out["snapshot_prev"] = panel_prev.model_dump()
+    return out
