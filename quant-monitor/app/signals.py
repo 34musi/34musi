@@ -22,6 +22,7 @@ from app.ingest import (
     live_quote_fields_for_codes_enhanced,
     load_bars_df,
     normalize_symbol,
+    watchlist_prev_display_for_symbol,
 )
 from app.schemas import (
     PositionHint,
@@ -258,9 +259,19 @@ def _build_signal_metrics(
         meta["price_basis"] = "spot_snapshot"
         meta["spot_close_used"] = round(last_close, 4)
 
+    prev_close_out: float | None = None
+    prev_date_out: str | None = None
+    if len(df) >= 2:
+        pc_raw = float(df["close"].astype(float).iloc[-2])
+        if math.isfinite(pc_raw):
+            prev_close_out = round(pc_raw, 4)
+            prev_date_out = str(df["trade_date"].iloc[-2])
+
     return {
         "as_of_date": last_date,
         "close": round(last_close, 4),
+        "prev_close": prev_close_out,
+        "prev_as_of_date": prev_date_out,
         "trend": trend,
         "strength": strength,
         "buy_suitability_score": combined,
@@ -357,6 +368,13 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
 
     fund_panel = load_fundamental_panel_from_db(sym)
     base = _build_signal_metrics(df, sym, fund_panel)
+    prev_disp = watchlist_prev_display_for_symbol(sym)
+    pc_prev = prev_disp.get("display_prev_close")
+    if pc_prev is not None:
+        base["prev_close"] = pc_prev
+        pd_prev = prev_disp.get("display_prev_trade_date")
+        if pd_prev:
+            base["prev_as_of_date"] = pd_prev
     spot_extra = _spot_overlay_for_symbol(sym, df, fund_panel, data_source=data_source)
     src = spot_extra.pop("spot_price_source", None)
     basis = spot_extra.pop("spot_price_basis", None)

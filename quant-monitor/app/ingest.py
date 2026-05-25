@@ -197,6 +197,15 @@ def _fetch_and_upsert(
                 out["prev_trade_date"] = prev_bar["trade_date"]
                 out["prev_close"] = round(float(prev_bar["close"]), 4)
                 out["prev_volume"] = round(float(prev_bar.get("volume") or 0), 4)
+            elif last_td:
+                remote_prev = _fetch_prev_trading_bar_remote(
+                    sym, last_td, data_source=data_source, upsert=True
+                )
+                if remote_prev is not None:
+                    out["prev_trade_date"] = remote_prev["trade_date"]
+                    out["prev_close"] = remote_prev["close"]
+                    out["prev_volume"] = remote_prev.get("volume")
+                    out["prev_bar_backfill_source"] = remote_prev.get("source")
         else:
             out["last_trade_date"] = None
             out["last_close"] = None
@@ -713,10 +722,10 @@ def strength_snapshot_for_symbol(
     return out
 
 
-def _prev_bar_close_before(sym: str, before_ymd: str) -> float | None:
-    """取 strictly 早于 before_ymd 的最近一根日线收盘，用于涨跌幅回退计算。"""
+def _prev_trading_bar_from_db(sym: str, before_ymd: str) -> dict[str, Any] | None:
+    """取 strictly 早于 before_ymd 的最近一根本地日线（旧→新序）。"""
     try:
-        rows = list_bars_from_db(sym, limit=8)
+        rows = list_bars_from_db(sym, limit=16)
     except ValueError:
         return None
     before = before_ymd[:10]
@@ -726,8 +735,135 @@ def _prev_bar_close_before(sym: str, before_ymd: str) -> float | None:
             continue
         c = float(row.get("close") or 0)
         if math.isfinite(c) and c > 0:
-            return c
+            return {
+                "trade_date": td,
+                "close": round(c, 4),
+                "volume": round(float(row.get("volume") or 0), 4),
+                "source": "local",
+            }
     return None
+
+
+def _has_local_prev_bar_before(sym: str, last_td: str) -> bool:
+    return _prev_trading_bar_from_db(sym, last_td) is not None
+
+
+def _fetch_prev_trading_bar_remote(
+    sym: str,
+    before_ymd: str,
+    *,
+    data_source: str | None = None,
+    upsert: bool = True,
+) -> dict[str, Any] | None:
+    """联网拉取 before_ymd 之前最近一根完整日线（最近收盘的前一交易日）。"""
+    before = before_ymd[:10]
+    try:
+        end_d = datetime.strptime(before, "%Y-%m-%d").date() - timedelta(days=1)
+    except ValueError:
+        return None
+    start_d = end_d - timedelta(days=120)
+    start_y = start_d.strftime("%Y%m%d")
+    end_y = end_d.strftime("%Y%m%d")
+    try:
+        df, prov = fetch_daily_with_provider(sym, start_y, end_y, data_source=data_source)
+    except Exception as e:
+        logger.debug("fetch prev trading bar %s before=%s: %s", sym, before, e)
+        return None
+    if df is None or df.empty:
+        return None
+    df = df.copy()
+    df["_td"] = df["trade_date"].astype(str).str[:10]
+    sub = df[df["_td"] < before]
+    if sub.empty:
+        return None
+    row = sub.iloc[-1]
+    td = str(row["trade_date"])[:10]
+    c = float(row["close"])
+    if not math.isfinite(c) or c <= 0:
+        return None
+    out: dict[str, Any] = {
+        "trade_date": td,
+        "close": round(c, 4),
+        "volume": round(float(row.get("volume") or 0), 4),
+        "source": f"remote_{prov or resolve_data_source(data_source)}",
+    }
+    if upsert:
+        try:
+            upsert_bars(sub.tail(60).drop(columns=["_td"], errors="ignore"))
+        except Exception as e:
+            logger.debug("upsert prev bars %s: %s", sym, e)
+    return out
+
+
+def ensure_ingest_prev_bar(
+    sym: str,
+    row: dict[str, Any],
+    *,
+    data_source: str | None = None,
+) -> None:
+    """
+    入库结果若缺「末根前一交易日」，则从本地 bars 或按 data_source 短拉日线补齐 prev_*。
+
+    同时写入 ingest_has_local_prev_bar（是否能在本地读到末根前一交易日）。
+    """
+    last_td = str(row.get("last_trade_date") or "")[:10] or None
+    if not last_td:
+        row["ingest_has_local_prev_bar"] = False
+        return
+    had_local = _has_local_prev_bar_before(sym, last_td)
+    row["ingest_has_local_prev_bar"] = had_local
+    pt = str(row.get("prev_trade_date") or "")[:10] or None
+    pc = row.get("prev_close")
+    has_valid_prev = (
+        pt is not None
+        and pt < last_td
+        and pc is not None
+        and math.isfinite(float(pc))
+        and float(pc) > 0
+    )
+    if has_valid_prev and had_local:
+        return
+    if pt and last_td and pt >= last_td:
+        has_valid_prev = False
+    bar = _prev_trading_bar_from_db(sym, last_td)
+    if bar is None:
+        bar = _fetch_prev_trading_bar_remote(sym, last_td, data_source=data_source, upsert=True)
+    if bar is None:
+        return
+    row["prev_trade_date"] = bar["trade_date"]
+    row["prev_close"] = bar["close"]
+    row["prev_volume"] = bar.get("volume")
+    row["prev_bar_backfill_source"] = bar.get("source")
+
+
+def _ensure_min_bars_for_strength(
+    sym: str,
+    min_count: int = 6,
+    *,
+    data_source: str | None = None,
+) -> None:
+    """本地 K 线不足时短拉历史并入库，供 prev_strength / spot_strength 计算。"""
+    try:
+        bars = list_bars_from_db(sym, limit=min_count + 5)
+    except ValueError:
+        bars = []
+    if len(bars) >= min_count:
+        return
+    end_y = _today_str()
+    start_d = shanghai_today_date() - timedelta(days=180)
+    start_y = start_d.strftime("%Y%m%d")
+    try:
+        df, _ = fetch_daily_with_provider(sym, start_y, end_y, data_source=data_source)
+        if df is not None and not df.empty:
+            upsert_bars(df)
+    except Exception as e:
+        logger.debug("ensure min bars for strength %s: %s", sym, e)
+
+
+def _prev_bar_close_before(sym: str, before_ymd: str) -> float | None:
+    """取 strictly 早于 before_ymd 的最近一根日线收盘，用于涨跌幅回退计算。"""
+    bar = _prev_trading_bar_from_db(sym, before_ymd)
+    return bar["close"] if bar else None
 
 
 def _parse_bid_ask_em_df(df: pd.DataFrame) -> dict[str, float | None]:
@@ -828,6 +964,93 @@ def _live_row_has_price(row: dict[str, Any] | None) -> bool:
     return p is not None and math.isfinite(float(p)) and float(p) > 0
 
 
+def live_quote_fields_from_local_bars(codes: list[str]) -> dict[str, dict[str, Any]]:
+    """本地 bars 末根收盘作现价（③ 已入库即可，不联网）。"""
+    from app.fundamentals import _now_iso
+
+    out: dict[str, dict[str, Any]] = {}
+    fetched_at = _now_iso()
+    for c in codes:
+        try:
+            sym = normalize_symbol(c)
+        except ValueError:
+            continue
+        if len(sym) != 6 or sym in out:
+            continue
+        try:
+            bars = list_bars_from_db(sym, limit=1)
+        except ValueError:
+            bars = []
+        if not bars:
+            continue
+        last = bars[-1]
+        cpx = float(last.get("close") or 0)
+        if not math.isfinite(cpx) or cpx <= 0:
+            continue
+        td = str(last.get("trade_date") or "")[:10] or None
+        out[sym] = {
+            "live_last_price": round(cpx, 4),
+            "live_quote_date": td,
+            "live_fetched_at": fetched_at,
+            "live_price_source": "local_daily_close",
+        }
+    return out
+
+
+def live_quote_fields_from_sina_daily(codes: list[str]) -> dict[str, dict[str, Any]]:
+    """新浪 stock_zh_a_daily 末根作现价回退（不拉东财全 A 表）。"""
+    from app.fundamentals import _now_iso
+
+    out: dict[str, dict[str, Any]] = {}
+    if not codes:
+        return out
+    end_y = _today_str()
+    start_d = shanghai_today_date() - timedelta(days=14)
+    start_y = start_d.strftime("%Y%m%d")
+    fetched_at = _now_iso()
+    for c in codes:
+        try:
+            sym = normalize_symbol(c)
+        except ValueError:
+            continue
+        if len(sym) != 6 or sym in out:
+            continue
+        try:
+            df, _prov = _single_source_daily(sym, start_y, end_y, "sina")
+        except Exception as e:
+            logger.debug("sina daily quote %s: %s", sym, e)
+            continue
+        if df is None or df.empty:
+            continue
+        row = df.iloc[-1]
+        cpx = float(row["close"])
+        if not math.isfinite(cpx) or cpx <= 0:
+            continue
+        td = str(row["trade_date"])[:10]
+        out[sym] = {
+            "live_last_price": round(cpx, 4),
+            "live_quote_date": td,
+            "live_fetched_at": fetched_at,
+            "live_price_source": "sina_daily_last",
+        }
+    return out
+
+
+def _merge_live_quote_rows(
+    out: dict[str, dict[str, Any]],
+    src: dict[str, dict[str, Any]],
+    *,
+    only_missing: list[str],
+) -> None:
+    for sym in only_missing:
+        if _live_row_has_price(out.get(sym)):
+            continue
+        row = src.get(sym) or {}
+        if not _live_row_has_price(row):
+            continue
+        out[sym] = dict(row)
+
+
 def augment_live_quote_fields(
     codes: list[str],
     live_by: dict[str, dict[str, Any]] | None = None,
@@ -836,10 +1059,14 @@ def augment_live_quote_fields(
     force_spot_refresh: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """
-    ③ 现价：东财单股 push2 → 东财全 A 列表快照 → 通达信批量行情（东财失败时兜底，与日线路线无关）。
+    ③/⑩ 现价：东财单股 push2（入参 live_by）→ 东财全 A 列表 → 通达信 → 新浪/腾讯日线 → 本地 bars。
+
+    日线收盘价回退必须排在盘口源之后，否则盘中会误用「上一根入库 K 线收盘」充当现价。
     """
     from app.fundamentals import _now_iso, _shanghai_today_ymd, spot_liquidity_fields_for_codes
 
+    route = resolve_data_source(data_source)
+    s = get_settings()
     uniq: list[str] = []
     seen: set[str] = set()
     for c in codes:
@@ -859,15 +1086,20 @@ def augment_live_quote_fields(
         return out
 
     missing = [s for s in uniq if not _live_row_has_price(out.get(s))]
-    if missing:
+    if missing and route != "sina":
         try:
-            spot_by = spot_liquidity_fields_for_codes(missing, force_refresh=force_spot_refresh)
+            with _temporary_clear_proxy_env(enabled=bool(s.ingest_eastmoney_bypass_proxy)):
+                spot_by = spot_liquidity_fields_for_codes(
+                    missing, force_refresh=force_spot_refresh
+                )
         except Exception as e:
-            logger.warning("augment_live_quote spot list failed: %s", e)
+            logger.debug("augment_live_quote spot list failed: %s", e)
             spot_by = {}
         fetched_at = _now_iso()
         sh_today = _shanghai_today_ymd()
         for sym in missing:
+            if _live_row_has_price(out.get(sym)):
+                continue
             row = spot_by.get(sym) or {}
             p = row.get("spot_last_price")
             if p is None or not math.isfinite(float(p)) or float(p) <= 0:
@@ -922,6 +1154,42 @@ def augment_live_quote_fields(
                     }
         except Exception as e:
             logger.debug("augment_live_quote mootdx: %s", e)
+
+    missing = [s for s in uniq if not _live_row_has_price(out.get(s))]
+    if missing and route in ("sina", "auto", "tencent"):
+        if route in ("sina", "auto"):
+            _merge_live_quote_rows(
+                out, live_quote_fields_from_sina_daily(missing), only_missing=missing
+            )
+        else:
+            end_y = _today_str()
+            start_d = shanghai_today_date() - timedelta(days=14)
+            start_y = start_d.strftime("%Y%m%d")
+            fetched_at = _now_iso()
+            tenc: dict[str, dict[str, Any]] = {}
+            for sym in missing:
+                if _live_row_has_price(out.get(sym)):
+                    continue
+                try:
+                    df, _ = _single_source_daily(sym, start_y, end_y, "tencent")
+                    if df is None or df.empty:
+                        continue
+                    row = df.iloc[-1]
+                    cpx = float(row["close"])
+                    if math.isfinite(cpx) and cpx > 0:
+                        tenc[sym] = {
+                            "live_last_price": round(cpx, 4),
+                            "live_quote_date": str(row["trade_date"])[:10],
+                            "live_fetched_at": fetched_at,
+                            "live_price_source": "tencent_daily_last",
+                        }
+                except Exception as e:
+                    logger.debug("tencent daily quote %s: %s", sym, e)
+            _merge_live_quote_rows(out, tenc, only_missing=missing)
+
+    missing = [s for s in uniq if not _live_row_has_price(out.get(s))]
+    if missing:
+        _merge_live_quote_rows(out, live_quote_fields_from_local_bars(missing), only_missing=missing)
     return out
 
 
@@ -997,21 +1265,96 @@ def _daily_snapshot_fields_for_symbol(
     return out
 
 
+_VOLUME_SHRINK_RATIO = 0.8
+_VOLUME_EXPAND_RATIO = 1.2
+_VOLUME_HINTS: dict[str, str] = {
+    "缩量": (
+        "成交低于参照日：多空观望。价涨量缩常显上攻乏力或主力锁筹；"
+        "价跌量缩可能接近阶段底部，亦可能阴跌延续，需结合趋势与位置。"
+    ),
+    "放量": (
+        "成交高于参照日：资金参与度上升。价涨量增偏多趋势延续或突破确认；"
+        "价跌量增需警惕抛压、恐慌盘或主力出货，不宜单凭放量看多。"
+    ),
+    "平量": (
+        "成交与参照日接近：趋势惯性为主。价涨平量可能上攻动能不足；"
+        "价跌平量抛压未明显放大；突破时需等待放量确认。"
+    ),
+}
+
+
+def apply_ingest_volume_compare(row: dict[str, Any]) -> None:
+    """
+    ③ 量比：今行相对昨行参照日的缩量/放量标签与说明（教学用，非投资建议）。
+    """
+    exec_d = str(row.get("ingest_exec_date") or "")[:10]
+    last_td = str(row.get("last_trade_date") or "")[:10]
+    basis = str(row.get("display_pair_basis") or "")
+
+    ref_vol = row.get("display_prev_volume")
+    if ref_vol is None:
+        ref_vol = row.get("prev_volume")
+    ref_f: float | None = None
+    if ref_vol is not None and math.isfinite(float(ref_vol)) and float(ref_vol) > 0:
+        ref_f = float(ref_vol)
+
+    today_vol = row.get("live_volume")
+    today_basis = "none"
+    intraday = False
+    if today_vol is not None and math.isfinite(float(today_vol)) and float(today_vol) > 0:
+        today_basis = "live_cumulative"
+        intraday = bool(exec_d and last_td and exec_d > last_td)
+    elif exec_d and last_td and exec_d == last_td:
+        lv = row.get("last_volume")
+        if lv is not None and math.isfinite(float(lv)) and float(lv) > 0:
+            today_vol = lv
+            today_basis = "last_close_full_day"
+    row["display_today_volume"] = today_vol
+    row["volume_today_basis"] = today_basis
+    row["volume_ref_basis"] = basis
+
+    if ref_f is None or today_vol is None:
+        row.pop("volume_vs_prev_label", None)
+        row.pop("volume_vs_prev_ratio", None)
+        row.pop("volume_vs_prev_pct", None)
+        row.pop("volume_vs_prev_hint", None)
+        return
+
+    cur_f = float(today_vol)
+    if cur_f <= 0:
+        return
+    ratio = cur_f / ref_f
+    pct = (ratio - 1.0) * 100.0
+    if ratio < _VOLUME_SHRINK_RATIO:
+        label = "缩量"
+    elif ratio > _VOLUME_EXPAND_RATIO:
+        label = "放量"
+    else:
+        label = "平量"
+    hint = _VOLUME_HINTS[label]
+    if intraday:
+        hint += "（盘中：当日累计量 ÷ 参照日全日收盘量，收盘后对比更准确。）"
+    row["volume_vs_prev_ratio"] = round(ratio, 4)
+    row["volume_vs_prev_pct"] = round(pct, 2)
+    row["volume_vs_prev_label"] = label
+    row["volume_vs_prev_hint"] = hint
+
+
 def resolve_ingest_row_display_pair(sym: str, row: dict[str, Any]) -> None:
     """
     ③ 双行「昨/今」与东八区执行日对齐。
 
-    - **今（下行）**：`ingest_exec_date` = 本次执行自然日；收盘/入库参考 `display_bar_trade_date`（最近一根完整日线）。
-    - **昨（上行）**：执行日晚于末根交易日时，昨行 = 该末根（即盘中「昨收」参照，而非库中倒数第二根）。
-      执行日等于末根日时，昨行 = 末根的前一根日线。
+    - **今（下行）**：`ingest_exec_date` = 执行自然日；收盘价列 = 最近一根完整日线 `last_*`；涨跌幅分母 = `display_today_ref_close`（最近收盘）。
+    - **昨（上行）**：执行日晚于末根日线时展示**最近完整交易日收盘**（`last_*`）；否则为末根**上一交易日**（`prev_*`）。
     """
     exec_d = shanghai_today_date().isoformat()
     row["ingest_exec_date"] = exec_d
     last_td = str(row.get("last_trade_date") or "")[:10] or None
     last_close = row.get("last_close")
-    last_vol = row.get("last_volume")
     row["display_bar_trade_date"] = last_td
     row["display_today_trade_date"] = exec_d
+    row["display_today_ref_trade_date"] = last_td
+    row["display_today_ref_close"] = last_close
 
     if not last_td:
         row["display_prev_trade_date"] = row.get("prev_trade_date")
@@ -1021,20 +1364,20 @@ def resolve_ingest_row_display_pair(sym: str, row: dict[str, Any]) -> None:
         return
 
     if exec_d > last_td:
+        # 执行日已晚于末根日线（如周一盘前/盘中）：上行展示「最近完整收盘」而非再前一交易日
         row["display_prev_trade_date"] = last_td
         row["display_prev_close"] = last_close
-        row["display_prev_volume"] = last_vol
-        row["display_pair_basis"] = "exec_after_last_bar"
-    elif exec_d == last_td:
-        row["display_prev_trade_date"] = row.get("prev_trade_date")
-        row["display_prev_close"] = row.get("prev_close")
-        row["display_prev_volume"] = row.get("prev_volume")
-        row["display_pair_basis"] = "exec_same_as_last_bar"
+        lv = row.get("last_volume")
+        row["display_prev_volume"] = lv if lv is not None else row.get("prev_volume")
+        row["display_pair_basis"] = "last_close_as_ingest_prev_ref"
     else:
         row["display_prev_trade_date"] = row.get("prev_trade_date")
         row["display_prev_close"] = row.get("prev_close")
         row["display_prev_volume"] = row.get("prev_volume")
-        row["display_pair_basis"] = "exec_before_last_bar"
+        if exec_d == last_td:
+            row["display_pair_basis"] = "exec_same_as_last_bar"
+        else:
+            row["display_pair_basis"] = "exec_before_last_bar"
 
 
 def enrich_ingest_results_with_spot(
@@ -1060,11 +1403,12 @@ def enrich_ingest_results_with_spot(
         if r.get("error"):
             continue
         sym = str(r["symbol"])
-        resolve_ingest_row_display_pair(sym, r)
+        apply_watchlist_prev_display(sym, r)
         ref_prev = r.get("display_prev_close")
         if ref_prev is None or not math.isfinite(float(ref_prev)) or float(ref_prev) <= 0:
             ref_prev = r.get("prev_close")
         if ref_prev is not None and math.isfinite(float(ref_prev)) and float(ref_prev) > 0:
+            _ensure_min_bars_for_strength(sym, data_source=data_source)
             ps = strength_snapshot_for_symbol(sym, last_price_override=float(ref_prev))
             if ps is not None:
                 r["prev_strength"] = ps
@@ -1095,7 +1439,14 @@ def enrich_ingest_results_with_spot(
             r["live_fetched_at"] = req_at
             r["live_price_source"] = "last_close_static"
             r["spot_last_price"] = round(lc, 4)
-        ref_close = r.get("display_prev_close") or r.get("prev_close")
+        exec_d = str(r.get("ingest_exec_date") or "")[:10]
+        last_td = str(r.get("last_trade_date") or "")[:10]
+        if exec_d and last_td and exec_d > last_td:
+            ref_close = r.get("display_today_ref_close") or r.get("last_close")
+        elif exec_d and last_td and exec_d == last_td:
+            ref_close = r.get("display_prev_close") or r.get("prev_close")
+        else:
+            ref_close = r.get("display_today_ref_close") or r.get("last_close")
         px_live = r.get("live_last_price") or r.get("spot_last_price")
         if (
             px_live is not None
@@ -1103,19 +1454,18 @@ def enrich_ingest_results_with_spot(
             and ref_close is not None
             and math.isfinite(float(ref_close))
             and float(ref_close) > 0
-            and (
-                r.get("display_pair_basis") == "exec_after_last_bar"
-                or r.get("live_change_pct") is None
-            )
+            and r.get("live_change_pct") is None
         ):
             chg = round((float(px_live) / float(ref_close) - 1) * 100, 2)
             r["live_change_pct"] = chg
             r["spot_change_pct"] = chg
         px = r.get("live_last_price") or r.get("spot_last_price")
         if px is not None and math.isfinite(float(px)) and float(px) > 0:
+            _ensure_min_bars_for_strength(sym, data_source=data_source)
             st = strength_snapshot_for_symbol(sym, last_price_override=float(px))
             if st is not None:
                 r["spot_strength"] = st
+        apply_ingest_volume_compare(r)
 
 
 def upsert_bars(df: pd.DataFrame) -> int:
@@ -1158,37 +1508,204 @@ def upsert_bars(df: pd.DataFrame) -> int:
     return n
 
 
-def watchlist_bar_fields_for_session(session: Session, symbols: list[str]) -> dict[str, dict[str, Any]]:
+def local_bars_pair_row(
+    sym: str,
+    *,
+    session: Session | None = None,
+    seed: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    从本地 SQLite bars 构造 last/prev 并 resolve 展示对（与②自选昨日收盘同源）。
+
+    不调用 ensure_ingest_prev_bar / 不联网短拉补昨收；③④ 展示昨日收盘应走本函数。
+    seed 可带入 ingest 行已有的 last_trade_date、last_close 等。
+    """
+    sym_n = normalize_symbol(sym)
+    pair: dict[str, Any] = dict(seed) if seed else {}
+
+    def _fill_from_orm_rows(recent: list[Any]) -> None:
+        if not recent:
+            return
+        row_orm = recent[0]
+        pair["last_trade_date"] = row_orm.trade_date
+        pair["last_close"] = round(float(row_orm.close), 4)
+        pair["last_volume"] = float(row_orm.volume or 0)
+        if len(recent) >= 2:
+            pb = recent[1]
+            pair["prev_trade_date"] = pb.trade_date
+            pair["prev_close"] = round(float(pb.close), 4)
+            pair["prev_volume"] = float(pb.volume or 0)
+
+    if pair.get("last_trade_date") and pair.get("last_close") is not None:
+        last_td = str(pair["last_trade_date"])[:10]
+        pair["ingest_has_local_prev_bar"] = _has_local_prev_bar_before(sym_n, last_td)
+        if not pair.get("prev_close"):
+            bar = _prev_trading_bar_from_db(sym_n, last_td)
+            if bar is not None:
+                pair["prev_trade_date"] = bar["trade_date"]
+                pair["prev_close"] = bar["close"]
+                pair["prev_volume"] = bar.get("volume")
+    else:
+        if session is not None:
+            recent = list(
+                session.execute(
+                    select(BarRow)
+                    .where(BarRow.symbol == sym_n)
+                    .order_by(BarRow.trade_date.desc())
+                    .limit(2)
+                )
+                .scalars()
+                .all()
+            )
+            _fill_from_orm_rows(recent)
+        else:
+            try:
+                bars = list_bars_from_db(sym_n, limit=5)
+            except ValueError:
+                bars = []
+            if bars:
+                lb = bars[-1]
+                pair["last_trade_date"] = lb["trade_date"]
+                pair["last_close"] = round(float(lb["close"]), 4)
+                pair["last_volume"] = lb.get("volume")
+                if len(bars) >= 2:
+                    pb = bars[-2]
+                    pair["prev_trade_date"] = pb["trade_date"]
+                    pair["prev_close"] = round(float(pb["close"]), 4)
+                    pair["prev_volume"] = pb.get("volume")
+        last_td2 = str(pair.get("last_trade_date") or "")[:10] or None
+        pair["ingest_has_local_prev_bar"] = (
+            bool(last_td2 and _has_local_prev_bar_before(sym_n, last_td2))
+            if last_td2
+            else False
+        )
+
+    resolve_ingest_row_display_pair(sym_n, pair)
+    return pair
+
+
+def apply_watchlist_prev_display(sym: str, row: dict[str, Any]) -> None:
+    """将②自选同款昨日收盘（display_prev_*）写入 ingest/结果行，仅用本地库。"""
+    pair = local_bars_pair_row(
+        sym,
+        seed={
+            "last_trade_date": row.get("last_trade_date"),
+            "last_close": row.get("last_close"),
+            "last_volume": row.get("last_volume"),
+            "prev_trade_date": row.get("prev_trade_date"),
+            "prev_close": row.get("prev_close"),
+            "prev_volume": row.get("prev_volume"),
+        },
+    )
+    prev_disp = watchlist_prev_display_from_row(pair)
+    for k in (
+        "display_prev_close",
+        "display_prev_trade_date",
+        "display_pair_basis",
+        "ingest_exec_date",
+    ):
+        if prev_disp.get(k) is not None:
+            row[k] = prev_disp[k]
+    if pair.get("prev_close") is not None and row.get("prev_close") is None:
+        row["prev_close"] = pair["prev_close"]
+    if pair.get("prev_trade_date") and not row.get("prev_trade_date"):
+        row["prev_trade_date"] = pair["prev_trade_date"]
+    row["ingest_has_local_prev_bar"] = pair.get("ingest_has_local_prev_bar")
+
+
+def watchlist_prev_display_for_symbol(
+    sym: str, *, session: Session | None = None
+) -> dict[str, Any]:
+    """②/③/④ 共用：返回 display_prev_close / display_prev_trade_date 等（仅本地 bars）。"""
+    pair = local_bars_pair_row(sym, session=session)
+    return watchlist_prev_display_from_row(pair)
+
+
+def watchlist_prev_display_from_row(row: dict[str, Any]) -> dict[str, Any]:
+    """
+    从已填充 last/prev 并执行 resolve_ingest_row_display_pair 的 dict 取出③ 上行「收/昨」展示价。
+    """
+    exec_d = str(row.get("ingest_exec_date") or "")[:10]
+    last_td = str(row.get("last_trade_date") or "")[:10] or None
+    if exec_d and last_td and exec_d > last_td:
+        pc = row.get("last_close")
+        pt = row.get("last_trade_date")
+    else:
+        pc = row.get("display_prev_close")
+        if pc is None:
+            pc = row.get("prev_close")
+        pt = row.get("display_prev_trade_date")
+        if pt is None:
+            pt = row.get("prev_trade_date")
+    out_pc: float | None = None
+    if pc is not None:
+        try:
+            v = float(pc)
+            if math.isfinite(v) and v > 0:
+                out_pc = round(v, 4)
+        except (TypeError, ValueError):
+            pass
+    out_pt = str(pt)[:10] if pt is not None else None
+    return {
+        "display_prev_close": out_pc,
+        "display_prev_trade_date": out_pt,
+        "display_pair_basis": row.get("display_pair_basis"),
+        "ingest_exec_date": exec_d or None,
+    }
+
+
+def watchlist_bar_fields_for_session(
+    session: Session,
+    symbols: list[str],
+    *,
+    data_source: str | None = None,
+) -> dict[str, dict[str, Any]]:
     """
     自选表展示用：每标的在本地 bars 中的最新一行收盘价、最后交易日、
     以及该标的任意 K 线最近一次入库时间（max ingested_at）。
+    昨日收盘字段与③ resolve_ingest_row_display_pair 上行「收/昨」一致。
     """
+    route = data_source or get_settings().ingest_data_source
     out: dict[str, dict[str, Any]] = {}
     for sym in symbols:
-        row = (
+        recent = list(
             session.execute(
-                select(BarRow).where(BarRow.symbol == sym).order_by(BarRow.trade_date.desc()).limit(1)
+                select(BarRow)
+                .where(BarRow.symbol == sym)
+                .order_by(BarRow.trade_date.desc())
+                .limit(2)
             )
             .scalars()
-            .first()
+            .all()
         )
         max_ing = session.execute(select(func.max(BarRow.ingested_at)).where(BarRow.symbol == sym)).scalar_one_or_none()
-        if row is None:
+        if not recent:
             out[sym] = {
                 "bars_last_ingested_at": None,
                 "bars_last_trade_date": None,
                 "last_close": None,
                 "last_daily_close_label": None,
+                "display_prev_close": None,
+                "display_prev_trade_date": None,
+                "display_pair_basis": "no_last_bar",
+                "ingest_exec_date": shanghai_today_date().isoformat(),
             }
             continue
-        td = row.trade_date
-        close_v = round(float(row.close), 4)
+        row_orm = recent[0]
+        td = row_orm.trade_date
+        close_v = round(float(row_orm.close), 4)
         label = f"{td} 交易日日线收盘（A 股常规 15:00 北京时间）"
+        pair_row = local_bars_pair_row(sym, session=session)
+        if not pair_row.get("last_trade_date"):
+            pair_row["last_trade_date"] = td
+            pair_row["last_close"] = close_v
+        prev_disp = watchlist_prev_display_from_row(pair_row)
         out[sym] = {
             "bars_last_ingested_at": max_ing,
             "bars_last_trade_date": td,
             "last_close": close_v,
             "last_daily_close_label": label,
+            **prev_disp,
         }
     return out
 

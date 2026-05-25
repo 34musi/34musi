@@ -72,9 +72,14 @@ def _get_spot_em_df(*, force_refresh: bool = False) -> pd.DataFrame | None:
         if _spot_df is not None and not force_refresh and (now - _spot_mono_ts) < ttl:
             return _spot_df
     try:
-        df = ak.stock_zh_a_spot_em()
+        from app.ingest import _temporary_clear_proxy_env
+
+        with _temporary_clear_proxy_env(
+            enabled=bool(get_settings().ingest_eastmoney_bypass_proxy),
+        ):
+            df = ak.stock_zh_a_spot_em()
     except Exception as e:
-        logger.warning("stock_zh_a_spot_em failed: %s", e)
+        logger.debug("stock_zh_a_spot_em failed: %s", e)
         with _spot_lock:
             if _spot_df is not None:
                 return _spot_df
@@ -222,7 +227,7 @@ def fetch_financial_em_main(sym: str) -> dict[str, Any]:
 
 def _spot_snapshot_price_from_row(row: pd.Series) -> float | None:
     """东财 spot 行取现价：列名随 AkShare/东财改版可能变化。"""
-    for key in ("最新价", "现价", "收盘", "成交价", "price", "close", "最新"):
+    for key in ("最新价", "现价", "最新", "成交价", "price"):
         v = _fin_float(row, key)
         if v is not None and math.isfinite(v) and v > 0:
             return v
@@ -515,7 +520,11 @@ def _ingest_context_for_fundamentals(sym: str, ingest_row: dict[str, Any] | None
     row: dict[str, Any] = dict(ingest_row) if ingest_row else {}
     if not row.get("last_trade_date"):
         try:
-            from app.ingest import list_bars_from_db, resolve_ingest_row_display_pair
+            from app.ingest import (
+                ensure_ingest_prev_bar,
+                list_bars_from_db,
+                resolve_ingest_row_display_pair,
+            )
 
             bars = list_bars_from_db(sym, limit=3)
             if bars:
@@ -526,13 +535,15 @@ def _ingest_context_for_fundamentals(sym: str, ingest_row: dict[str, Any] | None
                     pb = bars[-2]
                     row["prev_trade_date"] = pb["trade_date"]
                     row["prev_close"] = pb["close"]
+            ensure_ingest_prev_bar(sym, row, data_source=row.get("data_source"))
             resolve_ingest_row_display_pair(sym, row)
         except Exception as e:
             logger.debug("ingest context for fundamentals %s: %s", sym, e)
     else:
         try:
-            from app.ingest import resolve_ingest_row_display_pair
+            from app.ingest import ensure_ingest_prev_bar, resolve_ingest_row_display_pair
 
+            ensure_ingest_prev_bar(sym, row, data_source=row.get("data_source"))
             resolve_ingest_row_display_pair(sym, row)
         except Exception as e:
             logger.debug("resolve display pair for fundamentals %s: %s", sym, e)
@@ -590,7 +601,15 @@ def build_fundamental_panels_dual(
         fund_flow_pick_basis=cur_basis,
     )
 
-    prev_d = _resolve_prev_trade_date(sym_n, cur_d)
+    prev_d: str | None = None
+    if ingest_row:
+        raw_prev = ingest_row.get("display_prev_trade_date") or ingest_row.get(
+            "prev_trade_date"
+        )
+        if raw_prev:
+            prev_d = str(raw_prev)[:10]
+    if not prev_d:
+        prev_d = _resolve_prev_trade_date(sym_n, cur_d)
     panel_prev: FundamentalPanel | None = None
     if prev_d and df is not None and not df.empty:
         prev_row = _pick_fund_flow_row_for_date(df, prev_d)

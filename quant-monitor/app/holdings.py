@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -9,12 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db_models import HoldingRow
+from app.config import get_settings
 from app.ingest import (
     fetch_stock_name,
     live_quote_fields_for_codes_enhanced,
     watchlist_bar_fields_for_session,
 )
-from app.schemas import HoldingExitAdviceOut, HoldingOut
+from app.schemas import HoldingEntryAdviceOut, HoldingExitAdviceOut, HoldingOut
 from app.signals import compute_signal
 
 HOLDING_STATUS_HOLDING = "holding"
@@ -48,6 +50,34 @@ def holding_days_for_row(row: HoldingRow) -> int | None:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def validate_holding_sell_price(
+    sell_price: float,
+    *,
+    shares: float,
+    cost_price: float | None = None,
+) -> float:
+    """
+    卖出均价合理性校验：防止把「股数」误填为「元/股」（如 300 股填成 300 元）。
+    """
+    px = float(sell_price)
+    if not math.isfinite(px) or px <= 0:
+        raise ValueError("卖出均价须大于 0")
+    sh = float(shares)
+    if sh >= 100 and abs(px - sh) < 1e-6:
+        raise ValueError(
+            f"卖出均价 {px:g} 与股数 {int(sh)} 相同，疑似误填股数；请填写每股卖出价格（元/股）"
+        )
+    if px > 2000:
+        raise ValueError(f"卖出均价 {px:g} 元/股 异常偏高，请确认单位为元/股而非股数或金额")
+    if cost_price is not None and float(cost_price) > 0:
+        cp = float(cost_price)
+        if px > cp * 50:
+            raise ValueError(
+                f"卖出均价 {px:g} 相对成本 {cp:g} 元/股 过高，请确认未误填股数或总金额"
+            )
+    return round(px, 4)
 
 
 def _price_from_bar_spot(
@@ -159,7 +189,7 @@ def holding_row_to_out(
         current_price=cur_px,
         current_price_source=cur_src,
         ref_price=ref_price,
-        ref_price_source=ref_src if row.status == HOLDING_STATUS_HOLDING else "sell",
+        ref_price_source=ref_src,
         holding_days=holding_days_for_row(row),
         **pnl,
     )
@@ -169,11 +199,104 @@ def build_holdings_list(session: Session, rows: list[HoldingRow]) -> list[Holdin
     symbols = list({r.symbol for r in rows})
     bar_by = watchlist_bar_fields_for_session(session, symbols) if symbols else {}
     spot_by = (
-        live_quote_fields_for_codes_enhanced(symbols, force_spot_refresh=True)
+        live_quote_fields_for_codes_enhanced(
+            symbols,
+            data_source=get_settings().ingest_data_source,
+            force_spot_refresh=False,
+        )
         if symbols
         else {}
     )
     return [holding_row_to_out(r, bar_by=bar_by, spot_by=spot_by) for r in rows]
+
+
+def create_closed_holding_record(
+    session: Session,
+    *,
+    sym: str,
+    shares: float,
+    cost_price: float,
+    buy_date: str,
+    sell_price: float,
+    sell_date: str,
+    notes: str | None = None,
+    name: str | None = None,
+) -> HoldingRow:
+    """补录一条已平仓记录，供复盘；数据仅存本机。"""
+    sell_px = validate_holding_sell_price(
+        float(sell_price), shares=float(shares), cost_price=float(cost_price)
+    )
+    row = HoldingRow(
+        symbol=sym,
+        name=(name or "").strip(),
+        status=HOLDING_STATUS_CLOSED,
+        shares=float(shares),
+        cost_price=float(cost_price),
+        buy_date=buy_date,
+        sell_price=sell_px,
+        sell_date=sell_date,
+        notes=notes.strip() if notes else None,
+        created_at="",
+        updated_at="",
+    )
+    apply_holding_defaults(row, sym=sym)
+    session.add(row)
+    session.flush()
+    session.refresh(row)
+    return row
+
+
+def compute_holdings_review_summary(session: Session) -> dict[str, Any]:
+    """汇总全部已平仓记录的已实现盈亏与持仓天数（不联网拉行情）。"""
+    rows = list(
+        session.execute(
+            select(HoldingRow)
+            .where(HoldingRow.status == HOLDING_STATUS_CLOSED)
+            .order_by(HoldingRow.sell_date.desc(), HoldingRow.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return {
+            "closed_count": 0,
+            "win_count": 0,
+            "loss_count": 0,
+            "flat_count": 0,
+            "total_realized_pnl_amt": None,
+            "avg_realized_pnl_pct": None,
+            "avg_holding_days": None,
+        }
+    total_amt = 0.0
+    pcts: list[float] = []
+    days: list[int] = []
+    wins = losses = flats = 0
+    for row in rows:
+        pnl = _pnl_fields(row, ref_price=None)
+        amt = pnl.get("realized_pnl_amt")
+        pct = pnl.get("realized_pnl_pct")
+        if amt is not None:
+            total_amt += float(amt)
+        if pct is not None:
+            pcts.append(float(pct))
+            if pct > 0.01:
+                wins += 1
+            elif pct < -0.01:
+                losses += 1
+            else:
+                flats += 1
+        hd = holding_days_for_row(row)
+        if hd is not None:
+            days.append(hd)
+    return {
+        "closed_count": len(rows),
+        "win_count": wins,
+        "loss_count": losses,
+        "flat_count": flats,
+        "total_realized_pnl_amt": round(total_amt, 2),
+        "avg_realized_pnl_pct": round(sum(pcts) / len(pcts), 2) if pcts else None,
+        "avg_holding_days": round(sum(days) / len(days), 1) if days else None,
+    }
 
 
 def apply_holding_defaults(row: HoldingRow, *, sym: str) -> None:
@@ -329,6 +452,159 @@ def compute_holding_exit_advice(
         trend=sig.trend,
         strength=sig.strength,
         buy_suitability_score=sig.buy_suitability_score,
+        position_hint=sig.position_hint,
+        signal_as_of_date=sig.as_of_date,
+    )
+
+
+def compute_holding_entry_advice(
+    row: HoldingRow,
+    *,
+    session: Session,
+    data_source: str | None = None,
+    current_price: float | None = None,
+) -> HoldingEntryAdviceOut:
+    """
+    可否建仓：最新市价 + ④ 信号（趋势/MA20/仓位提示/合成适合度）加权打分。
+    持仓中与已平仓均可：评估「此刻按规则是否适合新开仓/加仓」。
+    """
+    sym = row.symbol
+    item = build_holdings_list(session, [row])[0]
+
+    ref_price: float | None
+    ref_src: str | None
+
+    if current_price is not None:
+        try:
+            px = float(current_price)
+        except (TypeError, ValueError) as e:
+            raise ValueError("current_price 无效") from e
+        if not (px > 0):
+            raise ValueError("current_price 须大于 0")
+        ref_price = round(px, 4)
+        ref_src = "table_current"
+    else:
+        ref_price = item.ref_price
+        ref_src = item.ref_price_source
+        if ref_price is None and item.spot_last_price is not None:
+            try:
+                sp = float(item.spot_last_price)
+            except (TypeError, ValueError):
+                sp = 0.0
+            if sp > 0:
+                ref_price = round(sp, 4)
+                ref_src = "spot"
+
+    try:
+        sig = compute_signal(sym, data_source=data_source)
+    except Exception as e:
+        raise ValueError(f"无法计算信号（请先 ③ 拉取 {sym} 日线）：{e}") from e
+
+    teg = sig.trial_exit_guidance
+    ma20 = teg.reference_exit_ma20
+    if ma20 is None and sig.meta:
+        ma20 = sig.meta.get("ma20")
+
+    score = 50
+    reasons: list[str] = []
+    already = row.status == HOLDING_STATUS_HOLDING
+
+    bs = int(sig.buy_suitability_score)
+    if bs >= 65:
+        score += 22
+        reasons.append(f"合成适合度 {bs} 分，技术面偏多")
+    elif bs >= 52:
+        score += 12
+        reasons.append(f"合成适合度 {bs} 分，尚可")
+    elif bs < 42:
+        score -= 22
+        reasons.append(f"合成适合度仅 {bs} 分，不宜激进建仓")
+
+    if sig.trend == "bullish":
+        score += 20
+        reasons.append("趋势多头（收盘 > MA20 > MA60）")
+    elif sig.trend == "bearish":
+        score -= 28
+        reasons.append("趋势空头，逆势建仓风险高")
+    elif sig.trend == "sideways" and sig.strength == "strong":
+        score += 8
+        reasons.append("震荡偏强，可轻仓试错")
+    elif sig.trend == "sideways" and sig.strength == "weak":
+        score -= 10
+        reasons.append("震荡偏弱，动能不足")
+
+    if sig.strength == "strong":
+        score += 14
+    elif sig.strength == "weak":
+        score -= 14
+        reasons.append("短期强度偏弱")
+
+    if sig.position_hint == "moderate":
+        score += 18
+        reasons.append("④ 仓位提示「适中」，规则上允许正常仓")
+    elif sig.position_hint == "trial":
+        score += 12
+        reasons.append("④ 仓位提示「试仓」，宜轻仓")
+    elif sig.position_hint == "cautious":
+        score -= 10
+        reasons.append("④ 仓位提示「谨慎」，宜观望或极低仓")
+    elif sig.position_hint == "avoid":
+        score -= 32
+        reasons.append("④ 仓位提示「回避」，不建议新建仓")
+
+    if ref_price is not None and ma20 is not None:
+        if float(ref_price) > float(ma20):
+            score += 16
+            reasons.append(f"现价 {ref_price} 站上 MA20 {ma20}")
+        else:
+            score -= 18
+            reasons.append(f"现价 {ref_price} 低于 MA20 {ma20}（结构偏弱）")
+
+    for tag in (sig.risk_tags or [])[:2]:
+        if tag in ("高波动", "距60日高点回撤较大"):
+            score -= 8
+            reasons.append(f"风险标签：{tag}")
+
+    if already:
+        score -= 6
+        reasons.append("当前已有持仓记录，请结合总仓位与加仓纪律")
+
+    score = int(max(0, min(100, score)))
+
+    if score >= 65:
+        action = "strong_open"
+        suggest = True
+        summary = "建仓适合度偏高：规则上倾向可建仓或按计划加仓，仍须自定仓位与止损。"
+    elif score >= 45:
+        action = "consider_open"
+        suggest = True
+        summary = "多项因子偏多：可考虑轻仓试仓，不宜重仓一次到位。"
+    elif score >= 28:
+        action = "watch"
+        suggest = False
+        summary = "暂不建议主动新建仓，保持观察；站上 MA20 或适合度回升后再评估。"
+    else:
+        action = "avoid"
+        suggest = False
+        summary = "不宜建仓：趋势/仓位提示/适合度偏弱，宜回避或等待结构修复。"
+
+    return HoldingEntryAdviceOut(
+        holding_id=row.id,
+        symbol=sym,
+        name=(row.name or "").strip(),
+        record_status=row.status,
+        already_holding=already,
+        suggest_open=suggest,
+        action=action,
+        score=score,
+        summary_zh=summary,
+        reasons=reasons[:8],
+        current_price=ref_price,
+        current_price_source=ref_src,
+        reference_entry_ma20=ma20,
+        trend=sig.trend,
+        strength=sig.strength,
+        buy_suitability_score=bs,
         position_hint=sig.position_hint,
         signal_as_of_date=sig.as_of_date,
     )

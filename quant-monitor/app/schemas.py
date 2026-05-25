@@ -6,7 +6,7 @@ Pydantic 请求/响应模型：与 FastAPI 的 response_model、请求体验证�
 
 from datetime import date
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -141,6 +141,14 @@ class SelectorSectorDataSource(str, Enum):
     tushare = "tushare"
 
 
+class HotPickConditionGroup(str, Enum):
+    """热门板块候选：可选的选股条件组（可多选，结果分表展示）。"""
+
+    sector_hot = "sector_hot"
+    ma5_capital = "ma5_capital"
+    rising_3d = "rising_3d"
+
+
 class WatchlistIn(BaseModel):
     """POST /watchlist 请求体：原始代码字符串，服务端会规范为 6 位数字。"""
 
@@ -235,6 +243,22 @@ class WatchlistItem(BaseModel):
     last_close: float | None = Field(
         None,
         description="上一字段对应交易日的收盘价（日线，非实时 tick）",
+    )
+    display_prev_close: float | None = Field(
+        None,
+        description="昨日收盘展示价：与③ 上行「收/昨」一致（resolve_ingest_row_display_pair）",
+    )
+    display_prev_trade_date: str | None = Field(
+        None,
+        description="昨日收盘对应交易日 YYYY-MM-DD",
+    )
+    display_pair_basis: str | None = Field(
+        None,
+        description="昨收参照依据：如 last_close_as_ingest_prev_ref、exec_same_as_last_bar",
+    )
+    ingest_exec_date: str | None = Field(
+        None,
+        description="东八区展示用执行自然日（与③ 对齐昨/今双行）",
     )
     last_daily_close_label: str | None = Field(
         None,
@@ -332,14 +356,18 @@ class QuantWatchlistSyncOut(BaseModel):
 class FillHotSectorsIn(BaseModel):
     """POST /watchlist/fill-hot-sectors：按热门板块写入自选（仅新增 auto_hot，不覆盖手动）。"""
 
-    top_sectors: int = Field(5, ge=1, le=200, description="取排名前多少板块（按 get_sector_rankings 行序）")
-    stocks_per_sector: int = Field(5, ge=1, le=50, description="每板块过滤 ST/科创板后至多几只")
+    top_sectors: int = Field(5, ge=1, le=200, description="仅 sector_hot：取排名前多少板块")
+    stocks_per_sector: int = Field(5, ge=1, le=50, description="仅 sector_hot：每板块过滤 ST/科创板后至多几只")
     board_type: str = Field(
         "all",
         description="板块类型：all / concept / industry（与核心数据源一致）",
     )
-    exclude_st: bool = Field(True, description="排除名称含 ST/*ST 的成分股")
-    exclude_kcb: bool = Field(True, description="排除科创板 688/689")
+    exclude_st: bool = Field(True, description="sector_hot：排除名称含 ST/*ST 的成分股")
+    exclude_kcb: bool = Field(True, description="sector_hot：排除科创板 688/689")
+    ma5_exclude_st: bool = Field(True, description="ma5_capital：排除名称含 ST/*ST 的成分股")
+    ma5_exclude_kcb: bool = Field(True, description="ma5_capital：排除科创板 688/689")
+    rising_3d_exclude_st: bool = Field(True, description="rising_3d：排除名称含 ST/*ST 的成分股")
+    rising_3d_exclude_kcb: bool = Field(True, description="rising_3d：排除科创板 688/689")
     selector_data_source: SelectorSectorDataSource = Field(
         ...,
         description="akshare（东财板块较全）、mootdx（通达信板块较少）或 tushare（同花顺 ths_index/ths_daily/ths_member，通常需 6000 积分）",
@@ -380,9 +408,13 @@ class FillHotSectorsIn(BaseModel):
         le=10000,
         description="enable_liquidity_filter=true 时使用：近 20 日平均成交额下限，单位亿元",
     )
-    enable_ma5_capital_pick: bool = Field(
-        True,
-        description="是否额外筛选「连续站上 MA5 + 资金承接强」候选，并在响应 ma5_capital_sectors_detail 中分表展示",
+    pick_condition_groups: list[HotPickConditionGroup] = Field(
+        default_factory=lambda: [
+            HotPickConditionGroup.sector_hot,
+            HotPickConditionGroup.ma5_capital,
+        ],
+        min_length=1,
+        description="选股条件组（可多选）：sector_hot=热门板块筛选；ma5_capital=五日强承接；rising_3d=连续三日上涨",
     )
     ma5_stand_min_days: int = Field(
         3,
@@ -403,6 +435,30 @@ class FillHotSectorsIn(BaseModel):
         description="上述窗口内至少几日主力净流入为正，且合计为正",
     )
 
+    @field_validator("pick_condition_groups", mode="before")
+    @classmethod
+    def _normalize_pick_condition_groups(cls, v: object) -> list[str]:
+        if v is None:
+            return [HotPickConditionGroup.sector_hot.value, HotPickConditionGroup.ma5_capital.value]
+        if isinstance(v, str):
+            v = [v]
+        if not isinstance(v, (list, tuple)):
+            raise ValueError("pick_condition_groups 须为列表")
+        out: list[str] = []
+        seen: set[str] = set()
+        allowed = {e.value for e in HotPickConditionGroup}
+        for item in v:
+            key = str(getattr(item, "value", item)).strip().lower()
+            if not key or key in seen:
+                continue
+            if key not in allowed:
+                raise ValueError(f"不支持的选股条件: {key}，可选: {', '.join(sorted(allowed))}")
+            seen.add(key)
+            out.append(key)
+        if not out:
+            raise ValueError("请至少选择一种选股条件（sector_hot / ma5_capital / rising_3d）")
+        return out
+
 
 class FillHotSectorsSummary(BaseModel):
     """热门填充结果摘要。"""
@@ -414,6 +470,10 @@ class FillHotSectorsSummary(BaseModel):
     )
     removed_auto: int = Field(..., description="填充前删除的旧 auto_hot + auto_quant 条数")
     warnings: list[str] = Field(default_factory=list, description="选股过程中的提示（如某板块成分不足）")
+    progress_log: list[str] = Field(
+        default_factory=list,
+        description="服务端筛选过程日志（回传控制台 #hotPickLog，便于确认首选数据源是否在运转）",
+    )
 
 
 class FillHotSectorsOut(BaseModel):
@@ -426,6 +486,14 @@ class FillHotSectorsOut(BaseModel):
     ma5_capital_sectors_detail: list[dict[str, Any]] = Field(
         default_factory=list,
         description="同一批热门板块下「连续站上 MA5 + 资金承接强」候选，与原表分开展示",
+    )
+    rising_3d_sectors_detail: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="同一批热门板块下「连续三日上涨」候选，与其他组分表展示",
+    )
+    pick_condition_groups: list[str] = Field(
+        default_factory=list,
+        description="本次实际执行的选股条件组（与请求一致）",
     )
     summary: FillHotSectorsSummary
 
@@ -822,6 +890,14 @@ class SignalOut(BaseModel):
     name: str | None = None
     as_of_date: str | None = None
     close: float | None = None
+    prev_close: float | None = Field(
+        None,
+        description="上一交易日收盘价（本地日线索引倒数第二根，与 as_of_date 相邻前一交易日）",
+    )
+    prev_as_of_date: str | None = Field(
+        None,
+        description="上一交易日（与 prev_close 对应）",
+    )
     spot_last_price: float | None = Field(
         None,
         description="现价：东财单股/列表或通达信快照；失败时为日线末根收盘（见 meta.spot_price_source）",
@@ -951,6 +1027,8 @@ class HoldingUpdateIn(BaseModel):
     shares: float | None = Field(None, gt=0, description="须为 100 的整数倍")
     cost_price: float | None = Field(None, gt=0)
     buy_date: date | None = Field(None, description="买入日期；不能晚于今天")
+    sell_price: float | None = Field(None, gt=0, description="仅已平仓：修正卖出均价（元/股）")
+    sell_date: date | None = Field(None, description="仅已平仓：修正卖出日期")
     notes: str | None = Field(None, max_length=2000)
     name: str | None = Field(None, max_length=64)
 
@@ -961,11 +1039,11 @@ class HoldingUpdateIn(BaseModel):
             return None
         return _validate_holding_lot_shares(v)
 
-    @field_validator("buy_date")
+    @field_validator("buy_date", "sell_date")
     @classmethod
-    def _buy_date_not_future(cls, v: date | None) -> date | None:
+    def _trade_date_not_future(cls, v: date | None) -> date | None:
         if v is not None and v > date.today():
-            raise ValueError("买入日期不能晚于今天")
+            raise ValueError("日期不能晚于今天")
         return v
 
 
@@ -975,6 +1053,49 @@ class HoldingCloseIn(BaseModel):
     sell_price: float = Field(..., gt=0, description="卖出均价（元/股）")
     sell_date: date | None = Field(None, description="卖出日期；默认今天")
     notes: str | None = Field(None, max_length=2000, description="平仓备注（追加到原备注后）")
+
+
+class HoldingClosedRecordIn(BaseModel):
+    """POST /holdings/closed-record：补录一条已平仓记录（复盘用，非券商回报）。"""
+
+    symbol: str = Field(..., description="6 位 A 股代码", examples=["600519"])
+    shares: float = Field(..., gt=0, description="持仓股数，须为 100 的整数倍")
+    cost_price: float = Field(..., gt=0, description="买入均价（元/股）")
+    buy_date: date = Field(..., description="买入日期 YYYY-MM-DD")
+    sell_price: float = Field(..., gt=0, description="卖出均价（元/股）")
+    sell_date: date = Field(..., description="卖出日期 YYYY-MM-DD")
+    notes: str | None = Field(None, max_length=2000, description="复盘备注")
+    name: str | None = Field(None, max_length=64, description="简称；不传则联网解析")
+
+    @field_validator("shares")
+    @classmethod
+    def _shares_lot(cls, v: float) -> float:
+        return _validate_holding_lot_shares(v)
+
+    @field_validator("buy_date", "sell_date")
+    @classmethod
+    def _trade_date_not_future(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError("日期不能晚于今天")
+        return v
+
+    @model_validator(mode="after")
+    def _sell_on_or_after_buy(self) -> Self:
+        if self.sell_date < self.buy_date:
+            raise ValueError("卖出日期不能早于买入日期")
+        return self
+
+
+class HoldingReviewSummaryOut(BaseModel):
+    """已平仓记录复盘汇总（本机 SQLite，非交易所回报）。"""
+
+    closed_count: int = 0
+    win_count: int = 0
+    loss_count: int = 0
+    flat_count: int = 0
+    total_realized_pnl_amt: float | None = None
+    avg_realized_pnl_pct: float | None = None
+    avg_holding_days: float | None = None
 
 
 class HoldingOut(BaseModel):
@@ -1057,6 +1178,139 @@ class HoldingExitAdviceOut(BaseModel):
         default="以下为规则化 Demo 参考，不记录券商成交，不构成卖出指令。",
         description="固定免责提示",
     )
+
+
+HoldingEntryAction = Literal["strong_open", "consider_open", "watch", "avoid"]
+
+
+class HoldingEntryAdviceOut(BaseModel):
+    """可否建仓建议：按最新现价 + ④ 同源技术面规则（Demo，非买入指令）。"""
+
+    holding_id: int
+    symbol: str
+    name: str = ""
+    record_status: str = Field(
+        ...,
+        description="持仓记录状态：holding=持仓中；closed=已平仓（评估为重新开仓参考）",
+    )
+    already_holding: bool = Field(
+        ...,
+        description="记录是否为持仓中（true 时表示本条为加仓/持有延展参考，非首次建仓）",
+    )
+    suggest_open: bool = Field(
+        ...,
+        description="为 true 时表示综合得分达到「可考虑建仓/试仓」阈值（≥45 分）",
+    )
+    action: HoldingEntryAction = Field(
+        ...,
+        description="strong_open=适合建仓；consider_open=可考虑轻仓；watch=观望；avoid=不宜建仓",
+    )
+    score: int = Field(..., ge=0, le=100, description="建仓适合度得分，越高越适合新开仓")
+    summary_zh: str = Field(..., description="一句话结论")
+    reasons: list[str] = Field(default_factory=list, description="触发因子说明（最多约 8 条）")
+    current_price: float | None = Field(None, description="计算建议时采用的最新市价")
+    current_price_source: str | None = None
+    reference_entry_ma20: float | None = None
+    trend: TrendRegime | None = None
+    strength: StrengthRegime | None = None
+    buy_suitability_score: int | None = None
+    position_hint: PositionHint | None = None
+    signal_as_of_date: str | None = None
+    disclaimer_note: str = Field(
+        default="以下为规则化 Demo 参考，不记录券商成交，不构成买入指令。",
+        description="固定免责提示",
+    )
+
+
+class HoldingGoalProgressOut(BaseModel):
+    """GET /holdings/goal-progress：按全部持仓盈亏估算距目标还差多少。"""
+
+    start_capital: float
+    target_capital: float
+    current_equity: float = Field(..., description="起始资金 + 各持仓已实现/浮动盈亏")
+    total_pnl_amt: float = Field(..., description="相对起始资金的合计盈亏（元）")
+    gap_to_target: float = Field(..., description="距目标还差多少元（≤0 表示已达或超过）")
+    progress_pct: float | None = Field(
+        None, description="相对「起始→目标」区间的完成度 %（0–100，可超过 100）"
+    )
+    holding_pnl_amt: float = Field(0, description="持仓中浮动盈亏合计")
+    closed_pnl_amt: float = Field(0, description="已平仓已实现盈亏合计")
+    holding_count: int = 0
+    closed_count: int = 0
+    summary_zh: str = Field(..., description="一句话进度说明")
+
+
+class HoldingGoalPlanIn(BaseModel):
+    """POST /holdings/{id}/goal-plan：目标资金测算请求体。"""
+
+    start_capital: float = Field(..., gt=0, description="起始资金（元），如 5000")
+    target_capital: float = Field(..., gt=0, description="目标资金（元），如 10000")
+    current_price: float | None = Field(
+        None,
+        gt=0,
+        description="与列表「当前价格」一致时可传入，用于浮盈亏与信号计算",
+    )
+
+    @model_validator(mode="after")
+    def _target_gt_start(self) -> Self:
+        if self.target_capital <= self.start_capital:
+            raise ValueError("目标资金须大于起始资金")
+        return self
+
+
+class WatchlistPickOut(BaseModel):
+    """目标测算：自选池候选标的摘要。"""
+
+    symbol: str
+    name: str = ""
+    buy_suitability_score: int = Field(..., ge=0, le=100)
+    trend: str = ""
+    strength: str = ""
+    position_hint: str = ""
+    last_close: float | None = None
+    spot_last_price: float | None = None
+    reason: str = ""
+
+
+HoldingGoalDecision = Literal["hold", "switch", "watch", "goal_reached"]
+DailyVerdict = Literal["留", "走", "换", "达标"]
+
+
+class HoldingGoalPlanOut(BaseModel):
+    """持仓目标测算结果：留仓/换仓建议 + 操作步骤。"""
+
+    holding_id: int
+    symbol: str
+    name: str = ""
+    start_capital: float
+    target_capital: float
+    current_equity: float = Field(..., description="起始资金 + 各持仓盈亏估算")
+    gap_to_target: float = Field(..., description="距目标还差多少元（≤0 表示已达或超过）")
+    progress_pct: float | None = Field(None, description="相对起点的目标完成度 %")
+    position_decision: HoldingGoalDecision = Field(
+        ...,
+        description="hold=继续持有；switch=倾向清仓换自选；watch=观察；goal_reached=已达目标",
+    )
+    decision_summary_zh: str
+    daily_verdict: DailyVerdict = Field(
+        ...,
+        description="收盘口径一句话：留=持有；走=卖出；换=卖出并换自选；达标=已达目标",
+    )
+    daily_verdict_detail: str = Field(..., description="留/走/换的具体说明与操作建议")
+    switch_to_symbol: str | None = Field(
+        None, description="当 daily_verdict=换 时，优先换入的 6 位代码"
+    )
+    session_phase: str = Field(
+        ...,
+        description="intraday=盘中；after_close=已收盘；pre_open=开盘前；non_trading=非交易时段",
+    )
+    session_phase_note: str = Field(..., description="当前时段对结论有效性的说明")
+    price_basis: str | None = Field(None, description="测算采用的现价来源（本地收盘/新浪等）")
+    signal_as_of_date: str | None = Field(None, description="④ 信号所依据的 K 线日期")
+    steps: list[str] = Field(default_factory=list, description="分步操作建议（Demo）")
+    exit_advice: HoldingExitAdviceOut
+    watchlist_picks: list[WatchlistPickOut] = Field(default_factory=list)
+    disclaimer_note: str
 
 
 class ForwardOutlookSyncIn(BaseModel):

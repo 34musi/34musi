@@ -82,8 +82,13 @@ from app.holdings import (
     HOLDING_STATUS_HOLDING,
     apply_holding_defaults,
     build_holdings_list,
+    compute_holding_entry_advice,
     compute_holding_exit_advice,
+    compute_holdings_review_summary,
+    create_closed_holding_record,
+    validate_holding_sell_price,
 )
+from app.holdings_goal import compute_goal_progress, compute_holding_goal_plan
 from app.quant_stock_selector.cli import validate_args
 from app.quant_stock_selector.pipeline import run_analysis
 from app.schemas import (
@@ -106,7 +111,13 @@ from app.schemas import (
     ForwardOutlookSyncIn,
     ForwardOutlookSyncOut,
     HoldingCloseIn,
+    HoldingClosedRecordIn,
+    HoldingReviewSummaryOut,
+    HoldingEntryAdviceOut,
     HoldingExitAdviceOut,
+    HoldingGoalPlanIn,
+    HoldingGoalPlanOut,
+    HoldingGoalProgressOut,
     HoldingIn,
     HoldingOut,
     HoldingUpdateIn,
@@ -583,17 +594,44 @@ def _run_hot_pick_common(
     max_return_20d_pct: float = 25.0,
     enable_liquidity_filter: bool = False,
     min_avg_turnover_20d_100m: float = 1.0,
-    enable_ma5_capital_pick: bool = True,
+    pick_condition_groups: list[str] | None = None,
     ma5_stand_min_days: int = 3,
     capital_flow_lookback_days: int = 3,
     capital_min_positive_days: int = 2,
+    ma5_exclude_st: bool = True,
+    ma5_exclude_kcb: bool = True,
+    rising_3d_exclude_st: bool = True,
+    rising_3d_exclude_kcb: bool = True,
 ):
     clear("hot_sectors")
+    cond_set = None
+    try:
+        from app.quant_stock_selector.hot_pick import normalize_pick_condition_groups
+
+        cond_set = normalize_pick_condition_groups(pick_condition_groups)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     ds_key = (selector_data_source or "akshare").strip().lower()
     ds_label = _HOT_SECTOR_DS_LABELS.get(ds_key, ds_key)
-    logger.info("hot_sectors pick start: route=%s (%s)", ds_key, ds_label)
+    progress_log: list[str] = []
+    logger.info(
+        "hot_sectors pick start: route=%s (%s) conditions=%s",
+        ds_key,
+        ds_label,
+        sorted(cond_set or []),
+    )
+    progress_log.append(
+        f"热门板块筛选启动 路线={ds_key}（{ds_label}）条件={','.join(sorted(cond_set or []))}"
+    )
     _raise_if_hot_sectors_cancelled()
     ds = _resolve_sector_datasource(selector_data_source, tushare_token=tushare_token)
+    impl_name = type(ds).__name__
+    logger.info(
+        "hot_sectors: 首选数据源已就绪 route=%s impl=%s",
+        ds_key,
+        impl_name,
+    )
+    progress_log.append(f"首选数据源已就绪 路线={ds_key} 实现={impl_name}")
     board_key = (board_type or "all").strip().lower() or "all"
     snapshot_path = default_sector_snapshot_path(
         get_settings().data_dir, selector_data_source, board_key
@@ -603,13 +641,26 @@ def _run_hot_pick_common(
         try:
             rankings_override = load_sector_rankings_snapshot(snapshot_path)
             logger.info("hot_sectors: loaded sector snapshot %s", snapshot_path)
+            progress_log.append(
+                f"板块列表：读取本地快照 {snapshot_path.name}（{len(rankings_override)} 行）"
+            )
         except Exception as exc:
             logger.warning("sector snapshot load failed, fallback to live fetch: %s", exc)
+            progress_log.append(f"板块快照读取失败，改走实时拉取：{exc}")
     if rankings_override is None:
         logger.info("hot_sectors: live fetch sector rankings via %s (board=%s)", ds_key, board_key)
+        progress_log.append(f"板块列表：实时拉取 路线={ds_key} board={board_key}")
         _raise_if_hot_sectors_cancelled()
         try:
             rankings_override = ds.get_sector_rankings(board_key)
+            n_rows = len(rankings_override) if rankings_override is not None else 0
+            logger.info(
+                "hot_sectors: 板块列表已拉取 route=%s board=%s rows=%s",
+                ds_key,
+                board_key,
+                n_rows,
+            )
+            progress_log.append(f"板块列表已拉取 {n_rows} 行")
         except Exception as exc:
             raise HTTPException(
                 status_code=502,
@@ -635,25 +686,41 @@ def _run_hot_pick_common(
         enable_liquidity_filter=enable_liquidity_filter,
         min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
         should_cancel=lambda: is_cancelled("hot_sectors"),
-        enable_ma5_capital_pick=enable_ma5_capital_pick,
+        pick_condition_groups=sorted(cond_set or []),
         ma5_stand_min_days=ma5_stand_min_days,
         capital_flow_lookback_days=capital_flow_lookback_days,
         capital_min_positive_days=capital_min_positive_days,
+        ma5_exclude_st=ma5_exclude_st,
+        ma5_exclude_kcb=ma5_exclude_kcb,
+        rising_3d_exclude_st=rising_3d_exclude_st,
+        rising_3d_exclude_kcb=rising_3d_exclude_kcb,
+        progress_log=progress_log,
     )
+    if hot.progress_log:
+        progress_log = hot.progress_log
     _raise_if_hot_sectors_cancelled()
-    price_warnings = _overlay_live_prices_on_hot_sectors_detail(
-        hot.sectors_detail,
-        selector_data_source=selector_data_source,
-    )
-    if price_warnings:
-        hot.warnings.extend(price_warnings)
-    if enable_ma5_capital_pick and hot.ma5_capital_sectors_detail:
+    if "sector_hot" in cond_set:
+        price_warnings = _overlay_live_prices_on_hot_sectors_detail(
+            hot.sectors_detail,
+            selector_data_source=selector_data_source,
+        )
+        if price_warnings:
+            hot.warnings.extend(price_warnings)
+    if "ma5_capital" in cond_set and hot.ma5_capital_sectors_detail:
         mc_warnings = _overlay_live_prices_on_hot_sectors_detail(
             hot.ma5_capital_sectors_detail,
             selector_data_source=selector_data_source,
         )
         if mc_warnings:
             hot.warnings.extend(mc_warnings)
+    if "rising_3d" in cond_set and hot.rising_3d_sectors_detail:
+        r3_warnings = _overlay_live_prices_on_hot_sectors_detail(
+            hot.rising_3d_sectors_detail,
+            selector_data_source=selector_data_source,
+        )
+        if r3_warnings:
+            hot.warnings.extend(r3_warnings)
+    hot.progress_log = progress_log
     return hot
 
 
@@ -673,10 +740,14 @@ def _hot_sectors_preview_payload(
     max_return_20d_pct: float,
     enable_liquidity_filter: bool,
     min_avg_turnover_20d_100m: float,
-    enable_ma5_capital_pick: bool = True,
+    pick_condition_groups: list[str] | None = None,
     ma5_stand_min_days: int = 3,
     capital_flow_lookback_days: int = 3,
     capital_min_positive_days: int = 2,
+    ma5_exclude_st: bool = True,
+    ma5_exclude_kcb: bool = True,
+    rising_3d_exclude_st: bool = True,
+    rising_3d_exclude_kcb: bool = True,
 ) -> FillHotSectorsOut:
     hot = _run_hot_pick_common(
         top_sectors=top_sectors,
@@ -693,19 +764,26 @@ def _hot_sectors_preview_payload(
         max_return_20d_pct=max_return_20d_pct,
         enable_liquidity_filter=enable_liquidity_filter,
         min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
-        enable_ma5_capital_pick=enable_ma5_capital_pick,
+        pick_condition_groups=pick_condition_groups,
         ma5_stand_min_days=ma5_stand_min_days,
         capital_flow_lookback_days=capital_flow_lookback_days,
         capital_min_positive_days=capital_min_positive_days,
+        ma5_exclude_st=ma5_exclude_st,
+        ma5_exclude_kcb=ma5_exclude_kcb,
+        rising_3d_exclude_st=rising_3d_exclude_st,
+        rising_3d_exclude_kcb=rising_3d_exclude_kcb,
     )
     return FillHotSectorsOut(
         sectors_detail=hot.sectors_detail,
         ma5_capital_sectors_detail=hot.ma5_capital_sectors_detail,
+        rising_3d_sectors_detail=hot.rising_3d_sectors_detail,
+        pick_condition_groups=list(hot.pick_condition_groups),
         summary=FillHotSectorsSummary(
             added=0,
             skipped_existing_manual=0,
             removed_auto=0,
             warnings=list(hot.warnings),
+            progress_log=list(hot.progress_log or []),
         ),
     )
 
@@ -916,8 +994,8 @@ def _build_watchlist_items(
 ) -> list[WatchlistItem]:
     """批量附带本地 bars 摘要与现价（东财 push2/列表 → 通达信快照兜底）。"""
     symbols = [r.symbol for r in rows]
-    bar_by = watchlist_bar_fields_for_session(s, symbols)
     route = get_settings().ingest_data_source
+    bar_by = watchlist_bar_fields_for_session(s, symbols, data_source=route)
     live_by = (
         live_quote_fields_for_codes_enhanced(
             symbols, data_source=route, force_spot_refresh=force_spot_refresh
@@ -1505,10 +1583,14 @@ def watchlist_fill_hot_sectors(
             max_return_20d_pct=body.max_return_20d_pct,
             enable_liquidity_filter=body.enable_liquidity_filter,
             min_avg_turnover_20d_100m=body.min_avg_turnover_20d_100m,
-            enable_ma5_capital_pick=body.enable_ma5_capital_pick,
+            pick_condition_groups=[g.value for g in body.pick_condition_groups],
             ma5_stand_min_days=body.ma5_stand_min_days,
             capital_flow_lookback_days=body.capital_flow_lookback_days,
             capital_min_positive_days=body.capital_min_positive_days,
+            ma5_exclude_st=body.ma5_exclude_st,
+            ma5_exclude_kcb=body.ma5_exclude_kcb,
+            rising_3d_exclude_st=body.rising_3d_exclude_st,
+            rising_3d_exclude_kcb=body.rising_3d_exclude_kcb,
         )
     except HTTPException:
         raise
@@ -1522,6 +1604,7 @@ def watchlist_fill_hot_sectors(
     removed_auto = 0
     hot_names = _names_from_hot_sectors_detail(hot.sectors_detail)
     hot_names.update(_names_from_hot_sectors_detail(hot.ma5_capital_sectors_detail))
+    hot_names.update(_names_from_hot_sectors_detail(hot.rising_3d_sectors_detail))
     with session_scope() as s:
         res = s.execute(
             delete(WatchlistRow).where(
@@ -1550,10 +1633,13 @@ def watchlist_fill_hot_sectors(
         skipped_existing_manual=skipped_existing_manual,
         removed_auto=removed_auto,
         warnings=warnings,
+        progress_log=list(hot.progress_log or []),
     )
     return FillHotSectorsOut(
         sectors_detail=hot.sectors_detail,
         ma5_capital_sectors_detail=hot.ma5_capital_sectors_detail,
+        rising_3d_sectors_detail=hot.rising_3d_sectors_detail,
+        pick_condition_groups=list(hot.pick_condition_groups),
         summary=summary,
     )
 
@@ -1582,10 +1668,17 @@ def watchlist_hot_sectors_preview(
     max_return_20d_pct: float = Query(25.0, ge=0, le=500),
     enable_liquidity_filter: bool = Query(False),
     min_avg_turnover_20d_100m: float = Query(1.0, ge=0, le=10000),
-    enable_ma5_capital_pick: bool = Query(True),
+    pick_condition_groups: list[str] = Query(
+        default=["sector_hot", "ma5_capital"],
+        description="可多选：sector_hot、ma5_capital",
+    ),
     ma5_stand_min_days: int = Query(3, ge=2, le=10),
     capital_flow_lookback_days: int = Query(3, ge=1, le=10),
     capital_min_positive_days: int = Query(2, ge=1, le=10),
+    ma5_exclude_st: bool = Query(True),
+    ma5_exclude_kcb: bool = Query(True),
+    rising_3d_exclude_st: bool = Query(True),
+    rising_3d_exclude_kcb: bool = Query(True),
     _: None = Depends(optional_api_key),
 ):
     try:
@@ -1604,10 +1697,14 @@ def watchlist_hot_sectors_preview(
             max_return_20d_pct=max_return_20d_pct,
             enable_liquidity_filter=enable_liquidity_filter,
             min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
-            enable_ma5_capital_pick=enable_ma5_capital_pick,
+            pick_condition_groups=pick_condition_groups,
             ma5_stand_min_days=ma5_stand_min_days,
             capital_flow_lookback_days=capital_flow_lookback_days,
             capital_min_positive_days=capital_min_positive_days,
+            ma5_exclude_st=ma5_exclude_st,
+            ma5_exclude_kcb=ma5_exclude_kcb,
+            rising_3d_exclude_st=rising_3d_exclude_st,
+            rising_3d_exclude_kcb=rising_3d_exclude_kcb,
         )
     except HTTPException:
         raise
@@ -1633,7 +1730,7 @@ def watchlist_hot_sectors_preview_post(
     t0 = time.monotonic()
     logger.info(
         "hot_sectors preview POST start: route=%s top=%s per_sector=%s board=%s snapshot=%s "
-        "trend_sort=%s tech_pass=%s liq_filter=%s ma5_capital=%s",
+        "trend_sort=%s tech_pass=%s liq_filter=%s conditions=%s",
         route,
         body.top_sectors,
         body.stocks_per_sector,
@@ -1642,7 +1739,7 @@ def watchlist_hot_sectors_preview_post(
         body.sort_by_trend_strength,
         body.require_technical_pass,
         body.enable_liquidity_filter,
-        body.enable_ma5_capital_pick,
+        [g.value for g in body.pick_condition_groups],
     )
     try:
         out = _hot_sectors_preview_payload(
@@ -1660,20 +1757,29 @@ def watchlist_hot_sectors_preview_post(
             max_return_20d_pct=body.max_return_20d_pct,
             enable_liquidity_filter=body.enable_liquidity_filter,
             min_avg_turnover_20d_100m=body.min_avg_turnover_20d_100m,
-            enable_ma5_capital_pick=body.enable_ma5_capital_pick,
+            pick_condition_groups=[g.value for g in body.pick_condition_groups],
             ma5_stand_min_days=body.ma5_stand_min_days,
             capital_flow_lookback_days=body.capital_flow_lookback_days,
             capital_min_positive_days=body.capital_min_positive_days,
+            ma5_exclude_st=body.ma5_exclude_st,
+            ma5_exclude_kcb=body.ma5_exclude_kcb,
+            rising_3d_exclude_st=body.rising_3d_exclude_st,
+            rising_3d_exclude_kcb=body.rising_3d_exclude_kcb,
         )
         n_stocks = sum(len(b.get("stocks") or []) for b in out.sectors_detail)
         n_mc = sum(len(b.get("stocks") or []) for b in out.ma5_capital_sectors_detail)
+        n_r3 = sum(len(b.get("stocks") or []) for b in out.rising_3d_sectors_detail)
         logger.info(
-            "hot_sectors preview POST done: %.1fs route=%s sectors=%s stocks=%s ma5_capital_stocks=%s warnings=%s",
+            "hot_sectors preview POST done: %.1fs route=%s hot_sectors=%s hot_stocks=%s "
+            "ma5_sectors=%s ma5_stocks=%s rising_3d_sectors=%s rising_3d_stocks=%s warnings=%s",
             time.monotonic() - t0,
             route,
             len(out.sectors_detail),
             n_stocks,
+            len(out.ma5_capital_sectors_detail),
             n_mc,
+            len(out.rising_3d_sectors_detail),
+            n_r3,
             len(out.summary.warnings),
         )
         return out
@@ -1868,7 +1974,7 @@ def ingest_update(
     tags=["③ 更新行情数据"],
     summary="刷新自选标的单股实时报价（③ 表格下行现价）",
     description="""
-对 `symbols` 拉现价：东财单股 push2 → 东财全 A 列表快照 → **通达信批量行情**（东财失败时兜底，与日线 `data_source` 无关）。
+对 `symbols` 拉现价：东财单股 push2 → 东财全 A 列表快照 → **通达信批量行情** → 新浪/腾讯日线 → 本地 bars（与日线 `data_source` 无关；末级回退可能为昨收）。
 
 供控制台 ③ 拉取结果表 **定时刷新下行「现价」**；上行「昨收」仍来自入库前一根日线。
 """,
@@ -2127,6 +2233,7 @@ def quotes_daily_bars(
 - 若某只股票从未成功拉取过 K 线，该只会被跳过（默认不在服务日志打 WARNING，可用 DEBUG 查看）；响应头 **`X-Quant-Signals-Success-Count`** / **`X-Quant-Signals-Failed-Count`** / **`X-Quant-Signals-Failed-Symbols`** 汇总跳过代码。
 - **建议先执行** `POST /ingest/update`。
 - **pre_refresh**：为 `true` 时**按只**增量拉取再算信号；某只拉取失败**仅跳过该只**，不影响其它标的。与③所选路线一致时需传相同 `data_source`。响应头 `X-Quant-Data-Source` / `X-Quant-Pre-Refresh` 及跳过汇总头见上文。
+- **symbols**：可重复传参（如 `?symbols=600519&symbols=000001`），仅计算所列且**须在自选池**的代码；省略则处理全部自选。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
@@ -2141,6 +2248,10 @@ def signals_batch(
         None,
         description="行情路线；不传则用 INGEST_DATA_SOURCE。与 pre_refresh 配合使用",
     ),
+    symbols: list[str] | None = Query(
+        None,
+        description="仅计算所列 6 位代码（须在自选池）；可重复传参。省略则处理全部自选",
+    ),
     _: None = Depends(optional_api_key),
 ):
     """对自选池逐个 compute_signal；失败标的打日志并跳过，不中断其它标的。"""
@@ -2149,15 +2260,27 @@ def signals_batch(
     response.headers["X-Quant-Pre-Refresh"] = "1" if pre_refresh else "0"
     with session_scope() as s:
         rows = s.execute(select(WatchlistRow)).scalars().all()
-        symbols = [r.symbol for r in rows]
+        wl_pairs = [(r.symbol, (r.name or "")) for r in rows]
+    symbols, _, subset_errs = _watchlist_subset_symbols(symbols, wl_pairs)
+    failed_syms: list[str] = []
+    for err in subset_errs:
+        sym = err.get("symbol")
+        if sym and str(sym) not in failed_syms:
+            failed_syms.append(str(sym))
     if not symbols:
+        response.headers["X-Quant-Signals-Success-Count"] = "0"
+        response.headers["X-Quant-Signals-Failed-Count"] = str(len(failed_syms))
+        if failed_syms:
+            joined = ",".join(failed_syms[:120])
+            if len(failed_syms) > 120:
+                joined += ",..."
+            response.headers["X-Quant-Signals-Failed-Symbols"] = joined[:1800]
         return []
     clear("signals")
     _pre_refresh_symbols(
         symbols, route=route, pre_refresh=pre_refresh, cancel_scope="signals"
     )
     out: list[SignalOut] = []
-    failed_syms: list[str] = []
     cancelled = False
     for sym in symbols:
         if is_cancelled("signals"):
@@ -2948,6 +3071,48 @@ def holdings_list(
         return build_holdings_list(s, rows)
 
 
+@app.get(
+    "/holdings/review-summary",
+    response_model=HoldingReviewSummaryOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="已平仓复盘汇总",
+    description="统计本机全部「已平仓」记录的笔数、盈亏合计、胜率与平均持仓天数（非券商回报）。",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def holdings_review_summary(request: Request, _: None = Depends(optional_api_key)):
+    with session_scope() as s:
+        return HoldingReviewSummaryOut(**compute_holdings_review_summary(s))
+
+
+@app.get(
+    "/holdings/goal-progress",
+    response_model=HoldingGoalProgressOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="距目标进度（持仓盈亏汇总）",
+    description="""
+按本机**全部**持仓记录（含已平仓）汇总浮动/已实现盈亏，估算：
+
+`当前权益 ≈ 起始资金 + 盈亏合计`，并计算距目标还差多少元、完成度 %。
+
+需已录入持仓；现价优先盘口（与列表一致）。**非**券商资产证明。
+""",
+)
+@limiter.limit("60/minute")
+def holdings_goal_progress(
+    request: Request,
+    start_capital: float = Query(..., gt=0, description="起始资金（元）"),
+    target_capital: float = Query(..., gt=0, description="目标资金（元）"),
+    _: None = Depends(optional_api_key),
+):
+    if target_capital <= start_capital:
+        raise HTTPException(status_code=400, detail="目标资金须大于起始资金")
+    with session_scope() as s:
+        try:
+            return compute_goal_progress(s, start_capital=start_capital, target_capital=target_capital)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 @app.post(
     "/holdings",
     response_model=HoldingOut,
@@ -2978,6 +3143,40 @@ def holdings_create(body: HoldingIn, request: Request, _: None = Depends(optiona
         s.add(row)
         s.flush()
         s.refresh(row)
+        return _holding_one_out(s, row)
+
+
+@app.post(
+    "/holdings/closed-record",
+    response_model=HoldingOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="补录一条已平仓记录（复盘）",
+    description="""
+直接写入**已平仓**状态（含买入/卖出价与日期），用于补录券商历史成交，便于在「仅已平仓」筛选中复盘。
+
+**勿用「删除」清理误录**；已平仓记录应保留。数据仅存本机，非投资建议。
+""",
+)
+@limiter.limit("30/minute")
+def holdings_create_closed_record(
+    body: HoldingClosedRecordIn, request: Request, _: None = Depends(optional_api_key)
+):
+    try:
+        sym = normalize_symbol(body.symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    with session_scope() as s:
+        row = create_closed_holding_record(
+            s,
+            sym=sym,
+            shares=float(body.shares),
+            cost_price=float(body.cost_price),
+            buy_date=body.buy_date.isoformat(),
+            sell_price=float(body.sell_price),
+            sell_date=body.sell_date.isoformat(),
+            notes=body.notes,
+            name=body.name,
+        )
         return _holding_one_out(s, row)
 
 
@@ -3017,6 +3216,81 @@ def holdings_exit_advice(
             raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+@app.get(
+    "/holdings/{holding_id}/entry-advice",
+    response_model=HoldingEntryAdviceOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="可否建仓（最新价 + ④ 信号规则）",
+    description="""
+对**任意**持仓记录（持仓中 / 已平仓）评估「此刻是否适合新开仓或加仓」（0–100 分）。
+因子包括：合成适合度、趋势/强度、④ 仓位提示、现价相对 MA20、风险标签等。
+
+**非**买入指令；需本地已有 K 线（③ 拉取）。可选 Query：`data_source`、`current_price`（与列表现价列一致；已平仓请传盘口现价而非卖出价）。
+""",
+)
+@limiter.limit("40/minute")
+def holdings_entry_advice(
+    holding_id: int,
+    request: Request,
+    data_source: IngestDataSource | None = Query(None),
+    current_price: float | None = Query(
+        None,
+        gt=0,
+        description="表格「现价」取值；已平仓行请传第二行现价，勿传卖出价",
+    ),
+    _: None = Depends(optional_api_key),
+):
+    ds = data_source.value if data_source is not None else None
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        try:
+            return compute_holding_entry_advice(
+                row, session=s, data_source=ds, current_price=current_price
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.post(
+    "/holdings/{holding_id}/goal-plan",
+    response_model=HoldingGoalPlanOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="目标资金测算（留仓 vs 换自选）",
+    description="""
+设定**起始资金**与**目标资金**（如 5000 → 10000），结合当前持仓的平仓压力分、④ 适合度，
+并在 **② 自选池**中扫描更强候选，给出「继续持有 / 观察 / 清仓换仓」的分步 Demo 路径。
+
+**非**交易指令；需本地 K 线与自选数据（③ 拉取、② 维护自选）。
+""",
+)
+@limiter.limit("20/minute")
+def holdings_goal_plan(
+    holding_id: int,
+    body: HoldingGoalPlanIn,
+    request: Request,
+    data_source: IngestDataSource | None = Query(None),
+    _: None = Depends(optional_api_key),
+):
+    ds = data_source.value if data_source is not None else None
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        try:
+            return compute_holding_goal_plan(
+                row,
+                session=s,
+                start_capital=float(body.start_capital),
+                target_capital=float(body.target_capital),
+                data_source=ds,
+                current_price=body.current_price,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 @app.patch(
     "/holdings/{holding_id}",
     response_model=HoldingOut,
@@ -3035,7 +3309,34 @@ def holdings_update(
         if row is None:
             raise HTTPException(status_code=404, detail="记录不存在")
         if row.status == HOLDING_STATUS_CLOSED:
-            raise HTTPException(status_code=400, detail="已平仓记录请新建或删除后重录")
+            if body.shares is not None or body.cost_price is not None or body.buy_date is not None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="已平仓记录不可改股数/成本/买入日；可 PATCH sell_price、sell_date 或删除后重录",
+                )
+            if body.sell_price is not None:
+                try:
+                    row.sell_price = validate_holding_sell_price(
+                        float(body.sell_price),
+                        shares=float(row.shares),
+                        cost_price=float(row.cost_price),
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e)) from e
+            if body.sell_date is not None:
+                row.sell_date = body.sell_date.isoformat()
+            if body.notes is not None:
+                row.notes = body.notes.strip() or None
+            if body.name is not None:
+                row.name = body.name.strip()
+            row.updated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
+                "+00:00", "Z"
+            )
+            s.flush()
+            s.refresh(row)
+            return _holding_one_out(s, row)
+        if body.sell_price is not None or body.sell_date is not None:
+            raise HTTPException(status_code=400, detail="仅已平仓记录可修改卖出价/卖出日")
         if body.shares is not None:
             row.shares = float(body.shares)
         if body.cost_price is not None:
@@ -3072,8 +3373,16 @@ def holdings_close(
             raise HTTPException(status_code=404, detail="记录不存在")
         if row.status == HOLDING_STATUS_CLOSED:
             raise HTTPException(status_code=400, detail="已是平仓状态")
+        try:
+            sell_px = validate_holding_sell_price(
+                float(body.sell_price),
+                shares=float(row.shares),
+                cost_price=float(row.cost_price),
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
         row.status = HOLDING_STATUS_CLOSED
-        row.sell_price = float(body.sell_price)
+        row.sell_price = sell_px
         row.sell_date = sell_d
         if body.notes and body.notes.strip():
             extra = body.notes.strip()

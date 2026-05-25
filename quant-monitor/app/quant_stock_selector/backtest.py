@@ -361,6 +361,26 @@ def last_n_days_close_on_ma5(
     return consecutive_close_on_ma5_streak(frame, ma_period=ma_period) >= max(1, int(min_days))
 
 
+def consecutive_rising_close_streak(frame: pd.DataFrame) -> int:
+    """从末根向前：连续「收盘 > 前一交易日收盘」的交易日数。"""
+    data = standardize_price_frame(frame).copy()
+    if len(data) < 2:
+        return 0
+    streak = 0
+    for i in range(len(data) - 1, 0, -1):
+        close_v = float(data.iloc[i]["close"])
+        prev_close = float(data.iloc[i - 1]["close"])
+        if close_v <= prev_close:
+            break
+        streak += 1
+    return streak
+
+
+def last_n_days_rising(frame: pd.DataFrame, *, min_days: int = 3) -> bool:
+    """末根起至少 min_days 个交易日连续收涨（收盘逐日抬高）。"""
+    return consecutive_rising_close_streak(frame) >= max(1, int(min_days))
+
+
 def consecutive_ma5_stand_no_drop_streak(
     frame: pd.DataFrame,
     *,
