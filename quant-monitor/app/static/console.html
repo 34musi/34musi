@@ -3157,7 +3157,7 @@
           <div class="wl-manual-shell-body">
           <details class="wl-page-details" style="margin:0 0 1rem">
             <summary>操作说明（添加、删除、快照导入）</summary>
-            <p class="lead wl-manual-lead" style="margin:0.5rem 0 0">输入 6 位代码点<strong>确定添加</strong>后按右侧日期区间自动入库日线（路线与③共用）。行内「重新获取」或勾选后<strong>重新获取所选日线</strong>；<strong>删除所选</strong>、<strong>清空自动池</strong>（仅热门/量化自动）、<strong>全部删除</strong>见下方按钮。「获取快照热门股票」读 <code>data/hot_market_snapshot.json</code>，导入前清空自动池；无文件请先在⑨刷新热门快照。</p>
+            <p class="lead wl-manual-lead" style="margin:0.5rem 0 0">输入 6 位代码点<strong>确定添加</strong>后按右侧日期区间自动入库日线（路线与③共用）。<strong>一键获取全部自选日线</strong>按上方日期区间拉取自选池<strong>每一只</strong>；也可勾选后点<strong>重新获取所选日线</strong>，或点行内「重新获取」。<strong>删除所选</strong>、<strong>清空自动池</strong>、<strong>全部删除</strong>见下方按钮。</p>
           </details>
           <div class="wl-manual-grid">
             <div class="wl-manual-col wl-manual-col--tools">
@@ -3182,7 +3182,7 @@
           <div class="wl-kline-fetch-block">
             <h4 class="wl-kline-fetch-title">拉取日线（本地 K 线）</h4>
             <p class="lead" style="margin:0 0 0.65rem;font-size:0.82rem;color:var(--muted)">
-              与③共用行情路线；此处<strong>拉日线入库</strong>。留空日期默认近约 30 个日历日。
+              与③共用行情路线；此处<strong>拉日线入库</strong>。行内「重新获取」、所选/全部按钮均走 <code>POST /ingest/update</code>，日期取下方输入框（留空则近约 30 日历日）。
             </p>
             <div class="hot-form-grid" style="margin-bottom:0.5rem">
               <div class="field-stack">
@@ -3198,7 +3198,8 @@
               行情路线（与③联动）：<strong id="wlRouteEcho">—</strong>
             </p>
             <div class="btns" style="margin:0">
-              <button type="button" class="primary" id="btnWlRefetchSelected">重新获取所选日线</button>
+              <button type="button" class="primary" id="btnWlRefetchAll">一键获取全部自选日线</button>
+              <button type="button" class="secondary" id="btnWlRefetchSelected">重新获取所选日线</button>
             </div>
           </div>
             </div>
@@ -9037,42 +9038,69 @@
     };
   }
 
-  async function wlRefetchKlineSymbols(symbols) {
-    if (!symbols || !symbols.length) {
-      showOut("out-2", "请先勾选股票，或点表格「最近入库」列中的「重新获取」。", true);
+  /** ② 拉取日线：严格读上方日期框 + ③ 行情路线，与行内「重新获取」同一套请求 */
+  function buildWlKlineIngestRequest(symbols, allWatchlist) {
+    persistWlKlineDates();
+    var startVal = ($("wlIngestStartDate") && $("wlIngestStartDate").value.trim()) || "";
+    var endVal = ($("wlIngestEndDate") && $("wlIngestEndDate").value.trim()) || "";
+    var route = getIngestDataSource();
+    var payload = { data_source: route };
+    if (!allWatchlist && symbols && symbols.length) payload.symbols = symbols;
+    if (startVal && endVal) {
+      payload.start_date = startVal;
+      payload.end_date = endVal;
+    } else if (startVal) {
+      payload.start_date = startVal;
+      payload.end_date = wlCalendarTodayYmd();
+    } else if (endVal) {
+      payload.end_date = endVal;
+    } else {
+      var fb = wlIngestDateRangeDays(30);
+      payload.start_date = fb.start_date;
+      payload.end_date = fb.end_date;
+    }
+    var rangeLab = (payload.start_date || "…") + " ～ " + (payload.end_date || "…");
+    return { payload: payload, rangeLab: rangeLab, route: route };
+  }
+
+  async function wlRefetchKlineSymbols(symbols, opts) {
+    opts = opts || {};
+    var allWatchlist = !!opts.allWatchlist;
+    if (!allWatchlist && (!symbols || !symbols.length)) {
+      showOut("out-2", "请先勾选股票，或点「一键获取全部自选日线」/表格「重新获取」。", true);
       return;
     }
     if (apiKeyRequired() && !getApiKey()) {
       showOut("out-2", "请先在「①」保存 API Key。", true);
       return;
     }
-    persistWlKlineDates();
-    var range = getWlIngestDateRange();
-    var rangeLab =
-      (range.start_date || "…") + " ～ " + (range.end_date || "…");
+    var req = buildWlKlineIngestRequest(allWatchlist ? null : symbols, allWatchlist);
+    var rangeLab = req.rangeLab;
+    var scopeN = allWatchlist
+      ? _wlCachedBody && _wlCachedBody.length
+        ? _wlCachedBody.length
+        : null
+      : symbols.length;
+    var scopeLab = allWatchlist
+      ? "自选全部" + (scopeN != null ? "（约 " + scopeN + " 只）" : "")
+      : symbols.length + " 只";
     showOut(
       "out-2",
       "正在拉取 " +
-        symbols.length +
-        " 只日线（" +
+        scopeLab +
+        " 日线（区间 " +
         rangeLab +
         "，路线 " +
-        getIngestDataSource() +
-        "）…",
+        req.route +
+        "，与行内「重新获取」相同）…",
       true
     );
     try {
-      var payload = {
-        symbols: symbols,
-        data_source: getIngestDataSource(),
-      };
-      if (range.start_date) payload.start_date = range.start_date;
-      if (range.end_date) payload.end_date = range.end_date;
       var res = await fetchCancel("panel-2", "/ingest/update", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify(payload),
-        loadingMessage: "正在拉取日线…",
+        body: JSON.stringify(req.payload),
+        loadingMessage: "正在拉取日线（" + scopeLab + "）…",
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -9088,7 +9116,13 @@
                 return r && r.symbol && !r.error;
               }).length
             : 0;
-        var failN = symbols.length - okN;
+        var totalN =
+          body && body.results && body.results.length
+            ? body.results.length
+            : allWatchlist
+              ? scopeN || okN
+              : symbols.length;
+        var failN = Math.max(0, totalN - okN);
         var backfillN =
           body && body.results
             ? body.results.filter(function (r) {
@@ -9097,7 +9131,9 @@
             : 0;
         showOut(
           "out-2",
-          "日线拉取完成：成功 " +
+          "日线拉取完成（" +
+            scopeLab +
+            "）：成功 " +
             okN +
             " 只" +
             (failN > 0 ? "，失败/跳过 " + failN + " 只（见③拉取结果或重试）" : "") +
@@ -9511,10 +9547,14 @@
       var hasBars =
         item.bars_last_ingested_at != null && String(item.bars_last_ingested_at).trim();
       var ingAt = formatWlBarsIngestAt(item.bars_last_ingested_at);
+      var refetchTip =
+        "POST /ingest/update · 日期取上方开始/结束 · 路线 " + getIngestDataSource();
       var refetchBtn =
         '<button type="button" class="wl-refetch-kline" data-sym="' +
         escHtml(sym) +
-        '" title="按上方「拉取日期区间」重新入库日线">重新获取</button>';
+        '" title="' +
+        escHtml(refetchTip) +
+        '">重新获取</button>';
       var ing = hasBars
         ? '<span class="wl-ingest-at" title="' +
           escHtml(String(item.bars_last_ingested_at || "").trim()) +
@@ -10089,6 +10129,34 @@
   if (btnWlBackfillTodayClose) {
     btnWlBackfillTodayClose.addEventListener("click", function () {
       wlBackfillTodayClose();
+    });
+  }
+
+  var btnWlRefetchAll = $("btnWlRefetchAll");
+  if (btnWlRefetchAll) {
+    btnWlRefetchAll.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      var req = buildWlKlineIngestRequest(null, true);
+      var n =
+        _wlCachedBody && _wlCachedBody.length ? _wlCachedBody.length : null;
+      var msg =
+        "与表格行内「重新获取」相同：POST /ingest/update\n" +
+        "日期区间：" +
+        req.rangeLab +
+        "（取自上方开始/结束日期）\n" +
+        "行情路线：" +
+        req.route +
+        "（与③「行情路线」一致）\n" +
+        "范围：自选池" +
+        (n != null ? "全部 " + n + " 只" : "全部") +
+        "\n自选较多时耗时会较长，可用「取消请求」中断。\n确定继续？";
+      if (!confirm(msg)) return;
+      btnWlRefetchAll.disabled = true;
+      try {
+        await wlRefetchKlineSymbols(null, { allWatchlist: true });
+      } finally {
+        btnWlRefetchAll.disabled = false;
+      }
     });
   }
 
