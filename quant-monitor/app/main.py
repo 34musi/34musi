@@ -59,6 +59,7 @@ from app.ingest import (
     incremental_refresh,
     ingest_symbol_range,
     list_bars_from_db,
+    local_ingest_result_row,
     normalize_symbol,
     resolve_data_source,
     strength_snapshot_for_symbol,
@@ -66,6 +67,7 @@ from app.ingest import (
     enrich_ingest_results_with_spot,
     live_quote_fields_for_codes,
     live_quote_fields_for_codes_enhanced,
+    backfill_watchlist_today_close_batch,
     watchlist_bar_fields_for_session,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
@@ -88,7 +90,11 @@ from app.holdings import (
     create_closed_holding_record,
     validate_holding_sell_price,
 )
-from app.holdings_goal import compute_goal_progress, compute_holding_goal_plan
+from app.holdings_goal import (
+    check_goal_plan_live_readiness,
+    compute_goal_progress,
+    compute_holding_goal_plan,
+)
 from app.quant_stock_selector.cli import validate_args
 from app.quant_stock_selector.pipeline import run_analysis
 from app.schemas import (
@@ -116,6 +122,7 @@ from app.schemas import (
     HoldingEntryAdviceOut,
     HoldingExitAdviceOut,
     HoldingGoalPlanIn,
+    HoldingGoalPlanLivePreflightOut,
     HoldingGoalPlanOut,
     HoldingGoalProgressOut,
     HoldingIn,
@@ -147,6 +154,9 @@ from app.schemas import (
     WatchlistHotSnapshotImportOut,
     WatchlistIn,
     WatchlistItem,
+    WatchlistTodayCloseBackfillIn,
+    WatchlistTodayCloseBackfillOut,
+    WatchlistTodayCloseBackfillRow,
     WebDataPreviewIn,
 )
 from app.forecast_validate import run_forecast_validate
@@ -1124,6 +1134,77 @@ def watchlist_list(
 
 
 @app.post(
+    "/watchlist/backfill-today-close",
+    response_model=WatchlistTodayCloseBackfillOut,
+    tags=["② 管理自选股票"],
+    summary="一键用现价补写当日收盘 K 线",
+    description="""
+对自选标的用**联网现价**补写或更新东八区**今日**日线 bar，② 列表「当日收盘」即可显示（不再仅「待入库」）。
+
+- 与 ingest 拉日线、③ 刷新现价、②「刷新列表」**并存**；本接口只写 bars 中今日一根，不替代完整日线拉取。
+- **`allow_intraday=true`**（默认）：盘中也可用现价补写，值为参考价。
+- **`force_refresh=true`**（默认）：已有今日 bar 时仍用最新现价覆盖。
+- **`symbols`** 省略或空：处理当前自选池全部代码。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def watchlist_backfill_today_close(
+    body: WatchlistTodayCloseBackfillIn,
+    request: Request,
+    _: None = Depends(optional_api_key),
+):
+    ds = body.data_source.value if body.data_source is not None else None
+    with session_scope() as s:
+        if body.symbols:
+            want: list[str] = []
+            for raw in body.symbols:
+                try:
+                    want.append(normalize_symbol(raw))
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e)) from e
+            rows = (
+                s.execute(select(WatchlistRow).where(WatchlistRow.symbol.in_(want)))
+                .scalars()
+                .all()
+            )
+            found = {r.symbol for r in rows}
+            symbols = [sym for sym in want if sym in found]
+        else:
+            rows = s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all()
+            symbols = [r.symbol for r in rows]
+        if not symbols:
+            return WatchlistTodayCloseBackfillOut()
+        raw_results = backfill_watchlist_today_close_batch(
+            symbols,
+            data_source=ds,
+            allow_intraday=body.allow_intraday,
+            force_refresh=body.force_refresh,
+        )
+        result_rows = [WatchlistTodayCloseBackfillRow(**r) for r in raw_results]
+        updated = sum(1 for r in result_rows if r.rows_upserted > 0)
+        skipped = sum(
+            1
+            for r in result_rows
+            if r.rows_upserted <= 0 and r.ok and r.skipped_reason
+        )
+        failed = sum(1 for r in result_rows if not r.ok and r.error)
+        sym_set = set(symbols)
+        pool_rows = (
+            s.execute(select(WatchlistRow).where(WatchlistRow.symbol.in_(sym_set)))
+            .scalars()
+            .all()
+        )
+        items = _build_watchlist_items(s, pool_rows, force_spot_refresh=True)
+        return WatchlistTodayCloseBackfillOut(
+            results=result_rows,
+            items=items,
+            updated_count=updated,
+            skipped_count=skipped,
+            failed_count=failed,
+        )
+
+
+@app.post(
     "/watchlist",
     response_model=WatchlistItem,
     tags=["② 管理自选股票"],
@@ -1858,6 +1939,7 @@ def _watchlist_subset_symbols(
 - **`symbols`**（可选）：只拉取列表中的代码（**须在自选池**）；不传或空表示**自选全部**。不在池内的代码会在 `results` 里单独返回 `error`，不阻塞其余标的。
 - **`data_source`**：行情路线（`auto` / `eastmoney` / `akshare` / `sina` / `tencent` / `baostock` / `mootdx` / `tushare`）；不传则用 **`INGEST_DATA_SOURCE`**（默认 `auto`）。`eastmoney` 与 `akshare` 均为东财日线（后者与选股脚本命名对齐），东财路线有 **3–5 秒随机间隔**；`mootdx` / `tushare` 经 `quant_stock_selector` 核心拉取（需依赖与 TuShare token）。
 - **`include_fundamentals`**：为 `true` 时，日线完成后对**同一批**标的再拉扩展因子（估值/财报同比/主力净流入等），写入 `fundamental_snapshots`；响应含 **`fundamentals_results`**（与 `POST /ingest/fundamentals` 单条结构相同）。
+- **`skip_bars`**：为 `true` 时**不联网拉取/写入日线**，仅用本地 bars 构造结果并刷新现价/强弱；可与 `include_fundamentals` 组合。K 线请在②控制台或其它显式拉取路径更新。
 - **`GET /ingest/test-connection`**：探测本机能否访问数据源（短区间测试，需 API Key 时同上）；可带 Query **`data_source`**。
 - 需要能访问外网（通过 AkShare 拉公开数据）。
 - 自选为空时会返回错误，请先用 `POST /watchlist` 添加股票。
@@ -1874,7 +1956,8 @@ def ingest_update(
     _: None = Depends(optional_api_key),
 ):
     """
-    对自选池每个标的执行 ingest_symbol_range（按 Body 日期规则拉取日线并 upsert）。
+    对自选池每个标的执行 ingest_symbol_range（按 Body 日期规则拉取日线并 upsert），
+    或 skip_bars=true 时仅用本地 bars 构造结果（不联网拉 K 线）。
 
     自选为空返回 400；单个标的失败时该条结果带 error 字段，不整批失败。
     """
@@ -1884,11 +1967,16 @@ def ingest_update(
     if not wl_pairs:
         raise HTTPException(status_code=400, detail="自选池为空，请先 POST /watchlist 添加标的")
     symbols, wl_name_by_sym, suffix_errs = _watchlist_subset_symbols(body.symbols, wl_pairs)
+    from app.ingest import shanghai_today_date
+
     st, en = body.start_date, body.end_date
-    if en and en > date.today():
-        raise HTTPException(status_code=400, detail="结束日期不能晚于今天")
-    if st and st > date.today():
-        raise HTTPException(status_code=400, detail="开始日期不能晚于今天")
+    sh_today = shanghai_today_date()
+    if en and en > sh_today:
+        raise HTTPException(status_code=400, detail="结束日期不能晚于东八区今日")
+    if st and st > sh_today:
+        raise HTTPException(status_code=400, detail="开始日期不能晚于东八区今日")
+    if en and en < sh_today and (sh_today - en).days <= 7:
+        en = sh_today
     ds = body.data_source.value if body.data_source is not None else None
     resolved_ds = ds if ds is not None else get_settings().ingest_data_source
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
@@ -1906,7 +1994,10 @@ def ingest_update(
             time.sleep(pause)
         nm = wl_name_by_sym.get(sym, "").strip() or None
         try:
-            rec = ingest_symbol_range(sym, range_start=st, range_end=en, data_source=ds)
+            if body.skip_bars:
+                rec = local_ingest_result_row(sym, data_source=ds)
+            else:
+                rec = ingest_symbol_range(sym, range_start=st, range_end=en, data_source=ds)
             rec["watchlist_name"] = nm
             snap = strength_snapshot_for_symbol(sym)
             if snap is not None:
@@ -1917,7 +2008,9 @@ def ingest_update(
         except Exception as e:
             results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
     results.extend(suffix_errs)
-    enrich_ingest_results_with_spot(results, data_source=resolved_ds)
+    enrich_ingest_results_with_spot(
+        results, data_source=resolved_ds, skip_bar_fetch=body.skip_bars
+    )
     row_by_sym = {
         str(r["symbol"]): r for r in results if r.get("symbol") and "error" not in r
     }
@@ -1954,6 +2047,7 @@ def ingest_update(
     out: dict[str, Any] = {
         "results": results,
         "ingest_data_source": resolved_ds,
+        "skip_bars": body.skip_bars,
         "cancelled": cancelled,
         "disclaimer": _disclaimer_payload().model_dump(),
         "forward_outlook_sync": outlook_sync,
@@ -3048,6 +3142,8 @@ def _holding_one_out(s, row: HoldingRow) -> HoldingOut:
 返回本机 SQLite 中的持仓列表（新记录在前）。可选 `status`：`holding` 仅持仓中、`closed` 仅已平仓；不传为全部。
 
 每条附带**估算**浮动/已实现盈亏：参考价为盘口现价（若有）或本地最新日线收盘；**非**券商成交回报，不构成投资建议。
+
+**Query `sync`**（默认 `true`）：联网刷新现价估算，并将 `mark_price` / `mark_price_at` / `updated_at` 写回本机 `holdings` 表；设为 `false` 则只读库、不联网、不回写。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
@@ -3058,6 +3154,10 @@ def holdings_list(
         description="holding=仅持仓中；closed=仅已平仓；省略=全部",
     ),
     limit: int = Query(200, ge=1, le=500),
+    sync: bool = Query(
+        True,
+        description="为 true 时联网拉现价并写回 holdings 快照列（mark_price 等）",
+    ),
     _: None = Depends(optional_api_key),
 ):
     st = (status or "").strip().lower() or None
@@ -3068,7 +3168,9 @@ def holdings_list(
         if st:
             q = q.where(HoldingRow.status == st)
         rows = list(s.execute(q).scalars().all())
-        return build_holdings_list(s, rows)
+        return build_holdings_list(
+            s, rows, force_spot_refresh=sync, persist_snapshots=sync
+        )
 
 
 @app.get(
@@ -3286,6 +3388,74 @@ def holdings_goal_plan(
                 target_capital=float(body.target_capital),
                 data_source=ds,
                 current_price=body.current_price,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.get(
+    "/holdings/{holding_id}/goal-plan-live/preflight",
+    response_model=HoldingGoalPlanLivePreflightOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="当日测算预检（缺什么数据）",
+    description="""
+测算**当日最新**前调用：检查本地 K 线是否足够、能否拉到联网现价等。
+`ready=false` 时按 `missing[].action` 先去 ③ 拉日线或点「刷新列表」，再调 `POST …/goal-plan-live`。
+""",
+)
+@limiter.limit("40/minute")
+def holdings_goal_plan_live_preflight(
+    holding_id: int,
+    request: Request,
+    data_source: IngestDataSource | None = Query(None),
+    _: None = Depends(optional_api_key),
+):
+    ds = data_source.value if data_source is not None else None
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        try:
+            return check_goal_plan_live_readiness(row, session=s, data_source=ds)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.post(
+    "/holdings/{holding_id}/goal-plan-live",
+    response_model=HoldingGoalPlanOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="目标资金测算（当日联网现价）",
+    description="""
+与 `goal-plan` 相同逻辑，但**强制联网现价**、适合度按现价重算；K 线结构仍用最近入库日线。
+建议先 `GET …/goal-plan-live/preflight` 确认 `ready=true`。
+""",
+)
+@limiter.limit("20/minute")
+def holdings_goal_plan_live(
+    holding_id: int,
+    body: HoldingGoalPlanIn,
+    request: Request,
+    data_source: IngestDataSource | None = Query(None),
+    _: None = Depends(optional_api_key),
+):
+    ds = data_source.value if data_source is not None else None
+    with session_scope() as s:
+        row = s.execute(select(HoldingRow).where(HoldingRow.id == holding_id)).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="记录不存在")
+        try:
+            pre = check_goal_plan_live_readiness(row, session=s, data_source=ds)
+            if not pre.ready:
+                detail = "；".join(m.message for m in pre.missing) or pre.summary_zh
+                raise HTTPException(status_code=400, detail=detail)
+            return compute_holding_goal_plan(
+                row,
+                session=s,
+                start_capital=float(body.start_capital),
+                target_capital=float(body.target_capital),
+                data_source=ds,
+                live_mode=True,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e

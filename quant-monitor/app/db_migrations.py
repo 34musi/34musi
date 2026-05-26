@@ -65,6 +65,25 @@ def ensure_sqlite_forward_outlook_stock_name_column(engine) -> None:
             conn.commit()
 
 
+def ensure_sqlite_holdings_mark_columns(engine) -> None:
+    """已有 SQLite 库为 holdings 追加刷新现价快照列。"""
+    url = str(engine.url)
+    if not url.startswith("sqlite"):
+        return
+    alters = (
+        ("mark_price", "REAL"),
+        ("mark_price_at", "TEXT"),
+        ("mark_price_source", "TEXT"),
+    )
+    with engine.connect() as conn:
+        cur = conn.execute(text("PRAGMA table_info(holdings)"))
+        existing = {row[1] for row in cur.fetchall()}
+        for col, sqlt in alters:
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE holdings ADD COLUMN {col} {sqlt}"))
+                conn.commit()
+
+
 def ensure_sqlite_fundamental_snapshot_columns(engine) -> None:
     """已有库文件升级：为 fundamental_snapshots 追加列。"""
     url = str(engine.url)

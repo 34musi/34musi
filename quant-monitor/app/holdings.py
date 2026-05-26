@@ -195,19 +195,40 @@ def holding_row_to_out(
     )
 
 
-def build_holdings_list(session: Session, rows: list[HoldingRow]) -> list[HoldingOut]:
+def build_holdings_list(
+    session: Session,
+    rows: list[HoldingRow],
+    *,
+    force_spot_refresh: bool = False,
+    persist_snapshots: bool = False,
+) -> list[HoldingOut]:
     symbols = list({r.symbol for r in rows})
     bar_by = watchlist_bar_fields_for_session(session, symbols) if symbols else {}
     spot_by = (
         live_quote_fields_for_codes_enhanced(
             symbols,
             data_source=get_settings().ingest_data_source,
-            force_spot_refresh=False,
+            force_spot_refresh=force_spot_refresh,
         )
         if symbols
         else {}
     )
-    return [holding_row_to_out(r, bar_by=bar_by, spot_by=spot_by) for r in rows]
+    out: list[HoldingOut] = []
+    now = _utc_now_iso()
+    for r in rows:
+        item = holding_row_to_out(r, bar_by=bar_by, spot_by=spot_by)
+        if persist_snapshots:
+            if not (r.name or "").strip():
+                nm = fetch_stock_name(r.symbol)
+                if nm:
+                    r.name = nm
+            if item.current_price is not None:
+                r.mark_price = float(item.current_price)
+                r.mark_price_at = now
+                r.mark_price_source = item.current_price_source
+            r.updated_at = now
+        out.append(item)
+    return out
 
 
 def create_closed_holding_record(
@@ -314,9 +335,12 @@ def compute_holding_exit_advice(
     session: Session,
     data_source: str | None = None,
     current_price: float | None = None,
+    live_mode: bool = False,
 ) -> HoldingExitAdviceOut:
     """
     是否建议平仓：成本浮盈亏 + ④ 信号（趋势/MA20/仓位提示/Demo 止损线）加权打分。
+
+    live_mode=True 时强制拉联网现价，并用 spot 适合度参与打分（当日测算）。
     """
     if row.status != HOLDING_STATUS_HOLDING:
         raise ValueError("仅持仓中记录可计算平仓建议")
@@ -325,13 +349,40 @@ def compute_holding_exit_advice(
     cost = float(row.cost_price)
     shares = float(row.shares)
     cost_basis = round(shares * cost, 2)
-    item = build_holdings_list(session, [row])[0]
+    item = build_holdings_list(
+        session, [row], force_spot_refresh=live_mode
+    )[0]
 
     ref_price: float | None
     ref_src: str | None
     pnl_pct: float | None
 
-    if current_price is not None:
+    if live_mode:
+        from app.ingest import live_quote_fields_for_codes_enhanced
+
+        live = (
+            live_quote_fields_for_codes_enhanced(
+                [sym], data_source=data_source, force_spot_refresh=True
+            ).get(sym)
+            or {}
+        )
+        px = live.get("live_last_price")
+        src = str(live.get("live_price_source") or "live_quote")
+        if px is None or not (isinstance(px, (int, float)) and float(px) > 0):
+            raise ValueError(
+                f"无法获取 {sym} 的联网现价，请点「刷新列表」或检查 ③ 数据源与网络"
+            )
+        if src in ("local_daily_close", "daily_close"):
+            raise ValueError(
+                f"现价仅为本地日线收盘（{src}），非当日联网报价；请点「刷新列表」后再试"
+            )
+        ref_price = round(float(px), 4)
+        ref_src = src
+        mv = round(shares * ref_price, 2)
+        pnl_pct = (
+            round((mv - cost_basis) / cost_basis * 100.0, 2) if cost_basis > 0 else None
+        )
+    elif current_price is not None:
         try:
             px = float(current_price)
         except (TypeError, ValueError) as e:
@@ -363,8 +414,17 @@ def compute_holding_exit_advice(
     if ma20 is None and sig.meta:
         ma20 = sig.meta.get("ma20")
 
+    suit_score = int(sig.buy_suitability_score)
+    pos_hint = sig.position_hint
+    if live_mode and sig.spot_buy_suitability_score is not None:
+        suit_score = int(sig.spot_buy_suitability_score)
+    if live_mode and sig.spot_position_hint is not None:
+        pos_hint = sig.spot_position_hint
+
     score = 0
     reasons: list[str] = []
+    if live_mode:
+        reasons.append("当日测算：浮盈亏与 MA20 对比采用联网现价；适合度用现价代入重算")
 
     if pnl_pct is not None:
         if pnl_pct <= -stop_demo:
@@ -394,16 +454,16 @@ def compute_holding_exit_advice(
         score += 14
         reasons.append("短期强度偏弱（近 5/20 日收益或量能不佳）")
 
-    if sig.position_hint == "avoid":
+    if pos_hint == "avoid":
         score += 28
         reasons.append("④ 仓位提示为「回避」，新开仓不宜，持仓宜收紧风控")
-    elif sig.position_hint == "cautious":
+    elif pos_hint == "cautious":
         score += 12
         reasons.append("④ 仓位提示为「谨慎」，宜观望或极低仓")
 
-    if sig.buy_suitability_score < 42:
+    if suit_score < 42:
         score += 14
-        reasons.append(f"合成适合度仅 {sig.buy_suitability_score} 分，技术面偏弱")
+        reasons.append(f"{'现价' if live_mode else '合成'}适合度仅 {suit_score} 分，技术面偏弱")
 
     for tag in (sig.risk_tags or [])[:2]:
         if tag in ("高波动", "距60日高点回撤较大"):
@@ -451,8 +511,8 @@ def compute_holding_exit_advice(
         reference_exit_ma20=ma20,
         trend=sig.trend,
         strength=sig.strength,
-        buy_suitability_score=sig.buy_suitability_score,
-        position_hint=sig.position_hint,
+        buy_suitability_score=suit_score,
+        position_hint=pos_hint,
         signal_as_of_date=sig.as_of_date,
     )
 

@@ -78,6 +78,10 @@
       overflow-y: auto;
       max-width: 960px;
     }
+    main:has(#panel-2.active) {
+      max-width: min(1480px, calc(100vw - var(--nav-w) - 2rem));
+      padding: 1.35rem 1.85rem 2rem;
+    }
     main:has(#panel-3.active) {
       max-width: min(1520px, calc(100vw - var(--nav-w) - 2rem));
       padding-right: 1.75rem;
@@ -213,7 +217,8 @@
       font-size: 0.82rem;
       white-space: nowrap;
     }
-    .wl-ingest-fix {
+    .wl-ingest-fix,
+    .wl-refetch-kline {
       margin-left: 0.35rem;
       color: var(--accent);
       cursor: pointer;
@@ -223,6 +228,18 @@
       text-decoration: underline;
       padding: 0;
       white-space: nowrap;
+    }
+    .wl-kline-fetch-block {
+      margin: 0.85rem 0 1rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.15);
+    }
+    .wl-kline-fetch-block .wl-kline-fetch-title {
+      margin: 0 0 0.35rem;
+      font-size: 0.92rem;
+      font-weight: 600;
     }
     .hd-pnl-up { color: #3ecf8e; }
     .hd-pnl-down { color: var(--err); }
@@ -450,6 +467,18 @@
     .hd-daily-verdict-banner.verdict-leave { color: var(--err); background: rgba(239, 68, 68, 0.08); }
     .hd-daily-verdict-banner.verdict-switch { color: #fbbf24; background: rgba(251, 191, 36, 0.1); }
     .hd-daily-verdict-banner.verdict-done { color: #7dd3fc; background: rgba(125, 211, 252, 0.08); }
+    .hd-near-term-price {
+      margin: 0.55rem 0 0;
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.06);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+    .hd-near-term-price strong { color: var(--accent); }
+    .hd-near-term-price .hd-ntp-row { margin: 0.2rem 0; }
+    .hd-near-term-price .hd-ntp-mid { font-size: 1.05rem; font-weight: 600; color: #86efac; }
     .hd-goal-picks { margin: 0.65rem 0 0; font-size: 0.84rem; }
     .hd-goal-picks table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
     .hd-goal-picks th, .hd-goal-picks td { border: 1px solid var(--border); padding: 0.35rem 0.5rem; }
@@ -464,6 +493,29 @@
     .wl-toolbar {
       color: var(--muted);
       font-size: 0.82rem;
+      margin-bottom: 0.5rem;
+    }
+    .wl-toolbar-left,
+    .wl-toolbar-right {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.55rem 0.85rem;
+    }
+    .wl-sort-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      font-size: 0.76rem;
+      color: #9ec5f5;
+      background: rgba(61, 139, 253, 0.12);
+      border: 1px solid rgba(61, 139, 253, 0.28);
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .wl-view-reset-btn {
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
     }
     .wl-page-size {
       display: inline-flex;
@@ -493,23 +545,22 @@
     }
     .wl-table-scroll td.wl-close-num,
     .wl-table-scroll td.wl-prev-num,
-    .wl-table-scroll td.wl-spot-num {
+    .wl-table-scroll td.wl-spot-num,
+    .wl-table-scroll td.wl-spot-chg-num {
       text-align: right;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
-    .wl-table-scroll td.wl-spot-num .wl-spot-chg {
-      display: block;
-      font-size: 0.72rem;
-      margin-top: 0.12rem;
-    }
-    .wl-table-scroll td.wl-spot-num.wl-spot-up {
+    .wl-table-scroll td.wl-spot-chg-num.wl-spot-up,
+    #panel-2 #wl-table-wrap .wl-table-scroll td.wl-spot-chg-num.wl-spot-up {
       color: #f87171;
     }
-    .wl-table-scroll td.wl-spot-num.wl-spot-down {
+    .wl-table-scroll td.wl-spot-chg-num.wl-spot-down,
+    #panel-2 #wl-table-wrap .wl-table-scroll td.wl-spot-chg-num.wl-spot-down {
       color: #4ade80;
     }
-    .wl-table-scroll td.wl-spot-num.wl-spot-flat {
+    .wl-table-scroll td.wl-spot-chg-num.wl-spot-flat,
+    #panel-2 #wl-table-wrap .wl-table-scroll td.wl-spot-chg-num.wl-spot-flat {
       color: var(--muted);
     }
     .wl-table-scroll th.wl-check-col,
@@ -1831,6 +1882,283 @@
       pointer-events: none;
       filter: grayscale(0.2);
     }
+    #panel-2 > h2 {
+      font-size: 1.38rem;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.4rem;
+    }
+    #panel-2 .wl-page-intro {
+      max-width: none;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      margin-bottom: 0.65rem;
+    }
+    #panel-2 .wl-page-details {
+      margin: 0 0 1.2rem;
+      max-width: none;
+      font-size: 0.84rem;
+      color: var(--muted);
+      border: 1px solid rgba(45, 58, 79, 0.5);
+      border-radius: 10px;
+      padding: 0.4rem 0.95rem;
+      background: rgba(0, 0, 0, 0.12);
+    }
+    #panel-2 .wl-page-details > summary {
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+      color: #8aa3be;
+      padding: 0.15rem 0;
+    }
+    #panel-2 .wl-page-details[open] > summary {
+      margin-bottom: 0.45rem;
+      border-bottom: 1px solid rgba(45, 58, 79, 0.45);
+      padding-bottom: 0.4rem;
+    }
+    #panel-2 .wl-page-details .lead {
+      margin: 0.4rem 0 0;
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
+    #panel-2 .wl-quant-mode-card {
+      padding: 1.25rem 1.55rem 1.2rem;
+      margin: 0 0 1.35rem;
+    }
+    #panel-2 .wl-quant-mode-desc {
+      font-size: 0.86rem;
+    }
+    #panel-2 .hot-fill-box {
+      margin: 0 0 1.5rem;
+    }
+    #panel-2 .hot-fill-head {
+      padding: 1.4rem 1.65rem 1.2rem;
+    }
+    #panel-2 .hot-fill-box h3 {
+      font-size: 1.12rem;
+    }
+    #panel-2 .hot-fill-desc {
+      max-width: none;
+      font-size: 0.88rem;
+      line-height: 1.65;
+    }
+    #panel-2 .hot-fill-body-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 960px) {
+      #panel-2 .hot-fill-body-grid {
+        grid-template-columns: minmax(260px, 0.92fr) minmax(300px, 1.08fr);
+      }
+      #panel-2 .hot-fill-body-grid > .hot-fill-section {
+        border-top: none;
+      }
+      #panel-2 .hot-fill-body-grid > .hot-fill-section:first-child {
+        border-right: 1px solid rgba(45, 58, 79, 0.45);
+      }
+      #panel-2 .hot-fill-body-grid > .hot-fill-section + .hot-fill-section {
+        border-top: none;
+      }
+    }
+    #panel-2 .hot-fill-section {
+      padding: 1.2rem 1.65rem 1.25rem;
+    }
+    #panel-2 .hot-cond-panels-wrap .hot-fill-section {
+      padding: 1.15rem 1.65rem 1.2rem;
+    }
+    #panel-2 .hot-fill-section-title {
+      font-size: 0.72rem;
+      margin-bottom: 1rem;
+    }
+    #panel-2 .hot-form-grid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem 1.35rem;
+    }
+    #panel-2 .hot-form-grid label {
+      font-size: 0.86rem;
+    }
+    #panel-2 .hot-form-grid input[type="number"],
+    #panel-2 .hot-form-grid select,
+    #panel-2 .hot-form-grid input[type="date"] {
+      padding: 0.58rem 0.72rem;
+      font-size: 0.94rem;
+    }
+    #panel-2 .hot-sector-hot-qty-grid {
+      max-width: none;
+    }
+    #panel-2 select.hot-pick-conditions-select {
+      min-height: 7.5rem;
+      font-size: 0.9rem;
+      padding: 0.55rem 0.7rem;
+      line-height: 1.5;
+    }
+    #panel-2 .hot-options-grid {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 0.65rem 1.35rem;
+      font-size: 0.88rem;
+    }
+    #panel-2 .hot-threshold-grid {
+      gap: 1.15rem;
+    }
+    #panel-2 .hot-threshold-card {
+      padding: 1rem 1.15rem;
+    }
+    #panel-2 footer.hot-fill-actions {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 1.15rem 1.65rem 1.35rem;
+      gap: 0.65rem;
+    }
+    #panel-2 footer.hot-fill-actions .btns {
+      justify-content: flex-start;
+    }
+    #panel-2 .hot-fill-box > #hotSummaryLine {
+      padding-left: 1.65rem;
+      padding-right: 1.65rem;
+    }
+    #panel-2 .hot-fill-box > .hot-sectors-wrap {
+      margin-left: 1.65rem;
+      margin-right: 1.65rem;
+    }
+    #panel-2 .panel-rule {
+      margin: 1.75rem 0 1.35rem;
+    }
+    #panel-2 .wl-manual-shell {
+      margin: 0 0 1.5rem;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: linear-gradient(165deg, rgba(30, 42, 58, 0.92) 0%, var(--panel) 50%, #151d2a 100%);
+      box-shadow: 0 6px 28px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+    #panel-2 .wl-manual-shell-head {
+      padding: 1.2rem 1.55rem 0.9rem;
+      border-bottom: 1px solid rgba(45, 58, 79, 0.5);
+      background: rgba(0, 0, 0, 0.1);
+    }
+    #panel-2 .wl-manual-shell-head .wl-manual-heading {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+    #panel-2 .wl-manual-shell-body {
+      padding: 1.15rem 1.55rem 1.35rem;
+    }
+    #panel-2 .wl-manual-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.15rem;
+      align-items: start;
+    }
+    @media (min-width: 900px) {
+      #panel-2 .wl-manual-grid {
+        grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.1fr);
+        gap: 1.35rem 1.75rem;
+      }
+    }
+    #panel-2 .wl-manual-col--tools .row {
+      margin-bottom: 0.75rem;
+    }
+    #panel-2 .wl-manual-col--tools .row input[type="text"] {
+      max-width: none;
+      font-size: 0.94rem;
+      padding: 0.55rem 0.7rem;
+    }
+    #panel-2 .wl-kline-fetch-block {
+      margin: 0;
+      padding: 1rem 1.15rem;
+      border-radius: 10px;
+    }
+    #panel-2 .wl-kline-fetch-block .wl-kline-fetch-title {
+      font-size: 0.96rem;
+    }
+    #panel-2 #wl-table-wrap .wl-table-scroll {
+      border: 1px solid rgba(45, 58, 79, 0.75);
+      border-radius: 10px;
+      padding: 0.45rem 0.55rem;
+      background: rgba(0, 0, 0, 0.14);
+    }
+    #panel-2 #wl-table-wrap .wl-table-scroll table {
+      font-size: 0.88rem;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    #panel-2 #wl-table-wrap .wl-table-scroll thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      vertical-align: middle;
+      padding: 0.55rem 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #a8b6c8;
+      background: rgba(18, 24, 32, 0.98);
+      border-bottom: 1px solid rgba(61, 139, 253, 0.22);
+      white-space: nowrap;
+    }
+    #panel-2 #wl-table-wrap .wl-table-scroll tbody td {
+      padding: 0.5rem 0.5rem;
+      vertical-align: middle;
+      border-bottom: 1px solid rgba(45, 58, 79, 0.35);
+    }
+    #panel-2 #wl-table-wrap .wl-table-scroll td.wl-bar-meta,
+    #panel-2 #wl-table-wrap .wl-table-scroll th.wl-bar-meta {
+      font-size: 0.78rem;
+    }
+    #panel-2 #wl-table-wrap .wl-col-code { min-width: 4.5rem; }
+    #panel-2 #wl-table-wrap .wl-col-name { min-width: 5.5rem; max-width: 8rem; }
+    #panel-2 #wl-table-wrap .wl-col-ingest { min-width: 9rem; max-width: 11rem; }
+    #panel-2 #wl-table-wrap .wl-col-kline-date {
+      min-width: 5.5rem;
+      max-width: 7rem;
+      font-size: 0.76rem;
+      color: var(--muted);
+    }
+    #panel-2 .wl-backfill-today-btn {
+      font-size: 0.82rem;
+    }
+    #panel-2 .wl-backfill-today-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    #panel-2 .wl-sort-th {
+      text-align: right;
+    }
+    #panel-2 .wl-sort-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.3rem;
+      width: 100%;
+      margin: 0;
+      padding: 0.2rem 0.35rem;
+      font: inherit;
+      font-size: inherit;
+      font-weight: 600;
+      color: #b8c5d4;
+      background: transparent;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      line-height: 1.35;
+    }
+    #panel-2 .wl-sort-btn:hover {
+      background: rgba(61, 139, 253, 0.1);
+      color: var(--accent);
+    }
+    #panel-2 .wl-sort-th.wl-sort-active .wl-sort-btn {
+      color: var(--accent);
+      background: rgba(61, 139, 253, 0.08);
+    }
+    #panel-2 .wl-sort-arrow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0.85rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
     .hot-summary-box {
       margin-top: 0.85rem;
       padding: 0.9rem 1rem;
@@ -1876,6 +2204,27 @@
       border: 1px solid rgba(248, 113, 113, 0.22);
       border-radius: 8px;
       background: rgba(248, 113, 113, 0.08);
+    }
+    .hot-warning-details > summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: 0.82rem;
+      color: #ffb4b4;
+      font-weight: 600;
+      user-select: none;
+    }
+    .hot-warning-details > summary::-webkit-details-marker { display: none; }
+    .hot-warning-details > summary::before {
+      content: "▸ ";
+      display: inline-block;
+      transition: transform 0.15s ease;
+      color: var(--muted);
+    }
+    .hot-warning-details[open] > summary::before {
+      transform: rotate(90deg);
+    }
+    .hot-warning-details .hot-result-table-wrap {
+      margin-top: 0.55rem;
     }
     .hot-warning-title {
       margin: 0 0 0.45rem;
@@ -2647,7 +2996,11 @@
 
       <section id="panel-2" class="panel" data-module="2">
         <h2>② 管理自选股票</h2>
-        <p class="lead">告诉系统要关注哪些 6 位 A 股代码；拉数据、算信号都基于自选列表。可先选下方<strong>自选池来源</strong>：用⑨量化结果，或用<strong>手动 + 热门板块</strong>维护；手动条目在任何模式下都会保留。</p>
+        <p class="lead wl-page-intro">管理要关注的 6 位 A 股代码；拉数据与算信号均基于自选列表。下方可选<strong>量化池</strong>或<strong>手动 + 热门板块</strong>维护，<strong>手动</strong>条目在任何模式下都会保留。</p>
+        <details class="wl-page-details">
+          <summary>自选池来源与行为说明</summary>
+          <p class="lead">开启量化开关后，⑨「运行选股评估」成功时会自动写入自选（来源「量化自动」，并清空原热门/量化自动项，不删手动）。关闭后仅由热门板块与手动添加维护。⑨快照「将所选加入自选」会清空全部自选后仅保留勾选（热门自动）；「获取快照热门股票」导入前会清空自动池。</p>
+        </details>
         <div id="wlQuantModeCard" class="wl-quant-mode-card">
           <label class="wl-quant-switch-label" for="chkWlUseQuant">
             <input type="checkbox" id="chkWlUseQuant" autocomplete="off" />
@@ -2664,8 +3017,9 @@
         <div class="hot-fill-box">
           <header class="hot-fill-head">
             <h3>热门板块选股</h3>
-            <p class="hot-fill-desc">按核心数据源拉取热门板块排名，每板块取过滤后的候选股票<strong>先展示在下方</strong>，由你勾选后再点「将勾选股加入自选」（来源为<strong>手动</strong>，不会自动整批写入）。<strong>akshare</strong> 东财板块较全；<strong>mootdx</strong> 通达信板块较少；<strong>TuShare</strong> 需 Token。需联网，耗时可较长。</p>
+            <p class="hot-fill-desc">拉取热门板块排名并筛选候选，<strong>先展示在下方</strong>，勾选后点「将勾选股加入自选」（来源<strong>手动</strong>，不自动整批写入）。<strong>akshare</strong> 板块较全；<strong>mootdx</strong> 较少；<strong>TuShare</strong> 需 Token。需联网，耗时可较长。</p>
           </header>
+          <div class="hot-fill-body-grid">
           <div class="hot-fill-section">
             <div class="hot-fill-section-title">数据源与板块</div>
             <div class="hot-form-grid">
@@ -2699,7 +3053,7 @@
             <div class="hot-fill-section-title">选股条件（下拉多选，再点「获取热门板块候选」）</div>
             <div class="field-stack">
               <label for="hotPickConditions">条件类型</label>
-              <select id="hotPickConditions" class="hot-pick-conditions-select" multiple size="3" aria-describedby="hotPickConditionsHint">
+              <select id="hotPickConditions" class="hot-pick-conditions-select" multiple size="5" aria-describedby="hotPickConditionsHint">
                 <option value="sector_hot" selected>热门板块筛选（趋势 / 流动性 / 技术面）</option>
                 <option value="ma5_capital">五日强承接（连续站上 MA5 + 资金承接强）</option>
                 <option value="rising_3d">连续三日上涨（收盘逐日抬高）</option>
@@ -2707,6 +3061,8 @@
               <p id="hotPickConditionsHint" class="hot-field-hint" style="margin:0.35rem 0 0">Windows 按住 Ctrl、Mac 按住 ⌘ 可多选；至少选 1 项。各条件结果在下方<strong>分表展示</strong>，同属热门候选。</p>
             </div>
           </div>
+          </div>
+          <div class="hot-cond-panels-wrap">
           <div id="hotCondSectorHot" class="hot-fill-section hot-cond-panel">
             <div class="hot-fill-section-title">热门板块筛选 · 参数</div>
             <div class="hot-form-grid hot-sector-hot-qty-grid">
@@ -2762,6 +3118,7 @@
             </div>
             <p class="hot-field-hint" style="margin:0.65rem 0 0">扫描<strong>全部</strong>热门板块成分，不限每板块只数。日线与板块成分走上方<strong>热门数据路线</strong>；主力净流入为东财日级资金表。规则：末根起连续 ≥3 日收盘≥MA5，近 3 日中至少 2 日主力净流入为正且合计为正，最新一日大单+超大单净占比≥0。</p>
           </div>
+          </div>
           <footer class="hot-fill-actions">
             <div class="btns">
               <button type="button" class="secondary" id="btnHotShowCache" title="读取本机浏览器上次缓存，不请求 API">展示上一次缓存数据</button>
@@ -2793,9 +3150,17 @@
           </div>
         </dialog>
         <hr class="panel-rule" aria-hidden="true" />
-        <div class="wl-manual-block">
-          <h3 class="wl-manual-heading">手动添加与管理</h3>
-          <p class="lead wl-manual-lead">输入 6 位 A 股代码点<strong>确定添加</strong>后，服务端会<strong>自动联网拉取近约 30 个日历日的日线</strong>写入本机（路线与③下拉框一致），列表中即可显示「最近入库 / 昨日收盘 / 当日收盘」，无需再去③单独更新。勾选后点<strong>删除所选</strong>可删部分；点<strong>清空自动池</strong>可一次删掉全部「热门自动」「量化自动」（保留手动）；点<strong>全部删除</strong>可清空整个自选池。⑨「快照热门股」里<strong>将所选加入自选</strong>会<strong>清空全部自选</strong>后仅保留勾选股票（来源为<strong>热门自动</strong>）。「获取快照热门股票」写入后为<strong>热门自动</strong>（读 <code>data/hot_market_snapshot.json</code>），导入前会清空自动池。若无快照文件，请先在⑨第 2 步里点「刷新热门快照（联网）」落盘。</p>
+        <div class="wl-manual-shell">
+          <header class="wl-manual-shell-head">
+            <h3 class="wl-manual-heading">手动添加与管理</h3>
+          </header>
+          <div class="wl-manual-shell-body">
+          <details class="wl-page-details" style="margin:0 0 1rem">
+            <summary>操作说明（添加、删除、快照导入）</summary>
+            <p class="lead wl-manual-lead" style="margin:0.5rem 0 0">输入 6 位代码点<strong>确定添加</strong>后按右侧日期区间自动入库日线（路线与③共用）。行内「重新获取」或勾选后<strong>重新获取所选日线</strong>；<strong>删除所选</strong>、<strong>清空自动池</strong>（仅热门/量化自动）、<strong>全部删除</strong>见下方按钮。「获取快照热门股票」读 <code>data/hot_market_snapshot.json</code>，导入前清空自动池；无文件请先在⑨刷新热门快照。</p>
+          </details>
+          <div class="wl-manual-grid">
+            <div class="wl-manual-col wl-manual-col--tools">
           <div class="row">
             <label for="symAdd">股票代码</label>
             <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
@@ -2803,14 +3168,42 @@
           <div class="btns">
             <button type="button" class="primary" id="btnAddWl">确定添加</button>
             <button type="button" class="secondary" id="btnRefreshWl">刷新列表</button>
+            <button type="button" class="secondary" id="btnWlBackfillTodayClose" title="用联网现价补写今日日线 bar，填「当日收盘」；不替代拉取日线与刷新列表">现价补当日收盘</button>
             <button type="button" class="secondary" id="btnWlFetchHotSnapStocks" title="POST /watchlist/import-hot-market-snapshot">获取快照热门股票</button>
             <button type="button" class="secondary" id="btnWlBatchDelete" title="删除表格中已勾选的股票（可跨页累积勾选）">删除所选</button>
             <button type="button" class="secondary" id="btnWlClearAuto" title="POST /watchlist/delete-all scope=auto">清空自动池</button>
             <button type="button" class="secondary" id="btnWlDeleteAll" title="POST /watchlist/delete-all scope=all" style="border-color:rgba(248,113,113,0.45);color:#ffb4b4">全部删除</button>
             <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
           </div>
-          <p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted)">点击「<strong>刷新列表</strong>」联网加载自选（含昨日收盘、当日收盘与现价快照）；进入本页或 F5 <strong>不会</strong>自动请求。若有上次刷新成功的缓存会自动展示（不联网）。</p>
+          <p class="lead" style="margin:0.5rem 0 0;font-size:0.82rem;color:var(--muted)">「<strong>刷新列表</strong>」联网加载自选；进入本页或 F5 不自动请求。有缓存则先展示缓存。</p>
           <p class="cancel-hint" data-cancel-hint="panel-2" hidden>可中断热门板块预览、刷新列表等本页联网请求。</p>
+            </div>
+            <div class="wl-manual-col wl-manual-col--kline">
+          <div class="wl-kline-fetch-block">
+            <h4 class="wl-kline-fetch-title">拉取日线（本地 K 线）</h4>
+            <p class="lead" style="margin:0 0 0.65rem;font-size:0.82rem;color:var(--muted)">
+              与③共用行情路线；此处<strong>拉日线入库</strong>。留空日期默认近约 30 个日历日。
+            </p>
+            <div class="hot-form-grid" style="margin-bottom:0.5rem">
+              <div class="field-stack">
+                <label for="wlIngestStartDate">开始日期（含）</label>
+                <input type="date" id="wlIngestStartDate" autocomplete="off" />
+              </div>
+              <div class="field-stack">
+                <label for="wlIngestEndDate">结束日期（含）</label>
+                <input type="date" id="wlIngestEndDate" autocomplete="off" />
+              </div>
+            </div>
+            <p class="lead" style="margin:0 0 0.55rem;font-size:0.82rem;color:var(--muted)">
+              行情路线（与③联动）：<strong id="wlRouteEcho">—</strong>
+            </p>
+            <div class="btns" style="margin:0">
+              <button type="button" class="primary" id="btnWlRefetchSelected">重新获取所选日线</button>
+            </div>
+          </div>
+            </div>
+          </div>
+          </div>
         </div>
         <div id="wl-table-wrap"></div>
         <pre class="out" id="out-2" hidden></pre>
@@ -2818,7 +3211,7 @@
 
       <section id="panel-3" class="panel panel-ingest-module" data-module="3">
         <h2>③ 更新行情数据</h2>
-        <p class="lead" style="margin-bottom:0.75rem;">分两块：<strong>① 更新日线</strong>（写库，并触发 ⑦ 自动前向展望；可勾选同时拉扩展因子，结果表内展示）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）。</p>
+        <p class="lead" style="margin-bottom:0.75rem;">分两块：<strong>① 更新行情快照</strong>（刷新现价/强弱与扩展因子，并触发 ⑦ 自动前向展望；<strong>不拉 K 线</strong>，日线请在<strong>②</strong>）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）。</p>
 
         <div class="m3-stack">
           <article class="m3-card m3-card-ingest">
@@ -2826,7 +3219,7 @@
               <span class="m3-card-num" aria-hidden="true">1</span>
               <div>
                 <h3 class="m3-card-title">更新自选行情</h3>
-                <p class="m3-card-desc">联网拉日线，按交易日与本地 SQLite <strong>合并写入</strong>（upsert），不清空其它日期历史。自选有几只更新几只（可用下方代码框缩小范围）。</p>
+                <p class="m3-card-desc">联网刷新<strong>现价快照、强弱与扩展因子</strong>（不写 K 线）。昨收/当日收盘等展示字段来自本地 SQLite 已有 bars（请在<strong>② 拉取日线</strong>）。自选有几只更新几只（可用下方代码框缩小范围）。</p>
               </div>
             </header>
             <div class="m3-card-body">
@@ -2850,22 +3243,6 @@
                   </details>
                 </p>
               </div>
-              <div class="row">
-                <span class="lbl-block" style="display:block;font-size:0.82rem;color:var(--muted);margin-bottom:0.35rem;">拉取日期区间（均可留空）</span>
-                <div class="m3-date-grid">
-                  <div>
-                    <label for="ingestStartDate">开始日期（含）</label>
-                    <input type="date" id="ingestStartDate" />
-                  </div>
-                  <div>
-                    <label for="ingestEndDate">结束日期（含）</label>
-                    <input type="date" id="ingestEndDate" />
-                  </div>
-                </div>
-                <p class="m3-hint">
-                  <strong>都不填</strong>：增量到今天。<strong>只填结束</strong>：更新到该日。<strong>只填开始</strong>：从该日拉到今日。<strong>都填</strong>：拉取闭区间。连接失败可先点「测试数据源连接」。
-                </p>
-              </div>
               <div class="row field-stack">
                 <label for="ingestSubsetSymbols">仅更新部分自选（可选）</label>
                 <textarea id="ingestSubsetSymbols" rows="3" placeholder="留空 = 自选全部。多行或逗号分隔，如：&#10;600519&#10;000001 300750" autocomplete="off"></textarea>
@@ -2887,7 +3264,7 @@
                 <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-3" hidden>取消请求</button>
               </div>
               <p class="m3-hint" style="margin:0.5rem 0 0;font-size:0.78rem">
-                <strong>展示上一次拉取结果</strong>：只读本机浏览器缓存，<strong>不联网</strong>（不刷新现价轮询）。需要重新拉日线或扩展因子时点<strong>开始更新自选行情</strong>或<strong>仅拉取扩展因子</strong>。进入本模块时会自动尝试展示缓存（若有）。
+                <strong>展示上一次拉取结果</strong>：只读本机浏览器缓存，<strong>不联网</strong>（不刷新现价轮询）。需要重新刷新现价/扩展因子时点<strong>开始更新自选行情</strong>或<strong>仅拉取扩展因子</strong>；需要更新 K 线请到<strong>②</strong>。进入本模块时会自动尝试展示缓存（若有）。
               </p>
               <p class="cancel-hint" data-cancel-hint="panel-3" hidden>可中断③批量更新/扩展因子/行内回测等；服务端会停止后续自选拉取（已开始的单只可能仍跑完）。</p>
               <div id="ingest-result-wrap" class="ingest-result-wrap" hidden></div>
@@ -3098,7 +3475,7 @@
         </div>
         <div id="hd-goal-progress" class="hd-goal-progress" hidden aria-live="polite"></div>
         <p class="lead" style="font-size:0.82rem;margin:0.35rem 0 0;">
-          示例：起始 5000、目标 10000。点<strong>计算距目标</strong>按全部持仓盈亏汇总权益与差距（需已录入持仓；现价同列表）。列表<strong>测算</strong>为单标的留换仓建议。Demo 规则，非收益承诺。
+          示例：起始 5000、目标 10000。点<strong>计算距目标</strong>按全部持仓盈亏汇总权益与差距（需已录入持仓；现价同列表）。列表<strong>测算</strong>按入库<strong>收盘 K 线</strong>；<strong>测算当日</strong>先检查数据再拉<strong>联网现价</strong>重算（缺 K 线/现价会提示去 ③ 或「刷新列表」）。Demo 规则，非收益承诺。
         </p>
         <h3 class="ingest-h3" style="margin-top:0.5rem;">录入持仓</h3>
         <div class="row hd-entry-mode-row">
@@ -3183,12 +3560,13 @@
             <option value="holding">仅持仓中</option>
             <option value="closed">仅已平仓（复盘）</option>
           </select>
+          <button type="button" class="primary" id="btnHdQuery">查询</button>
           <button type="button" class="secondary" id="btnHdGoalLast" disabled title="展示本机保存的最近一次成功测算结果">
             查看上次测算
           </button>
         </div>
         <div id="hd-table-wrap" class="wl-table-scroll" style="margin-top:0.75rem;">
-          <p class="lead" style="margin:0">点击「<strong>刷新列表</strong>」加载最新持仓；「显示」下拉仅在本地筛选，不重复请求（F5 不自动加载）。</p>
+          <p class="lead" style="margin:0">进入本页<strong>不会</strong>自动加载。点「<strong>查询</strong>」读库（拉取全部）；「<strong>显示</strong>」切换仅本地筛选。点「<strong>刷新列表</strong>」联网更新现价并写回库。「计算距目标」需手动点击。</p>
         </div>
         <div id="hd-advice-panel" class="hd-advice-panel" hidden aria-live="polite"></div>
         <pre class="out" id="out-10" hidden></pre>
@@ -3457,6 +3835,7 @@
   var LS_WL_PAGE_SIZE = "quant_monitor_watchlist_page_size";
   /** 上次「刷新列表」成功返回的自选全量（本机缓存） */
   var LS_LAST_WL_LIST = "quant_monitor_last_watchlist_v1";
+  var LS_LAST_WL_KLINE_DATES = "quant_monitor_wl_kline_dates_v1";
   var LS_INGEST_PAGE_SIZE = "quant_monitor_ingest_page_size";
   /** 上次成功拉取行情后的响应 JSON（恢复③表格与免责等） */
   var LS_LAST_INGEST_BODY = "quant_monitor_last_ingest_result_v1";
@@ -3470,6 +3849,9 @@
   var INGEST_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
   var SIGNALS_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
   var watchlistPage = 1;
+  /** ② 自选表排序：prev / today / spot；首次点击降序，再点升序 */
+  var _wlSortCol = null;
+  var _wlSortDir = "desc";
   /** 自选列表最近一次成功拉取的全量数据（翻页只切片重绘，避免 abort 竞态）。 */
   var _wlCachedBody = null;
   var _wlRefreshSeq = 0;
@@ -3898,6 +4280,8 @@
     sessionStorage.setItem(SS_MOD, id);
     updateRouteEchoSpans();
     if (id === "2") {
+      initWlIngestDateInputs();
+      updateRouteEchoSpans();
       wlRestoreTableFromCache();
       tryRestoreHotPickFromCacheOnPanelEnter();
     }
@@ -3916,11 +4300,11 @@
     }
     if (id === "7") void refreshForwardOutlookPanel();
     if (id === "10") {
-      hdLoadFilter();
+      hdResetFilterDisplay();
       hdLoadEntryMode();
       hdInitArchiveDates();
       hdUpdateGoalLastBtnState();
-      hdRestoreHoldingsTableFromCache();
+      hdShowHoldingsIdle();
     }
   }
 
@@ -7814,15 +8198,16 @@
     });
     return (
       '<div class="hot-warning-box">' +
-      '<h5 class="hot-warning-title">筛选提示 / 跳过原因（' +
+      '<details class="hot-warning-details">' +
+      '<summary class="hot-warning-summary">筛选提示 / 跳过原因（' +
       escHtml(String(warnings.length)) +
-      " 条）</h5>" +
+      " 条）· 点击展开查看详情</summary>" +
       '<div class="hot-result-table-wrap">' +
       '<table class="hot-result-table hot-warnings-table"><thead><tr>' +
       "<th>板块</th><th>代码</th><th>类型</th><th>说明</th>" +
       "</tr></thead><tbody>" +
       rows +
-      "</tbody></table></div></div>"
+      "</tbody></table></div></details></div>"
     );
   }
 
@@ -8647,55 +9032,94 @@
     var startD = new Date(endD.getTime());
     startD.setDate(startD.getDate() - n);
     return {
-      start_date: startD.toISOString().slice(0, 10),
-      end_date: endD.toISOString().slice(0, 10),
+      start_date: localCalendarYmd(startD),
+      end_date: localCalendarYmd(endD),
     };
   }
 
-  async function wlIngestMissingSymbol(sym) {
-    if (!sym) return;
+  async function wlRefetchKlineSymbols(symbols) {
+    if (!symbols || !symbols.length) {
+      showOut("out-2", "请先勾选股票，或点表格「最近入库」列中的「重新获取」。", true);
+      return;
+    }
     if (apiKeyRequired() && !getApiKey()) {
       showOut("out-2", "请先在「①」保存 API Key。", true);
       return;
     }
-    var range = wlIngestDateRangeDays(30);
-    showOut("out-2", "正在拉取 " + sym + " 近约 30 日日线（" + range.start_date + "～" + range.end_date + "），请稍候…", true);
+    persistWlKlineDates();
+    var range = getWlIngestDateRange();
+    var rangeLab =
+      (range.start_date || "…") + " ～ " + (range.end_date || "…");
+    showOut(
+      "out-2",
+      "正在拉取 " +
+        symbols.length +
+        " 只日线（" +
+        rangeLab +
+        "，路线 " +
+        getIngestDataSource() +
+        "）…",
+      true
+    );
     try {
-      var res = await panelFetch("/ingest/update", {
+      var payload = {
+        symbols: symbols,
+        data_source: getIngestDataSource(),
+      };
+      if (range.start_date) payload.start_date = range.start_date;
+      if (range.end_date) payload.end_date = range.end_date;
+      var res = await fetchCancel("panel-2", "/ingest/update", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({
-          symbols: [sym],
-          start_date: range.start_date,
-          end_date: range.end_date,
-          data_source: getIngestDataSource(),
-        }),
+        body: JSON.stringify(payload),
+        loadingMessage: "正在拉取日线…",
       });
       var body = await readBody(res);
       if (!res.ok) {
         showOut("out-2", await formatError(res, body), true);
         return;
       }
-      var row =
-        body && Array.isArray(body.results)
-          ? body.results.find(function (r) {
-              return r && r.symbol === sym;
-            })
-          : null;
-      if (row && row.error) {
-        showOut("out-2", sym + " 日线拉取失败：" + row.error + "（可改③行情路线或检查网络/代理）", true);
+      if (body && body.cancelled) {
+        showOut("out-2", "拉取已取消：仅完成部分股票。", true);
       } else {
-        var n = row && row.rows_upserted != null ? row.rows_upserted : "—";
+        var okN =
+          body && body.results
+            ? body.results.filter(function (r) {
+                return r && r.symbol && !r.error;
+              }).length
+            : 0;
+        var failN = symbols.length - okN;
+        var backfillN =
+          body && body.results
+            ? body.results.filter(function (r) {
+                return r && r.today_bar_backfill;
+              }).length
+            : 0;
         showOut(
           "out-2",
-          sym + " 日线已入库 " + n + " 条" + (row && row.last_close != null ? "，当日收盘 " + row.last_close : ""),
-          false
+          "日线拉取完成：成功 " +
+            okN +
+            " 只" +
+            (failN > 0 ? "，失败/跳过 " + failN + " 只（见③拉取结果或重试）" : "") +
+            (backfillN > 0
+              ? "；其中 " + backfillN + " 只已用收盘后现价补写当日 K 线（数据源日线滞后时）"
+              : "") +
+            "。区间 " +
+            rangeLab +
+            "。请点「刷新列表」查看昨收/当日收盘。",
+          failN > 0
         );
       }
       await refreshWatchlistTable();
     } catch (e) {
-      showOut("out-2", String(e), true);
+      if (isRequestAborted(e)) showOut("out-2", "拉取日线已取消。", true);
+      else showOut("out-2", String(e), true);
     }
+  }
+
+  async function wlIngestMissingSymbol(sym) {
+    if (!sym) return;
+    await wlRefetchKlineSymbols([sym]);
   }
 
   function wlShowTableIdle() {
@@ -8703,6 +9127,65 @@
     if (!wrap) return;
     wrap.innerHTML =
       '<p class="lead">点击「<strong>刷新列表</strong>」加载自选池（含昨日收盘、当日收盘与现价快照）。进入本页或刷新浏览器<strong>不会</strong>自动联网。</p>';
+  }
+
+  /** ② 自选「当日收盘」：与后端 display_today_* 一致，末根早于执行日时不显示昨根收盘 */
+  function wlTodayCloseDisplayFields(item) {
+    if (!item || typeof item !== "object") return { close: null, title: "", pending: false };
+    var basis = item.display_today_close_basis || "";
+    var execD =
+      item.ingest_exec_date != null && String(item.ingest_exec_date).trim()
+        ? String(item.ingest_exec_date).trim().slice(0, 10)
+        : "";
+    var lastTd =
+      item.bars_last_trade_date != null && String(item.bars_last_trade_date).trim()
+        ? String(item.bars_last_trade_date).trim().slice(0, 10)
+        : "";
+    var close =
+      item.display_today_close != null && isFinite(Number(item.display_today_close))
+        ? Number(item.display_today_close)
+        : null;
+    if (close != null) {
+      var td =
+        item.display_today_trade_date != null && String(item.display_today_trade_date).trim()
+          ? String(item.display_today_trade_date).trim().slice(0, 10)
+          : lastTd;
+      var title = (td || "—") + " 交易日日线收盘（当日，已入库）";
+      if (basis === "last_bar_same_day" && item.today_close_provisional) {
+        title += "；盘中现价参考，非 15:00 正式收盘";
+      }
+      return {
+        close: close,
+        pending: false,
+        title: title,
+      };
+    }
+    if (basis === "pending_today_bar" || (execD && lastTd && execD > lastTd)) {
+      return {
+        close: null,
+        pending: true,
+        title:
+          "执行日 " +
+          (execD || "—") +
+          "，库中末根 K 线为 " +
+          (lastTd || "—") +
+          "；可点表头「一键现价」或「现价补当日收盘」，或在 ③ 拉取含今日的日线",
+      };
+    }
+    if (
+      item.last_close != null &&
+      isFinite(Number(item.last_close)) &&
+      execD &&
+      lastTd &&
+      execD === lastTd
+    ) {
+      return {
+        close: Number(item.last_close),
+        pending: false,
+        title: lastTd + " 交易日收盘（末根 K 线）",
+      };
+    }
+    return { close: null, pending: false, title: "尚无当日收盘数据" };
   }
 
   /** 与③ ingestPrevDisplayFields / ④ prev_close 展示规则一致 */
@@ -8859,6 +9342,131 @@
     wlShowTableIdle();
   }
 
+  function wlSortNumericValue(item, col) {
+    if (!item || typeof item !== "object") return null;
+    if (col === "prev") {
+      var p = wlPrevDisplayFields(item);
+      return p.close != null && isFinite(p.close) ? p.close : null;
+    }
+    if (col === "today") {
+      var t = wlTodayCloseDisplayFields(item);
+      return t.close != null && isFinite(t.close) ? t.close : null;
+    }
+    if (col === "spot") {
+      return item.spot_last_price != null && isFinite(Number(item.spot_last_price))
+        ? Number(item.spot_last_price)
+        : null;
+    }
+    if (col === "spot_chg") {
+      return item.spot_change_pct != null && isFinite(Number(item.spot_change_pct))
+        ? Number(item.spot_change_pct)
+        : null;
+    }
+    return null;
+  }
+
+  function wlApplyWatchlistSort(rows) {
+    if (!_wlSortCol || !Array.isArray(rows)) return rows;
+    var col = _wlSortCol;
+    var mul = _wlSortDir === "asc" ? 1 : -1;
+    return rows.slice().sort(function (a, b) {
+      var va = wlSortNumericValue(a, col);
+      var vb = wlSortNumericValue(b, col);
+      var aNull = va == null;
+      var bNull = vb == null;
+      if (aNull && bNull) return String(a.symbol || "").localeCompare(String(b.symbol || ""));
+      if (aNull) return 1;
+      if (bNull) return -1;
+      if (va === vb) return String(a.symbol || "").localeCompare(String(b.symbol || ""));
+      return (va - vb) * mul;
+    });
+  }
+
+  var WL_SORT_LABELS = {
+    prev: "昨日收盘",
+    today: "当日收盘",
+    spot: "现价",
+    spot_chg: "涨跌幅",
+  };
+
+  function wlSortArrowHtml(col) {
+    if (_wlSortCol !== col) return "";
+    var ch = _wlSortDir === "asc" ? "▲" : "▼";
+    return '<span class="wl-sort-arrow" aria-hidden="true">' + ch + "</span>";
+  }
+
+  function wlSortStatusText() {
+    if (!_wlSortCol) return "";
+    var lab = WL_SORT_LABELS[_wlSortCol] || _wlSortCol;
+    return "排序：" + lab + (_wlSortDir === "asc" ? " 升序" : " 降序");
+  }
+
+  function wlSortThHtml(col, label, extraClass, title) {
+    var active = _wlSortCol === col;
+    var sortHint =
+      active && _wlSortDir === "asc"
+        ? "当前升序，点击切换为降序"
+        : active
+          ? "当前降序，点击切换为升序"
+          : "点击按价格降序，再点切换升序";
+    return (
+      '<th class="wl-sort-th wl-bar-meta ' +
+      (extraClass || "") +
+      (active ? " wl-sort-active" : "") +
+      '"><button type="button" class="wl-sort-btn" data-wl-sort="' +
+      col +
+      '" title="' +
+      escHtml((title || label) + "；" + sortHint) +
+      '"><span class="wl-sort-label">' +
+      escHtml(label) +
+      "</span>" +
+      wlSortArrowHtml(col) +
+      "</button></th>"
+    );
+  }
+
+  function wlResetWatchlistView() {
+    _wlSortCol = null;
+    _wlSortDir = "desc";
+    watchlistPage = 1;
+    setWatchlistPageSize(20);
+    if (_wlCachedBody && _wlCachedBody.length) {
+      renderWatchlistTable(_wlCachedBody);
+      persistWatchlistSnapshot();
+    }
+  }
+
+  function wlFormatLastBarCell(item) {
+    if (!item) return { text: "—", title: "" };
+    var full =
+      item.last_daily_close_label != null && String(item.last_daily_close_label).trim()
+        ? String(item.last_daily_close_label).trim()
+        : "";
+    var td =
+      item.bars_last_trade_date != null && String(item.bars_last_trade_date).trim()
+        ? String(item.bars_last_trade_date).trim().slice(0, 10)
+        : "";
+    return {
+      text: td ? escHtml(td) : "—",
+      title: full || (td ? td + " 交易日" : ""),
+    };
+  }
+
+  function wlToggleWatchlistSort(col) {
+    if (!col) return;
+    if (_wlSortCol === col) {
+      _wlSortDir = _wlSortDir === "desc" ? "asc" : "desc";
+    } else {
+      _wlSortCol = col;
+      _wlSortDir = "desc";
+    }
+    watchlistPage = 1;
+    if (_wlCachedBody && _wlCachedBody.length) {
+      renderWatchlistTable(_wlCachedBody);
+      persistWatchlistSnapshot();
+    }
+  }
+
   function renderWatchlistTable(body) {
     var wrap = $("wl-table-wrap");
     if (!wrap) return;
@@ -8877,8 +9485,9 @@
     Array.from(wlSelectedSyms).forEach(function (s) {
       if (!inDb.has(s)) wlSelectedSyms.delete(s);
     });
+    var sortedBody = wlApplyWatchlistSort(body);
     var pageSize = getWatchlistPageSize();
-    var total = body.length;
+    var total = sortedBody.length;
     var totalPages = Math.max(1, Math.ceil(total / pageSize));
     if (_wlJumpToLastPageAfterRefreshOnce) {
       _wlJumpToLastPageAfterRefreshOnce = false;
@@ -8889,7 +9498,7 @@
     if (watchlistPage < 1) watchlistPage = 1;
     var startIdx = (watchlistPage - 1) * pageSize;
     var endIdx = Math.min(startIdx + pageSize, total);
-    var pageRows = body.slice(startIdx, endIdx);
+    var pageRows = sortedBody.slice(startIdx, endIdx);
     var rows = pageRows.map(function (item) {
       var sym = item.symbol;
       var nm = item.name != null && String(item.name).trim() ? escHtml(String(item.name).trim()) : "—";
@@ -8901,16 +9510,28 @@
             : "手动";
       var hasBars =
         item.bars_last_ingested_at != null && String(item.bars_last_ingested_at).trim();
+      var ingAt = formatWlBarsIngestAt(item.bars_last_ingested_at);
+      var refetchBtn =
+        '<button type="button" class="wl-refetch-kline" data-sym="' +
+        escHtml(sym) +
+        '" title="按上方「拉取日期区间」重新入库日线">重新获取</button>';
       var ing = hasBars
-        ? escHtml(String(item.bars_last_ingested_at).trim())
-        : '<span class="wl-ingest-missing" title="添加时自动拉取失败或尚未写入本地 bars">未入库</span>' +
-          ' <button type="button" class="wl-ingest-fix" data-sym="' +
-          escHtml(sym) +
-          '">补拉近30日</button>';
+        ? '<span class="wl-ingest-at" title="' +
+          escHtml(String(item.bars_last_ingested_at || "").trim()) +
+          '">' +
+          escHtml(ingAt || "已入库") +
+          "</span> " +
+          refetchBtn
+        : '<span class="wl-ingest-missing" title="尚未写入本地日线">未入库</span> ' + refetchBtn;
+      var todayDisp = wlTodayCloseDisplayFields(item);
       var px =
-        item.last_close != null && typeof item.last_close === "number" && isFinite(item.last_close)
-          ? escHtml(item.last_close.toFixed(4))
-          : "—";
+        todayDisp.close != null && isFinite(todayDisp.close)
+          ? escHtml(todayDisp.close.toFixed(4))
+          : todayDisp.pending
+            ? '<span class="wl-ingest-missing" title="' +
+              escHtml(todayDisp.title || "") +
+              '">待入库</span>'
+            : "—";
       var prevDisp = wlPrevDisplayFields(item);
       var prevPx =
         prevDisp.close != null && isFinite(prevDisp.close) ? escHtml(prevDisp.close.toFixed(4)) : "—";
@@ -8926,30 +9547,25 @@
         isFinite(item.spot_change_pct)
           ? item.spot_change_pct
           : null;
-      var spotCls = "wl-spot-num wl-spot-flat";
+      var chgCls = "wl-spot-chg-num wl-spot-flat";
       if (spotChg != null) {
-        if (spotChg > 0) spotCls = "wl-spot-num wl-spot-up";
-        else if (spotChg < 0) spotCls = "wl-spot-num wl-spot-down";
+        if (spotChg > 0) chgCls = "wl-spot-chg-num wl-spot-up";
+        else if (spotChg < 0) chgCls = "wl-spot-chg-num wl-spot-down";
       }
       var spotTitle =
         "现价：东财单股/全 A 列表快照；东财失败时用通达信批量行情。非交易所 tick，可能有延时";
+      var chgTitle = "涨跌幅（%），与现价同源快照";
       if (item.spot_quote_date != null && String(item.spot_quote_date).trim()) {
-        spotTitle += "；快照日期 " + String(item.spot_quote_date).trim();
+        var qd = String(item.spot_quote_date).trim();
+        spotTitle += "；快照日期 " + qd;
+        chgTitle += "；快照日期 " + qd;
       }
-      var spotCell = "—";
-      if (spotPx != null) {
-        spotCell =
-          escHtml(spotPx.toFixed(2)) +
-          (spotChg != null
-            ? '<span class="wl-spot-chg">' +
-              escHtml((spotChg > 0 ? "+" : "") + spotChg.toFixed(2) + "%") +
-              "</span>"
-            : "");
-      }
-      var closeLbl =
-        item.last_daily_close_label != null && String(item.last_daily_close_label).trim()
-          ? escHtml(String(item.last_daily_close_label).trim())
+      var spotCell = spotPx != null ? escHtml(spotPx.toFixed(2)) : "—";
+      var chgCell =
+        spotChg != null
+          ? escHtml((spotChg > 0 ? "+" : "") + spotChg.toFixed(2) + "%")
           : "—";
+      var klineCell = wlFormatLastBarCell(item);
       var rowChk = wlSelectedSyms.has(sym) ? " checked" : "";
       return (
         '<tr><td class="wl-check-col"><input type="checkbox" class="wl-row-check" data-sym="' +
@@ -8958,28 +9574,36 @@
         rowChk +
         ' aria-label="选择 ' +
         escHtml(sym) +
-        '" /></td><td>' +
+        '" /></td><td class="wl-col-code">' +
         escHtml(sym) +
-        "</td><td>" +
+        '</td><td class="wl-col-name">' +
         nm +
         "</td><td>" +
         origin +
-        '</td><td class="wl-bar-meta" title="该行任意 K 线最近一次写入库的 UTC 时间">' +
+        '</td><td class="wl-bar-meta wl-col-ingest" title="该行任意 K 线最近一次写入库的 UTC 时间">' +
         ing +
         '</td><td class="wl-prev-num" title="' +
         escHtml(prevDisp.title || "") +
         '">' +
         prevPx +
-        '</td><td class="wl-close-num" title="末根入库日线收盘价（当日收盘），非实时 tick">' +
+        '</td><td class="wl-close-num" title="' +
+        escHtml(todayDisp.title || "当日收盘：末根 K 线须为执行日") +
+        '">' +
         px +
-        '</td><td class="' +
-        spotCls +
-        '" title="' +
+        '</td><td class="wl-spot-num" title="' +
         escHtml(spotTitle) +
         '">' +
         spotCell +
-        '</td><td class="wl-bar-meta">' +
-        closeLbl +
+        '</td><td class="' +
+        chgCls +
+        '" title="' +
+        escHtml(chgTitle) +
+        '">' +
+        chgCell +
+        '</td><td class="wl-bar-meta wl-col-kline-date" title="' +
+        escHtml(klineCell.title || "") +
+        '">' +
+        klineCell.text +
         '</td><td><button type="button" class="link-del" data-sym="' +
         escHtml(sym) +
         '">删除</button></td></tr>'
@@ -8988,24 +9612,38 @@
     var pageSizeOptions = WL_PAGE_SIZE_OPTIONS.map(function (n) {
       return '<option value="' + n + '"' + (n === pageSize ? " selected" : "") + ">" + n + "</option>";
     }).join("");
+    var sortStatusHtml = _wlSortCol
+      ? '<span class="wl-sort-status">' + escHtml(wlSortStatusText()) + "</span>"
+      : "";
     wrap.innerHTML =
       '<div class="wl-toolbar">' +
+      '<div class="wl-toolbar-left">' +
       '<div class="wl-page-hint">共 ' +
       total +
-      " 条，显示第 " +
+      " 条 · 第 " +
       (startIdx + 1) +
-      "-" +
+      "–" +
       endIdx +
-      " 条，第 " +
+      " 条 · 第 " +
       watchlistPage +
       "/" +
       totalPages +
       " 页</div>" +
+      sortStatusHtml +
+      "</div>" +
+      '<div class="wl-toolbar-right">' +
       '<label class="wl-page-size">每页 <select class="wl-page-size-select">' +
       pageSizeOptions +
       "</select> 条</label>" +
+      '<button type="button" class="secondary wl-view-reset-btn" title="清除排序、回到第 1 页、每页 20 条">重置视图</button>' +
       "</div>" +
-      '<div class="wl-table-scroll"><table><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th>代码</th><th>名称</th><th>来源</th><th class="wl-bar-meta" title="UTC ISO，任意 K 线最近一次入库">最近入库</th><th class="wl-bar-meta wl-prev-num" title="与③ 上行收/昨一致：最近完整收盘或上一交易日">昨日收盘</th><th class="wl-bar-meta" title="本地最新一根日线收盘价（末根 K 线）">当日收盘</th><th class="wl-spot-num" title="刷新列表：东财单股/列表→通达信兜底；非交易所 tick">现价（快照）</th><th class="wl-bar-meta" title="最后交易日及 A 股常规收盘时刻">最后收盘</th><th>操作</th></tr></thead><tbody>' +
+      "</div>" +
+      '<div class="wl-table-scroll"><table class="wl-stock-table"><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th class="wl-col-code">代码</th><th class="wl-col-name">名称</th><th>来源</th><th class="wl-bar-meta wl-col-ingest" title="最近一次日线入库">最近入库</th>' +
+      wlSortThHtml("prev", "昨日收盘", "wl-prev-num", "上一完整交易日收盘") +
+      wlSortThHtml("today", "当日收盘", "wl-close-num", "执行日收盘；无今日 bar 时为待入库") +
+      wlSortThHtml("spot", "现价", "wl-spot-num", "联网现价快照") +
+      wlSortThHtml("spot_chg", "涨跌幅", "wl-spot-chg-num", "涨跌幅（%），与现价同源") +
+      '<th class="wl-bar-meta wl-col-kline-date" title="末根 K 线交易日；悬停查看完整说明">末根K线</th><th>操作</th></tr></thead><tbody>' +
       rows +
       "</tbody></table></div>" +
       '<div class="wl-pager">' +
@@ -9038,12 +9676,12 @@
         deleteWl(el.getAttribute("data-sym"));
       });
     });
-    wrap.querySelectorAll(".wl-ingest-fix").forEach(function (el) {
+    wrap.querySelectorAll(".wl-refetch-kline").forEach(function (el) {
       el.addEventListener("click", async function () {
         var s = el.getAttribute("data-sym");
         el.disabled = true;
         try {
-          await wlIngestMissingSymbol(s);
+          await wlRefetchKlineSymbols([s]);
         } finally {
           el.disabled = false;
         }
@@ -9110,6 +9748,125 @@
           renderWatchlistTable(_wlCachedBody);
           persistWatchlistSnapshot();
         } else wlShowTableIdle();
+      });
+    }
+    var resetBtn = wrap.querySelector(".wl-view-reset-btn");
+    if (resetBtn) {
+      var atDefaultView =
+        !_wlSortCol && watchlistPage === 1 && getWatchlistPageSize() === 20;
+      resetBtn.disabled = atDefaultView;
+      resetBtn.addEventListener("click", function () {
+        wlResetWatchlistView();
+      });
+    }
+    wrap.querySelectorAll(".wl-sort-btn[data-wl-sort]").forEach(function (btn) {
+      btn.addEventListener("click", function (ev) {
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+        wlToggleWatchlistSort(btn.getAttribute("data-wl-sort"));
+      });
+    });
+  }
+
+  function wlMergeWatchlistItems(freshItems, provisionalBySym) {
+    if (!Array.isArray(freshItems) || !freshItems.length) return;
+    var bySym = {};
+    freshItems.forEach(function (it) {
+      if (it && it.symbol) bySym[it.symbol] = it;
+    });
+    if (!_wlCachedBody || !_wlCachedBody.length) {
+      _wlCachedBody = freshItems.slice();
+      return;
+    }
+    _wlCachedBody = _wlCachedBody.map(function (row) {
+      var u = bySym[row.symbol];
+      if (!u) return row;
+      var merged = Object.assign({}, row, u);
+      if (provisionalBySym && provisionalBySym[row.symbol]) {
+        merged.today_close_provisional = true;
+      }
+      return merged;
+    });
+  }
+
+  async function wlBackfillTodayClose() {
+    if (apiKeyRequired() && !getApiKey()) {
+      showOut("out-2", "请先在「①」保存 API Key。", true);
+      return;
+    }
+    var syms = null;
+    if (wlSelectedSyms.size > 0) {
+      syms = Array.from(wlSelectedSyms);
+    } else if (_wlCachedBody && _wlCachedBody.length) {
+      syms = _wlCachedBody.map(function (x) {
+        return x.symbol;
+      });
+    }
+    if (!syms || !syms.length) {
+      showOut("out-2", "请先「刷新列表」加载自选，或勾选要补写的股票。", true);
+      return;
+    }
+    var scopeHint =
+      wlSelectedSyms.size > 0
+        ? "已勾选 " + syms.length + " 只"
+        : "自选池全部 " + syms.length + " 只";
+    var btnHdr = $("btnWlBackfillTodayClose");
+    var btns = document.querySelectorAll(
+      "#btnWlBackfillTodayClose"
+    );
+    btns.forEach(function (b) {
+      b.disabled = true;
+    });
+    try {
+      var res = await fetchCancel("panel-2", "/watchlist/backfill-today-close", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({
+          symbols: syms,
+          allow_intraday: true,
+          force_refresh: true,
+          data_source: getIngestDataSource(),
+        }),
+        loadingMessage: "正在用现价补写当日收盘（" + scopeHint + "）…",
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-2", await formatError(res, body), true);
+        return;
+      }
+      var prov = {};
+      if (body && Array.isArray(body.results)) {
+        body.results.forEach(function (r) {
+          if (r && r.symbol && r.provisional) prov[r.symbol] = true;
+        });
+      }
+      if (body && Array.isArray(body.items) && body.items.length) {
+        wlMergeWatchlistItems(body.items, prov);
+        renderWatchlistTable(_wlCachedBody);
+        persistWatchlistSnapshot();
+      } else if (_wlCachedBody && _wlCachedBody.length) {
+        renderWatchlistTable(_wlCachedBody);
+      }
+      var upd = body && body.updated_count != null ? body.updated_count : 0;
+      var skip = body && body.skipped_count != null ? body.skipped_count : 0;
+      var fail = body && body.failed_count != null ? body.failed_count : 0;
+      showOut(
+        "out-2",
+        "现价补当日收盘完成（" +
+          scopeHint +
+          "）：成功写入 " +
+          upd +
+          " 只" +
+          (skip ? "，跳过 " + skip + " 只（已有今日 bar 或未变）" : "") +
+          (fail ? "，失败 " + fail + " 只" : "") +
+          "。盘中补写为参考价；正式收盘仍建议 ③ 拉日线或收盘后刷新。",
+        false
+      );
+    } catch (e) {
+      if (isRequestAborted(e)) showOut("out-2", "补写当日收盘已取消。", true);
+      else showOut("out-2", String(e), true);
+    } finally {
+      btns.forEach(function (b) {
+        b.disabled = false;
       });
     }
   }
@@ -9268,10 +10025,21 @@
     btn.disabled = true;
     showOut("out-2", "正在添加并拉取近约 30 日日线，请稍候（需联网）…", true);
     try {
+      persistWlKlineDates();
+      var wlRange = getWlIngestDateRange();
+      var addDays = 30;
+      if (wlRange.start_date && wlRange.end_date) {
+        try {
+          var d0 = new Date(wlRange.start_date);
+          var d1 = new Date(wlRange.end_date);
+          var span = Math.ceil((d1.getTime() - d0.getTime()) / 86400000) + 1;
+          if (isFinite(span) && span >= 7) addDays = Math.min(120, span);
+        } catch (eSpan) {}
+      }
       var addPayload = {
         symbol: digits,
         auto_ingest_kline: true,
-        ingest_days: 30,
+        ingest_days: addDays,
         data_source: getIngestDataSource(),
       };
       var res = await panelFetch("/watchlist", {
@@ -9292,13 +10060,13 @@
           msg +=
             "；日线拉取失败：" +
             (body.kline_ingest_error || "未知错误") +
-            "（可在该行点「补拉近30日」或到③重试；东财/代理失败时可改路线为 auto）";
+            "（可在该行点「重新获取」或到③重试；东财/代理失败时可改路线为 auto）";
         } else if (
           body &&
           body.kline_ingest_ok === true &&
           (body.bars_last_ingested_at == null || !String(body.bars_last_ingested_at).trim())
         ) {
-          msg += "；入库条数已上报但列表仍无本地日线，请点「刷新列表」或「补拉近30日」";
+          msg += "；入库条数已上报但列表仍无本地日线，请点「刷新列表」或「重新获取」";
         }
         showOut("out-2", msg, body && body.kline_ingest_ok === false);
         $("symAdd").value = "";
@@ -9317,6 +10085,30 @@
     try { await refreshWatchlistTable(); } catch (e) { showOut("out-2", String(e), true); }
     finally { btn.disabled = false; }
   });
+  var btnWlBackfillTodayClose = $("btnWlBackfillTodayClose");
+  if (btnWlBackfillTodayClose) {
+    btnWlBackfillTodayClose.addEventListener("click", function () {
+      wlBackfillTodayClose();
+    });
+  }
+
+  var btnWlRefetchSelected = $("btnWlRefetchSelected");
+  if (btnWlRefetchSelected) {
+    btnWlRefetchSelected.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      var syms = Array.from(wlSelectedSyms);
+      if (!syms.length) {
+        showOut("out-2", "请先在表格中勾选要拉取日线的股票。", true);
+        return;
+      }
+      btnWlRefetchSelected.disabled = true;
+      try {
+        await wlRefetchKlineSymbols(syms);
+      } finally {
+        btnWlRefetchSelected.disabled = false;
+      }
+    });
+  }
 
   var btnWlBatchDelete = $("btnWlBatchDelete");
   if (btnWlBatchDelete) {
@@ -9909,10 +10701,89 @@
 
   function initIngestDateInput() {
     var max = localCalendarYmd(new Date());
-    ["ingestStartDate", "ingestEndDate", "fvOosFrom", "fvOosTo"].forEach(function (id) {
-      var el = $(id);
-      if (el) el.max = max;
-    });
+    ["wlIngestStartDate", "wlIngestEndDate", "fvOosFrom", "fvOosTo"].forEach(
+      function (id) {
+        var el = $(id);
+        if (el) el.max = max;
+      }
+    );
+  }
+
+  function persistWlKlineDates() {
+    try {
+      var s = $("wlIngestStartDate") && $("wlIngestStartDate").value.trim();
+      var e = $("wlIngestEndDate") && $("wlIngestEndDate").value.trim();
+      localStorage.setItem(LS_LAST_WL_KLINE_DATES, JSON.stringify({ start: s || null, end: e || null }));
+    } catch (eStore) {}
+  }
+
+  function initWlIngestDateInputs() {
+    initIngestDateInput();
+    var sEl = $("wlIngestStartDate");
+    var eEl = $("wlIngestEndDate");
+    if (!sEl && !eEl) return;
+    try {
+      var raw = localStorage.getItem(LS_LAST_WL_KLINE_DATES);
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (sEl && o && o.start) sEl.value = o.start;
+        if (eEl && o && o.end) {
+          var today = wlCalendarTodayYmd();
+          eEl.value = o.end < today ? today : o.end;
+        }
+      }
+    } catch (eLs) {}
+    if (sEl && eEl && !sEl.value.trim() && !eEl.value.trim()) {
+      var fb = wlIngestDateRangeDays(30);
+      sEl.value = fb.start_date;
+      eEl.value = fb.end_date;
+      persistWlKlineDates();
+    }
+    function bindWlDate(el) {
+      if (!el || el._wlKlineDateBound) return;
+      el._wlKlineDateBound = true;
+      el.addEventListener("change", persistWlKlineDates);
+    };
+    bindWlDate(sEl);
+    bindWlDate(eEl);
+  }
+
+  function wlCalendarTodayYmd() {
+    return localCalendarYmd(new Date());
+  }
+
+  function getWlIngestDateRange() {
+    var startVal = ($("wlIngestStartDate") && $("wlIngestStartDate").value.trim()) || "";
+    var endVal = ($("wlIngestEndDate") && $("wlIngestEndDate").value.trim()) || "";
+    var today = wlCalendarTodayYmd();
+    var out = {};
+    if (startVal) out.start_date = startVal;
+    if (endVal) out.end_date = endVal;
+    if (!startVal && !endVal) {
+      var fb = wlIngestDateRangeDays(30);
+      out.start_date = fb.start_date;
+      out.end_date = fb.end_date;
+    }
+    if (out.end_date && out.end_date < today) {
+      out.end_date = today;
+      var eEl = $("wlIngestEndDate");
+      if (eEl) {
+        eEl.value = today;
+        persistWlKlineDates();
+      }
+    }
+    if (!out.end_date) out.end_date = today;
+    return out;
+  }
+
+  function formatWlBarsIngestAt(raw) {
+    if (raw == null || !String(raw).trim()) return "";
+    var s = String(raw).trim();
+    try {
+      var d = new Date(s);
+      if (!isNaN(d.getTime())) return d.toLocaleString("zh-CN", { hour12: false });
+    } catch (e0) {}
+    return s.length > 19 ? s.slice(0, 19).replace("T", " ") : s;
   }
 
   function initFvOosDateInputs() {
@@ -10046,8 +10917,10 @@
     var line = sel.value + (label ? " — " + label : "");
     var a = $("routeEchoSignals");
     var b = $("routeEchoAlerts");
+    var c = $("wlRouteEcho");
     if (a) a.textContent = line;
     if (b) b.textContent = line;
+    if (c) c.textContent = line;
   }
 
   function parseSubsetSymbolsFromEl(elId) {
@@ -12006,8 +12879,8 @@
     if (fvOosFrom) qs += "&oos_from=" + encodeURIComponent(fvOosFrom);
     if (fvOosTo) qs += "&oos_to=" + encodeURIComponent(fvOosTo);
     if ($("chkFvLiveBars") && $("chkFvLiveBars").checked) {
-      var ingestEndVal = $("ingestEndDate") && $("ingestEndDate").value.trim();
-      var liveAsOf = ingestEndVal || localCalendarYmd(new Date());
+      var drLive = getWlIngestDateRange();
+      var liveAsOf = drLive.end_date || localCalendarYmd(new Date());
       qs +=
         "&live_bars=true&data_source=" +
         encodeURIComponent(getIngestDataSource()) +
@@ -12123,15 +12996,11 @@
     var btn = $("btnIngest");
     btn.disabled = true;
     var withFund = $("chkIngestIncludeFundamentals") && $("chkIngestIncludeFundamentals").checked;
-    showOut("out-3", withFund ? "正在拉取日线与扩展因子，请稍候…" : "正在拉取，请稍候…", true);
+    showOut("out-3", withFund ? "正在刷新现价与扩展因子（不拉 K 线），请稍候…" : "正在刷新现价快照（不拉 K 线），请稍候…", true);
     try {
-      var startVal = $("ingestStartDate").value.trim();
-      var endVal = $("ingestEndDate").value.trim();
-      lastIngestRequestDates = { start: startVal || null, end: endVal || null };
-      var payload = { data_source: getIngestDataSource() };
+      lastIngestRequestDates = { start: null, end: null };
+      var payload = { data_source: getIngestDataSource(), skip_bars: true };
       if (withFund) payload.include_fundamentals = true;
-      if (startVal) payload.start_date = startVal;
-      if (endVal) payload.end_date = endVal;
       var subset = parseIngestSubsetSymbols();
       if (subset !== null && subset.length === 0) {
         showOut("out-3", "「仅更新部分自选」中未识别到 6 位代码，请检查输入或清空文本框以更新全部自选。", true);
@@ -12150,9 +13019,11 @@
         if (body && body.cancelled) {
           showOut("out-3", "更新已取消：仅完成部分自选入库，详见下方表格。", true);
         } else if (body && body.fundamentals_cancelled) {
-          showOut("out-3", "日线已更新；扩展因子拉取已取消，详见拉取结果表。", true);
+          showOut("out-3", "现价已刷新；扩展因子拉取已取消，详见拉取结果表。", true);
         } else if (withFund) {
-          showOut("out-3", "日线与扩展因子已处理，详见下方表格。", false);
+          showOut("out-3", "现价与扩展因子已处理（未拉 K 线），详见下方表格。", false);
+        } else {
+          showOut("out-3", "现价快照已刷新（未拉 K 线），详见下方表格。", false);
         }
       } else showOut("out-3", await formatError(res, body), true);
     } catch (e) {
@@ -12436,7 +13307,6 @@
     return st === "closed" ? "已平仓" : "持仓中";
   }
 
-  var HD_FILTER_LS = "quant_monitor_hd_filter_v1";
   var HD_ENTRY_MODE_LS = "quant_monitor_hd_entry_mode_v1";
 
   function hdSetEntryMode(mode) {
@@ -12465,23 +13335,13 @@
     hdSetEntryMode(m);
   }
 
-  function hdLoadFilter() {
+  /** 「显示」默认全部；不写入 localStorage，避免下次进入仍停在「仅持仓中」等 */
+  function hdResetFilterDisplay() {
     var el = $("hdFilter");
-    if (!el) return;
+    if (el) el.value = "";
     try {
-      var v = localStorage.getItem(HD_FILTER_LS);
-      if (v === "holding" || v === "closed" || v === "") el.value = v;
-    } catch (e) {
-      /* ignore */
-    }
-  }
-
-  function hdSaveFilter() {
-    var el = $("hdFilter");
-    if (!el) return;
-    try {
-      localStorage.setItem(HD_FILTER_LS, el.value || "");
-    } catch (e) {
+      localStorage.removeItem("quant_monitor_hd_filter_v1");
+    } catch (eRm) {
       /* ignore */
     }
   }
@@ -12563,10 +13423,47 @@
     var wrap = $("hd-table-wrap");
     if (wrap) {
       wrap.innerHTML =
-        '<p class="lead" style="margin:0">点击「<strong>刷新列表</strong>」加载最新持仓；「显示」下拉仅在本地筛选，不重复请求（F5 不自动加载）。</p>';
+        '<p class="lead" style="margin:0">点「<strong>查询</strong>」从本机数据库加载<strong>全部</strong>记录；切换「<strong>显示</strong>」仅在本地筛选，不重复读库；需要更新现价时点「<strong>刷新列表</strong>」。</p>';
     }
     var box = $("hd-review-wrap");
     if (box) box.hidden = true;
+  }
+
+  function hdHoldingsFilterLabel() {
+    var filt = ($("hdFilter") && $("hdFilter").value) || "";
+    if (filt === "holding") return "仅持仓中";
+    if (filt === "closed") return "仅已平仓（复盘）";
+    return "全部（含已平仓）";
+  }
+
+  /** 从本机 SQLite 拉取全部持仓（不联网 sync）；「显示」下拉在本地筛选 */
+  async function queryHoldingsTable() {
+    var wrap = $("hd-table-wrap");
+    if (!wrap) return;
+    if (apiKeyRequired() && !getApiKey()) {
+      wrap.innerHTML = "<p class=\"lead\">请先在「①」保存 API Key。</p>";
+      return;
+    }
+    void refreshHoldingsReviewSummary();
+    try {
+      var res = await fetchCancel("panel-10", "/holdings?limit=200&sync=false", {
+        headers: authHeaders(),
+        loadingMessage: "正在从本机数据库查询全部记录…",
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        wrap.innerHTML = "";
+        showOut("out-10", await formatError(res, body), true);
+        return;
+      }
+      var rows = Array.isArray(body) ? body : [];
+      showOut("out-10", "", false);
+      _hdHoldingsListCache = { allItems: rows };
+      hdApplyHoldingsFilter();
+    } catch (e) {
+      if (isRequestAborted(e)) showOut("out-10", "查询已取消。", true);
+      else showOut("out-10", String(e), true);
+    }
   }
 
   function hdFilterHoldingsItems(items, filt) {
@@ -12777,7 +13674,12 @@
               escHtml(sym) +
               '" data-current-price="' +
               (curPx != null ? escHtml(String(curPx)) : "") +
-              '">测算</button>' +
+              '" title="按入库收盘 K 线测算（信号日为最近一根日线）">测算</button>' +
+              ' <button type="button" class="wl-ingest-fix hd-goal-plan-live" data-id="' +
+              item.id +
+              '" data-sym="' +
+              escHtml(sym) +
+              '" title="联网拉取现价后测算；缺数据会先提示">测算当日</button>' +
               ' <button type="button" class="wl-ingest-fix hd-edit" data-id="' +
               item.id +
               '">改</button>' +
@@ -12887,6 +13789,11 @@
           );
         });
       });
+      wrap.querySelectorAll(".hd-goal-plan-live").forEach(function (el) {
+        el.addEventListener("click", function () {
+          hdGoalPlanLive(parseInt(el.getAttribute("data-id"), 10), el.getAttribute("data-sym"));
+        });
+      });
       wrap.querySelectorAll(".hd-close").forEach(function (el) {
         el.addEventListener("click", function () {
           hdClose(
@@ -12928,9 +13835,9 @@
     }
     void refreshHoldingsReviewSummary();
     try {
-      var res = await fetchCancel("panel-10", "/holdings?limit=200", {
+      var res = await fetchCancel("panel-10", "/holdings?limit=200&sync=true", {
         headers: authHeaders(),
-        loadingMessage: "正在加载持仓列表…",
+        loadingMessage: "正在加载持仓并写回现价快照…",
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -12939,9 +13846,9 @@
         return;
       }
       showOut("out-10", "", false);
-      _hdHoldingsListCache = { allItems: Array.isArray(body) ? body : [] };
+      var allRows = Array.isArray(body) ? body : [];
+      _hdHoldingsListCache = { allItems: allRows };
       hdApplyHoldingsFilter();
-      void hdRefreshGoalProgress();
     } catch (e) {
       if (isRequestAborted(e)) showOut("out-10", "刷新持仓已取消。", true);
       else showOut("out-10", String(e), true);
@@ -13219,6 +14126,61 @@
     return { ok: true, start: g.start, target: g.target };
   }
 
+  function hdNearTermPriceHtml(ntp) {
+    if (!ntp || ntp.reference_price == null) return "";
+    var ref = Number(ntp.reference_price);
+    var mid = ntp.target_mid != null ? Number(ntp.target_mid) : null;
+    var hi = ntp.target_high != null ? Number(ntp.target_high) : null;
+    var lo = ntp.target_low != null ? Number(ntp.target_low) : null;
+    var up = ntp.upside_pct_mid != null && isFinite(Number(ntp.upside_pct_mid)) ? Number(ntp.upside_pct_mid) : null;
+    var h60 = ntp.resistance_60d_high != null ? Number(ntp.resistance_60d_high) : null;
+    return (
+      '<div class="hd-near-term-price" role="region" aria-label="近期价位参考">' +
+      '<p class="hd-advice-score" style="margin:0 0 0.35rem"><strong>近期可能价位</strong>（' +
+      escHtml(ntp.horizon_label || "近 3～5 个交易日 Demo") +
+      " · 规则推算，非预测）</p>" +
+      '<p class="hd-ntp-row">参考现价 <strong>' +
+      hdFmtNum(ref, 4) +
+      "</strong> 元</p>" +
+      (mid != null && isFinite(mid)
+        ? '<p class="hd-ntp-row hd-ntp-mid">中性参考约 ' +
+          hdFmtNum(mid, 4) +
+          " 元" +
+          (up != null ? "（较现价约 +" + escHtml(String(up)) + "%）" : "") +
+          "</p>"
+        : "") +
+      (hi != null && isFinite(hi)
+        ? '<p class="hd-ntp-row">上方 ' +
+          escHtml(ntp.high_label || "压力") +
+          "：<strong>" +
+          hdFmtNum(hi, 4) +
+          "</strong> 元" +
+          (h60 != null && isFinite(h60) ? "（60 日高点 " + hdFmtNum(h60, 4) + "）" : "") +
+          "</p>"
+        : "") +
+      (lo != null && isFinite(lo)
+        ? '<p class="hd-ntp-row">下方 ' +
+          escHtml(ntp.low_label || "支撑") +
+          "：<strong>" +
+          hdFmtNum(lo, 4) +
+          "</strong> 元" +
+          (ntp.support_ma20 != null
+            ? " · MA20 " + hdFmtNum(Number(ntp.support_ma20), 4)
+            : "") +
+          (ntp.support_stop_demo != null
+            ? " · Demo止损 " + hdFmtNum(Number(ntp.support_stop_demo), 4)
+            : "") +
+          "</p>"
+        : "") +
+      (ntp.summary_zh
+        ? '<p class="hd-ntp-row" style="margin-top:0.35rem;color:var(--muted)">' +
+          escHtml(String(ntp.summary_zh)) +
+          "</p>"
+        : "") +
+      "</div>"
+    );
+  }
+
   function renderHoldingGoalPlan(plan, renderOpts) {
     renderOpts = renderOpts || {};
     var panel = $("hd-advice-panel");
@@ -13279,10 +14241,18 @@
         ? '<p class="hd-goal-cache-banner"><strong>存档测算</strong> · ' +
           escHtml(renderOpts.cacheBannerPending) +
           " · <span style=\"color:var(--accent)\">正在重新测算…</span></p>"
-        : "";
+        : plan.calculation_mode === "live"
+          ? '<p class="hd-goal-cache-banner"><strong>当日测算</strong> · 联网现价'
+          + (plan.price_basis ? "（" + escHtml(String(plan.price_basis)) + "）" : "")
+          + (plan.signal_as_of_date
+            ? " · K 线信号日 " + escHtml(String(plan.signal_as_of_date).slice(0, 10))
+            : "")
+          + "</p>"
+          : "";
     var signalSnap = plan.exit_advice
       ? hdSignalSnapshotHtml(plan.exit_advice, "当前持仓标的 · ④ 技术面")
       : "";
+    var nearTermHtml = plan.near_term_price ? hdNearTermPriceHtml(plan.near_term_price) : "";
     panel.innerHTML =
       cacheBanner +
       (verdict
@@ -13311,6 +14281,7 @@
       escHtml((plan.symbol || "") + (plan.name ? " " + plan.name : "") + " · 目标测算") +
       "</p>" +
       signalSnap +
+      nearTermHtml +
       '<p class="hd-goal-decision ' +
       decCls +
       '" style="margin-top:0.5rem">' +
@@ -13614,6 +14585,117 @@
     }
   }
 
+  function hdFormatGoalPreflightMessage(pref) {
+    if (!pref || typeof pref !== "object") return "预检失败。";
+    var lines = [];
+    if (pref.summary_zh) lines.push(String(pref.summary_zh));
+    var miss = Array.isArray(pref.missing) ? pref.missing : [];
+    var warn = Array.isArray(pref.warnings) ? pref.warnings : [];
+    if (miss.length) {
+      lines.push("");
+      lines.push("【缺少，需先补齐】");
+      miss.forEach(function (m, i) {
+        lines.push(
+          i + 1 + ". " + (m.message || m.code || "—") + (m.action ? "\n   → " + m.action : "")
+        );
+      });
+    }
+    if (warn.length) {
+      lines.push("");
+      lines.push("【可选提示】");
+      warn.forEach(function (w, i) {
+        lines.push(
+          i + 1 + ". " + (w.message || w.code || "—") + (w.action ? "\n   → " + w.action : "")
+        );
+      });
+    }
+    return lines.join("\n");
+  }
+
+  async function hdGoalPlanLive(id, symLabel) {
+    if (!id || !guardKey()) return;
+    var cap = hdReadGoalCapital();
+    if (!cap.ok) {
+      showOut("out-10", cap.msg, true);
+      return;
+    }
+    var panel = $("hd-advice-panel");
+    if (panel) {
+      panel.hidden = false;
+      panel.innerHTML =
+        "<p class=\"lead\" style=\"margin:0\">正在检查 " +
+        escHtml(symLabel || String(id)) +
+        " 的当日测算数据…</p>";
+    }
+    showOut("out-10", "", false);
+    try {
+      var ds = getIngestDataSource();
+      var preQ = ds ? "?data_source=" + encodeURIComponent(ds) : "";
+      var preRes = await fetchCancel(
+        "panel-10",
+        "/holdings/" + id + "/goal-plan-live/preflight" + preQ,
+        { headers: authHeaders(), loadingMessage: "正在检查 K 线与联网现价…" }
+      );
+      var preBody = await readBody(preRes);
+      if (!preRes.ok) {
+        if (panel) panel.hidden = true;
+        showOut("out-10", await formatError(preRes, preBody), true);
+        return;
+      }
+      if (!preBody.ready) {
+        if (panel) panel.hidden = true;
+        showOut("out-10", hdFormatGoalPreflightMessage(preBody), true);
+        return;
+      }
+      if (preBody.warnings && preBody.warnings.length) {
+        showOut("out-10", hdFormatGoalPreflightMessage(preBody), false);
+      }
+      if (panel) {
+        panel.innerHTML =
+          "<p class=\"lead\" style=\"margin:0\">正在当日测算 " +
+          escHtml(symLabel || String(id)) +
+          "（联网现价 " +
+          (preBody.live_price != null ? hdFmtNum(Number(preBody.live_price), 4) : "—") +
+          "）…</p>";
+      }
+      var postQ = preQ;
+      var res = await fetchCancel("panel-10", "/holdings/" + id + "/goal-plan-live" + postQ, {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        loadingMessage: "正在当日测算（联网现价 + 信号）…",
+        loadingSlow: true,
+        body: JSON.stringify({
+          start_capital: cap.start,
+          target_capital: cap.target,
+        }),
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        if (panel) panel.hidden = true;
+        showOut("out-10", await formatError(res, body), true);
+        return;
+      }
+      hdSaveGoalPlanCache(body, id, symLabel);
+      renderHoldingGoalPlan(body);
+      showOut(
+        "out-10",
+        (body.symbol || "") +
+          " 当日测算完成：" +
+          (HD_GOAL_DECISION_ZH[body.position_decision] || body.position_decision) +
+          "（现价来源 " +
+          (body.price_basis || "—") +
+          "；K 线信号日 " +
+          (body.signal_as_of_date ? String(body.signal_as_of_date).slice(0, 10) : "—") +
+          "）",
+        false
+      );
+    } catch (e) {
+      if (panel) panel.hidden = true;
+      if (isRequestAborted(e)) showOut("out-10", "当日测算已取消。", true);
+      else showOut("out-10", String(e), true);
+    }
+  }
+
   async function hdGoalPlan(id, symLabel, currentPrice) {
     if (!id || !guardKey()) return;
     var cap = hdReadGoalCapital();
@@ -13719,7 +14801,7 @@
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
       else {
-        showOut("out-10", "已删除。请点击「刷新列表」更新表格。", false);
+        showOut("out-10", "已删除。请点击「查询」或「刷新列表」更新表格。", false);
       }
     } catch (e) {
       showOut("out-10", String(e), true);
@@ -13746,7 +14828,7 @@
         showOut("out-10", await formatError(res, body), true);
         return false;
       }
-      showOut("out-10", "已更新。请点击「刷新列表」更新表格。", false);
+      showOut("out-10", "已更新。请点击「查询」或「刷新列表」查看。", false);
       return true;
     } catch (e) {
       showOut("out-10", String(e), true);
@@ -13841,7 +14923,7 @@
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
       else {
-        showOut("out-10", "已更新 " + (body.symbol || "") + "。请点击「刷新列表」更新表格。", false);
+        showOut("out-10", "已更新 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
       showOut("out-10", String(e), true);
@@ -13882,7 +14964,7 @@
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
       else {
-        showOut("out-10", "已更新卖出价 " + (body.symbol || "") + "。请点击「刷新列表」更新表格。", false);
+        showOut("out-10", "已更新卖出价 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
       showOut("out-10", String(e), true);
@@ -13926,7 +15008,7 @@
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
       else {
-        showOut("out-10", "已标记平仓 " + (body.symbol || "") + "。请点击「刷新列表」更新表格。", false);
+        showOut("out-10", "已标记平仓 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
       showOut("out-10", String(e), true);
@@ -13944,7 +15026,7 @@
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
       else {
-        showOut("out-10", "已恢复持仓 " + (body.symbol || "") + "。请点击「刷新列表」更新表格。", false);
+        showOut("out-10", "已恢复持仓 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
       showOut("out-10", String(e), true);
@@ -14020,7 +15102,10 @@
           if ($("hdNotes")) $("hdNotes").value = "";
           showOut(
             "out-10",
-            "已保存 " + digits + (body.name ? " " + body.name : "") + "。请点击「刷新列表」更新表格。",
+            "已保存 " +
+              digits +
+              (body.name ? " " + body.name : "") +
+              "（已写入本机 SQLite）。请点击「查询」或「刷新列表」查看。",
             false
           );
         }
@@ -14028,6 +15113,18 @@
         showOut("out-10", String(e), true);
       } finally {
         btnHdAdd.disabled = false;
+      }
+    });
+  }
+  var btnHdQuery = $("btnHdQuery");
+  if (btnHdQuery) {
+    btnHdQuery.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      btnHdQuery.disabled = true;
+      try {
+        await queryHoldingsTable();
+      } finally {
+        btnHdQuery.disabled = false;
       }
     });
   }
@@ -14059,38 +15156,29 @@
   }
   var hdGoalStartEl = $("hdGoalStart");
   var hdGoalTargetEl = $("hdGoalTarget");
-  var hdGoalProgressDebounce = null;
-  function hdScheduleGoalProgress() {
-    if (hdGoalProgressDebounce) clearTimeout(hdGoalProgressDebounce);
-    hdGoalProgressDebounce = setTimeout(function () {
-      hdGoalProgressDebounce = null;
-      var box = $("hd-goal-progress");
-      if (box && !box.hidden) void hdRefreshGoalProgress();
-    }, 600);
-  }
   if (hdGoalStartEl) {
     hdGoalStartEl.addEventListener("change", function () {
       hdSaveGoalInputs();
-      hdScheduleGoalProgress();
     });
   }
   if (hdGoalTargetEl) {
     hdGoalTargetEl.addEventListener("change", function () {
       hdSaveGoalInputs();
-      hdScheduleGoalProgress();
     });
   }
   var hdFilterEl = $("hdFilter");
   if (hdFilterEl) {
-    hdLoadFilter();
+    hdResetFilterDisplay();
     hdFilterEl.addEventListener("change", function () {
-      hdSaveFilter();
       if (_hdHoldingsListCache && Array.isArray(_hdHoldingsListCache.allItems)) {
         hdApplyHoldingsFilter();
         showOut("out-10", "", false);
       } else {
-        hdShowHoldingsIdle();
-        showOut("out-10", "请先点「刷新列表」加载数据后再筛选。", true);
+        showOut(
+          "out-10",
+          "已切换为「" + hdHoldingsFilterLabel() + "」。请先点「查询」从数据库加载全部记录。",
+          false
+        );
       }
     });
   }
@@ -14169,14 +15257,12 @@
         var body = await readBody(res);
         if (!res.ok) showOut("out-10", await formatError(res, body), true);
         else {
-          if ($("hdFilter")) {
-            $("hdFilter").value = "closed";
-            hdSaveFilter();
-          }
-          hdRestoreHoldingsTableFromCache();
+          if ($("hdFilter")) $("hdFilter").value = "closed";
           showOut(
             "out-10",
-            "已补录平仓 " + (body.symbol || digits) + "。已切换为「仅已平仓」，请点击「刷新列表」加载。",
+            "已补录平仓 " +
+              (body.symbol || digits) +
+              "（已写入本机 SQLite）。请点击「查询」或「刷新列表」查看。",
             false
           );
         }
@@ -14693,8 +15779,6 @@
       start: rq && rq.start ? String(rq.start) : null,
       end: rq && rq.end ? String(rq.end) : null,
     };
-    if ($("ingestStartDate")) $("ingestStartDate").value = lastIngestRequestDates.start || "";
-    if ($("ingestEndDate")) $("ingestEndDate").value = lastIngestRequestDates.end || "";
   }
 
   function persistLastIngestSnapshot() {
@@ -15210,7 +16294,7 @@
       '">开始回测</button>' +
       '<button type="button" class="btn-ingest-show-kline" data-symbol="' +
       escapeHtml(symRaw) +
-      '" title="展开所选日期区间内的本地日线 OHLCV">K 线明细</button></div></td>';
+      '" title="读取本地库日线；日期窗口默认与②「拉取日线」一致。无数据或需最新时请先在②重新获取后再点此查看">K 线明细</button></div></td>';
     var prevTdRaw = prevDisp.tradeDate || "";
     var prevTd = prevTdRaw ? escapeHtml(prevTdRaw) : "—";
     var prevClsNum = prevDisp.close != null && isFinite(prevDisp.close) ? prevDisp.close : null;
@@ -15323,12 +16407,39 @@
     );
   }
 
+  /**
+   * ③「K 线明细」读本地 /quotes/.../bars 的日期窗口：默认与②「拉取日线」一致（输入框或本机缓存），
+   * 其次本行 start/end，最后 limit=120。
+   */
+  function getKlineViewFromToIso(r) {
+    var s =
+      ($("wlIngestStartDate") && $("wlIngestStartDate").value.trim()) ||
+      "";
+    var e =
+      ($("wlIngestEndDate") && $("wlIngestEndDate").value.trim()) ||
+      "";
+    if (!s || !e) {
+      try {
+        var raw = localStorage.getItem(LS_LAST_WL_KLINE_DATES);
+        if (raw) {
+          var o = JSON.parse(raw);
+          if (!s && o && o.start) s = String(o.start).trim();
+          if (!e && o && o.end) e = String(o.end).trim();
+        }
+      } catch (eLs) {}
+    }
+    if (!s && !e) {
+      s = ingestFieldToIsoQuery(r.start) || "";
+      e = ingestFieldToIsoQuery(r.end) || "";
+    }
+    return { fromQ: s || null, toQ: e || null };
+  }
+
   function ingestBarsQueryForRow(r) {
-    var rq = lastIngestRequestDates || {};
     var sym = String(r.symbol || "").replace(/\D/g, "").slice(0, 6);
-    var fromQ =
-      rq.start && String(rq.start).trim() ? String(rq.start).trim() : ingestFieldToIsoQuery(r.start);
-    var toQ = rq.end && String(rq.end).trim() ? String(rq.end).trim() : ingestFieldToIsoQuery(r.end);
+    var win = getKlineViewFromToIso(r);
+    var fromQ = win.fromQ;
+    var toQ = win.toQ;
     var qs = [];
     if (fromQ) qs.push("from_date=" + encodeURIComponent(fromQ));
     if (toQ) qs.push("to_date=" + encodeURIComponent(toQ));
@@ -15382,15 +16493,27 @@
       );
     }
     if (!rows.length) {
+      var winHint =
+        (fromQ || toQ)
+          ? "当前查询窗口：<strong>" +
+            escapeHtml((fromQ || "…") + " ～ " + (toQ || "…")) +
+            "</strong>（默认与「② 拉取日线」日期一致；未填时可能用③上次区间或最近 120 根）。"
+          : "当前未指定日期窗口，已按最近 <strong>120</strong> 根本地日线查询；仍无数据说明库中暂无该标的日线。";
+      var guide =
+        '<p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted)">' +
+        winHint +
+        " 请先到 <strong>② 管理自选</strong>，在「<strong>拉取日线</strong>」里选好开始/结束日期，对该代码点「<strong>重新获取</strong>」（或勾选多行后点「<strong>重新获取所选日线</strong>」）完成入库；需要<strong>最新</strong>数据时也在②重新拉取后，再回到 <strong>③</strong> 点「K 线明细」查看。</p>";
       var emptyDetail =
         '<details class="ingest-kline-detail" style="margin-top:0.45rem" open><summary>' +
         sumHead +
         " · <strong>0</strong> 根（窗口内暂无本地日线）</summary>" +
-        '<p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted)">请确认已成功入库且区间含交易日。</p></details>';
+        guide +
+        "</details>";
       var emptyPlain =
         '<p class="lead" style="margin:0;font-size:0.78rem;color:var(--muted)">' +
         sumHead +
-        " · 窗口内暂无本地日线。</p>";
+        " · 窗口内暂无本地日线。</p>" +
+        guide;
       return { sym: sym, detailHtml: emptyDetail, plainHtml: emptyPlain };
     }
     var winLab;
@@ -15404,6 +16527,10 @@
       '<div class="wl-table-scroll" style="margin-top:0.35rem"><table class="ingest-table ingest-kline-mini"><thead><tr><th>交易日</th><th>开盘</th><th>最高</th><th>最低</th><th>收盘</th><th>成交量</th><th>涨跌%</th></tr></thead><tbody>' +
       rows.map(ingestKlineBarRowHtml).join("") +
       "</tbody></table></div>";
+    var winNote =
+      fromQ || toQ
+        ? ' <span style="font-weight:400;font-size:0.76rem">（日期窗口优先与②「拉取日线」一致）</span>'
+        : ' <span style="font-weight:400;font-size:0.76rem">（未指定日期：最近 120 根；需固定区间请先在②设日期并拉取）</span>';
     var sumLine =
       '<p class="lead" style="margin:0 0 0.35rem;font-size:0.8rem;color:var(--muted)">' +
       sumHead +
@@ -15411,7 +16538,9 @@
       winLab +
       " · 共 <strong>" +
       rows.length +
-      "</strong> 根</p>";
+      "</strong> 根" +
+      winNote +
+      "</p>";
     var detailHtml =
       '<details class="ingest-kline-detail" style="margin-top:0.45rem"' +
       (openAttr || "") +
@@ -15503,12 +16632,14 @@
       return;
     }
     mergeFundamentalsIntoBody(body);
+    var nFund = ingestFundColumnCount(body);
     lastIngestResultBody = body;
     if (opts.fromStorage && opts.savedPage != null) {
       var sp = parseInt(String(opts.savedPage), 10);
       ingestResultPage = isFinite(sp) && sp >= 1 ? sp : 1;
     } else ingestResultPage = 1;
     var batchDs = body.ingest_data_source != null ? escapeHtml(String(body.ingest_data_source)) : "—";
+    var skipBars = !!body.skip_bars;
     var results = Array.isArray(body.results) ? body.results : [];
     var okN = results.filter(function (r) {
       return !r.error;
@@ -15544,12 +16675,18 @@
       results.length +
       "</strong> 只：<strong>" +
       okN +
-      "</strong> 只已成功入库（下表<strong>仅展示成功</strong>，可分页与回测）" +
-      (errN > 0 ? "；<strong>" + errN + "</strong> 只未入库，不影响其余标的，简要原因见下方折叠区。" : "。") +
+      "</strong> 只已成功" +
+      (skipBars
+        ? "更新（未拉 K 线，基于本地 bars 刷新现价" +
+          (nFund > 0 ? "/扩展因子" : "") +
+          "；下表<strong>仅展示成功</strong>，可分页与回测）"
+        : "入库（下表<strong>仅展示成功</strong>，可分页与回测）") +
+      (errN > 0 ? "；<strong>" + errN + "</strong> 只未处理，不影响其余标的，简要原因见下方折叠区。" : "。") +
       "</p>";
     var rq = lastIngestRequestDates || {};
-    var formRng =
-      rq.start || rq.end
+    var formRng = skipBars
+      ? "本次<strong>未联网拉 K 线</strong>（日线请在<strong>②</strong>「拉取日期区间」+「重新获取」）。"
+      : rq.start || rq.end
         ? "本次提交时表单日期：<strong>" +
           escapeHtml(rq.start || "未填") +
           "</strong> ～ <strong>" +
@@ -15594,8 +16731,12 @@
       '<p class="ingest-result-lead" style="margin-bottom:0.65rem">' +
       formRng +
       '<span style="color:var(--text)">' +
-      srvExtra +
-      "</span> 下一轮回可在<strong>「开始更新」按钮上方的日期框</strong>修改区间后再点「开始更新自选行情」；本地其它交易日 K 线仍保留。</p>";
+      (skipBars ? " 上行昨收/当日收盘来自本地库；下行现价联网刷新。" : srvExtra) +
+      "</span> " +
+      (skipBars
+        ? "需要新 K 线请到<strong>②</strong>修改日期后「重新获取」。"
+        : "若需补/换日线请到<strong>②</strong>设区间并「重新获取」；本地其它交易日 K 线仍保留。") +
+      "</p>";
     html +=
       '<div class="ingest-pager-bar">' +
       '<span id="ingest-pager-info"></span>' +
@@ -15606,7 +16747,6 @@
       '<button type="button" class="wl-page-btn ingest-page-prev" id="ingest-page-prev">上一页</button>' +
       '<button type="button" class="wl-page-btn ingest-page-next" id="ingest-page-next">下一页</button>' +
       "</div>";
-    var nFund = ingestFundColumnCount(body);
     var fundHead =
       nFund > 0
         ? INGEST_FUND_COLUMNS.map(function (col) {
@@ -15849,7 +16989,7 @@
         klineTr.hidden = false;
         if (innerK.dataset.loaded === "1") return;
         innerK.innerHTML =
-          '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted)">正在加载所选区间 K 线…</p>';
+          '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted)">正在读取本地 K 线（日期窗口优先与②「拉取日线」一致，不联网）…</p>';
         var rowK = findIngestResultRowBySymbol(ksym);
         if (!rowK) {
           innerK.innerHTML = '<p class="cell-err" style="margin:0">未找到该标的的入库记录。</p>';

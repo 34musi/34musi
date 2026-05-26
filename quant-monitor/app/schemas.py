@@ -103,6 +103,13 @@ class IngestUpdateIn(IngestSymbolSubsetOptional):
             "ROE/ROA/毛利率/净利率、资产负债率/流动比/速动比、每股经营现金流、主力净流入与资金流日期。"
         ),
     )
+    skip_bars: bool = Field(
+        False,
+        description=(
+            "为 true 时跳过联网拉取/写入日线，仅用本地 bars 构造结果行并刷新现价/强弱；"
+            "可与 include_fundamentals 组合。K 线请在②或其它显式拉取路径更新。"
+        ),
+    )
 
 
 class IngestFundamentalsIn(IngestSymbolSubsetOptional):
@@ -260,6 +267,18 @@ class WatchlistItem(BaseModel):
         None,
         description="东八区展示用执行自然日（与③ 对齐昨/今双行）",
     )
+    display_today_close: float | None = Field(
+        None,
+        description="当日收盘展示价：仅当末根 K 线交易日=执行日时有值；否则为 null（勿用昨根冒充）",
+    )
+    display_today_trade_date: str | None = Field(
+        None,
+        description="当日收盘对应交易日；待入库时为执行自然日",
+    )
+    display_today_close_basis: str | None = Field(
+        None,
+        description="last_bar_same_day / pending_today_bar / last_bar / no_last_bar",
+    )
     last_daily_close_label: str | None = Field(
         None,
         description="给人看的「最后收盘」说明（含交易日与 A 股常规收盘时刻）",
@@ -295,6 +314,53 @@ class QuantWatchlistStockRowIn(BaseModel):
 
     code: str = Field(..., description="股票代码，可为带前缀形式，服务端会规范为 6 位数字")
     name: str = Field("", description="证券简称，可空")
+
+
+class WatchlistTodayCloseBackfillIn(BaseModel):
+    """POST /watchlist/backfill-today-close：用联网现价补写当日收盘 K 线。"""
+
+    symbols: list[str] | None = Field(
+        None,
+        description="要处理的 6 位代码列表；为空或省略则处理当前自选池全部标的",
+    )
+    allow_intraday: bool = Field(
+        True,
+        description="为 true 时允许盘中用现价补写（参考价，非交易所正式收盘）",
+    )
+    force_refresh: bool = Field(
+        True,
+        description="为 true 时若已有今日 bar 仍用最新现价覆盖",
+    )
+    data_source: IngestDataSource | None = Field(
+        None,
+        description="现价路线，与 ③ 行情路线一致；省略则用服务端默认",
+    )
+
+
+class WatchlistTodayCloseBackfillRow(BaseModel):
+    symbol: str
+    ok: bool = False
+    rows_upserted: int = 0
+    trade_date: str | None = None
+    close: float | None = None
+    live_price_source: str | None = None
+    provisional: bool = Field(
+        False,
+        description="盘中补写为 true，表示参考现价而非 15:00 正式收盘",
+    )
+    skipped_reason: str | None = None
+    error: str | None = None
+
+
+class WatchlistTodayCloseBackfillOut(BaseModel):
+    results: list[WatchlistTodayCloseBackfillRow] = Field(default_factory=list)
+    items: list["WatchlistItem"] = Field(
+        default_factory=list,
+        description="补写后带 bars/当日收盘 字段的自选项（仅含请求涉及且仍在池中的标的）",
+    )
+    updated_count: int = 0
+    skipped_count: int = 0
+    failed_count: int = 0
 
 
 class WatchlistBatchAddIn(BaseModel):
@@ -1258,6 +1324,32 @@ class HoldingGoalPlanIn(BaseModel):
         return self
 
 
+class GoalPlanLiveMissingItem(BaseModel):
+    """当日测算预检：缺失项或提示。"""
+
+    code: str = Field(..., description="bars_insufficient / live_quote_missing 等")
+    message: str
+    action: str = Field(..., description="建议用户先去完成的操作")
+
+
+class HoldingGoalPlanLivePreflightOut(BaseModel):
+    """GET /holdings/{id}/goal-plan-live/preflight：当日测算前数据检查。"""
+
+    ready: bool = Field(..., description="true 时可调用 goal-plan-live")
+    symbol: str
+    shanghai_today: str
+    session_phase: str = ""
+    bars_count: int | None = None
+    bars_last_trade_date: str | None = None
+    live_price: float | None = None
+    live_price_source: str | None = None
+    live_quote_date: str | None = None
+    watchlist_count: int = 0
+    missing: list[GoalPlanLiveMissingItem] = Field(default_factory=list)
+    warnings: list[GoalPlanLiveMissingItem] = Field(default_factory=list)
+    summary_zh: str
+
+
 class WatchlistPickOut(BaseModel):
     """目标测算：自选池候选标的摘要。"""
 
@@ -1274,6 +1366,23 @@ class WatchlistPickOut(BaseModel):
 
 HoldingGoalDecision = Literal["hold", "switch", "watch", "goal_reached"]
 DailyVerdict = Literal["留", "走", "换", "达标"]
+
+
+class NearTermPriceOutlook(BaseModel):
+    """测算附带的近期价位参考区间（规则推算，非预测）。"""
+
+    reference_price: float = Field(..., description="测算采用的现价/参考价")
+    horizon_label: str = Field("近 3～5 个交易日（Demo）", description="参考时间跨度说明")
+    target_low: float | None = Field(None, description="下方支撑参考（MA20/止损等取较近者）")
+    target_mid: float | None = Field(None, description="中性延续情景下的参考价")
+    target_high: float | None = Field(None, description="上方压力/延伸参考")
+    upside_pct_mid: float | None = Field(None, description="现价至中性参考的涨幅 %")
+    resistance_60d_high: float | None = Field(None, description="60 日高点")
+    support_ma20: float | None = None
+    support_stop_demo: float | None = Field(None, description="按成本与 Demo 止损% 推算")
+    high_label: str = "上方压力参考"
+    low_label: str = "下方支撑参考"
+    summary_zh: str = Field(..., description="一句话说明区间含义")
 
 
 class HoldingGoalPlanOut(BaseModel):
@@ -1305,8 +1414,16 @@ class HoldingGoalPlanOut(BaseModel):
         description="intraday=盘中；after_close=已收盘；pre_open=开盘前；non_trading=非交易时段",
     )
     session_phase_note: str = Field(..., description="当前时段对结论有效性的说明")
+    calculation_mode: str = Field(
+        "daily",
+        description="daily=按入库收盘与列表价；live=当日测算（联网现价+现价适合度）",
+    )
     price_basis: str | None = Field(None, description="测算采用的现价来源（本地收盘/新浪等）")
     signal_as_of_date: str | None = Field(None, description="④ 信号所依据的 K 线日期")
+    near_term_price: NearTermPriceOutlook | None = Field(
+        None,
+        description="近期可能达到的价位参考区间（Demo 规则，非预测）",
+    )
     steps: list[str] = Field(default_factory=list, description="分步操作建议（Demo）")
     exit_advice: HoldingExitAdviceOut
     watchlist_picks: list[WatchlistPickOut] = Field(default_factory=list)

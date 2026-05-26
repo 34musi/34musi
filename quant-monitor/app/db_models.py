@@ -143,3 +143,6 @@ class HoldingRow(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(32), index=True)
     updated_at: Mapped[str] = mapped_column(String(32))
+    mark_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mark_price_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    mark_price_source: Mapped[str | None] = mapped_column(String(16), nullable=True)

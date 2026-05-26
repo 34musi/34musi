@@ -35,6 +35,7 @@ from app.db_models import (
 from app.db_migrations import (
     ensure_sqlite_bars_ingested_at_column,
     ensure_sqlite_fundamental_snapshot_columns,
+    ensure_sqlite_holdings_mark_columns,
     ensure_sqlite_watchlist_name_column,
     ensure_sqlite_watchlist_origin_column,
 )
@@ -64,4 +65,5 @@ __all__ = [
     "ensure_sqlite_watchlist_name_column",
     "ensure_sqlite_bars_ingested_at_column",
     "ensure_sqlite_fundamental_snapshot_columns",
+    "ensure_sqlite_holdings_mark_columns",
 ]

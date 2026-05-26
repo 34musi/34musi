@@ -24,7 +24,7 @@ import re
 import threading
 import time
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Iterator
 from zoneinfo import ZoneInfo
 
@@ -166,6 +166,9 @@ def _fetch_and_upsert(
             before_rows = []
         df, provider = fetch_daily_with_provider(sym, start, end, data_source=data_source)
         n = upsert_bars(df)
+        n_backfill = _try_backfill_today_bar_from_live(sym, data_source=data_source)
+        if n_backfill:
+            n += n_backfill
         out: dict = {
             "symbol": sym,
             "rows_upserted": n,
@@ -185,6 +188,9 @@ def _fetch_and_upsert(
             out["last_trade_date"] = lb["trade_date"]
             out["last_close"] = round(float(lb["close"]), 4)
             out["last_volume"] = round(float(lb.get("volume") or 0), 4)
+            if n_backfill:
+                out["today_bar_backfill"] = True
+                out["today_bar_backfill_source"] = "live_quote_after_close"
             prev_bar: dict[str, Any] | None = None
             if len(after_rows) >= 2 and str(after_rows[-2]["trade_date"])[:10] < last_td:
                 prev_bar = after_rows[-2]
@@ -227,6 +233,197 @@ def normalize_symbol(symbol: str) -> str:
 def shanghai_today_date() -> date:
     """东八区自然日（A 股行情截止日对齐用）。"""
     return datetime.now(ZoneInfo("Asia/Shanghai")).date()
+
+
+def shanghai_now() -> datetime:
+    return datetime.now(ZoneInfo("Asia/Shanghai"))
+
+
+def _shanghai_a_share_session_closed() -> bool:
+    """周一至周五且已过 15:00（东八区），视为当日收盘后可补日线。"""
+    now = shanghai_now()
+    if now.weekday() >= 5:
+        return False
+    return now.time() >= time(15, 0)
+
+
+def backfill_today_bar_from_live(
+    sym: str,
+    *,
+    data_source: str | None = None,
+    allow_intraday: bool = False,
+    force_refresh: bool = False,
+) -> dict[str, Any]:
+    """
+    用联网现价补写或更新「今日」日线 bar（OHLC=现价），供②「当日收盘」展示。
+
+    - 默认仅东八区工作日 15:00 后执行（与 ingest 自动补写一致）；
+    - allow_intraday=True 时盘中也可补写（盘中价为参考，非交易所正式收盘）；
+    - force_refresh=True 时若已有今日 bar 仍用最新现价覆盖。
+    """
+    sym = normalize_symbol(sym)
+    today = shanghai_today_date().isoformat()
+    last = max_stored_date(sym)
+    last_td = str(last)[:10] if last else ""
+    if not allow_intraday and not _shanghai_a_share_session_closed():
+        return {
+            "ok": False,
+            "symbol": sym,
+            "rows_upserted": 0,
+            "skipped_reason": "before_session_close",
+            "error": "未过当日 15:00（东八区），请使用 allow_intraday 或收盘后再试",
+        }
+    if last_td >= today and not force_refresh:
+        return {
+            "ok": True,
+            "symbol": sym,
+            "rows_upserted": 0,
+            "skipped_reason": "already_has_today_bar",
+            "trade_date": today,
+            "close": None,
+        }
+    live = (
+        live_quote_fields_for_codes_enhanced(
+            [sym], data_source=data_source, force_spot_refresh=True
+        ).get(sym)
+        or {}
+    )
+    px = live.get("live_last_price")
+    if px is None:
+        return {
+            "ok": False,
+            "symbol": sym,
+            "rows_upserted": 0,
+            "skipped_reason": "no_live_price",
+            "error": "未能获取联网现价",
+        }
+    try:
+        px_f = float(px)
+    except (TypeError, ValueError):
+        return {
+            "ok": False,
+            "symbol": sym,
+            "rows_upserted": 0,
+            "skipped_reason": "invalid_live_price",
+            "error": "现价无效",
+        }
+    if not (math.isfinite(px_f) and px_f > 0):
+        return {
+            "ok": False,
+            "symbol": sym,
+            "rows_upserted": 0,
+            "skipped_reason": "invalid_live_price",
+            "error": "现价无效",
+        }
+    src = str(live.get("live_price_source") or "live_quote")
+    px_f = round(px_f, 4)
+    vol = 0.0
+    lv = live.get("live_volume")
+    if lv is not None:
+        try:
+            v = float(lv)
+            if math.isfinite(v) and v >= 0:
+                vol = v
+        except (TypeError, ValueError):
+            pass
+    if vol <= 0:
+        try:
+            prev = list_bars_from_db(sym, limit=1)
+            if prev:
+                vol = float(prev[-1].get("volume") or 0)
+        except ValueError:
+            pass
+    row = {
+        "symbol": sym,
+        "trade_date": today,
+        "open": px_f,
+        "high": px_f,
+        "low": px_f,
+        "close": px_f,
+        "volume": vol,
+        "amount": 0.0,
+    }
+    n = upsert_bars(pd.DataFrame([row]))
+    provisional = allow_intraday and not _shanghai_a_share_session_closed()
+    if n:
+        logger.info(
+            "backfill today daily bar %s trade_date=%s close=%s source=%s provisional=%s",
+            sym,
+            today,
+            px_f,
+            src,
+            provisional,
+        )
+    return {
+        "ok": n > 0,
+        "symbol": sym,
+        "rows_upserted": int(n),
+        "trade_date": today,
+        "close": px_f,
+        "live_price_source": src,
+        "provisional": provisional,
+        "skipped_reason": None if n else "upsert_failed",
+    }
+
+
+def _try_backfill_today_bar_from_live(
+    sym: str,
+    *,
+    data_source: str | None = None,
+) -> int:
+    """收盘后自动补今日 bar（ingest 拉日线后调用）。"""
+    r = backfill_today_bar_from_live(sym, data_source=data_source, allow_intraday=False)
+    return int(r.get("rows_upserted") or 0)
+
+
+def backfill_watchlist_today_close_batch(
+    symbols: list[str],
+    *,
+    data_source: str | None = None,
+    allow_intraday: bool = True,
+    force_refresh: bool = True,
+) -> list[dict[str, Any]]:
+    """批量用现价补写/更新自选标的的当日收盘 bar。"""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in symbols:
+        try:
+            sym = normalize_symbol(raw)
+        except ValueError as e:
+            out.append(
+                {
+                    "ok": False,
+                    "symbol": str(raw),
+                    "rows_upserted": 0,
+                    "error": str(e),
+                    "skipped_reason": "invalid_symbol",
+                }
+            )
+            continue
+        if sym in seen:
+            continue
+        seen.add(sym)
+        try:
+            out.append(
+                backfill_today_bar_from_live(
+                    sym,
+                    data_source=data_source,
+                    allow_intraday=allow_intraday,
+                    force_refresh=force_refresh,
+                )
+            )
+        except Exception as e:
+            logger.warning("backfill today close %s: %s", sym, e)
+            out.append(
+                {
+                    "ok": False,
+                    "symbol": sym,
+                    "rows_upserted": 0,
+                    "error": str(e),
+                    "skipped_reason": "exception",
+                }
+            )
+    return out
 
 
 def _today_str() -> str:
@@ -1206,11 +1403,25 @@ def live_quote_fields_for_codes_enhanced(
     )
 
 
+def local_ingest_result_row(sym: str, *, data_source: str | None = None) -> dict[str, Any]:
+    """不联网拉日线；仅用本地 bars 构造 ingest/update 结果行（skip_bars 模式）。"""
+    pair = local_bars_pair_row(sym)
+    out: dict[str, Any] = {
+        "symbol": sym,
+        "rows_upserted": 0,
+        "mode": "skip_bars_local",
+        "data_source": resolve_data_source(data_source),
+    }
+    out.update(pair)
+    return out
+
+
 def _daily_snapshot_fields_for_symbol(
     sym: str,
     ingest_row: dict[str, Any],
     *,
     data_source: str | None = None,
+    skip_bar_fetch: bool = False,
 ) -> dict[str, Any]:
     """
     ③/④ 用与入库一致的日线末根作为「现价」：本地 bars 或按 data_source 短拉日线（如新浪 stock_zh_a_daily）。
@@ -1236,7 +1447,7 @@ def _daily_snapshot_fields_for_symbol(
             c = float(last.get("close") or 0)
             if math.isfinite(c) and c > 0:
                 lc = c
-    if lc is None:
+    if lc is None and not skip_bar_fetch:
         try:
             end_y = _today_str()
             start_d = shanghai_today_date() - timedelta(days=14)
@@ -1384,6 +1595,7 @@ def enrich_ingest_results_with_spot(
     results: list[dict[str, Any]],
     *,
     data_source: str | None = None,
+    skip_bar_fetch: bool = False,
 ) -> None:
     """
     ③ 结果：上行用 display_prev_*（昨收参照），下行用 last_* + live_*；并写入 ingest_exec_date 等展示字段。
@@ -1408,13 +1620,16 @@ def enrich_ingest_results_with_spot(
         if ref_prev is None or not math.isfinite(float(ref_prev)) or float(ref_prev) <= 0:
             ref_prev = r.get("prev_close")
         if ref_prev is not None and math.isfinite(float(ref_prev)) and float(ref_prev) > 0:
-            _ensure_min_bars_for_strength(sym, data_source=data_source)
+            if not skip_bar_fetch:
+                _ensure_min_bars_for_strength(sym, data_source=data_source)
             ps = strength_snapshot_for_symbol(sym, last_price_override=float(ref_prev))
             if ps is not None:
                 r["prev_strength"] = ps
         live = live_by.get(sym) or {}
         if not _live_row_has_price(live):
-            snap = _daily_snapshot_fields_for_symbol(sym, r, data_source=data_source)
+            snap = _daily_snapshot_fields_for_symbol(
+                sym, r, data_source=data_source, skip_bar_fetch=skip_bar_fetch
+            )
             if snap.get("spot_last_price") is not None:
                 live = {
                     "live_last_price": snap["spot_last_price"],
@@ -1461,7 +1676,8 @@ def enrich_ingest_results_with_spot(
             r["spot_change_pct"] = chg
         px = r.get("live_last_price") or r.get("spot_last_price")
         if px is not None and math.isfinite(float(px)) and float(px) > 0:
-            _ensure_min_bars_for_strength(sym, data_source=data_source)
+            if not skip_bar_fetch:
+                _ensure_min_bars_for_strength(sym, data_source=data_source)
             st = strength_snapshot_for_symbol(sym, last_price_override=float(px))
             if st is not None:
                 r["spot_strength"] = st
@@ -1621,6 +1837,46 @@ def watchlist_prev_display_for_symbol(
     return watchlist_prev_display_from_row(pair)
 
 
+def watchlist_today_close_fields(pair_row: dict[str, Any]) -> dict[str, Any]:
+    """
+    ② 自选「当日收盘」：对齐东八区执行自然日。
+
+    - 末根 K 线交易日 == 执行日 → 用末根收盘（真正当日收盘）；
+    - 执行日晚于末根（如周一、或尚未拉到今日 bar）→ 不拿末根冒充当日，标为待入库。
+    """
+    exec_d = str(pair_row.get("ingest_exec_date") or shanghai_today_date().isoformat())[:10]
+    last_td = str(pair_row.get("last_trade_date") or "")[:10] or None
+    last_close = pair_row.get("last_close")
+    out_close: float | None = None
+    out_td: str | None = None
+    basis = "no_last_bar"
+
+    if last_td and last_close is not None:
+        try:
+            lc = float(last_close)
+        except (TypeError, ValueError):
+            lc = 0.0
+        if math.isfinite(lc) and lc > 0:
+            if exec_d == last_td:
+                out_close = round(lc, 4)
+                out_td = last_td
+                basis = "last_bar_same_day"
+            elif exec_d > last_td:
+                out_close = None
+                out_td = exec_d
+                basis = "pending_today_bar"
+            else:
+                out_close = round(lc, 4)
+                out_td = last_td
+                basis = "last_bar"
+
+    return {
+        "display_today_close": out_close,
+        "display_today_trade_date": out_td,
+        "display_today_close_basis": basis,
+    }
+
+
 def watchlist_prev_display_from_row(row: dict[str, Any]) -> dict[str, Any]:
     """
     从已填充 last/prev 并执行 resolve_ingest_row_display_pair 的 dict 取出③ 上行「收/昨」展示价。
@@ -1680,6 +1936,12 @@ def watchlist_bar_fields_for_session(
         )
         max_ing = session.execute(select(func.max(BarRow.ingested_at)).where(BarRow.symbol == sym)).scalar_one_or_none()
         if not recent:
+            exec_d = shanghai_today_date().isoformat()
+            empty_pair = {
+                "last_trade_date": None,
+                "last_close": None,
+                "ingest_exec_date": exec_d,
+            }
             out[sym] = {
                 "bars_last_ingested_at": None,
                 "bars_last_trade_date": None,
@@ -1688,7 +1950,8 @@ def watchlist_bar_fields_for_session(
                 "display_prev_close": None,
                 "display_prev_trade_date": None,
                 "display_pair_basis": "no_last_bar",
-                "ingest_exec_date": shanghai_today_date().isoformat(),
+                "ingest_exec_date": exec_d,
+                **watchlist_today_close_fields(empty_pair),
             }
             continue
         row_orm = recent[0]
@@ -1700,12 +1963,14 @@ def watchlist_bar_fields_for_session(
             pair_row["last_trade_date"] = td
             pair_row["last_close"] = close_v
         prev_disp = watchlist_prev_display_from_row(pair_row)
+        today_disp = watchlist_today_close_fields(pair_row)
         out[sym] = {
             "bars_last_ingested_at": max_ing,
             "bars_last_trade_date": td,
             "last_close": close_v,
             "last_daily_close_label": label,
             **prev_disp,
+            **today_disp,
         }
     return out
 
@@ -1829,15 +2094,18 @@ def ingest_symbol_range(
     data_source：None 时用 Settings.ingest_data_source。
     """
     sym = normalize_symbol(symbol)
-    today = date.today()
+    today = shanghai_today_date()
     if range_start is not None and range_end is not None:
         a, b = range_start, range_end
         if a > b:
             a, b = b, a
         if b > today:
-            raise ValueError("结束日期不能晚于今天")
+            raise ValueError("结束日期不能晚于东八区今日")
         if a > today:
-            raise ValueError("开始日期不能晚于今天")
+            raise ValueError("开始日期不能晚于东八区今日")
+        # 结束日落在近几日内但早于今日（日期框未改）：自动拉到今日，避免缺当日 bar
+        if b < today and (today - b).days <= 7:
+            b = today
         start = a.strftime("%Y%m%d")
         end = b.strftime("%Y%m%d")
         return _fetch_and_upsert(sym, start, end, "explicit_range", data_source=data_source)
