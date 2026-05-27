@@ -1064,8 +1064,9 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
+      justify-content: space-between;
       gap: 0.65rem;
-      margin: 0.5rem 0;
+      margin: 0.65rem 0 0.35rem;
       padding: 0.55rem 0.75rem;
       font-size: 0.86rem;
       color: var(--muted);
@@ -1078,6 +1079,12 @@
       line-height: 1.6;
       color: var(--muted);
       margin: 0 0 0.5rem;
+    }
+    .ingest-pager-bar .ingest-pager-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
     }
     .ingest-pager-bar .wl-page-btn { padding: 0.28rem 0.65rem; }
     .ingest-test-box {
@@ -2040,36 +2047,186 @@
       margin: 0;
       font-size: 1.05rem;
     }
+    #panel-2 .wl-manual-shell-sub {
+      margin: 0.35rem 0 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
     #panel-2 .wl-manual-shell-body {
       padding: 1.15rem 1.55rem 1.35rem;
     }
-    #panel-2 .wl-manual-grid {
+    #panel-2 .wl-manual-details {
+      margin: 0 0 1.1rem;
+    }
+    #panel-2 .wl-manual-section {
+      margin: 0;
+    }
+    #panel-2 .wl-manual-section--dates {
+      padding: 1rem 1.15rem 1.05rem;
+      border-radius: 10px;
+      border: 1px solid rgba(61, 139, 253, 0.22);
+      background: linear-gradient(155deg, rgba(61, 139, 253, 0.08) 0%, rgba(0, 0, 0, 0.12) 100%);
+    }
+    #panel-2 .wl-manual-section--actions {
+      padding-top: 0.15rem;
+    }
+    #panel-2 .wl-manual-section-title {
+      margin: 0 0 0.4rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #b8c9dc;
+      letter-spacing: 0.02em;
+    }
+    #panel-2 .wl-manual-section-hint,
+    #panel-2 .wl-manual-footnote,
+    #panel-2 .wl-manual-route-line {
+      margin: 0 0 0.65rem;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+    #panel-2 .wl-manual-footnote {
+      margin-bottom: 0;
+      margin-top: 0.5rem;
+      font-size: 0.78rem;
+    }
+    #panel-2 .wl-manual-route-line {
+      margin: 0.15rem 0 0.75rem;
+    }
+    #panel-2 .wl-manual-route-line strong {
+      color: #c5d8ec;
+    }
+    #panel-2 .wl-manual-dates-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 1.15rem;
-      align-items: start;
+      gap: 0.75rem 1.25rem;
+      margin-bottom: 0.35rem;
     }
-    @media (min-width: 900px) {
-      #panel-2 .wl-manual-grid {
-        grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.1fr);
-        gap: 1.35rem 1.75rem;
+    @media (min-width: 560px) {
+      #panel-2 .wl-manual-dates-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
-    #panel-2 .wl-manual-col--tools .row {
+    #panel-2 .wl-manual-dates-grid .field-stack label {
+      font-size: 0.86rem;
+      margin-bottom: 0.35rem;
+      display: block;
+    }
+    #panel-2 .wl-manual-dates-grid input[type="date"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.55rem 0.7rem;
+      font-size: 0.94rem;
+    }
+    #panel-2 .wl-manual-divider {
+      border: none;
+      height: 1px;
+      margin: 1.15rem 0 1.05rem;
+      background: linear-gradient(90deg, transparent, rgba(45, 58, 79, 0.75), transparent);
+    }
+    #panel-2 .wl-manual-sym-row {
       margin-bottom: 0.75rem;
     }
-    #panel-2 .wl-manual-col--tools .row input[type="text"] {
+    #panel-2 .wl-manual-sym-row input[type="text"] {
       max-width: none;
       font-size: 0.94rem;
       padding: 0.55rem 0.7rem;
     }
-    #panel-2 .wl-kline-fetch-block {
-      margin: 0;
-      padding: 1rem 1.15rem;
-      border-radius: 10px;
+    #panel-2 .wl-panel-out-wrap {
+      margin-top: 0.65rem;
     }
-    #panel-2 .wl-kline-fetch-block .wl-kline-fetch-title {
-      font-size: 0.96rem;
+    #panel-2 .wl-panel-out-wrap pre.out {
+      margin-top: 0;
+      max-height: 200px;
+      font-size: 0.82rem;
+    }
+    #panel-3 .panel-action-out-wrap,
+    #panel-4 .panel-action-out-wrap,
+    #panel-5 .panel-action-out-wrap {
+      margin-top: 0.55rem;
+    }
+    #panel-3 .panel-action-out-wrap pre.out,
+    #panel-4 .panel-action-out-wrap pre.out,
+    #panel-5 .panel-action-out-wrap pre.out {
+      margin-top: 0;
+      max-height: 200px;
+      font-size: 0.82rem;
+    }
+    #panel-2 .wl-manual-action-btns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem 0.6rem;
+      margin: 0.5rem 0 0.35rem;
+      align-items: stretch;
+    }
+    @media (min-width: 720px) {
+      #panel-2 .wl-manual-action-btns {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    @media (min-width: 1100px) {
+      #panel-2 .wl-manual-action-btns {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+    #panel-2 .wl-manual-action-btns button {
+      width: 100%;
+      justify-content: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #panel-2 .wl-manual-action-btns .wl-btn-danger {
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #ffb4b4;
+    }
+    #panel-2 .wl-kline-fetch-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin: 0;
+    }
+    #panel-2 .wl-kline-fetch-actions .btn-wl-cancel-refetch {
+      border-color: rgba(248, 113, 113, 0.55);
+      color: #ffb4b4;
+    }
+    #panel-2 .wl-kline-fetch-actions .btn-wl-cancel-refetch:not(:disabled):hover {
+      background: rgba(248, 113, 113, 0.12);
+    }
+    #panel-2 .wl-daily-view-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.55rem 0.85rem;
+      margin: 0 0 0.85rem;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid rgba(61, 139, 253, 0.28);
+      border-radius: 10px;
+      background: rgba(61, 139, 253, 0.06);
+      font-size: 0.86rem;
+    }
+    #panel-2 .wl-daily-view-bar label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      color: var(--muted);
+    }
+    #panel-2 .wl-daily-view-bar input[type="date"] {
+      padding: 0.4rem 0.55rem;
+      font-size: 0.9rem;
+    }
+    #panel-2 .wl-daily-view-hint {
+      flex: 1 1 12rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    #panel-2 .wl-tag-removed {
+      font-size: 0.72rem;
+      color: #c9b87c;
+      margin-left: 0.25rem;
     }
     #panel-2 #wl-table-wrap .wl-table-scroll {
       border: 1px solid rgba(45, 58, 79, 0.75);
@@ -2588,6 +2745,30 @@
       align-items: center;
       flex-shrink: 0;
     }
+    .hot-sector-detail-actions .hot-add-wl-picked-in-detail {
+      font-size: 0.82rem;
+      padding: 0.38rem 0.85rem;
+      font-weight: 600;
+    }
+    .hot-pick-th-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+      margin: 0;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .hot-pick-th-label input {
+      cursor: pointer;
+      margin: 0;
+    }
+    #panel-2 .hot-stocks-rich-table th.col-pick {
+      width: 2.75rem;
+      text-align: center;
+      vertical-align: middle;
+    }
     .hot-sector-detail-close {
       font-size: 0.76rem;
       padding: 0.22rem 0.55rem;
@@ -3017,7 +3198,7 @@
         <div class="hot-fill-box">
           <header class="hot-fill-head">
             <h3>热门板块选股</h3>
-            <p class="hot-fill-desc">拉取热门板块排名并筛选候选，<strong>先展示在下方</strong>，勾选后点「将勾选股加入自选」（来源<strong>手动</strong>，不自动整批写入）。<strong>akshare</strong> 板块较全；<strong>mootdx</strong> 较少；<strong>TuShare</strong> 需 Token。需联网，耗时可较长。</p>
+            <p class="hot-fill-desc">拉取热门板块排名并筛选候选，<strong>先展示在下方</strong>。点各板块「查看」展开明细，勾选后点明细内「<strong>将勾选股加入自选</strong>」（来源<strong>手动</strong>，不自动整批写入）。<strong>akshare</strong> 板块较全；<strong>mootdx</strong> 较少；<strong>TuShare</strong> 需 Token。需联网，耗时可较长。</p>
           </header>
           <div class="hot-fill-body-grid">
           <div class="hot-fill-section">
@@ -3078,6 +3259,7 @@
             <div class="hot-options-grid">
               <label><input type="checkbox" id="hotExcludeSt" checked /> 排除 ST</label>
               <label><input type="checkbox" id="hotExcludeKcb" checked /> 排除科创板（688/689）</label>
+              <label><input type="checkbox" id="hotExcludeCyb" checked /> 排除创业板（300/301）</label>
               <label class="hot-check-full"><input type="checkbox" id="hotUseSectorSnapshot" checked /> 使用板块快照（不勾选则强制请求最新板块数据）</label>
               <label><input type="checkbox" id="hotSortByTrend" checked /> 板块内按趋势强度排序</label>
               <label><input type="checkbox" id="hotRequireTechPass" /> 热门 + 技术面通过才入选</label>
@@ -3088,7 +3270,7 @@
                 <label class="hot-checkbox-main"><input type="checkbox" id="hotExcludeOverextended" /> 剔除近 20 日涨幅过大</label>
                 <div class="hot-threshold-inputs">
                   <span class="hot-sublabel" id="lblHotMax20d">近 20 日累计涨幅上限（%）</span>
-                  <input type="number" id="hotMax20dReturnPct" value="25" min="0" max="500" step="1" aria-labelledby="lblHotMax20d" />
+                  <input type="number" id="hotMax20dReturnPct" value="22" min="0" max="500" step="1" aria-labelledby="lblHotMax20d" />
                 </div>
                 <p class="hot-field-hint">仅当上一项勾选时生效；超过该涨幅的标的会被剔除。</p>
               </div>
@@ -3096,7 +3278,7 @@
                 <label class="hot-checkbox-main"><input type="checkbox" id="hotEnableLiquidityFilter" /> 最低成交额 / 流动性</label>
                 <div class="hot-threshold-inputs">
                   <span class="hot-sublabel" id="lblHotMinTurn">近 20 日平均成交额下限（亿元）</span>
-                  <input type="number" id="hotMinTurnover20d100m" value="1" min="0" max="10000" step="0.1" aria-labelledby="lblHotMinTurn" />
+                  <input type="number" id="hotMinTurnover20d100m" value="2.5" min="0" max="10000" step="0.1" aria-labelledby="lblHotMinTurn" />
                 </div>
                 <p class="hot-field-hint">仅当上一项勾选时生效；低于该均额的标的会被剔除。</p>
               </div>
@@ -3107,6 +3289,7 @@
             <div class="hot-options-grid">
               <label><input type="checkbox" id="hotRising3dExcludeSt" checked /> 排除 ST</label>
               <label><input type="checkbox" id="hotRising3dExcludeKcb" checked /> 排除科创板（688/689）</label>
+              <label><input type="checkbox" id="hotRising3dExcludeCyb" checked /> 排除创业板（300/301）</label>
             </div>
             <p class="hot-field-hint" style="margin:0.65rem 0 0">扫描<strong>全部</strong>热门板块成分，不限每板块只数。规则：最近连续 <strong>3</strong> 个交易日收盘价逐日高于前一日（收涨）。日线走上方<strong>热门数据路线</strong>。</p>
           </div>
@@ -3115,6 +3298,7 @@
             <div class="hot-options-grid">
               <label><input type="checkbox" id="hotMa5ExcludeSt" checked /> 排除 ST</label>
               <label><input type="checkbox" id="hotMa5ExcludeKcb" checked /> 排除科创板（688/689）</label>
+              <label><input type="checkbox" id="hotMa5ExcludeCyb" checked /> 排除创业板（300/301）</label>
             </div>
             <p class="hot-field-hint" style="margin:0.65rem 0 0">扫描<strong>全部</strong>热门板块成分，不限每板块只数。日线与板块成分走上方<strong>热门数据路线</strong>；主力净流入为东财日级资金表。规则：末根起连续 ≥3 日收盘≥MA5，近 3 日中至少 2 日主力净流入为正且合计为正，最新一日大单+超大单净占比≥0。</p>
           </div>
@@ -3125,7 +3309,7 @@
               <button type="button" class="primary" id="btnHotFill">获取热门板块候选</button>
               <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
             </div>
-            <p class="m3-hint" style="margin:0.5rem 0 0;font-size:0.78rem"><strong>展示上一次缓存数据</strong>：只读本机上次结果，不联网。<strong>获取热门板块候选</strong>：重新请求 API 并更新缓存。勾选后点「将勾选股加入自选」才写入②自选池。</p>
+            <p class="m3-hint" style="margin:0.5rem 0 0;font-size:0.78rem"><strong>展示上一次缓存数据</strong>：只读本机上次结果，不联网。<strong>获取热门板块候选</strong>：重新请求 API 并更新缓存。各板块点「查看」后在明细内勾选并加入②自选池。</p>
             <pre class="out hot-pick-log" id="hotPickLog" hidden title="请求与服务端筛选过程日志（含首选数据源、板块进度、逐股抽样；同时写入 F12 控制台）"></pre>
           </footer>
           <div id="hotSummaryLine" style="padding:0 1.35rem 0.25rem;" hidden></div>
@@ -3152,61 +3336,75 @@
         <hr class="panel-rule" aria-hidden="true" />
         <div class="wl-manual-shell">
           <header class="wl-manual-shell-head">
-            <h3 class="wl-manual-heading">手动添加与管理</h3>
+            <h3 class="wl-manual-heading">自选管理</h3>
+            <p class="wl-manual-shell-sub">日线入库 · 添加删除 · 现价刷新</p>
           </header>
           <div class="wl-manual-shell-body">
-          <details class="wl-page-details" style="margin:0 0 1rem">
-            <summary>操作说明（添加、删除、快照导入）</summary>
-            <p class="lead wl-manual-lead" style="margin:0.5rem 0 0">输入 6 位代码点<strong>确定添加</strong>后按右侧日期区间自动入库日线（路线与③共用）。行内「重新获取」或勾选后<strong>重新获取所选日线</strong>；<strong>删除所选</strong>、<strong>清空自动池</strong>（仅热门/量化自动）、<strong>全部删除</strong>见下方按钮。「获取快照热门股票」读 <code>data/hot_market_snapshot.json</code>，导入前清空自动池；无文件请先在⑨刷新热门快照。</p>
-          </details>
-          <div class="wl-manual-grid">
-            <div class="wl-manual-col wl-manual-col--tools">
-          <div class="row">
-            <label for="symAdd">股票代码</label>
-            <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
-          </div>
-          <div class="btns">
-            <button type="button" class="primary" id="btnAddWl">确定添加</button>
-            <button type="button" class="secondary" id="btnRefreshWl">刷新列表</button>
-            <button type="button" class="secondary" id="btnWlBackfillTodayClose" title="用联网现价补写今日日线 bar，填「当日收盘」；不替代拉取日线与刷新列表">现价补当日收盘</button>
-            <button type="button" class="secondary" id="btnWlFetchHotSnapStocks" title="POST /watchlist/import-hot-market-snapshot">获取快照热门股票</button>
-            <button type="button" class="secondary" id="btnWlBatchDelete" title="删除表格中已勾选的股票（可跨页累积勾选）">删除所选</button>
-            <button type="button" class="secondary" id="btnWlClearAuto" title="POST /watchlist/delete-all scope=auto">清空自动池</button>
-            <button type="button" class="secondary" id="btnWlDeleteAll" title="POST /watchlist/delete-all scope=all" style="border-color:rgba(248,113,113,0.45);color:#ffb4b4">全部删除</button>
-            <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
-          </div>
-          <p class="lead" style="margin:0.5rem 0 0;font-size:0.82rem;color:var(--muted)">「<strong>刷新列表</strong>」联网加载自选；进入本页或 F5 不自动请求。有缓存则先展示缓存。</p>
-          <p class="cancel-hint" data-cancel-hint="panel-2" hidden>可中断热门板块预览、刷新列表等本页联网请求。</p>
-            </div>
-            <div class="wl-manual-col wl-manual-col--kline">
-          <div class="wl-kline-fetch-block">
-            <h4 class="wl-kline-fetch-title">拉取日线（本地 K 线）</h4>
-            <p class="lead" style="margin:0 0 0.65rem;font-size:0.82rem;color:var(--muted)">
-              与③共用行情路线；此处<strong>拉日线入库</strong>。留空日期默认近约 30 个日历日。
-            </p>
-            <div class="hot-form-grid" style="margin-bottom:0.5rem">
-              <div class="field-stack">
-                <label for="wlIngestStartDate">开始日期（含）</label>
-                <input type="date" id="wlIngestStartDate" autocomplete="off" />
+            <details class="wl-page-details wl-manual-details">
+              <summary>操作说明（添加、删除、快照导入）</summary>
+              <p class="lead wl-manual-lead">输入 6 位代码点<strong>确定添加</strong>后按<strong>上方日期区间</strong>自动入库日线（路线与③共用）。行内「重新获取」或勾选后<strong>重新获取所选日线</strong>；<strong>现价补当日收盘</strong>仅处理<strong>表格中已勾选</strong>的股票。<strong>删除所选</strong>、<strong>清空自动池</strong>、<strong>全部删除</strong>仅更新本机列表，需最新现价时点<strong>刷新列表</strong>。「获取快照热门股票」读 <code>data/hot_market_snapshot.json</code>，导入前清空自动池；无文件请先在⑨刷新热门快照。</p>
+            </details>
+
+            <section class="wl-manual-section wl-manual-section--dates" aria-labelledby="wlManualDatesTitle">
+              <h4 class="wl-manual-section-title" id="wlManualDatesTitle">拉取日线（本地 K 线）</h4>
+              <p class="wl-manual-section-hint">与③共用行情路线；此处<strong>拉日线入库</strong>。留空日期默认近约 30 个日历日。</p>
+              <div class="wl-manual-dates-grid">
+                <div class="field-stack">
+                  <label for="wlIngestStartDate">开始日期（含）</label>
+                  <input type="date" id="wlIngestStartDate" autocomplete="off" />
+                </div>
+                <div class="field-stack">
+                  <label for="wlIngestEndDate">结束日期（含）</label>
+                  <input type="date" id="wlIngestEndDate" autocomplete="off" />
+                </div>
               </div>
-              <div class="field-stack">
-                <label for="wlIngestEndDate">结束日期（含）</label>
-                <input type="date" id="wlIngestEndDate" autocomplete="off" />
+              <p class="wl-manual-route-line">
+                行情路线（与③联动）：<strong id="wlRouteEcho">—</strong>
+              </p>
+              <div class="btns wl-kline-fetch-actions">
+                <button type="button" class="primary" id="btnWlRefetchSelected" title="未勾选表格时拉取当前自选池全部（须先点「刷新列表」）；勾选则仅拉所选">重新获取所选日线</button>
+                <button type="button" class="secondary btn-wl-cancel-refetch" id="btnWlCancelRefetch" hidden title="终止当前日线拉取（已入库部分保留）">取消拉取</button>
               </div>
-            </div>
-            <p class="lead" style="margin:0 0 0.55rem;font-size:0.82rem;color:var(--muted)">
-              行情路线（与③联动）：<strong id="wlRouteEcho">—</strong>
-            </p>
-            <div class="btns" style="margin:0">
-              <button type="button" class="primary" id="btnWlRefetchSelected">重新获取所选日线</button>
-            </div>
-          </div>
-            </div>
-          </div>
+              <p class="wl-manual-footnote">未勾选行时等同拉取<strong>自选池全部</strong>；拉取中可点<strong>取消拉取</strong>（已完成入库的保留）。刷新页面后若后台仍在拉取，按钮会保持进度显示。</p>
+            </section>
+
+            <hr class="wl-manual-divider" aria-hidden="true" />
+
+            <section class="wl-manual-section wl-manual-section--actions" aria-labelledby="wlManualActionsTitle">
+              <h4 class="wl-manual-section-title" id="wlManualActionsTitle">添加与列表操作</h4>
+              <div class="row wl-manual-sym-row">
+                <label for="symAdd">股票代码</label>
+                <input type="text" id="symAdd" placeholder="例如 600519" maxlength="16" />
+              </div>
+              <div class="btns wl-manual-action-btns">
+                <button type="button" class="primary" id="btnAddWl">确定添加</button>
+                <button type="button" class="secondary" id="btnRefreshWl">刷新列表</button>
+                <button type="button" class="secondary" id="btnWlBackfillTodayClose" title="仅对表格中已勾选股票，用联网现价补写今日日线 bar（填「当日收盘」）；须先勾选">现价补当日收盘</button>
+                <button type="button" class="secondary" id="btnWlFetchHotSnapStocks" title="POST /watchlist/import-hot-market-snapshot">获取快照热门股票</button>
+                <button type="button" class="secondary" id="btnWlBatchDelete" title="删除表格中已勾选的股票（可跨页累积勾选）">删除所选</button>
+                <button type="button" class="secondary" id="btnWlClearAuto" title="POST /watchlist/delete-all scope=auto">清空自动池</button>
+                <button type="button" class="secondary wl-btn-danger" id="btnWlDeleteAll" title="POST /watchlist/delete-all scope=all">全部删除</button>
+                <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
+              </div>
+              <p class="wl-manual-footnote">「<strong>刷新列表</strong>」联网加载自选；进入本页或 F5 不自动请求，有缓存则先展示缓存。</p>
+              <p class="cancel-hint wl-manual-footnote" data-cancel-hint="panel-2" hidden>可中断热门板块预览、刷新列表等本页联网请求。</p>
+              <div class="wl-panel-out-wrap" aria-live="polite">
+                <pre class="out" id="out-2" hidden></pre>
+              </div>
+            </section>
           </div>
         </div>
+        <div class="wl-daily-view-bar" id="wlDailyViewBar">
+          <label for="wlAddedDateFilter">加入日期（东八区）</label>
+          <input type="date" id="wlAddedDateFilter" autocomplete="off" title="查询该日写入自选日志的股票；默认今天" />
+          <button type="button" class="secondary" id="btnWlQueryDailyAdds">查询该日</button>
+          <button type="button" class="secondary" id="btnWlTodayAdds">今天</button>
+          <label class="wl-daily-pool-toggle" title="查看当前自选池全部标的（不按加入日期）">
+            <input type="checkbox" id="chkWlShowFullPool" /> 显示全部自选池
+          </label>
+          <span class="wl-daily-view-hint" id="wlDailyViewHint">默认展示今日新增；该日无加入记录时表格为空。</span>
+        </div>
         <div id="wl-table-wrap"></div>
-        <pre class="out" id="out-2" hidden></pre>
       </section>
 
       <section id="panel-3" class="panel panel-ingest-module" data-module="3">
@@ -3267,6 +3465,9 @@
                 <strong>展示上一次拉取结果</strong>：只读本机浏览器缓存，<strong>不联网</strong>（不刷新现价轮询）。需要重新刷新现价/扩展因子时点<strong>开始更新自选行情</strong>或<strong>仅拉取扩展因子</strong>；需要更新 K 线请到<strong>②</strong>。进入本模块时会自动尝试展示缓存（若有）。
               </p>
               <p class="cancel-hint" data-cancel-hint="panel-3" hidden>可中断③批量更新/扩展因子/行内回测等；服务端会停止后续自选拉取（已开始的单只可能仍跑完）。</p>
+              <div class="panel-action-out-wrap" aria-live="polite">
+                <pre class="out" id="out-3" hidden></pre>
+              </div>
               <div id="ingest-result-wrap" class="ingest-result-wrap" hidden></div>
             </div>
           </article>
@@ -3334,7 +3535,6 @@
             </div>
           </article>
         </div>
-        <pre class="out" id="out-3" hidden></pre>
       </section>
       <section id="panel-4" class="panel" data-module="4">
         <h2>④ 查看信号</h2>
@@ -3359,6 +3559,9 @@
         </div>
         <p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted);">「展示上一次自选结果」读取本机浏览器缓存，<strong>不联网</strong>，与⑤服务端对比缓存无关。</p>
         <p class="cancel-hint" data-cancel-hint="panel-4" hidden>可中断④信号计算（含勾选时的增量更新）。</p>
+        <div class="panel-action-out-wrap" aria-live="polite">
+          <pre class="out" id="out-4" hidden></pre>
+        </div>
         <div class="row" style="margin-top:1rem;">
           <label for="symOne">单只股票代码</label>
           <input type="text" id="symOne" placeholder="6 位代码" maxlength="16" />
@@ -3383,6 +3586,9 @@
           <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-5" hidden>取消请求</button>
         </div>
         <p class="cancel-hint" data-cancel-hint="panel-5" hidden>可中断⑤变动对比（含增量更新）。</p>
+        <div class="panel-action-out-wrap" aria-live="polite">
+          <pre class="out" id="out-5" hidden></pre>
+        </div>
         <div id="alerts-out-wrap" class="signals-out-wrap" hidden></div>
       </section>
 
@@ -3833,9 +4039,13 @@
   var LS_DS = "quant_monitor_ingest_data_source";
   var LS_INGEST_FUNDAMENTALS = "quant_monitor_ingest_include_fundamentals";
   var LS_WL_PAGE_SIZE = "quant_monitor_watchlist_page_size";
+  var LS_WL_LIST_VIEW = "quant_monitor_wl_list_view_v1";
+  var _wlShowFullPool = false;
   /** 上次「刷新列表」成功返回的自选全量（本机缓存） */
   var LS_LAST_WL_LIST = "quant_monitor_last_watchlist_v1";
   var LS_LAST_WL_KLINE_DATES = "quant_monitor_wl_kline_dates_v1";
+  /** ② 批量拉取日线任务（刷新页面后恢复按钮 loading） */
+  var LS_WL_REFETCH_JOB = "quant_monitor_wl_refetch_job_v1";
   var LS_INGEST_PAGE_SIZE = "quant_monitor_ingest_page_size";
   /** 上次成功拉取行情后的响应 JSON（恢复③表格与免责等） */
   var LS_LAST_INGEST_BODY = "quant_monitor_last_ingest_result_v1";
@@ -3855,6 +4065,7 @@
   /** 自选列表最近一次成功拉取的全量数据（翻页只切片重绘，避免 abort 竞态）。 */
   var _wlCachedBody = null;
   var _wlRefreshSeq = 0;
+  var _wlRefreshListCtrl = null;
   /** 从⑨等批量加入自选后，下一次 refreshWatchlistTable 时跳到最后一页（新记录 id 最大在列表末尾）。 */
   var _wlJumpToLastPageAfterRefreshOnce = false;
   /** 自选批量删除：跨页保留勾选（Set 存 6 位代码）。 */
@@ -3978,6 +4189,233 @@
     el.hidden = !show;
   }
 
+  /** ② 自选操作提示（紧贴左侧按钮区）。 */
+  function showOut2(text, show) {
+    showOut("out-2", text, show !== false);
+  }
+
+  function showOut3(text, show) {
+    showOut("out-3", text, show !== false);
+  }
+
+  function showOut4(text, show) {
+    showOut("out-4", text, show !== false);
+  }
+
+  function showOut5(text, show) {
+    showOut("out-5", text, show !== false);
+  }
+
+  /** 批量任务进度轮询间隔（与②刷新列表类似，不宜过密以免日志刷屏） */
+  var BATCH_PROGRESS_POLL_MS = 2500;
+  var _batchProgressPolls = {};
+  var _ingestBatchStatusFetching = false;
+  /** ③ POST /ingest/update 未返回前，避免轮询因 active=false 提前结束按钮 */
+  var _ingestUpdatePostInFlight = false;
+
+  function batchProgressLabel(st, verb) {
+    verb = verb || "正在处理";
+    if (!st) return verb + "…";
+    var total = st.total != null ? Number(st.total) : 0;
+    var done = st.done != null ? Number(st.done) : 0;
+    if (st.phase === "finalize" && total > 0) {
+      return "正在收尾 " + total + "/" + total;
+    }
+    if (total > 0) {
+      return verb + " " + Math.min(done, total) + "/" + total;
+    }
+    return verb + "…";
+  }
+
+  function setActionButtonLoading(btnId, loading, text) {
+    var btn = $(btnId);
+    if (!btn) return;
+    if (!btn.dataset.defaultText) {
+      btn.dataset.defaultText = btn.textContent || "";
+    }
+    if (loading) {
+      btn.disabled = true;
+      if (text) btn.textContent = text;
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = btn.dataset.defaultText || btn.textContent;
+  }
+
+  function finishActionButtonLoading(btnId, st, doneVerb) {
+    doneVerb = doneVerb || "完成";
+    if (st && Number(st.total) > 0) {
+      var total = Number(st.total);
+      var done = Math.min(Number(st.done) || 0, total);
+      setActionButtonLoading(btnId, true, doneVerb + " " + done + "/" + total);
+      setTimeout(function () {
+        setActionButtonLoading(btnId, false);
+      }, 1400);
+    } else {
+      setActionButtonLoading(btnId, false);
+    }
+  }
+
+  async function fetchSymbolsBatchStatus(scope) {
+    try {
+      var res = await fetch(
+        "/meta/symbols-batch-status?scope=" + encodeURIComponent(scope),
+        { headers: authHeaders() }
+      );
+      if (!res.ok) return null;
+      return await readBody(res);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function stopBatchProgressPoll(key) {
+    if (_batchProgressPolls[key]) {
+      clearInterval(_batchProgressPolls[key]);
+      delete _batchProgressPolls[key];
+    }
+  }
+
+  function startIngestBatchPoll(btnId, verb) {
+    stopBatchProgressPoll("ingest");
+    _batchProgressPolls.ingest = setInterval(function () {
+      if (_ingestBatchStatusFetching) return;
+      _ingestBatchStatusFetching = true;
+      void (async function () {
+        try {
+          var st = await fetchWlRefetchJobStatus();
+          if (st && st.active) {
+            setActionButtonLoading(btnId, true, batchProgressLabel(st, verb));
+            return;
+          }
+          if (_ingestUpdatePostInFlight) {
+            setActionButtonLoading(btnId, true, "正在完成…");
+            return;
+          }
+          stopBatchProgressPoll("ingest");
+          if (st && st.total > 0 && !st.active) {
+            finishActionButtonLoading(btnId, st, st.cancelled ? "已取消" : "完成");
+          } else {
+            setActionButtonLoading(btnId, false);
+          }
+        } finally {
+          _ingestBatchStatusFetching = false;
+        }
+      })();
+    }, BATCH_PROGRESS_POLL_MS);
+  }
+
+  var _symbolsBatchStatusFetching = {};
+
+  function startSymbolsBatchPoll(pollKey, scope, btnId, verb) {
+    stopBatchProgressPoll(pollKey);
+    _batchProgressPolls[pollKey] = setInterval(function () {
+      if (_symbolsBatchStatusFetching[pollKey]) return;
+      _symbolsBatchStatusFetching[pollKey] = true;
+      void (async function () {
+        try {
+          var st = await fetchSymbolsBatchStatus(scope);
+          if (st && st.active) {
+            setActionButtonLoading(btnId, true, batchProgressLabel(st, verb));
+            return;
+          }
+          stopBatchProgressPoll(pollKey);
+          if (st && st.total > 0 && !st.active) {
+            finishActionButtonLoading(btnId, st, st.cancelled ? "已取消" : "完成");
+          } else {
+            setActionButtonLoading(btnId, false);
+          }
+        } finally {
+          _symbolsBatchStatusFetching[pollKey] = false;
+        }
+      })();
+    }, BATCH_PROGRESS_POLL_MS);
+  }
+
+  function estimateWlSubsetBatchTotal(parseSubsetFn) {
+    var subset = parseSubsetFn();
+    if (subset !== null) return subset.length;
+    var c = getWatchlistBodyFromPanel2Cache();
+    return c && c.body && c.body.length ? c.body.length : 0;
+  }
+
+  function beginPanelServerTask(panelScope) {
+    cancelScope(panelScope);
+    activeRequests[panelScope] = { controller: null, serverTask: true };
+    refreshCancelButtons();
+  }
+
+  function endPanelServerTask(panelScope) {
+    if (activeRequests[panelScope]) {
+      delete activeRequests[panelScope];
+      refreshCancelButtons();
+    }
+  }
+
+  async function syncPanel3BatchButtonsFromServer() {
+    var stIng = await fetchWlRefetchJobStatus();
+    if (stIng && stIng.active) {
+      beginPanelServerTask("panel-3");
+      setActionButtonLoading("btnIngest", true, batchProgressLabel(stIng, "正在更新"));
+      startIngestBatchPoll("btnIngest", "正在更新");
+      return;
+    }
+    var stFund = await fetchSymbolsBatchStatus("fundamentals");
+    if (stFund && stFund.active) {
+      beginPanelServerTask("panel-3");
+      setActionButtonLoading("btnFundamentals", true, batchProgressLabel(stFund, "正在拉因子"));
+      startSymbolsBatchPoll("fundamentals", "fundamentals", "btnFundamentals", "正在拉因子");
+    }
+  }
+
+  async function syncPanel4SignalsBtnFromServer() {
+    var st = await fetchSymbolsBatchStatus("signals");
+    if (st && st.active) {
+      beginPanelServerTask("panel-4");
+      setActionButtonLoading("btnSignalsAll", true, batchProgressLabel(st, "正在计算"));
+      startSymbolsBatchPoll("signals", "signals", "btnSignalsAll", "正在计算");
+    }
+  }
+
+  async function syncPanel5AlertsBtnFromServer() {
+    var st = await fetchSymbolsBatchStatus("alerts");
+    if (st && st.active) {
+      beginPanelServerTask("panel-5");
+      setActionButtonLoading("btnAlerts", true, batchProgressLabel(st, "正在对比"));
+      startSymbolsBatchPoll("alerts", "alerts", "btnAlerts", "正在对比");
+    }
+  }
+
+  var _wlBackfillCloseState = { running: false };
+
+  async function syncPanel2BackfillBtnFromServer() {
+    var st = await fetchSymbolsBatchStatus("backfill_close");
+    if (st && st.active) {
+      _wlBackfillCloseState.running = true;
+      beginServerTaskScope("panel-2");
+      setActionButtonLoading("btnWlBackfillTodayClose", true, batchProgressLabel(st, "正在补写"));
+      startSymbolsBatchPoll(
+        "backfill_close",
+        "backfill_close",
+        "btnWlBackfillTodayClose",
+        "正在补写"
+      );
+    }
+  }
+
+  /** 刷新失败/取消后恢复表格：优先内存缓存，其次本机快照。 */
+  function wlRestoreWatchlistTableAfterFailedRefresh() {
+    if (_wlCachedBody && Array.isArray(_wlCachedBody) && _wlCachedBody.length) {
+      renderWatchlistTable(_wlCachedBody);
+      return;
+    }
+    if (ensureWlCacheHydrated()) {
+      renderWatchlistTable(_wlCachedBody);
+      return;
+    }
+    wlShowTableIdle();
+  }
+
   async function readBody(res) {
     var t = await res.text();
     try { return JSON.parse(t); } catch (e) { return t; }
@@ -3990,7 +4428,8 @@
   var PANEL_LOADING_DEFAULT = "加载中，请稍候…";
   var PANEL_SERVER_SCOPES = {
     "panel-1": [],
-    "panel-2": ["hot_sectors"],
+    /** 仅用于 clear-batch；不含 ingest/watchlist_spot，避免冲掉进行中的取消标记 */
+    "panel-2": ["hot_sectors", "backfill_close"],
     "panel-3": ["ingest", "fundamentals", "pre_refresh"],
     "panel-4": ["signals", "pre_refresh"],
     "panel-5": ["alerts", "pre_refresh"],
@@ -4174,6 +4613,21 @@
     return controller.signal;
   }
 
+  /** 仅注册可取消的后端任务（不创建 AbortController、无面板遮罩 loading）。 */
+  function beginServerTaskScope(scope) {
+    cancelScope(scope);
+    activeRequests[scope] = { controller: null, serverTask: true };
+    refreshCancelButtons();
+  }
+
+  function endServerTaskScope(scope) {
+    if (!scope) return;
+    if (activeRequests[scope]) {
+      delete activeRequests[scope];
+      refreshCancelButtons();
+    }
+  }
+
   function endScope(scope) {
     delete activeRequests[scope];
     refreshCancelButtons();
@@ -4191,24 +4645,56 @@
     var optsIn = Object.assign({}, options || {});
     var loadingMessage = optsIn.loadingMessage;
     var loadingSlow = optsIn.loadingSlow;
+    var skipClear = optsIn.skipClearServerScopes;
+    var skipPanelLoading = optsIn.skipPanelLoading;
     delete optsIn.loadingMessage;
     delete optsIn.loadingSlow;
-    var signal = beginScope(scope, loadingMessage, { slow: loadingSlow });
-    await clearServerCancelFlags(scope);
+    delete optsIn.skipClearServerScopes;
+    delete optsIn.skipPanelLoading;
+    var signal;
+    if (skipPanelLoading) {
+      cancelScope(scope);
+      var ctrl = new AbortController();
+      activeRequests[scope] = { controller: ctrl };
+      refreshCancelButtons();
+      signal = ctrl.signal;
+    } else {
+      signal = beginScope(scope, loadingMessage, { slow: loadingSlow });
+    }
+    if (!skipClear) await clearServerCancelFlags(scope);
     var opts = Object.assign({}, optsIn, { signal: signal });
     try {
       var res = await fetch(url, opts);
-      endScope(scope);
+      if (skipPanelLoading) {
+        delete activeRequests[scope];
+        refreshCancelButtons();
+      } else {
+        endScope(scope);
+      }
       return res;
     } catch (e) {
-      endScope(scope);
+      if (skipPanelLoading) {
+        delete activeRequests[scope];
+        refreshCancelButtons();
+      } else {
+        endScope(scope);
+      }
       throw e;
     }
   }
 
   async function notifyServerCancel(scope) {
-    var scopes = PANEL_SERVER_SCOPES[scope];
-    if (!scopes || !scopes.length) return;
+    var scopes = PANEL_SERVER_SCOPES[scope] ? PANEL_SERVER_SCOPES[scope].slice() : [];
+    if (scope === "panel-2" && _wlRefetchState.running) {
+      if (scopes.indexOf("ingest") < 0) scopes.push("ingest");
+    }
+    if (scope === "panel-2" && _wlRefreshListState.running) {
+      if (scopes.indexOf("watchlist_spot") < 0) scopes.push("watchlist_spot");
+    }
+    if (scope === "panel-2" && _wlBackfillCloseState.running) {
+      if (scopes.indexOf("backfill_close") < 0) scopes.push("backfill_close");
+    }
+    if (!scopes.length) return;
     try {
       await fetch("/meta/cancel-batch", {
         method: "POST",
@@ -4220,6 +4706,10 @@
 
   async function clearServerCancelFlags(scope) {
     var scopes = PANEL_SERVER_SCOPES[scope];
+    await clearServerCancelFlagsForScopes(scopes);
+  }
+
+  async function clearServerCancelFlagsForScopes(scopes) {
     if (!scopes || !scopes.length) return;
     try {
       await fetch("/meta/clear-batch", {
@@ -4238,6 +4728,9 @@
     cancelScope(scope);
     panelLoadingStopTimer(scope);
     panelLoadingEnd(scope);
+    if (scope === "panel-2" && _wlRefetchState.running) {
+      void wlCancelRefetchKline({ fromPanelCancel: true });
+    }
     await notifyServerCancel(scope);
   }
 
@@ -4282,17 +4775,28 @@
     if (id === "2") {
       initWlIngestDateInputs();
       updateRouteEchoSpans();
+      initWlDailyViewFilter();
       wlRestoreTableFromCache();
+      if (!_wlCachedBody || !_wlCachedBody.length) {
+        void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+      }
       tryRestoreHotPickFromCacheOnPanelEnter();
+      void initWlRefetchJobUi();
+      void syncPanel2BackfillBtnFromServer();
     }
     if (id === "3") {
       ensureWlCacheHydrated();
       tryRestoreLastIngestFromStorage();
       updateIngestLastBtnState();
+      void syncPanel3BatchButtonsFromServer();
     }
     if (id === "4") {
       ensureWlCacheHydrated();
       updateSignalsLastBtnState();
+      void syncPanel4SignalsBtnFromServer();
+    }
+    if (id === "5") {
+      void syncPanel5AlertsBtnFromServer();
     }
     if (id === "9") {
       tryRestoreLastQssSectorScreenFromStorage();
@@ -7006,18 +7510,21 @@
       board_type: $("hotBoardType").value,
       exclude_st: hasSector && $("hotExcludeSt") ? $("hotExcludeSt").checked : true,
       exclude_kcb: hasSector && $("hotExcludeKcb") ? $("hotExcludeKcb").checked : true,
+      exclude_cyb: hasSector && $("hotExcludeCyb") ? $("hotExcludeCyb").checked : true,
       ma5_exclude_st: hasMa5 && $("hotMa5ExcludeSt") ? $("hotMa5ExcludeSt").checked : true,
       ma5_exclude_kcb: hasMa5 && $("hotMa5ExcludeKcb") ? $("hotMa5ExcludeKcb").checked : true,
+      ma5_exclude_cyb: hasMa5 && $("hotMa5ExcludeCyb") ? $("hotMa5ExcludeCyb").checked : true,
       rising_3d_exclude_st: hasRising3d && $("hotRising3dExcludeSt") ? $("hotRising3dExcludeSt").checked : true,
       rising_3d_exclude_kcb: hasRising3d && $("hotRising3dExcludeKcb") ? $("hotRising3dExcludeKcb").checked : true,
+      rising_3d_exclude_cyb: hasRising3d && $("hotRising3dExcludeCyb") ? $("hotRising3dExcludeCyb").checked : true,
       selector_data_source: $("hotSelectorDs").value,
       use_sector_snapshot: $("hotUseSectorSnapshot").checked,
       sort_by_trend_strength: $("hotSortByTrend").checked,
       require_technical_pass: $("hotRequireTechPass").checked,
       exclude_overextended: $("hotExcludeOverextended").checked,
-      max_return_20d_pct: parseFloat($("hotMax20dReturnPct").value) || 25,
+      max_return_20d_pct: parseFloat($("hotMax20dReturnPct").value) || 22,
       enable_liquidity_filter: $("hotEnableLiquidityFilter").checked,
-      min_avg_turnover_20d_100m: parseFloat($("hotMinTurnover20d100m").value) || 0,
+      min_avg_turnover_20d_100m: parseFloat($("hotMinTurnover20d100m").value) || 2.5,
       pick_condition_groups: pickGroups,
       ma5_stand_min_days: 3,
       capital_flow_lookback_days: 3,
@@ -7887,23 +8394,54 @@
     return hotRowsFromPickCheckboxes($("hotSectorsWrap"));
   }
 
-  function hotSyncPickSelectAllCheckbox() {
-    var allCb = $("hotPickSelectAll");
-    var root = $("hotSectorDetailPane");
-    if (!root || root.hidden) root = $("hotSectorsWrap");
-    if (!allCb || !root) return;
-    var boxes = root.querySelectorAll(".hot-stock-pick-cb");
+  function hotPickColumnThHtml() {
+    return (
+      '<th class="col-pick"><label class="hot-pick-th-label" title="全选/取消全选本表">' +
+      '<input type="checkbox" class="hot-sector-detail-select-all" checked aria-label="全选本表" />' +
+      "<span>选</span></label></th>"
+    );
+  }
+
+  function hotSyncSectorDetailSelectAllInTable(table) {
+    if (!table) return;
+    var master = table.querySelector(".hot-sector-detail-select-all");
+    if (!master) return;
+    var boxes = table.querySelectorAll(".hot-stock-pick-cb");
     if (!boxes.length) {
-      allCb.checked = false;
-      allCb.indeterminate = false;
+      master.checked = false;
+      master.indeterminate = false;
       return;
     }
     var n = 0;
     boxes.forEach(function (b) {
       if (b.checked) n += 1;
     });
-    allCb.checked = n === boxes.length;
-    allCb.indeterminate = n > 0 && n < boxes.length;
+    master.checked = n === boxes.length;
+    master.indeterminate = n > 0 && n < boxes.length;
+  }
+
+  function hotSyncSectorDetailSelectAllHeaders() {
+    var pane = $("hotSectorDetailPane");
+    if (!pane || pane.hidden) return;
+    pane.querySelectorAll(".hot-result-table").forEach(function (table) {
+      hotSyncSectorDetailSelectAllInTable(table);
+    });
+  }
+
+  function hotSetSectorDetailPickAll(cardRoot, checked) {
+    if (!cardRoot) return;
+    cardRoot.querySelectorAll(".hot-stock-pick-cb").forEach(function (cb) {
+      cb.checked = !!checked;
+    });
+    cardRoot.querySelectorAll(".hot-sector-detail-select-all").forEach(function (master) {
+      master.checked = !!checked;
+      master.indeterminate = false;
+    });
+    hotSyncPickSelectAllCheckbox();
+  }
+
+  function hotSyncPickSelectAllCheckbox() {
+    hotSyncSectorDetailSelectAllHeaders();
   }
 
   async function hotAddStocksToWatchlist(stocks, hint) {
@@ -7923,6 +8461,7 @@
         showOut("out-2", await formatError(res, body), true);
         return;
       }
+      var logged = (body.added != null ? body.added : 0) + (body.updated != null ? body.updated : 0);
       var msg =
         (hint || "加入自选") +
         "完成：新增 " +
@@ -7930,9 +8469,20 @@
         " 条，已在池中更新为手动 " +
         (body.updated != null ? body.updated : 0) +
         " 条。";
+      if (logged > 0) {
+        msg += " 已写入加入日志 " + logged + " 条（② 按「加入日期」可查，东八区今日默认）。";
+      }
       if (body.skipped) msg += " 跳过无效 " + body.skipped + " 条。";
-      showOut("out-2", msg, true);
-      await refreshWatchlistTable();
+      showOut("out-2", msg, false);
+      if (logged > 0 && (!$("chkWlShowFullPool") || !$("chkWlShowFullPool").checked)) {
+        var wlDateInp = $("wlAddedDateFilter");
+        if (wlDateInp) wlDateInp.value = wlCalendarTodayYmd();
+      }
+      await refreshWatchlistTable({
+        refreshSpot: false,
+        skipCacheRestore: true,
+        keepOutMessage: true,
+      });
     } catch (e) {
       showOut("out-2", String(e), true);
     }
@@ -8018,9 +8568,9 @@
       chipsHtml +
       "</div>" +
       '<div class="hot-sector-detail-actions">' +
-      '<button type="button" class="hot-add-wl-sector" data-hot-sector-rank="' +
-      escHtml(rank) +
-      '">本板块加入自选</button>' +
+      '<button type="button" class="secondary hot-sector-select-all-btn" title="勾选本表全部股票">全选</button>' +
+      '<button type="button" class="secondary hot-sector-select-none-btn" title="取消勾选本表全部股票">全不选</button>' +
+      '<button type="button" class="primary hot-add-wl-picked-in-detail" title="仅将本表已勾选股票写入②自选池">将勾选股加入自选</button>' +
       '<button type="button" class="secondary hot-sector-detail-close" id="btnHotSectorDetailClose">收起</button>' +
       "</div></header>" +
       '<div class="hot-sector-detail-body">' +
@@ -8046,7 +8596,7 @@
     if (!pane) return;
     pane.hidden = true;
     pane.innerHTML =
-      '<p class="hot-sector-detail-empty">点击上方板块概览中的「N 只 · 查看」，在此展开该板块入选股票明细。</p>';
+      '<p class="hot-sector-detail-empty">点击上方板块概览中的「N 只 · 查看」，在此展开该板块入选股票明细；勾选后点「将勾选股加入自选」。</p>';
     _hotActiveSectorRank = null;
     _hotActivePickGroup = "sector_hot";
     var wrap = $("hotSectorsWrap");
@@ -8123,14 +8673,23 @@
           hotHideSectorDetailPane();
           return;
         }
-        var secAdd = ev.target.closest(".hot-add-wl-sector");
-        if (secAdd) {
-          var r4 = secAdd.getAttribute("data-hot-sector-rank");
-          var panelRoot =
-            document.getElementById("hot-sector-detail-card") ||
-            document.getElementById("hot-sector-panel-" + String(r4)) ||
-            $("hotSectorDetailPane");
-          void hotAddStocksToWatchlist(hotRowsFromPickCheckboxes(panelRoot), "本板块加入自选");
+        if (ev.target.closest(".hot-sector-select-all-btn")) {
+          var cardAll = ev.target.closest(".hot-sector-detail-card");
+          hotSetSectorDetailPickAll(cardAll, true);
+          return;
+        }
+        if (ev.target.closest(".hot-sector-select-none-btn")) {
+          var cardNone = ev.target.closest(".hot-sector-detail-card");
+          hotSetSectorDetailPickAll(cardNone, false);
+          return;
+        }
+        if (ev.target.closest(".hot-add-wl-picked-in-detail")) {
+          var cardPick =
+            ev.target.closest(".hot-sector-detail-card") || $("hotSectorDetailPane");
+          void hotAddStocksToWatchlist(
+            hotRowsFromPickCheckboxes(cardPick),
+            "勾选股加入自选"
+          );
           return;
         }
         var klineBtn = ev.target.closest(".hot-show-kline-btn");
@@ -8139,7 +8698,21 @@
         }
       });
       document.body.addEventListener("change", function (ev) {
-        if (ev.target && ev.target.classList && ev.target.classList.contains("hot-stock-pick-cb")) {
+        if (!ev.target || !ev.target.classList) return;
+        if (ev.target.classList.contains("hot-sector-detail-select-all")) {
+          var table = ev.target.closest("table");
+          if (table) {
+            var on = ev.target.checked;
+            table.querySelectorAll(".hot-stock-pick-cb").forEach(function (cb) {
+              cb.checked = on;
+            });
+          }
+          hotSyncPickSelectAllCheckbox();
+          return;
+        }
+        if (ev.target.classList.contains("hot-stock-pick-cb")) {
+          var table2 = ev.target.closest("table");
+          if (table2) hotSyncSectorDetailSelectAllInTable(table2);
           hotSyncPickSelectAllCheckbox();
         }
       });
@@ -8147,10 +8720,6 @@
     if (!document.body._hotSectorPickToolbarBound) {
       document.body._hotSectorPickToolbarBound = true;
       document.body.addEventListener("click", function (ev) {
-        if (ev.target.closest("#btnHotAddWlPicked")) {
-          void hotAddStocksToWatchlist(hotGetCheckedPickRows(), "勾选股加入自选");
-          return;
-        }
         if (ev.target.closest("#btnHotAddWlAll")) {
           void hotAddStocksToWatchlist(
             hotCollectAllPickRows(
@@ -8164,17 +8733,6 @@
             ),
             "全部入选加入自选"
           );
-        }
-      });
-      document.body.addEventListener("change", function (ev) {
-        if (ev.target && ev.target.id === "hotPickSelectAll") {
-          var on = ev.target.checked;
-          var root = $("hotSectorDetailPane");
-          if (!root || root.hidden) root = $("hotSectorsWrap");
-          if (!root) return;
-          root.querySelectorAll(".hot-stock-pick-cb").forEach(function (cb) {
-            cb.checked = on;
-          });
         }
       });
     }
@@ -8293,7 +8851,8 @@
       return '<p class="hot-empty-sector">本板块无满足连续三日上涨的入选股。</p>';
     }
     var head =
-      "<th>选</th><th>排名</th><th>代码</th><th>名称</th><th>连涨天数</th>" +
+      hotPickColumnThHtml() +
+      "<th>排名</th><th>代码</th><th>名称</th><th>连涨天数</th>" +
       "<th>3日%</th><th>5日%</th><th>10日%</th><th>最新价</th><th>操作</th>";
     var body = "";
     stocks.forEach(function (st, idx) {
@@ -8340,7 +8899,8 @@
       return '<p class="hot-empty-sector">本板块无满足五日+资金承接的入选股。</p>';
     }
     var head =
-      "<th>选</th><th>排名</th><th>代码</th><th>名称</th><th>连续站MA5</th>" +
+      hotPickColumnThHtml() +
+      "<th>排名</th><th>代码</th><th>名称</th><th>连续站MA5</th>" +
       "<th>主力3日(万)</th><th>正流入天</th><th>大单占比%</th><th>最新主力(万)</th><th>5日%</th><th>最新价</th><th>操作</th>";
     var body = "";
     stocks.forEach(function (st, idx) {
@@ -8392,7 +8952,7 @@
     }
     var head;
     var body = "";
-    var pickTh = "<th>选</th>";
+    var pickTh = hotPickColumnThHtml();
     if (withTechnical) {
       head =
         pickTh +
@@ -8561,7 +9121,7 @@
         '<p class="m3-hint" style="margin:0 0 0.65rem;font-size:0.78rem">' +
         (cachedWhen
           ? "当前为<strong>本机缓存</strong>展示，未联网。若要按最新参数重算，请点「获取热门板块候选」。"
-          : "请在下方勾选要保留的股票，再点「将勾选股加入自选」；未勾选不会进入②自选池。") +
+          : "请点各板块「查看」展开明细，勾选需要的股票后点「将勾选股加入自选」；未勾选不会进入②自选池。") +
         "</p>" +
         '<div class="hot-summary-grid">' +
         (wantSector
@@ -8673,15 +9233,14 @@
     }
     wrap.innerHTML =
       groupsHtml +
+      '<div id="hotSectorDetailPane" class="hot-sector-detail-pane">' +
+      '<p class="hot-sector-detail-empty">点击上方某一组「N 只 · 查看」，在此展开该板块入选股票明细；勾选后点明细内「将勾选股加入自选」。</p>' +
+      "</div>" +
       '<div class="hot-pick-toolbar">' +
       '<div class="btns">' +
-      '<button type="button" class="primary" id="btnHotAddWlPicked">将勾选股加入自选</button>' +
       '<button type="button" class="secondary" id="btnHotAddWlAll">全部入选加入自选</button>' +
       "</div>" +
-      '<label class="hot-pick-all-label"><input type="checkbox" id="hotPickSelectAll" checked /> 全选下方明细中的股票（含各组）</label>' +
-      "</div>" +
-      '<div id="hotSectorDetailPane" class="hot-sector-detail-pane">' +
-      '<p class="hot-sector-detail-empty">点击上方某一组「N 只 · 查看」，在此展开该板块入选股票明细。</p>' +
+      '<p class="m3-hint hot-pick-toolbar-hint" style="margin:0;font-size:0.78rem">按板块挑选：先点「查看」→ 勾选 → 明细内「将勾选股加入自选」。若要一次加入本次全部候选，用左侧按钮。</p>' +
       "</div>";
     wrap.hidden = false;
     hotSyncPickSelectAllCheckbox();
@@ -8968,7 +9527,7 @@
           return;
         }
         var errTxt = await formatError(res, body);
-        hotPickLog("失败", "HTTP " + res.status);
+        hotPickLog("失败", errTxt.split("\n")[0] || "HTTP " + res.status);
         showOut("out-2", errTxt, true);
         return;
       }
@@ -9003,7 +9562,7 @@
         "out-2",
         "已拉取最新候选：" +
           (parts.length ? parts.join("；") : "无入选") +
-          "。结果在下方分表展示（已写入本机缓存），请勾选后点「将勾选股加入自选」。",
+          "。结果在下方分表展示（已写入本机缓存）；各板块点「查看」后在明细内勾选并加入自选。",
         false
       );
       var hw = $("hotSectorsWrap");
@@ -9037,21 +9596,344 @@
     };
   }
 
+  var _wlRefetchReqSeq = 0;
+  var _wlRefetchPollTimer = null;
+  var _wlRefetchState = {
+    running: false,
+    reqId: 0,
+    cancelled: false,
+    scopeHeld: false,
+    postInFlight: false,
+  };
+
+  function persistWlRefetchJob(active, extra) {
+    try {
+      if (!active) {
+        localStorage.removeItem(LS_WL_REFETCH_JOB);
+        return;
+      }
+      localStorage.setItem(
+        LS_WL_REFETCH_JOB,
+        JSON.stringify(
+          Object.assign({ active: true, ts: Date.now() }, extra || {})
+        )
+      );
+    } catch (eStore) {}
+  }
+
+  function wlRefetchProgressLabel(st) {
+    if (!st) return "正在拉取日线…";
+    var total = st.total != null ? Number(st.total) : 0;
+    var done = st.done != null ? Number(st.done) : 0;
+    if (st.phase === "finalize" && total > 0) {
+      return "正在收尾 " + total + "/" + total + " 只…";
+    }
+    if (total > 0) {
+      return "正在拉取 " + Math.min(done, total) + "/" + total + " 只…";
+    }
+    return "正在拉取日线…";
+  }
+
+  async function fetchWlRefetchJobStatus() {
+    try {
+      var res = await fetch("/meta/ingest-batch-status", {
+        headers: authHeaders(),
+      });
+      if (!res.ok) return null;
+      return await readBody(res);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function wlRefetchAcquireUi() {
+    if (!_wlRefetchState.scopeHeld) {
+      _wlRefetchState.scopeHeld = true;
+      beginServerTaskScope("panel-2");
+    }
+  }
+
+  function wlRefetchReleaseUi() {
+    if (_wlRefetchState.scopeHeld) {
+      _wlRefetchState.scopeHeld = false;
+      endServerTaskScope("panel-2");
+    }
+    setWlRefetchButtonLoading(false);
+  }
+
+  function stopWlRefetchPoll() {
+    if (_wlRefetchPollTimer) {
+      clearInterval(_wlRefetchPollTimer);
+      _wlRefetchPollTimer = null;
+    }
+  }
+
+  var _wlRefetchStatusFetching = false;
+
+  function startWlRefetchPoll() {
+    stopWlRefetchPoll();
+    _wlRefetchPollTimer = setInterval(function () {
+      if (_wlRefetchStatusFetching) return;
+      _wlRefetchStatusFetching = true;
+      void (async function () {
+        try {
+          var st = await fetchWlRefetchJobStatus();
+          if (st && st.active) {
+            _wlRefetchState.running = true;
+            setWlRefetchButtonLoading(true, wlRefetchProgressLabel(st));
+            return;
+          }
+          if (_wlRefetchState.postInFlight) {
+            _wlRefetchState.running = true;
+            setWlRefetchButtonLoading(true, "正在完成…");
+            return;
+          }
+          wlRefetchJobFinished({
+            cancelled: !!(st && st.cancelled),
+          });
+        } finally {
+          _wlRefetchStatusFetching = false;
+        }
+      })();
+    }, BATCH_PROGRESS_POLL_MS);
+  }
+
+  function wlRefetchJobFinished(opts) {
+    opts = opts || {};
+    stopWlRefetchPoll();
+    _wlRefetchState.running = false;
+    _wlRefetchState.cancelled = false;
+    persistWlRefetchJob(false);
+    wlRefetchReleaseUi();
+    if (!opts.silent) {
+      if (opts.cancelled) {
+        showOut2("拉取已取消：仅完成部分。点「刷新列表」查看已入库数据。", true);
+      } else if (opts.errorText) {
+        showOut2(opts.errorText, true);
+      } else if (opts.completedMsg) {
+        showOut2(opts.completedMsg, !!opts.completedWarn);
+      }
+    }
+    if (opts.refreshTable) {
+      void refreshWatchlistTable();
+    }
+  }
+
+  async function syncWlRefetchJobFromServer() {
+    var st = await fetchWlRefetchJobStatus();
+    if (st && st.active) {
+      _wlRefetchState.running = true;
+      persistWlRefetchJob(true, { total: st.total, done: st.done });
+      wlRefetchAcquireUi();
+      setWlRefetchButtonLoading(true, wlRefetchProgressLabel(st));
+      return true;
+    }
+    return false;
+  }
+
+  async function initWlRefetchJobUi() {
+    if (await syncWlRefetchJobFromServer()) {
+      startWlRefetchPoll();
+      return;
+    }
+    var hadLocal = false;
+    try {
+      hadLocal = !!localStorage.getItem(LS_WL_REFETCH_JOB);
+    } catch (eLs) {}
+    if (hadLocal || _wlRefetchState.running) {
+      wlRefetchJobFinished({ silent: true });
+    }
+  }
+
+  var _wlRefreshListPollTimer = null;
+  /** 避免轮询重叠导致短时间内大量 /meta/watchlist-spot-refresh-status 请求 */
+  var _wlRefreshListStatusFetching = false;
+  var WL_REFRESH_LIST_POLL_MS = 2500;
+  var _wlRefreshListState = { running: false };
+
+  function wlRefreshListProgressLabel(st) {
+    if (!st) return "正在刷新列表…";
+    var total = st.total != null ? Number(st.total) : 0;
+    var ok = st.ok != null ? Number(st.ok) : 0;
+    if (total > 0) return "正在刷新 " + ok + "/" + total;
+    return "正在刷新列表…";
+  }
+
+  async function fetchWlRefreshListJobStatus() {
+    try {
+      var res = await fetch("/meta/watchlist-spot-refresh-status", {
+        headers: authHeaders(),
+      });
+      if (!res.ok) return null;
+      return await readBody(res);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** 等待进行中的「刷新列表」现价任务结束（避免重复 refresh_spot 触发 409） */
+  async function wlWaitSpotRefreshIdle(maxMs) {
+    var deadline = Date.now() + (maxMs != null ? maxMs : 120000);
+    while (Date.now() < deadline) {
+      var st = await fetchWlRefreshListJobStatus();
+      if (!st || !st.active) return true;
+      await new Promise(function (resolve) {
+        setTimeout(resolve, WL_REFRESH_LIST_POLL_MS || 2500);
+      });
+    }
+    return false;
+  }
+
+  function stopWlRefreshListPoll() {
+    if (_wlRefreshListPollTimer) {
+      clearInterval(_wlRefreshListPollTimer);
+      _wlRefreshListPollTimer = null;
+    }
+    _wlRefreshListStatusFetching = false;
+  }
+
+  function startWlRefreshListPoll() {
+    stopWlRefreshListPoll();
+    _wlRefreshListPollTimer = setInterval(function () {
+      if (_wlRefreshListStatusFetching) return;
+      _wlRefreshListStatusFetching = true;
+      void fetchWlRefreshListJobStatus()
+        .then(function (st) {
+          if (st && st.active) {
+            setWlRefreshListButtonLoading(true, wlRefreshListProgressLabel(st));
+          }
+        })
+        .catch(function () {})
+        .finally(function () {
+          _wlRefreshListStatusFetching = false;
+        });
+    }, WL_REFRESH_LIST_POLL_MS);
+  }
+
+  function setWlRefreshListButtonLoading(loading, text) {
+    var btn = $("btnRefreshWl");
+    if (!btn) return;
+    if (!btn.dataset.defaultText) {
+      btn.dataset.defaultText = btn.textContent || "刷新列表";
+    }
+    if (loading) {
+      btn.disabled = true;
+      btn.textContent = text || "正在刷新列表…";
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = btn.dataset.defaultText || "刷新列表";
+  }
+
+  function setWlRefetchButtonLoading(loading, text, opts) {
+    opts = opts || {};
+    var btn = $("btnWlRefetchSelected");
+    var cancelBtn = $("btnWlCancelRefetch");
+    if (!btn) return;
+    if (!btn.dataset.defaultText) {
+      btn.dataset.defaultText = btn.textContent || "重新获取所选日线";
+    }
+    if (loading) {
+      btn.disabled = true;
+      btn.textContent = text || "正在拉取日线…";
+      if (cancelBtn) {
+        cancelBtn.hidden = false;
+        cancelBtn.disabled = !!opts.cancelling;
+      }
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = btn.dataset.defaultText || "重新获取所选日线";
+    if (cancelBtn) {
+      cancelBtn.hidden = true;
+      cancelBtn.disabled = false;
+    }
+  }
+
+  async function wlCancelRefetchKline(opts) {
+    opts = opts || {};
+    var st = await fetchWlRefetchJobStatus();
+    if (!st || !st.active) {
+      if (!opts.fromPanelCancel && !_wlRefetchState.running) {
+        showOut2("当前没有进行中的日线拉取任务。", true);
+      }
+      wlRefetchJobFinished({ cancelled: true, silent: opts.fromPanelCancel });
+      return;
+    }
+    if (_wlRefetchState.cancelled) return;
+    _wlRefetchState.cancelled = true;
+    _wlRefetchState.running = true;
+    wlRefetchAcquireUi();
+    setWlRefetchButtonLoading(true, "正在取消拉取…", { cancelling: true });
+    try {
+      await fetch("/meta/cancel-batch", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify({ scopes: ["ingest"] }),
+      });
+    } catch (eCancel) {}
+    if (!opts.fromPanelCancel) {
+      showOut2(
+        "已发送取消拉取：后台将尽快停止；点「刷新列表」可查看已完成入库的部分。",
+        true
+      );
+    }
+    startWlRefetchPoll();
+  }
+
+  function resolveWlKlineRefetchSymbols() {
+    if (wlSelectedSyms.size > 0) {
+      return {
+        symbols: Array.from(wlSelectedSyms),
+        scopeHint: "已勾选 " + wlSelectedSyms.size + " 只",
+      };
+    }
+    if (_wlCachedBody && _wlCachedBody.length) {
+      var all = _wlCachedBody.map(function (x) {
+        return x.symbol;
+      });
+      return {
+        symbols: all,
+        scopeHint: "自选池全部 " + all.length + " 只（未勾选）",
+      };
+    }
+    return { symbols: [], scopeHint: "" };
+  }
+
   async function wlRefetchKlineSymbols(symbols) {
     if (!symbols || !symbols.length) {
-      showOut("out-2", "请先勾选股票，或点表格「最近入库」列中的「重新获取」。", true);
+      showOut2(
+        "请先在表格中勾选股票，或点「刷新列表」加载自选后再点本按钮（未勾选时将拉取池内全部）。也可点行内「重新获取」。",
+        true
+      );
       return;
     }
     if (apiKeyRequired() && !getApiKey()) {
-      showOut("out-2", "请先在「①」保存 API Key。", true);
+      showOut2("请先在「①」保存 API Key。", true);
+      return;
+    }
+    if (await syncWlRefetchJobFromServer()) {
+      startWlRefetchPoll();
+      showOut2("已有拉取任务进行中，请等待完成或点「取消拉取」。", true);
+      return;
+    }
+    if (_wlRefetchState.running) {
+      showOut2("已有拉取任务进行中，请等待完成或点「取消拉取」。", true);
       return;
     }
     persistWlKlineDates();
     var range = getWlIngestDateRange();
     var rangeLab =
       (range.start_date || "…") + " ～ " + (range.end_date || "…");
-    showOut(
-      "out-2",
+    var reqId = ++_wlRefetchReqSeq;
+    _wlRefetchState.running = true;
+    _wlRefetchState.reqId = reqId;
+    _wlRefetchState.cancelled = false;
+    persistWlRefetchJob(true, { total: symbols.length });
+    setWlRefetchButtonLoading(true, "正在拉取 0/" + symbols.length + " 只…");
+    wlRefetchAcquireUi();
+    startWlRefetchPoll();
+    showOut2(
       "正在拉取 " +
         symbols.length +
         " 只日线（" +
@@ -9061,6 +9943,7 @@
         "）…",
       true
     );
+    _wlRefetchState.postInFlight = true;
     try {
       var payload = {
         symbols: symbols,
@@ -9068,52 +9951,93 @@
       };
       if (range.start_date) payload.start_date = range.start_date;
       if (range.end_date) payload.end_date = range.end_date;
-      var res = await fetchCancel("panel-2", "/ingest/update", {
+      await clearServerCancelFlagsForScopes(["ingest"]);
+      var res = await fetch("/ingest/update", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(payload),
-        loadingMessage: "正在拉取日线…",
       });
       var body = await readBody(res);
+      if (!_wlRefetchState.running || _wlRefetchState.reqId !== reqId) return;
       if (!res.ok) {
-        showOut("out-2", await formatError(res, body), true);
+        wlRefetchJobFinished({
+          errorText: await formatError(res, body),
+          refreshTable: false,
+        });
         return;
       }
       if (body && body.cancelled) {
-        showOut("out-2", "拉取已取消：仅完成部分股票。", true);
-      } else {
-        var okN =
-          body && body.results
-            ? body.results.filter(function (r) {
-                return r && r.symbol && !r.error;
-              }).length
-            : 0;
-        var failN = symbols.length - okN;
-        var backfillN =
-          body && body.results
-            ? body.results.filter(function (r) {
-                return r && r.today_bar_backfill;
-              }).length
-            : 0;
-        showOut(
-          "out-2",
-          "日线拉取完成：成功 " +
-            okN +
-            " 只" +
-            (failN > 0 ? "，失败/跳过 " + failN + " 只（见③拉取结果或重试）" : "") +
-            (backfillN > 0
-              ? "；其中 " + backfillN + " 只已用收盘后现价补写当日 K 线（数据源日线滞后时）"
-              : "") +
-            "。区间 " +
-            rangeLab +
-            "。请点「刷新列表」查看昨收/当日收盘。",
-          failN > 0
-        );
+        wlRefetchJobFinished({
+          cancelled: true,
+        });
+        return;
       }
-      await refreshWatchlistTable();
+      var okN =
+        body && body.results
+          ? body.results.filter(function (r) {
+              return r && r.symbol && !r.error;
+            }).length
+          : 0;
+      var failN = symbols.length - okN;
+      var backfillN =
+        body && body.results
+          ? body.results.filter(function (r) {
+              return r && r.today_bar_backfill;
+            }).length
+          : 0;
+      wlRefetchJobFinished({
+        completedMsg:
+          "日线拉取完成：成功 " +
+          okN +
+          " 只" +
+          (failN > 0 ? "，失败/跳过 " + failN + " 只（见③拉取结果或重试）" : "") +
+          (backfillN > 0
+            ? "；其中 " + backfillN + " 只已用收盘后现价补写当日 K 线（数据源日线滞后时）"
+            : "") +
+          "。区间 " +
+          rangeLab +
+          "。请点「刷新列表」查看昨收/当日收盘。",
+        completedWarn: failN > 0,
+      });
     } catch (e) {
-      if (isRequestAborted(e)) showOut("out-2", "拉取日线已取消。", true);
-      else showOut("out-2", String(e), true);
+      var stAfter = await fetchWlRefetchJobStatus();
+      if (stAfter && stAfter.active) {
+        _wlRefetchState.running = true;
+        wlRefetchAcquireUi();
+        setWlRefetchButtonLoading(true, wlRefetchProgressLabel(stAfter));
+        startWlRefetchPoll();
+        if (_wlRefetchState.cancelled) {
+          showOut2("取消请求已发送，后台停止中…", true);
+        } else {
+          showOut2(
+            "页面连接已断开，后台仍在拉取；刷新后将继续显示进度，或点「取消拉取」终止。",
+            true
+          );
+        }
+        return;
+      }
+      if (_wlRefetchState.cancelled) {
+        wlRefetchJobFinished({ cancelled: true });
+      } else if (isRequestAborted(e)) {
+        wlRefetchJobFinished({
+          errorText: "拉取日线已中断。",
+          refreshTable: false,
+        });
+      } else {
+        wlRefetchJobFinished({ errorText: String(e), refreshTable: false });
+      }
+    } finally {
+      _wlRefetchState.postInFlight = false;
+      void (async function () {
+        if (_wlRefetchState.reqId !== reqId) return;
+        var stFin = await fetchWlRefetchJobStatus();
+        if (stFin && stFin.active) {
+          _wlRefetchState.running = true;
+          wlRefetchAcquireUi();
+          setWlRefetchButtonLoading(true, wlRefetchProgressLabel(stFin));
+          startWlRefetchPoll();
+        }
+      })();
     }
   }
 
@@ -9279,12 +10203,75 @@
     return { body: _wlCachedBody.slice(), ts: ts, fromMemory: true };
   }
 
+  function wlBuildWatchlistUrl(refreshSpot) {
+    var parts = [];
+    if (refreshSpot) parts.push("refresh_spot=true");
+    if (_wlShowFullPool) {
+      parts.push("pool=true");
+    } else {
+      var d =
+        ($("wlAddedDateFilter") && $("wlAddedDateFilter").value) ||
+        wlCalendarTodayYmd();
+      parts.push("added_date=" + encodeURIComponent(d));
+    }
+    return "/watchlist" + (parts.length ? "?" + parts.join("&") : "");
+  }
+
+  function wlUpdateDailyViewHint(count, dateStr) {
+    var el = $("wlDailyViewHint");
+    if (!el) return;
+    if (_wlShowFullPool) {
+      el.textContent = "当前：完整自选池（含历史全部标的）。";
+      return;
+    }
+    var d = dateStr || ($("wlAddedDateFilter") && $("wlAddedDateFilter").value) || wlCalendarTodayYmd();
+    if (count === 0) {
+      el.textContent = "东八区 " + d + " 无加入记录，表格为空；可换日期或勾选「显示全部自选池」。";
+    } else if (count != null && count >= 0) {
+      el.textContent = "东八区 " + d + " 共加入 " + count + " 只（仅统计当日首次写入日志的代码）。";
+    } else {
+      el.textContent = "默认展示今日新增；该日无加入记录时表格为空。";
+    }
+  }
+
+  function formatWlAddedAt(iso) {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        hour12: false,
+      });
+    } catch (e) {
+      return String(iso);
+    }
+  }
+
+  function initWlDailyViewFilter() {
+    var inp = $("wlAddedDateFilter");
+    if (inp && !inp.value) inp.value = wlCalendarTodayYmd();
+    var chk = $("chkWlShowFullPool");
+    if (chk) chk.checked = _wlShowFullPool;
+    wlUpdateDailyViewHint(null);
+  }
+
   function persistWatchlistSnapshot() {
     try {
-      if (!_wlCachedBody || !Array.isArray(_wlCachedBody) || !_wlCachedBody.length) return;
+      if (!_wlCachedBody || !Array.isArray(_wlCachedBody) || !_wlCachedBody.length) {
+        localStorage.removeItem(LS_LAST_WL_LIST);
+        return;
+      }
+      var ad =
+        ($("wlAddedDateFilter") && $("wlAddedDateFilter").value) ||
+        wlCalendarTodayYmd();
       localStorage.setItem(
         LS_LAST_WL_LIST,
-        JSON.stringify({ ts: Date.now(), body: _wlCachedBody, page: watchlistPage })
+        JSON.stringify({
+          ts: Date.now(),
+          body: _wlCachedBody,
+          page: watchlistPage,
+          view: _wlShowFullPool ? "pool" : "daily",
+          addedDate: ad,
+        })
       );
     } catch (e) {
       try {
@@ -9293,6 +10280,62 @@
     }
   }
 
+  /** 删除自选后仅更新本机列表，不联网 refresh_spot（需最新时点「刷新列表」）。 */
+  /** 将单条 API 返回合并进自选缓存并立即渲染（添加/更新后立即可见）。 */
+  function wlUpsertWatchlistCacheItem(item) {
+    if (!item || !item.symbol) return;
+    if (!_wlCachedBody || !Array.isArray(_wlCachedBody)) _wlCachedBody = [];
+    var sym = String(item.symbol);
+    var idx = -1;
+    for (var i = 0; i < _wlCachedBody.length; i++) {
+      if (_wlCachedBody[i] && _wlCachedBody[i].symbol === sym) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx >= 0) _wlCachedBody[idx] = Object.assign({}, _wlCachedBody[idx], item);
+    else _wlCachedBody.push(item);
+    renderWatchlistTable(_wlCachedBody);
+    persistWatchlistSnapshot();
+  }
+
+  function removeSymbolsFromWatchlistCache(symbols) {
+    var rm = new Set();
+    (Array.isArray(symbols) ? symbols : [symbols]).forEach(function (s) {
+      var code = String(s || "")
+        .replace(/\D/g, "")
+        .slice(-6);
+      if (code.length === 6) rm.add(code);
+    });
+    if (!rm.size) return;
+    if (_wlCachedBody && _wlCachedBody.length) {
+      _wlCachedBody = _wlCachedBody.filter(function (x) {
+        return x && x.symbol && !rm.has(x.symbol);
+      });
+    } else {
+      _wlCachedBody = [];
+    }
+    renderWatchlistTable(_wlCachedBody);
+    persistWatchlistSnapshot();
+  }
+
+  function applyWatchlistCacheAfterDeleteAll(scope) {
+    if (!_wlCachedBody || !_wlCachedBody.length) {
+      _wlCachedBody = [];
+    } else if (scope === "all") {
+      _wlCachedBody = [];
+    } else {
+      _wlCachedBody = _wlCachedBody.filter(function (x) {
+        var o = x && x.origin;
+        return o !== "auto_hot" && o !== "auto_quant";
+      });
+    }
+    renderWatchlistTable(_wlCachedBody);
+    persistWatchlistSnapshot();
+  }
+
+  var WL_DELETE_LOCAL_HINT = "列表已本地更新；点「刷新列表」可联网刷新现价与收盘。";
+
   function wlRestoreTableFromCache() {
     var wrap = $("wl-table-wrap");
     if (!wrap) return;
@@ -9300,6 +10343,19 @@
       wlShowTableIdle();
       return;
     }
+    try {
+      var raw = localStorage.getItem(LS_LAST_WL_LIST);
+      if (raw && String(raw).trim()) {
+        var snap = JSON.parse(raw);
+        if (snap && snap.view === "pool") _wlShowFullPool = true;
+        else if (snap && snap.view === "daily") _wlShowFullPool = false;
+        if (snap && snap.addedDate && $("wlAddedDateFilter")) {
+          $("wlAddedDateFilter").value = String(snap.addedDate).slice(0, 10);
+        }
+        var chk = $("chkWlShowFullPool");
+        if (chk) chk.checked = _wlShowFullPool;
+      }
+    } catch (eSnapView) {}
     renderWatchlistTable(_wlCachedBody);
     try {
       var raw = localStorage.getItem(LS_LAST_WL_LIST);
@@ -9472,7 +10528,18 @@
     if (!wrap) return;
     if (!Array.isArray(body) || body.length === 0) {
       _wlJumpToLastPageAfterRefreshOnce = false;
-      wrap.innerHTML = "<p class=\"lead\">暂无自选，请在上方添加或尝试热门填充。</p>";
+      if (!_wlShowFullPool) {
+        var d0 =
+          ($("wlAddedDateFilter") && $("wlAddedDateFilter").value) ||
+          wlCalendarTodayYmd();
+        wrap.innerHTML =
+          '<p class="lead">东八区 <strong>' +
+          escHtml(d0) +
+          "</strong> 未向自选池新增任何股票（<code>watchlist_add_log</code> 无记录）。可换日期点「查询该日」，或勾选「显示全部自选池」。</p>";
+        wlUpdateDailyViewHint(0, d0);
+      } else {
+        wrap.innerHTML = "<p class=\"lead\">暂无自选，请在上方添加或尝试热门填充。</p>";
+      }
       watchlistPage = 1;
       wlSelectedSyms.clear();
       return;
@@ -9508,6 +10575,16 @@
           : item.origin === "auto_quant"
             ? "量化自动"
             : "手动";
+      if (!_wlShowFullPool && item.in_watchlist_pool === false) {
+        nm += '<span class="wl-tag-removed" title="当日曾加入，当前已不在自选池">（已移出）</span>';
+      }
+      var addedAtCell = "";
+      if (!_wlShowFullPool) {
+        addedAtCell =
+          '<td class="wl-bar-meta wl-col-added" title="写入 watchlist_add_log 的时间（东八区显示）">' +
+          escHtml(formatWlAddedAt(item.watchlist_added_at)) +
+          "</td>";
+      }
       var hasBars =
         item.bars_last_ingested_at != null && String(item.bars_last_ingested_at).trim();
       var ingAt = formatWlBarsIngestAt(item.bars_last_ingested_at);
@@ -9580,7 +10657,9 @@
         nm +
         "</td><td>" +
         origin +
-        '</td><td class="wl-bar-meta wl-col-ingest" title="该行任意 K 线最近一次写入库的 UTC 时间">' +
+        "</td>" +
+        addedAtCell +
+        '<td class="wl-bar-meta wl-col-ingest" title="该行任意 K 线最近一次写入库的 UTC 时间">' +
         ing +
         '</td><td class="wl-prev-num" title="' +
         escHtml(prevDisp.title || "") +
@@ -9615,6 +10694,9 @@
     var sortStatusHtml = _wlSortCol
       ? '<span class="wl-sort-status">' + escHtml(wlSortStatusText()) + "</span>"
       : "";
+    var addedTh = !_wlShowFullPool
+      ? '<th class="wl-bar-meta wl-col-added">加入自选</th>'
+      : "";
     wrap.innerHTML =
       '<div class="wl-toolbar">' +
       '<div class="wl-toolbar-left">' +
@@ -9638,7 +10720,9 @@
       '<button type="button" class="secondary wl-view-reset-btn" title="清除排序、回到第 1 页、每页 20 条">重置视图</button>' +
       "</div>" +
       "</div>" +
-      '<div class="wl-table-scroll"><table class="wl-stock-table"><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th class="wl-col-code">代码</th><th class="wl-col-name">名称</th><th>来源</th><th class="wl-bar-meta wl-col-ingest" title="最近一次日线入库">最近入库</th>' +
+      '<div class="wl-table-scroll"><table class="wl-stock-table"><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th class="wl-col-code">代码</th><th class="wl-col-name">名称</th><th>来源</th>' +
+      addedTh +
+      '<th class="wl-bar-meta wl-col-ingest" title="最近一次日线入库">最近入库</th>' +
       wlSortThHtml("prev", "昨日收盘", "wl-prev-num", "上一完整交易日收盘") +
       wlSortThHtml("today", "当日收盘", "wl-close-num", "执行日收盘；无今日 bar 时为待入库") +
       wlSortThHtml("spot", "现价", "wl-spot-num", "联网现价快照") +
@@ -9789,70 +10873,75 @@
   }
 
   async function wlBackfillTodayClose() {
+    if (!guardKey()) return;
     if (apiKeyRequired() && !getApiKey()) {
-      showOut("out-2", "请先在「①」保存 API Key。", true);
+      showOut2("请先在「①」保存 API Key。", true);
       return;
     }
-    var syms = null;
-    if (wlSelectedSyms.size > 0) {
-      syms = Array.from(wlSelectedSyms);
-    } else if (_wlCachedBody && _wlCachedBody.length) {
-      syms = _wlCachedBody.map(function (x) {
-        return x.symbol;
-      });
-    }
-    if (!syms || !syms.length) {
-      showOut("out-2", "请先「刷新列表」加载自选，或勾选要补写的股票。", true);
+    if (wlSelectedSyms.size === 0) {
+      showOut2(
+        "请先在自选表格中勾选要补写「当日收盘」的股票（可翻页累积勾选），再点本按钮。",
+        true
+      );
       return;
     }
-    var scopeHint =
-      wlSelectedSyms.size > 0
-        ? "已勾选 " + syms.length + " 只"
-        : "自选池全部 " + syms.length + " 只";
-    var btnHdr = $("btnWlBackfillTodayClose");
-    var btns = document.querySelectorAll(
-      "#btnWlBackfillTodayClose"
+    var syms = Array.from(wlSelectedSyms);
+    var scopeHint = "已勾选 " + syms.length + " 只";
+    var dr = getWlIngestDateRange();
+    var tradeDate = (dr && dr.end_date) || wlCalendarTodayYmd();
+    var total = syms.length;
+    _wlBackfillCloseState.running = true;
+    beginServerTaskScope("panel-2");
+    setActionButtonLoading(
+      "btnWlBackfillTodayClose",
+      true,
+      batchProgressLabel({ done: 0, total: total }, "正在补写")
     );
-    btns.forEach(function (b) {
-      b.disabled = true;
-    });
+    startSymbolsBatchPoll(
+      "backfill_close",
+      "backfill_close",
+      "btnWlBackfillTodayClose",
+      "正在补写"
+    );
     try {
+      var prov = {};
       var res = await fetchCancel("panel-2", "/watchlist/backfill-today-close", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify({
+          trade_date: tradeDate,
           symbols: syms,
           allow_intraday: true,
           force_refresh: true,
           data_source: getIngestDataSource(),
         }),
-        loadingMessage: "正在用现价补写当日收盘（" + scopeHint + "）…",
+        skipClearServerScopes: true,
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
-        showOut("out-2", await formatError(res, body), true);
+        showOut2(await formatError(res, body), true);
         return;
       }
-      var prov = {};
       if (body && Array.isArray(body.results)) {
         body.results.forEach(function (r) {
           if (r && r.symbol && r.provisional) prov[r.symbol] = true;
         });
       }
-      if (body && Array.isArray(body.items) && body.items.length) {
-        wlMergeWatchlistItems(body.items, prov);
-        renderWatchlistTable(_wlCachedBody);
-        persistWatchlistSnapshot();
-      } else if (_wlCachedBody && _wlCachedBody.length) {
-        renderWatchlistTable(_wlCachedBody);
-      }
       var upd = body && body.updated_count != null ? body.updated_count : 0;
       var skip = body && body.skipped_count != null ? body.skipped_count : 0;
       var fail = body && body.failed_count != null ? body.failed_count : 0;
-      showOut(
-        "out-2",
+      if (body && Array.isArray(body.items) && body.items.length) {
+        wlMergeWatchlistItems(body.items, prov);
+      }
+      if (_wlCachedBody && _wlCachedBody.length) {
+        renderWatchlistTable(_wlCachedBody);
+        persistWatchlistSnapshot();
+      }
+      showOut2(
         "现价补当日收盘完成（" +
           scopeHint +
+          "，日期 " + tradeDate +
           "）：成功写入 " +
           upd +
           " 只" +
@@ -9862,16 +10951,19 @@
         false
       );
     } catch (e) {
-      if (isRequestAborted(e)) showOut("out-2", "补写当日收盘已取消。", true);
-      else showOut("out-2", String(e), true);
+      if (isRequestAborted(e)) showOut2("补写当日收盘已取消。", true);
+      else showOut2(String(e), true);
     } finally {
-      btns.forEach(function (b) {
-        b.disabled = false;
-      });
+      stopBatchProgressPoll("backfill_close");
+      endServerTaskScope("panel-2");
+      _wlBackfillCloseState.running = false;
+      var stFin = await fetchSymbolsBatchStatus("backfill_close");
+      finishActionButtonLoading("btnWlBackfillTodayClose", stFin, "完成");
     }
   }
 
-  async function refreshWatchlistTable() {
+  async function refreshWatchlistTable(opts) {
+    opts = opts || {};
     var wrap = $("wl-table-wrap");
     var out = $("out-2");
     if (apiKeyRequired() && !getApiKey()) {
@@ -9880,29 +10972,139 @@
       return;
     }
     var seq = ++_wlRefreshSeq;
+    var useBtnLoading = !!opts.useButtonLoading;
+    var refreshSpot = opts.refreshSpot !== false;
+    var keepOutMessage = !!opts.keepOutMessage;
+    if (opts.skipCacheRestore) {
+      if (_wlCachedBody && _wlCachedBody.length) {
+        renderWatchlistTable(_wlCachedBody);
+      } else if (wrap) {
+        wrap.innerHTML =
+          "<p class=\"lead\" style=\"color:var(--muted)\">正在加载自选列表…</p>";
+      }
+    } else {
+      wlRestoreTableFromCache();
+    }
+    if (useBtnLoading) {
+      _wlRefreshListState.running = true;
+      var totalHint =
+        _wlCachedBody && _wlCachedBody.length ? _wlCachedBody.length : 0;
+      setWlRefreshListButtonLoading(
+        true,
+        totalHint > 0 ? "正在刷新 0/" + totalHint : "正在刷新列表…"
+      );
+      startWlRefreshListPoll();
+    }
+    if (_wlRefreshListCtrl) {
+      try {
+        _wlRefreshListCtrl.abort();
+      } catch (eAbortPrev) {}
+    }
+    var refreshCtrl = new AbortController();
+    _wlRefreshListCtrl = refreshCtrl;
+    activeRequests["panel-2"] = { controller: refreshCtrl };
+    refreshCancelButtons();
     try {
-      var res = await fetchCancel("panel-2", "/watchlist?refresh_spot=true", {
+      var wlUrl = wlBuildWatchlistUrl(refreshSpot);
+      var res = await fetch(wlUrl, {
         headers: authHeaders(),
-        loadingMessage: "正在刷新自选列表…",
+        signal: refreshCtrl.signal,
       });
       var body = await readBody(res);
       if (seq !== _wlRefreshSeq) return;
+      if (res.status === 409 && refreshSpot) {
+        var waited = await wlWaitSpotRefreshIdle(120000);
+        if (seq !== _wlRefreshSeq) return;
+        if (waited) {
+          res = await fetch(wlUrl, {
+            headers: authHeaders(),
+            signal: refreshCtrl.signal,
+          });
+          body = await readBody(res);
+        } else {
+          res = await fetch(wlBuildWatchlistUrl(false), {
+            headers: authHeaders(),
+            signal: refreshCtrl.signal,
+          });
+          body = await readBody(res);
+          if (res.ok && !keepOutMessage) {
+            showOut2("刷新列表耗时较长，已先加载列表；现价可稍后再点「刷新列表」。", false);
+          }
+        }
+        if (seq !== _wlRefreshSeq) return;
+      }
       if (!res.ok) {
         _wlJumpToLastPageAfterRefreshOnce = false;
-        wrap.innerHTML = "";
-        showOut("out-2", await formatError(res, body), true);
+        if (opts.skipCacheRestore && _wlCachedBody && _wlCachedBody.length) {
+          renderWatchlistTable(_wlCachedBody);
+        } else {
+          wlRestoreWatchlistTableAfterFailedRefresh();
+        }
+        showOut2(await formatError(res, body), true);
         return;
       }
-      showOut("out-2", "", false);
       _wlCachedBody = Array.isArray(body) ? body : [];
+      var addCntHdr = res.headers.get("X-Quant-Watchlist-Add-Count");
+      var adHdr = res.headers.get("X-Quant-Watchlist-Added-Date");
+      wlUpdateDailyViewHint(
+        addCntHdr != null && addCntHdr !== "" ? Number(addCntHdr) : _wlCachedBody.length,
+        adHdr || ($("wlAddedDateFilter") && $("wlAddedDateFilter").value)
+      );
       renderWatchlistTable(_wlCachedBody);
       persistWatchlistSnapshot();
+      var stDone = await fetchWlRefreshListJobStatus();
+      if (stDone && stDone.total > 0) {
+        showOut2(
+          "刷新完成：现价成功 " +
+            (stDone.ok != null ? stDone.ok : 0) +
+            "/" +
+            stDone.total +
+            (stDone.cancelled ? "（已取消，列表仍为上次展示数据）" : "") +
+            "。",
+          !!stDone.cancelled
+        );
+      } else if (!keepOutMessage) {
+        showOut("out-2", "", false);
+      }
     } catch (e) {
       if (seq !== _wlRefreshSeq) return;
       _wlJumpToLastPageAfterRefreshOnce = false;
-      wrap.innerHTML = "";
-      if (isRequestAborted(e)) showOut("out-2", "刷新自选已取消。", true);
-      else showOut("out-2", String(e), true);
+      if (opts.skipCacheRestore && _wlCachedBody && _wlCachedBody.length) {
+        renderWatchlistTable(_wlCachedBody);
+      } else {
+        wlRestoreWatchlistTableAfterFailedRefresh();
+      }
+      if (isRequestAborted(e)) {
+        showOut2("刷新自选已取消，列表仍显示刷新前的数据。", true);
+      } else {
+        showOut2(String(e), true);
+      }
+    } finally {
+      if (_wlRefreshListCtrl === refreshCtrl) _wlRefreshListCtrl = null;
+      if (activeRequests["panel-2"] && activeRequests["panel-2"].controller === refreshCtrl) {
+        delete activeRequests["panel-2"];
+        refreshCancelButtons();
+      }
+      if (seq === _wlRefreshSeq) stopWlRefreshListPoll();
+      if (useBtnLoading && seq === _wlRefreshSeq) {
+        _wlRefreshListState.running = false;
+        void (async function () {
+          var stFin = await fetchWlRefreshListJobStatus();
+          if (stFin && stFin.total > 0) {
+            var doneLab =
+              (stFin.cancelled ? "已取消 " : "刷新完成 ") +
+              (stFin.ok != null ? stFin.ok : 0) +
+              "/" +
+              stFin.total;
+            setWlRefreshListButtonLoading(true, doneLab);
+            setTimeout(function () {
+              if (seq === _wlRefreshSeq) setWlRefreshListButtonLoading(false);
+            }, 1600);
+          } else {
+            setWlRefreshListButtonLoading(false);
+          }
+        })();
+      }
     }
   }
 
@@ -9917,9 +11119,9 @@
     if (!res.ok) showOut("out-2", await formatError(res, body), true);
     else {
       wlSelectedSyms.delete(sym);
-      showOut("out-2", JSON.stringify(body, null, 2), true);
+      removeSymbolsFromWatchlistCache([sym]);
+      showOut("out-2", "已删除 " + sym + "。" + WL_DELETE_LOCAL_HINT, true);
     }
-    await refreshWatchlistTable();
   }
 
   async function deleteWlAll(scope) {
@@ -9951,11 +11153,12 @@
         (isAll ? "全部删除" : "清空自动池") +
           "完成：实际删除 " +
           (body.removed != null ? body.removed : 0) +
-          " 条。",
+          " 条。" +
+          WL_DELETE_LOCAL_HINT,
         true
       );
       watchlistPage = 1;
-      await refreshWatchlistTable();
+      applyWatchlistCacheAfterDeleteAll(scope);
     } catch (e) {
       showOut("out-2", String(e), true);
     } finally {
@@ -9994,11 +11197,12 @@
           (body.requested_unique != null ? body.requested_unique : syms.length) +
           " 条，实际删除 " +
           (body.removed != null ? body.removed : 0) +
-          " 条。",
+          " 条。" +
+          WL_DELETE_LOCAL_HINT,
         true
       );
       watchlistPage = 1;
-      await refreshWatchlistTable();
+      removeSymbolsFromWatchlistCache(syms);
     } catch (e) {
       showOut("out-2", String(e), true);
     } finally {
@@ -10070,8 +11274,16 @@
         }
         showOut("out-2", msg, body && body.kline_ingest_ok === false);
         $("symAdd").value = "";
+        if (body && body.symbol) {
+          wlUpsertWatchlistCacheItem(body);
+          _wlJumpToLastPageAfterRefreshOnce = true;
+        }
+        await refreshWatchlistTable({
+          refreshSpot: false,
+          skipCacheRestore: true,
+          keepOutMessage: true,
+        });
       }
-      await refreshWatchlistTable();
     } catch (e) {
       showOut("out-2", String(e), true);
     } finally {
@@ -10080,11 +11292,40 @@
   });
 
   $("btnRefreshWl").addEventListener("click", async function () {
-    var btn = $("btnRefreshWl");
-    btn.disabled = true;
-    try { await refreshWatchlistTable(); } catch (e) { showOut("out-2", String(e), true); }
-    finally { btn.disabled = false; }
+    if (!guardKey()) return;
+    try {
+      await refreshWatchlistTable({ useButtonLoading: true });
+    } catch (e) {
+      showOut("out-2", String(e), true);
+    }
   });
+  var btnWlQueryDailyAdds = $("btnWlQueryDailyAdds");
+  if (btnWlQueryDailyAdds) {
+    btnWlQueryDailyAdds.addEventListener("click", function () {
+      if (!guardKey()) return;
+      watchlistPage = 1;
+      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+    });
+  }
+  var btnWlTodayAdds = $("btnWlTodayAdds");
+  if (btnWlTodayAdds) {
+    btnWlTodayAdds.addEventListener("click", function () {
+      var inp = $("wlAddedDateFilter");
+      if (inp) inp.value = wlCalendarTodayYmd();
+      watchlistPage = 1;
+      if (!guardKey()) return;
+      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+    });
+  }
+  var chkWlShowFullPool = $("chkWlShowFullPool");
+  if (chkWlShowFullPool) {
+    chkWlShowFullPool.addEventListener("change", function () {
+      _wlShowFullPool = !!chkWlShowFullPool.checked;
+      watchlistPage = 1;
+      if (!guardKey()) return;
+      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+    });
+  }
   var btnWlBackfillTodayClose = $("btnWlBackfillTodayClose");
   if (btnWlBackfillTodayClose) {
     btnWlBackfillTodayClose.addEventListener("click", function () {
@@ -10092,21 +11333,30 @@
     });
   }
 
+  var btnWlCancelRefetch = $("btnWlCancelRefetch");
+  if (btnWlCancelRefetch) {
+    btnWlCancelRefetch.addEventListener("click", function () {
+      void wlCancelRefetchKline();
+    });
+  }
+
   var btnWlRefetchSelected = $("btnWlRefetchSelected");
   if (btnWlRefetchSelected) {
     btnWlRefetchSelected.addEventListener("click", async function () {
       if (!guardKey()) return;
-      var syms = Array.from(wlSelectedSyms);
+      var resolved = resolveWlKlineRefetchSymbols();
+      var syms = resolved.symbols;
       if (!syms.length) {
-        showOut("out-2", "请先在表格中勾选要拉取日线的股票。", true);
+        showOut2(
+          "当前没有可拉取的股票：请点「刷新列表」加载自选，或在表格中勾选要拉取日线的股票。",
+          true
+        );
         return;
       }
-      btnWlRefetchSelected.disabled = true;
-      try {
-        await wlRefetchKlineSymbols(syms);
-      } finally {
-        btnWlRefetchSelected.disabled = false;
+      if (resolved.scopeHint) {
+        showOut2("开始拉取：" + resolved.scopeHint + "…", true);
       }
+      await wlRefetchKlineSymbols(syms);
     });
   }
 
@@ -10296,8 +11546,9 @@
         showOut("out-9", "TuShare 需要 Token：请填写上方输入框或配置 TUSHARE_TOKEN。", true);
         return;
       }
-      btn.disabled = true;
       if (addBtn) addBtn.hidden = true;
+      beginPanelServerTask("panel-9");
+      setActionButtonLoading("btnQssSingleStock", true, "正在评估 1/1…");
       showOut("out-9", "正在评估 " + sym + "（联网拉日线+回测，请稍候）…", true);
       var wrap = $("qssSingleStockWrap");
       if (wrap) {
@@ -10308,7 +11559,9 @@
         var res = await fetchCancel("panel-9", "/research/sector-screen", {
           method: "POST",
           headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          skipPanelLoading: true,
+          skipClearServerScopes: true,
         });
         var body = await readBody(res);
         if (!res.ok) {
@@ -10333,7 +11586,8 @@
         else showOut("out-9", String(e), true);
         if (wrap) wrap.hidden = true;
       } finally {
-        btn.disabled = false;
+        endPanelServerTask("panel-9");
+        setActionButtonLoading("btnQssSingleStock", false);
       }
     });
   }
@@ -10393,8 +11647,9 @@
         return;
       }
       qssClearSnapShowPendingUi();
-      btn.disabled = true;
       if (viewBtn) viewBtn.disabled = true;
+      beginPanelServerTask("panel-9");
+      setActionButtonLoading("btnSectorScreenApi", true, "正在评估…");
       showOut("out-9", "联网运行中（可能较慢，请稍候）…", true);
       $("qssSectorsWrap").style.display = "none";
       $("qssStocksWrap").style.display = "none";
@@ -10409,6 +11664,8 @@
           method: "POST",
           headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
           body: JSON.stringify(payload),
+          skipPanelLoading: true,
+          skipClearServerScopes: true,
         });
         var body = await readBody(res);
         if (!res.ok) {
@@ -10434,7 +11691,8 @@
         if (isRequestAborted(e)) showOut("out-9", "联网选股请求已取消。", true);
         else showOut("out-9", String(e), true);
       } finally {
-        btn.disabled = false;
+        endPanelServerTask("panel-9");
+        setActionButtonLoading("btnSectorScreenApi", false);
         if (viewBtn) viewBtn.disabled = false;
       }
     });
@@ -10749,7 +12007,11 @@
   }
 
   function wlCalendarTodayYmd() {
-    return localCalendarYmd(new Date());
+    try {
+      return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+    } catch (eTz) {
+      return localCalendarYmd(new Date());
+    }
   }
 
   function getWlIngestDateRange() {
@@ -11992,17 +13254,17 @@
 
   $("btnIngestTest").addEventListener("click", async function () {
     if (!guardKey()) return;
-    var btn = $("btnIngestTest");
     var w = $("ingest-test-wrap");
-    btn.disabled = true;
     if (w) {
       w.hidden = false;
       w.innerHTML = "<div class=\"ingest-test-box\"><span style=\"color:var(--muted)\">正在探测数据源…</span></div>";
     }
     try {
       var ds = encodeURIComponent(getIngestDataSource());
+      setActionButtonLoading("btnIngestTest", true, "正在探测…");
       var res = await fetchCancel("panel-3", "/ingest/test-connection?data_source=" + ds, {
         headers: authHeaders(),
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (res.ok && body && typeof body === "object") renderIngestTestResult(body);
@@ -12012,7 +13274,7 @@
         if (w) w.innerHTML = "<div class=\"ingest-test-box\"><span style=\"color:var(--muted)\">已取消。</span></div>";
       } else if (w) w.innerHTML = "<div class=\"ingest-test-box fail\">" + escapeHtml(String(e)) + "</div>";
     } finally {
-      btn.disabled = false;
+      setActionButtonLoading("btnIngestTest", false);
     }
   });
 
@@ -12750,37 +14012,46 @@
 
   $("btnFundamentals").addEventListener("click", async function () {
     if (!guardKey()) return;
-    var btn = $("btnFundamentals");
-    btn.disabled = true;
-    showOut("out-3", "正在拉取扩展因子，请稍候…", true);
+    var subset = parseIngestSubsetSymbols();
+    if (subset !== null && subset.length === 0) {
+      showOut3("「仅更新部分自选」中未识别到 6 位代码，请检查输入或清空文本框以拉取全部自选。", true);
+      return;
+    }
+    var totalHint = estimateWlSubsetBatchTotal(parseIngestSubsetSymbols);
+    beginPanelServerTask("panel-3");
+    setActionButtonLoading(
+      "btnFundamentals",
+      true,
+      batchProgressLabel({ done: 0, total: totalHint }, "正在拉因子")
+    );
+    startSymbolsBatchPoll("fundamentals", "fundamentals", "btnFundamentals", "正在拉因子");
     try {
-      var subset = parseIngestSubsetSymbols();
-      if (subset !== null && subset.length === 0) {
-        showOut("out-3", "「仅更新部分自选」中未识别到 6 位代码，请检查输入或清空文本框以拉取全部自选。", true);
-        btn.disabled = false;
-        return;
-      }
       var fundPayload = {};
       if (subset !== null) fundPayload.symbols = subset;
       var res = await fetchCancel("panel-3", "/ingest/fundamentals", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(fundPayload),
+        skipPanelLoading: true,
+        skipClearServerScopes: true,
       });
       var body = await readBody(res);
       if (res.ok) {
         applyFundamentalsResponseToIngestView(body);
         if (body && body.cancelled) {
-          showOut("out-3", "扩展因子拉取已取消，详见拉取结果表。", true);
+          showOut3("扩展因子拉取已取消，详见拉取结果表。", true);
         } else {
-          showOut("out-3", "扩展因子已写入拉取结果表，④ 信号可读取合成得分。", false);
+          showOut3("扩展因子已写入拉取结果表，④ 信号可读取合成得分。", false);
         }
-      } else showOut("out-3", await formatError(res, body), true);
+      } else showOut3(await formatError(res, body), true);
     } catch (e) {
-      if (isRequestAborted(e)) showOut("out-3", "扩展因子拉取已取消。", true);
-      else showOut("out-3", String(e), true);
+      if (isRequestAborted(e)) showOut3("扩展因子拉取已取消。", true);
+      else showOut3(String(e), true);
     } finally {
-      btn.disabled = false;
+      stopBatchProgressPoll("fundamentals");
+      endPanelServerTask("panel-3");
+      var stFin = await fetchSymbolsBatchStatus("fundamentals");
+      finishActionButtonLoading("btnFundamentals", stFin, "完成");
     }
   });
 
@@ -12993,44 +14264,55 @@
 
   $("btnIngest").addEventListener("click", async function () {
     if (!guardKey()) return;
-    var btn = $("btnIngest");
-    btn.disabled = true;
     var withFund = $("chkIngestIncludeFundamentals") && $("chkIngestIncludeFundamentals").checked;
-    showOut("out-3", withFund ? "正在刷新现价与扩展因子（不拉 K 线），请稍候…" : "正在刷新现价快照（不拉 K 线），请稍候…", true);
+    var subset = parseIngestSubsetSymbols();
+    if (subset !== null && subset.length === 0) {
+      showOut3("「仅更新部分自选」中未识别到 6 位代码，请检查输入或清空文本框以更新全部自选。", true);
+      return;
+    }
+    var totalHint = estimateWlSubsetBatchTotal(parseIngestSubsetSymbols);
+    beginPanelServerTask("panel-3");
+    setActionButtonLoading(
+      "btnIngest",
+      true,
+      batchProgressLabel({ done: 0, total: totalHint }, "正在更新")
+    );
+    startIngestBatchPoll("btnIngest", "正在更新");
+    _ingestUpdatePostInFlight = true;
     try {
       lastIngestRequestDates = { start: null, end: null };
       var payload = { data_source: getIngestDataSource(), skip_bars: true };
       if (withFund) payload.include_fundamentals = true;
-      var subset = parseIngestSubsetSymbols();
-      if (subset !== null && subset.length === 0) {
-        showOut("out-3", "「仅更新部分自选」中未识别到 6 位代码，请检查输入或清空文本框以更新全部自选。", true);
-        btn.disabled = false;
-        return;
-      }
       if (subset !== null) payload.symbols = subset;
       var res = await fetchCancel("panel-3", "/ingest/update", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(payload),
+        skipPanelLoading: true,
+        skipClearServerScopes: true,
       });
       var body = await readBody(res);
       if (res.ok) {
         renderIngestResult(body);
         if (body && body.cancelled) {
-          showOut("out-3", "更新已取消：仅完成部分自选入库，详见下方表格。", true);
+          showOut3("更新已取消：仅完成部分自选，详见下方表格。", true);
         } else if (body && body.fundamentals_cancelled) {
-          showOut("out-3", "现价已刷新；扩展因子拉取已取消，详见拉取结果表。", true);
+          showOut3("现价已刷新；扩展因子拉取已取消，详见拉取结果表。", true);
         } else if (withFund) {
-          showOut("out-3", "现价与扩展因子已处理（未拉 K 线），详见下方表格。", false);
+          showOut3("现价与扩展因子已处理（未拉 K 线），详见下方表格。", false);
         } else {
-          showOut("out-3", "现价快照已刷新（未拉 K 线），详见下方表格。", false);
+          showOut3("现价快照已刷新（未拉 K 线），详见下方表格。", false);
         }
-      } else showOut("out-3", await formatError(res, body), true);
+      } else showOut3(await formatError(res, body), true);
     } catch (e) {
-      if (isRequestAborted(e)) showOut("out-3", "请求已取消（服务端将停止后续自选拉取）。", true);
-      else showOut("out-3", String(e), true);
+      if (isRequestAborted(e)) showOut3("请求已取消（服务端将停止后续自选拉取）。", true);
+      else showOut3(String(e), true);
     } finally {
-      btn.disabled = false;
+      _ingestUpdatePostInFlight = false;
+      stopBatchProgressPoll("ingest");
+      endPanelServerTask("panel-3");
+      var stFin = await fetchWlRefetchJobStatus();
+      finishActionButtonLoading("btnIngest", stFin, "完成");
     }
   });
 
@@ -13050,20 +14332,20 @@
       }
       return;
     }
-    var btn = $("btnSignalsAll");
-    btn.disabled = true;
+    var totalHint = estimateWlSubsetBatchTotal(parseSignalsSubsetSymbols);
+    beginPanelServerTask("panel-4");
+    setActionButtonLoading(
+      "btnSignalsAll",
+      true,
+      batchProgressLabel({ done: 0, total: totalHint }, "正在计算")
+    );
+    startSymbolsBatchPoll("signals", "signals", "btnSignalsAll", "正在计算");
     var w = $("signals-out-wrap");
-    if (w) {
-      w.hidden = false;
-      var nSub = subset && subset.length ? subset.length : 0;
-      w.innerHTML =
-        '<p class="lead" style="margin:0">计算中' +
-        (nSub ? "（共 " + nSub + " 只" : "（全部自选") +
-        "，若勾选增量更新可能较慢）…</p>";
-    }
     try {
       var res = await fetchCancel("panel-4", "/signals" + signalsQuerySuffix(), {
         headers: authHeaders(),
+        skipPanelLoading: true,
+        skipClearServerScopes: true,
       });
       var t = await res.text();
       if (res.ok) persistLastSignalsAllSnapshot(res, t);
@@ -13082,7 +14364,10 @@
           : '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
       }
     } finally {
-      btn.disabled = false;
+      stopBatchProgressPoll("signals");
+      endPanelServerTask("panel-4");
+      var stFin = await fetchSymbolsBatchStatus("signals");
+      finishActionButtonLoading("btnSignalsAll", stFin, "完成");
     }
   });
 
@@ -13126,22 +14411,29 @@
 
   $("btnAlerts").addEventListener("click", async function () {
     if (!guardKey()) return;
-    var btn = $("btnAlerts");
-    btn.disabled = true;
+    var preRefA = $("chkPreRefreshAlerts") && $("chkPreRefreshAlerts").checked;
+    var totalHintA = estimateWlSubsetBatchTotal(function () {
+      return null;
+    });
+    beginPanelServerTask("panel-5");
+    setActionButtonLoading(
+      "btnAlerts",
+      true,
+      batchProgressLabel({ done: 0, total: totalHintA }, "正在对比")
+    );
+    startSymbolsBatchPoll("alerts", "alerts", "btnAlerts", "正在对比");
     var aw = $("alerts-out-wrap");
-    if (aw) {
-      aw.hidden = false;
-      aw.innerHTML = '<p class="lead" style="margin:0">处理中（若勾选增量更新可能较慢）…</p>';
-    }
     try {
       var payload = {
-        pre_refresh: !!($("chkPreRefreshAlerts") && $("chkPreRefreshAlerts").checked),
+        pre_refresh: !!preRefA,
         data_source: getIngestDataSource(),
       };
       var res = await fetchCancel("panel-5", "/alerts/preview", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(payload),
+        skipPanelLoading: true,
+        skipClearServerScopes: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -13167,7 +14459,10 @@
           : '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
       }
     } finally {
-      btn.disabled = false;
+      stopBatchProgressPoll("alerts");
+      endPanelServerTask("panel-5");
+      var stFinA = await fetchSymbolsBatchStatus("alerts");
+      finishActionButtonLoading("btnAlerts", stFinA, "完成");
     }
   });
 
@@ -16737,16 +18032,17 @@
         ? "需要新 K 线请到<strong>②</strong>修改日期后「重新获取」。"
         : "若需补/换日线请到<strong>②</strong>设区间并「重新获取」；本地其它交易日 K 线仍保留。") +
       "</p>";
-    html +=
+    var ingestPagerBarHtml =
       '<div class="ingest-pager-bar">' +
       '<span id="ingest-pager-info"></span>' +
+      '<div class="ingest-pager-actions">' +
       '<label class="wl-page-size">每页' +
       '<select id="ingestPageSize">' +
       pageSizeOptsHtml +
       "</select>条</label>" +
       '<button type="button" class="wl-page-btn ingest-page-prev" id="ingest-page-prev">上一页</button>' +
       '<button type="button" class="wl-page-btn ingest-page-next" id="ingest-page-next">下一页</button>' +
-      "</div>";
+      "</div></div>";
     var fundHead =
       nFund > 0
         ? INGEST_FUND_COLUMNS.map(function (col) {
@@ -16779,7 +18075,8 @@
       (nFund > 0 ? '<th colspan="' + nFund + '">扩展因子 ↑昨 / ↓当</th>' : "") +
       '<th title="参照日全日收盘成交量（股）">↑ 收盘量</th>' +
       '<th title="当日累计或收盘量；相对上行缩量/放量及量价关系说明">↓ 当日量·量比</th>' +
-      "</tr></thead><tbody id=\"ingest-result-tbody\"></tbody></table></div>";
+      "</tr></thead><tbody id=\"ingest-result-tbody\"></tbody></table></div>" +
+      ingestPagerBarHtml;
     if (errN > 0) {
       var errRows = results
         .filter(function (r) {

@@ -84,6 +84,31 @@ def ensure_sqlite_holdings_mark_columns(engine) -> None:
                 conn.commit()
 
 
+WATCHLIST_ADD_LOG_SQLITE_ALTER: tuple[tuple[str, str], ...] = (
+    ("bars_last_ingested_at", "TEXT"),
+    ("display_prev_close", "REAL"),
+    ("display_today_close", "REAL"),
+    ("spot_last_price", "REAL"),
+    ("spot_change_pct", "REAL"),
+    ("bars_last_trade_date", "TEXT"),
+    ("spot_quote_date", "TEXT"),
+)
+
+
+def ensure_sqlite_watchlist_add_log_columns(engine) -> None:
+    """已有 SQLite 库为 watchlist_add_log 追加行情/入库快照列。"""
+    url = str(engine.url)
+    if not url.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        cur = conn.execute(text("PRAGMA table_info(watchlist_add_log)"))
+        existing = {row[1] for row in cur.fetchall()}
+        for col, sqlt in WATCHLIST_ADD_LOG_SQLITE_ALTER:
+            if col not in existing:
+                conn.execute(text(f"ALTER TABLE watchlist_add_log ADD COLUMN {col} {sqlt}"))
+                conn.commit()
+
+
 def ensure_sqlite_fundamental_snapshot_columns(engine) -> None:
     """已有库文件升级：为 fundamental_snapshots 追加列。"""
     url = str(engine.url)

@@ -307,6 +307,19 @@ class WatchlistItem(BaseModel):
         None,
         description="本次自动入库 upsert 的 K 线条数（成功时）",
     )
+    watchlist_added_at: str | None = Field(
+        None,
+        description="写入自选加入日志的时间（UTC ISO）；按 added_date 筛选列表时返回",
+    )
+    in_watchlist_pool: bool | None = Field(
+        None,
+        description="当前是否仍在自选池；按日筛选时可能为 false（已删除但仍出现在当日日志）",
+    )
+
+
+class WatchlistAddDatesOut(BaseModel):
+    shanghai_today: str = Field(..., description="东八区今日 YYYY-MM-DD")
+    dates: list[str] = Field(default_factory=list, description="有加入记录的日期，新→旧")
 
 
 class QuantWatchlistStockRowIn(BaseModel):
@@ -319,6 +332,10 @@ class QuantWatchlistStockRowIn(BaseModel):
 class WatchlistTodayCloseBackfillIn(BaseModel):
     """POST /watchlist/backfill-today-close：用联网现价补写当日收盘 K 线。"""
 
+    trade_date: str | None = Field(
+        None,
+        description="要补写的交易日期（YYYY-MM-DD，东八区）；省略则为今日",
+    )
     symbols: list[str] | None = Field(
         None,
         description="要处理的 6 位代码列表；为空或省略则处理当前自选池全部标的",
@@ -430,10 +447,13 @@ class FillHotSectorsIn(BaseModel):
     )
     exclude_st: bool = Field(True, description="sector_hot：排除名称含 ST/*ST 的成分股")
     exclude_kcb: bool = Field(True, description="sector_hot：排除科创板 688/689")
+    exclude_cyb: bool = Field(True, description="sector_hot：排除创业板 300/301")
     ma5_exclude_st: bool = Field(True, description="ma5_capital：排除名称含 ST/*ST 的成分股")
     ma5_exclude_kcb: bool = Field(True, description="ma5_capital：排除科创板 688/689")
+    ma5_exclude_cyb: bool = Field(True, description="ma5_capital：排除创业板 300/301")
     rising_3d_exclude_st: bool = Field(True, description="rising_3d：排除名称含 ST/*ST 的成分股")
     rising_3d_exclude_kcb: bool = Field(True, description="rising_3d：排除科创板 688/689")
+    rising_3d_exclude_cyb: bool = Field(True, description="rising_3d：排除创业板 300/301")
     selector_data_source: SelectorSectorDataSource = Field(
         ...,
         description="akshare（东财板块较全）、mootdx（通达信板块较少）或 tushare（同花顺 ths_index/ths_daily/ths_member，通常需 6000 积分）",
@@ -459,7 +479,7 @@ class FillHotSectorsIn(BaseModel):
         description="剔除近 20 日累计涨幅超过阈值的股票（用于避免短线过热追高）",
     )
     max_return_20d_pct: float = Field(
-        25.0,
+        22.0,
         ge=0,
         le=500,
         description="exclude_overextended=true 时使用：近 20 日累计涨幅上限（%）",
@@ -469,7 +489,7 @@ class FillHotSectorsIn(BaseModel):
         description="按近 20 日平均成交额过滤流动性不足的股票",
     )
     min_avg_turnover_20d_100m: float = Field(
-        1.0,
+        2.5,
         ge=0,
         le=10000,
         description="enable_liquidity_filter=true 时使用：近 20 日平均成交额下限，单位亿元",

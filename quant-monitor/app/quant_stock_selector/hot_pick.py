@@ -134,6 +134,12 @@ def is_star_board_code(code: str) -> bool:
     return len(c) == 6 and (c.startswith("688") or c.startswith("689"))
 
 
+def is_chinext_board_code(code: str) -> bool:
+    """创业板：300/301 开头。"""
+    c = normalize_code(code)
+    return len(c) == 6 and (c.startswith("300") or c.startswith("301"))
+
+
 def _data_source_label(datasource: BaseAShareDataSource) -> str:
     return str(getattr(datasource, "source_name", "") or "unknown")
 
@@ -143,8 +149,9 @@ def _eligible_constituent_rows(
     *,
     exclude_st: bool,
     exclude_kcb: bool,
+    exclude_cyb: bool = False,
 ) -> list[tuple[str, str, pd.Series]]:
-    """过滤 ST/科创板后，返回 (code, name, row) 列表供逐股拉取日志计数。"""
+    """过滤 ST/科创板/创业板后，返回 (code, name, row) 列表供逐股拉取日志计数。"""
     rows: list[tuple[str, str, pd.Series]] = []
     for _, crow in constituents.iterrows():
         code = normalize_code(crow.get("code", crow.get("代码", "")))
@@ -152,6 +159,8 @@ def _eligible_constituent_rows(
             continue
         name = str(crow.get("name", crow.get("名称", "")) or "").strip()
         if exclude_kcb and is_star_board_code(code):
+            continue
+        if exclude_cyb and is_chinext_board_code(code):
             continue
         if exclude_st and is_st_stock_name(name):
             continue
@@ -252,8 +261,9 @@ def _basic_pick_from_constituents(
     stocks_per_sector: int,
     exclude_st: bool,
     exclude_kcb: bool,
+    exclude_cyb: bool = False,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Legacy fast path: preserve row order after basic ST / STAR filters."""
+    """Legacy fast path: preserve row order after basic ST / STAR / ChiNext filters."""
     stocks: list[dict[str, Any]] = []
     symbols: list[str] = []
     stock_rank = 0
@@ -263,6 +273,8 @@ def _basic_pick_from_constituents(
             continue
         name = crow.get("name", crow.get("名称", ""))
         if exclude_kcb and is_star_board_code(code):
+            continue
+        if exclude_cyb and is_chinext_board_code(code):
             continue
         if exclude_st and is_st_stock_name(name):
             continue
@@ -287,6 +299,7 @@ def _technical_pick_from_constituents(
     stocks_per_sector: int,
     exclude_st: bool,
     exclude_kcb: bool,
+    exclude_cyb: bool = False,
     sort_by_trend_strength: bool,
     require_technical_pass: bool,
     exclude_overextended: bool,
@@ -310,7 +323,7 @@ def _technical_pick_from_constituents(
     failed_history = 0
     ds_label = _data_source_label(datasource)
     eligible = _eligible_constituent_rows(
-        constituents, exclude_st=exclude_st, exclude_kcb=exclude_kcb
+        constituents, exclude_st=exclude_st, exclude_kcb=exclude_kcb, exclude_cyb=exclude_cyb
     )
     total = len(eligible)
     logger.debug(
@@ -565,6 +578,7 @@ def _ma5_capital_pick_from_constituents(
     stocks_per_sector: int | None = None,
     exclude_st: bool = True,
     exclude_kcb: bool = True,
+    exclude_cyb: bool = False,
     ma5_stand_min_days: int,
     capital_lookback_days: int,
     capital_min_positive_days: int,
@@ -584,7 +598,7 @@ def _ma5_capital_pick_from_constituents(
     failed_fund = 0
     ds_label = _data_source_label(datasource)
     eligible = _eligible_constituent_rows(
-        constituents, exclude_st=exclude_st, exclude_kcb=exclude_kcb
+        constituents, exclude_st=exclude_st, exclude_kcb=exclude_kcb, exclude_cyb=exclude_cyb
     )
     total = len(eligible)
     logger.debug(
@@ -781,6 +795,7 @@ def _rising_3d_pick_from_constituents(
     stocks_per_sector: int | None = None,
     exclude_st: bool = True,
     exclude_kcb: bool = True,
+    exclude_cyb: bool = True,
     rising_min_days: int = 3,
     warnings: list[str],
     progress_log: list[str] | None = None,
@@ -793,7 +808,10 @@ def _rising_3d_pick_from_constituents(
     failed_rising = 0
     ds_label = _data_source_label(datasource)
     eligible = _eligible_constituent_rows(
-        constituents, exclude_st=exclude_st, exclude_kcb=exclude_kcb
+        constituents,
+        exclude_st=exclude_st,
+        exclude_kcb=exclude_kcb,
+        exclude_cyb=exclude_cyb,
     )
     total = len(eligible)
 
@@ -880,13 +898,14 @@ def pick_from_hot_sectors(
     board_type: str = "all",
     exclude_st: bool = True,
     exclude_kcb: bool = True,
+    exclude_cyb: bool = True,
     rankings_override: pd.DataFrame | None = None,
     sort_by_trend_strength: bool = True,
     require_technical_pass: bool = False,
     exclude_overextended: bool = False,
-    max_return_20d_pct: float = 25.0,
+    max_return_20d_pct: float = 22.0,
     enable_liquidity_filter: bool = False,
-    min_avg_turnover_20d_100m: float = 1.0,
+    min_avg_turnover_20d_100m: float = 2.5,
     should_cancel: Callable[[], bool] | None = None,
     pick_condition_groups: list[str] | None = None,
     ma5_stand_min_days: int = 3,
@@ -894,8 +913,10 @@ def pick_from_hot_sectors(
     capital_min_positive_days: int = 2,
     ma5_exclude_st: bool = True,
     ma5_exclude_kcb: bool = True,
+    ma5_exclude_cyb: bool = True,
     rising_3d_exclude_st: bool = True,
     rising_3d_exclude_kcb: bool = True,
+    rising_3d_exclude_cyb: bool = True,
     progress_log: list[str] | None = None,
 ) -> HotPickResult:
     """
@@ -931,7 +952,8 @@ def pick_from_hot_sectors(
             _append_hot_pick_ui_log(
                 progress_log,
                 f"[三日连涨] 扫描全部 {rankings_len} 个板块 · 路线={ds_label} "
-                f"排除ST={rising_3d_exclude_st} 科创板={rising_3d_exclude_kcb}",
+                f"排除ST={rising_3d_exclude_st} 科创板={rising_3d_exclude_kcb} "
+                f"创业板={rising_3d_exclude_cyb}",
             )
     elif want_sector_hot:
         loop_n = top_n_sector_hot
@@ -1012,6 +1034,7 @@ def pick_from_hot_sectors(
                     stocks_per_sector=stocks_per_sector,
                     exclude_st=exclude_st,
                     exclude_kcb=exclude_kcb,
+                    exclude_cyb=exclude_cyb,
                     sort_by_trend_strength=sort_by_trend_strength,
                     require_technical_pass=require_technical_pass,
                     exclude_overextended=exclude_overextended,
@@ -1029,6 +1052,7 @@ def pick_from_hot_sectors(
                     stocks_per_sector=stocks_per_sector,
                     exclude_st=exclude_st,
                     exclude_kcb=exclude_kcb,
+                    exclude_cyb=exclude_cyb,
                 )
                 _log_sector_pick_summary(
                     "sector_hot",
@@ -1064,6 +1088,7 @@ def pick_from_hot_sectors(
                 stocks_per_sector=None,
                 exclude_st=ma5_exclude_st,
                 exclude_kcb=ma5_exclude_kcb,
+                exclude_cyb=ma5_exclude_cyb,
                 ma5_stand_min_days=ma5_stand_min_days,
                 capital_lookback_days=capital_flow_lookback_days,
                 capital_min_positive_days=capital_min_positive_days,
@@ -1088,6 +1113,7 @@ def pick_from_hot_sectors(
                 stocks_per_sector=None,
                 exclude_st=rising_3d_exclude_st,
                 exclude_kcb=rising_3d_exclude_kcb,
+                exclude_cyb=rising_3d_exclude_cyb,
                 rising_min_days=3,
                 warnings=warnings,
             )

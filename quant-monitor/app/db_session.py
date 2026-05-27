@@ -19,6 +19,7 @@ from app.db_migrations import (
     ensure_sqlite_forward_outlook_stock_name_column,
     ensure_sqlite_fundamental_snapshot_columns,
     ensure_sqlite_holdings_mark_columns,
+    ensure_sqlite_watchlist_add_log_columns,
     ensure_sqlite_watchlist_name_column,
     ensure_sqlite_watchlist_origin_column,
 )
@@ -45,6 +46,7 @@ def init_db() -> None:
     ensure_sqlite_forward_outlook_stock_name_column(_engine)
     ensure_sqlite_fundamental_snapshot_columns(_engine)
     ensure_sqlite_holdings_mark_columns(_engine)
+    ensure_sqlite_watchlist_add_log_columns(_engine)
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
     logger.info("Database initialized at %s", url)
 

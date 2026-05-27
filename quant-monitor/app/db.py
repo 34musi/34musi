@@ -30,6 +30,7 @@ from app.db_models import (
     FundamentalSnapshotRow,
     HoldingRow,
     SignalCacheRow,
+    WatchlistAddLogRow,
     WatchlistRow,
 )
 from app.db_migrations import (
@@ -51,6 +52,7 @@ __all__ = [
     "Base",
     "BarRow",
     "WatchlistRow",
+    "WatchlistAddLogRow",
     "SignalCacheRow",
     "FundamentalSnapshotRow",
     "DecisionJournalRow",

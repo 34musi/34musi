@@ -49,6 +49,26 @@ class WatchlistRow(Base):
     name: Mapped[str] = mapped_column(String(64), default="", server_default="")
 
 
+class WatchlistAddLogRow(Base):
+    """自选加入日志：每次新写入自选池记一条，按东八区 added_date 查询。"""
+
+    __tablename__ = "watchlist_add_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    symbol: Mapped[str] = mapped_column(String(16), index=True)
+    name: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    origin: Mapped[str] = mapped_column(String(24), default=WATCHLIST_ORIGIN_MANUAL, index=True)
+    added_at: Mapped[str] = mapped_column(String(32), index=True)
+    added_date: Mapped[str] = mapped_column(String(10), index=True)
+    bars_last_ingested_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    display_prev_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    display_today_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    spot_last_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    spot_change_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bars_last_trade_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    spot_quote_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+
 class SignalCacheRow(Base):
     """与 alerts 配合：存每个标的最近一次用于对比的信号摘要（JSON 字符串）。"""
 

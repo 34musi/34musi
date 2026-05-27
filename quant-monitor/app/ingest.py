@@ -25,7 +25,7 @@ import threading
 import time
 from contextlib import contextmanager
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 from zoneinfo import ZoneInfo
 
 import akshare as ak
@@ -250,6 +250,7 @@ def _shanghai_a_share_session_closed() -> bool:
 def backfill_today_bar_from_live(
     sym: str,
     *,
+    trade_date: str | None = None,
     data_source: str | None = None,
     allow_intraday: bool = False,
     force_refresh: bool = False,
@@ -263,9 +264,22 @@ def backfill_today_bar_from_live(
     """
     sym = normalize_symbol(sym)
     today = shanghai_today_date().isoformat()
+    target = trade_date or today
+    if trade_date:
+        try:
+            # validate YYYY-MM-DD
+            date.fromisoformat(str(trade_date))
+        except Exception as e:
+            return {
+                "ok": False,
+                "symbol": sym,
+                "rows_upserted": 0,
+                "skipped_reason": "invalid_trade_date",
+                "error": f"trade_date 无效：{trade_date}",
+            }
     last = max_stored_date(sym)
     last_td = str(last)[:10] if last else ""
-    if not allow_intraday and not _shanghai_a_share_session_closed():
+    if target == today and (not allow_intraday) and (not _shanghai_a_share_session_closed()):
         return {
             "ok": False,
             "symbol": sym,
@@ -273,13 +287,13 @@ def backfill_today_bar_from_live(
             "skipped_reason": "before_session_close",
             "error": "未过当日 15:00（东八区），请使用 allow_intraday 或收盘后再试",
         }
-    if last_td >= today and not force_refresh:
+    if last_td >= target and not force_refresh:
         return {
             "ok": True,
             "symbol": sym,
             "rows_upserted": 0,
             "skipped_reason": "already_has_today_bar",
-            "trade_date": today,
+            "trade_date": target,
             "close": None,
         }
     live = (
@@ -335,7 +349,7 @@ def backfill_today_bar_from_live(
             pass
     row = {
         "symbol": sym,
-        "trade_date": today,
+        "trade_date": target,
         "open": px_f,
         "high": px_f,
         "low": px_f,
@@ -344,12 +358,12 @@ def backfill_today_bar_from_live(
         "amount": 0.0,
     }
     n = upsert_bars(pd.DataFrame([row]))
-    provisional = allow_intraday and not _shanghai_a_share_session_closed()
+    provisional = target == today and allow_intraday and not _shanghai_a_share_session_closed()
     if n:
         logger.info(
             "backfill today daily bar %s trade_date=%s close=%s source=%s provisional=%s",
             sym,
-            today,
+            target,
             px_f,
             src,
             provisional,
@@ -358,7 +372,7 @@ def backfill_today_bar_from_live(
         "ok": n > 0,
         "symbol": sym,
         "rows_upserted": int(n),
-        "trade_date": today,
+        "trade_date": target,
         "close": px_f,
         "live_price_source": src,
         "provisional": provisional,
@@ -379,6 +393,7 @@ def _try_backfill_today_bar_from_live(
 def backfill_watchlist_today_close_batch(
     symbols: list[str],
     *,
+    trade_date: str | None = None,
     data_source: str | None = None,
     allow_intraday: bool = True,
     force_refresh: bool = True,
@@ -407,6 +422,7 @@ def backfill_watchlist_today_close_batch(
             out.append(
                 backfill_today_bar_from_live(
                     sym,
+                    trade_date=trade_date,
                     data_source=data_source,
                     allow_intraday=allow_intraday,
                     force_refresh=force_refresh,
@@ -1591,6 +1607,88 @@ def resolve_ingest_row_display_pair(sym: str, row: dict[str, Any]) -> None:
             row["display_pair_basis"] = "exec_before_last_bar"
 
 
+def _apply_spot_enrich_to_ingest_row(
+    r: dict[str, Any],
+    live: dict[str, Any],
+    *,
+    data_source: str | None = None,
+    skip_bar_fetch: bool = False,
+    req_at: str | None = None,
+) -> None:
+    """将单条 ingest 结果行与现价/强弱等展示字段合并。"""
+    from app.fundamentals import _now_iso
+
+    if req_at is None:
+        req_at = _now_iso()
+    sym = str(r["symbol"])
+    apply_watchlist_prev_display(sym, r)
+    ref_prev = r.get("display_prev_close")
+    if ref_prev is None or not math.isfinite(float(ref_prev)) or float(ref_prev) <= 0:
+        ref_prev = r.get("prev_close")
+    if ref_prev is not None and math.isfinite(float(ref_prev)) and float(ref_prev) > 0:
+        if not skip_bar_fetch:
+            _ensure_min_bars_for_strength(sym, data_source=data_source)
+        ps = strength_snapshot_for_symbol(sym, last_price_override=float(ref_prev))
+        if ps is not None:
+            r["prev_strength"] = ps
+    if not _live_row_has_price(live):
+        snap = _daily_snapshot_fields_for_symbol(
+            sym, r, data_source=data_source, skip_bar_fetch=skip_bar_fetch
+        )
+        if snap.get("spot_last_price") is not None:
+            live = {
+                "live_last_price": snap["spot_last_price"],
+                "live_change_pct": snap.get("spot_change_pct"),
+                "live_quote_date": snap.get("spot_quote_date"),
+                "live_fetched_at": snap.get("spot_fetched_at") or req_at,
+                "live_price_source": "daily_close_not_realtime",
+            }
+    if live:
+        for k, v in live.items():
+            r[k] = v
+        if live.get("live_volume") is not None:
+            r["live_volume"] = live["live_volume"]
+        r["spot_last_price"] = live.get("live_last_price")
+        r["spot_change_pct"] = live.get("live_change_pct")
+        r["spot_quote_date"] = live.get("live_quote_date") or r.get("last_trade_date")
+        r["spot_fetched_at"] = live.get("live_fetched_at") or req_at
+        r["spot_price_source"] = live.get("live_price_source")
+    elif r.get("last_close") is not None:
+        lc = float(r["last_close"])
+        r["live_last_price"] = round(lc, 4)
+        r["live_fetched_at"] = req_at
+        r["live_price_source"] = "last_close_static"
+        r["spot_last_price"] = round(lc, 4)
+    exec_d = str(r.get("ingest_exec_date") or "")[:10]
+    last_td = str(r.get("last_trade_date") or "")[:10]
+    if exec_d and last_td and exec_d > last_td:
+        ref_close = r.get("display_today_ref_close") or r.get("last_close")
+    elif exec_d and last_td and exec_d == last_td:
+        ref_close = r.get("display_prev_close") or r.get("prev_close")
+    else:
+        ref_close = r.get("display_today_ref_close") or r.get("last_close")
+    px_live = r.get("live_last_price") or r.get("spot_last_price")
+    if (
+        px_live is not None
+        and math.isfinite(float(px_live))
+        and ref_close is not None
+        and math.isfinite(float(ref_close))
+        and float(ref_close) > 0
+        and r.get("live_change_pct") is None
+    ):
+        chg = round((float(px_live) / float(ref_close) - 1) * 100, 2)
+        r["live_change_pct"] = chg
+        r["spot_change_pct"] = chg
+    px = r.get("live_last_price") or r.get("spot_last_price")
+    if px is not None and math.isfinite(float(px)) and float(px) > 0:
+        if not skip_bar_fetch:
+            _ensure_min_bars_for_strength(sym, data_source=data_source)
+        st = strength_snapshot_for_symbol(sym, last_price_override=float(px))
+        if st is not None:
+            r["spot_strength"] = st
+    apply_ingest_volume_compare(r)
+
+
 def enrich_ingest_results_with_spot(
     results: list[dict[str, Any]],
     *,
@@ -1615,73 +1713,86 @@ def enrich_ingest_results_with_spot(
         if r.get("error"):
             continue
         sym = str(r["symbol"])
-        apply_watchlist_prev_display(sym, r)
-        ref_prev = r.get("display_prev_close")
-        if ref_prev is None or not math.isfinite(float(ref_prev)) or float(ref_prev) <= 0:
-            ref_prev = r.get("prev_close")
-        if ref_prev is not None and math.isfinite(float(ref_prev)) and float(ref_prev) > 0:
-            if not skip_bar_fetch:
-                _ensure_min_bars_for_strength(sym, data_source=data_source)
-            ps = strength_snapshot_for_symbol(sym, last_price_override=float(ref_prev))
-            if ps is not None:
-                r["prev_strength"] = ps
-        live = live_by.get(sym) or {}
-        if not _live_row_has_price(live):
-            snap = _daily_snapshot_fields_for_symbol(
-                sym, r, data_source=data_source, skip_bar_fetch=skip_bar_fetch
+        _apply_spot_enrich_to_ingest_row(
+            r,
+            live_by.get(sym) or {},
+            data_source=data_source,
+            skip_bar_fetch=skip_bar_fetch,
+            req_at=req_at,
+        )
+
+
+def enrich_one_ingest_result_spot(
+    r: dict[str, Any],
+    *,
+    data_source: str | None = None,
+    skip_bar_fetch: bool = False,
+) -> None:
+    """单条 ingest 结果：联网补现价并写入展示字段（③ 表格一行完整数据）。"""
+    from app.fundamentals import _now_iso
+
+    if r.get("error"):
+        return
+    sym = str(r.get("symbol") or "")
+    if not sym:
+        return
+    req_at = _now_iso()
+    try:
+        live_by = live_quote_fields_for_codes_enhanced(
+            [sym], data_source=data_source, force_spot_refresh=True
+        )
+    except Exception:
+        live_by = {}
+    _apply_spot_enrich_to_ingest_row(
+        r,
+        live_by.get(sym) or {},
+        data_source=data_source,
+        skip_bar_fetch=skip_bar_fetch,
+        req_at=req_at,
+    )
+
+
+def enrich_ingest_results_with_spot_progress(
+    results: list[dict[str, Any]],
+    *,
+    data_source: str | None = None,
+    skip_bar_fetch: bool = False,
+    should_cancel: Callable[[], bool] | None = None,
+    on_symbol_done: Callable[[str], None] | None = None,
+) -> bool:
+    """
+    逐只联网补现价并 enrich；每完成一只（含失败行）调用 on_symbol_done，供进度条 +1。
+    返回 True 表示用户已取消。
+    """
+    from app.fundamentals import _now_iso
+
+    req_at = _now_iso()
+    for r in results:
+        if should_cancel and should_cancel():
+            return True
+        sym = str(r.get("symbol") or "")
+        if not sym:
+            continue
+        if r.get("error"):
+            if on_symbol_done:
+                on_symbol_done(sym)
+            continue
+        try:
+            live_by = live_quote_fields_for_codes_enhanced(
+                [sym], data_source=data_source, force_spot_refresh=True
             )
-            if snap.get("spot_last_price") is not None:
-                live = {
-                    "live_last_price": snap["spot_last_price"],
-                    "live_change_pct": snap.get("spot_change_pct"),
-                    "live_quote_date": snap.get("spot_quote_date"),
-                    "live_fetched_at": snap.get("spot_fetched_at") or req_at,
-                    "live_price_source": "daily_close_not_realtime",
-                }
-        if live:
-            for k, v in live.items():
-                r[k] = v
-            if live.get("live_volume") is not None:
-                r["live_volume"] = live["live_volume"]
-            r["spot_last_price"] = live.get("live_last_price")
-            r["spot_change_pct"] = live.get("live_change_pct")
-            r["spot_quote_date"] = live.get("live_quote_date") or r.get("last_trade_date")
-            r["spot_fetched_at"] = live.get("live_fetched_at") or req_at
-            r["spot_price_source"] = live.get("live_price_source")
-        elif r.get("last_close") is not None:
-            lc = float(r["last_close"])
-            r["live_last_price"] = round(lc, 4)
-            r["live_fetched_at"] = req_at
-            r["live_price_source"] = "last_close_static"
-            r["spot_last_price"] = round(lc, 4)
-        exec_d = str(r.get("ingest_exec_date") or "")[:10]
-        last_td = str(r.get("last_trade_date") or "")[:10]
-        if exec_d and last_td and exec_d > last_td:
-            ref_close = r.get("display_today_ref_close") or r.get("last_close")
-        elif exec_d and last_td and exec_d == last_td:
-            ref_close = r.get("display_prev_close") or r.get("prev_close")
-        else:
-            ref_close = r.get("display_today_ref_close") or r.get("last_close")
-        px_live = r.get("live_last_price") or r.get("spot_last_price")
-        if (
-            px_live is not None
-            and math.isfinite(float(px_live))
-            and ref_close is not None
-            and math.isfinite(float(ref_close))
-            and float(ref_close) > 0
-            and r.get("live_change_pct") is None
-        ):
-            chg = round((float(px_live) / float(ref_close) - 1) * 100, 2)
-            r["live_change_pct"] = chg
-            r["spot_change_pct"] = chg
-        px = r.get("live_last_price") or r.get("spot_last_price")
-        if px is not None and math.isfinite(float(px)) and float(px) > 0:
-            if not skip_bar_fetch:
-                _ensure_min_bars_for_strength(sym, data_source=data_source)
-            st = strength_snapshot_for_symbol(sym, last_price_override=float(px))
-            if st is not None:
-                r["spot_strength"] = st
-        apply_ingest_volume_compare(r)
+        except Exception:
+            live_by = {}
+        _apply_spot_enrich_to_ingest_row(
+            r,
+            live_by.get(sym) or {},
+            data_source=data_source,
+            skip_bar_fetch=skip_bar_fetch,
+            req_at=req_at,
+        )
+        if on_symbol_done:
+            on_symbol_done(sym)
+    return False
 
 
 def upsert_bars(df: pd.DataFrame) -> int:

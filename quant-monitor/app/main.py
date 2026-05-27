@@ -34,6 +34,22 @@ from slowapi.util import get_remote_address
 from sqlalchemy import delete, or_, select
 
 from app.batch_cancel import KNOWN_SCOPES, cancel_many, clear, clear_many, is_cancelled
+from app.ingest_batch_job import (
+    ingest_batch_enter_finalize,
+    ingest_batch_finish,
+    ingest_batch_set_current,
+    ingest_batch_should_cancel,
+    ingest_batch_start,
+    ingest_batch_status,
+    ingest_batch_tick,
+)
+from app.symbols_batch_job import (
+    symbols_batch_finish,
+    symbols_batch_set_current,
+    symbols_batch_start,
+    symbols_batch_status,
+    symbols_batch_tick,
+)
 from app.config import get_settings
 from app.db import (
     WATCHLIST_ORIGIN_AUTO_HOT,
@@ -43,6 +59,7 @@ from app.db import (
     ForwardOutlookRow,
     HoldingRow,
     SignalCacheRow,
+    WatchlistAddLogRow,
     WatchlistRow,
     init_db,
     session_scope,
@@ -54,6 +71,7 @@ from app.fundamentals import (
     upsert_fundamental_snapshot,
 )
 from app.ingest import (
+    _live_row_has_price,
     fetch_stock_name,
     fetch_stock_names_map,
     incremental_refresh,
@@ -65,10 +83,28 @@ from app.ingest import (
     strength_snapshot_for_symbol,
     test_akshare_connectivity,
     enrich_ingest_results_with_spot,
+    enrich_ingest_results_with_spot_progress,
+    enrich_one_ingest_result_spot,
     live_quote_fields_for_codes,
     live_quote_fields_for_codes_enhanced,
-    backfill_watchlist_today_close_batch,
+    backfill_today_bar_from_live,
     watchlist_bar_fields_for_session,
+)
+from app.watchlist_add_log import (
+    entries_added_on_date,
+    list_watchlist_add_dates,
+    log_row_snapshot_fields,
+    parse_added_date_param,
+    record_watchlist_adds_with_snapshot,
+    shanghai_today_ymd,
+)
+from app.watchlist_spot_job import (
+    watchlist_spot_job_finish,
+    watchlist_spot_job_set_current,
+    watchlist_spot_job_should_cancel,
+    watchlist_spot_job_start,
+    watchlist_spot_job_status,
+    watchlist_spot_job_tick,
 )
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
 from app.quant_stock_selector.models import StockEvaluation
@@ -152,6 +188,7 @@ from app.schemas import (
     WatchlistReplaceAllOut,
     WatchlistHotSnapshotImportIn,
     WatchlistHotSnapshotImportOut,
+    WatchlistAddDatesOut,
     WatchlistIn,
     WatchlistItem,
     WatchlistTodayCloseBackfillIn,
@@ -595,23 +632,26 @@ def _run_hot_pick_common(
     board_type: str,
     exclude_st: bool,
     exclude_kcb: bool,
+    exclude_cyb: bool = True,
     selector_data_source: str,
     use_sector_snapshot: bool,
     tushare_token: str | None = None,
     sort_by_trend_strength: bool = True,
     require_technical_pass: bool = False,
     exclude_overextended: bool = False,
-    max_return_20d_pct: float = 25.0,
+    max_return_20d_pct: float = 22.0,
     enable_liquidity_filter: bool = False,
-    min_avg_turnover_20d_100m: float = 1.0,
+    min_avg_turnover_20d_100m: float = 2.5,
     pick_condition_groups: list[str] | None = None,
     ma5_stand_min_days: int = 3,
     capital_flow_lookback_days: int = 3,
     capital_min_positive_days: int = 2,
     ma5_exclude_st: bool = True,
     ma5_exclude_kcb: bool = True,
+    ma5_exclude_cyb: bool = True,
     rising_3d_exclude_st: bool = True,
     rising_3d_exclude_kcb: bool = True,
+    rising_3d_exclude_cyb: bool = True,
 ):
     clear("hot_sectors")
     cond_set = None
@@ -688,6 +728,7 @@ def _run_hot_pick_common(
         board_type=board_key,
         exclude_st=exclude_st,
         exclude_kcb=exclude_kcb,
+        exclude_cyb=exclude_cyb,
         rankings_override=rankings_override,
         sort_by_trend_strength=sort_by_trend_strength,
         require_technical_pass=require_technical_pass,
@@ -702,8 +743,10 @@ def _run_hot_pick_common(
         capital_min_positive_days=capital_min_positive_days,
         ma5_exclude_st=ma5_exclude_st,
         ma5_exclude_kcb=ma5_exclude_kcb,
+        ma5_exclude_cyb=ma5_exclude_cyb,
         rising_3d_exclude_st=rising_3d_exclude_st,
         rising_3d_exclude_kcb=rising_3d_exclude_kcb,
+        rising_3d_exclude_cyb=rising_3d_exclude_cyb,
         progress_log=progress_log,
     )
     if hot.progress_log:
@@ -741,6 +784,7 @@ def _hot_sectors_preview_payload(
     board_type: str,
     exclude_st: bool,
     exclude_kcb: bool,
+    exclude_cyb: bool = True,
     selector_data_source: str,
     use_sector_snapshot: bool,
     tushare_token: str | None,
@@ -756,8 +800,10 @@ def _hot_sectors_preview_payload(
     capital_min_positive_days: int = 2,
     ma5_exclude_st: bool = True,
     ma5_exclude_kcb: bool = True,
+    ma5_exclude_cyb: bool = True,
     rising_3d_exclude_st: bool = True,
     rising_3d_exclude_kcb: bool = True,
+    rising_3d_exclude_cyb: bool = True,
 ) -> FillHotSectorsOut:
     hot = _run_hot_pick_common(
         top_sectors=top_sectors,
@@ -765,6 +811,7 @@ def _hot_sectors_preview_payload(
         board_type=(board_type or "all").strip().lower(),
         exclude_st=exclude_st,
         exclude_kcb=exclude_kcb,
+        exclude_cyb=exclude_cyb,
         selector_data_source=selector_data_source,
         use_sector_snapshot=use_sector_snapshot,
         tushare_token=tushare_token,
@@ -780,8 +827,10 @@ def _hot_sectors_preview_payload(
         capital_min_positive_days=capital_min_positive_days,
         ma5_exclude_st=ma5_exclude_st,
         ma5_exclude_kcb=ma5_exclude_kcb,
+        ma5_exclude_cyb=ma5_exclude_cyb,
         rising_3d_exclude_st=rising_3d_exclude_st,
         rising_3d_exclude_kcb=rising_3d_exclude_kcb,
+        rising_3d_exclude_cyb=rising_3d_exclude_cyb,
     )
     return FillHotSectorsOut(
         sectors_detail=hot.sectors_detail,
@@ -864,6 +913,58 @@ def meta_clear_batch(
 ):
     clear_many(body.scopes or list(KNOWN_SCOPES))
     return {"ok": True, "cleared_scopes": body.scopes or list(KNOWN_SCOPES)}
+
+
+@app.get(
+    "/meta/ingest-batch-status",
+    tags=["① 入门必读"],
+    summary="批量拉取日线任务是否进行中",
+    description="② 控制台在刷新页面后据此恢复「正在拉取」按钮状态；`active=true` 表示服务端仍在处理 `/ingest/update` 批量任务。",
+)
+def meta_ingest_batch_status(_: None = Depends(optional_api_key)):
+    return ingest_batch_status()
+
+
+@app.get(
+    "/meta/watchlist-spot-refresh-status",
+    tags=["① 入门必读"],
+    summary="刷新列表（现价）任务进度",
+    description="② 控制台「刷新列表」轮询本接口，在按钮上显示成功数/总数（如 3/20）。",
+)
+def meta_watchlist_spot_refresh_status(_: None = Depends(optional_api_key)):
+    return watchlist_spot_job_status()
+
+
+@app.get(
+    "/meta/watchlist-add-dates",
+    response_model=WatchlistAddDatesOut,
+    tags=["① 入门必读"],
+    summary="有自选加入记录的日期列表",
+    description="返回东八区今日及 watchlist_add_log 中出现过记录的日期（新→旧），供②日期筛选。",
+)
+def meta_watchlist_add_dates(_: None = Depends(optional_api_key)):
+    with session_scope() as s:
+        dates = list_watchlist_add_dates(s)
+    return WatchlistAddDatesOut(shanghai_today=shanghai_today_ymd(), dates=dates)
+
+
+@app.get(
+    "/meta/symbols-batch-status",
+    tags=["① 入门必读"],
+    summary="按只批量任务进度（④⑤/扩展因子等）",
+    description="scope 为 signals、alerts、fundamentals、backfill_close；active=true 时 done/total 供按钮显示进度。",
+)
+def meta_symbols_batch_status(
+    scope: str = Query(..., description="signals | alerts | fundamentals | backfill_close"),
+    _: None = Depends(optional_api_key),
+):
+    sc = str(scope or "").strip().lower()
+    if sc not in ("signals", "alerts", "fundamentals", "backfill_close"):
+        raise HTTPException(
+            status_code=400,
+            detail="scope 须为 signals、alerts、fundamentals 或 backfill_close",
+        )
+    return symbols_batch_status(sc)
 
 
 @app.get(
@@ -1006,13 +1107,84 @@ def _build_watchlist_items(
     symbols = [r.symbol for r in rows]
     route = get_settings().ingest_data_source
     bar_by = watchlist_bar_fields_for_session(s, symbols, data_source=route)
-    live_by = (
-        live_quote_fields_for_codes_enhanced(
-            symbols, data_source=route, force_spot_refresh=force_spot_refresh
+    if force_spot_refresh and symbols:
+        if watchlist_spot_job_status().get("active"):
+            logger.info(
+                "watchlist spot refresh already active (%s/%s); list without duplicate job",
+                watchlist_spot_job_status().get("done"),
+                watchlist_spot_job_status().get("total"),
+            )
+            live_by = live_quote_fields_for_codes_enhanced(
+                symbols, data_source=route, force_spot_refresh=False
+            )
+        else:
+            live_by = _live_spot_refresh_with_progress(symbols, route)
+    else:
+        live_by = (
+            live_quote_fields_for_codes_enhanced(
+                symbols, data_source=route, force_spot_refresh=force_spot_refresh
+            )
+            if symbols
+            else {}
         )
-        if symbols
-        else {}
-    )
+    return _watchlist_items_from_parts(rows, bar_by, live_by)
+
+
+def _watchlist_item_with_add_meta(
+    item: WatchlistItem, *, added_at: str, in_pool: bool
+) -> WatchlistItem:
+    d = item.model_dump()
+    d["watchlist_added_at"] = added_at
+    d["in_watchlist_pool"] = in_pool
+    return WatchlistItem(**d)
+
+
+def _build_watchlist_items_for_added_date(
+    s,
+    added_date: str,
+    *,
+    force_spot_refresh: bool = False,
+) -> list[WatchlistItem]:
+    """按加入日志某日筛选；顺序为当日首次加入时间。"""
+    log_rows = entries_added_on_date(s, added_date)
+    if not log_rows:
+        return []
+    syms = [str(r.symbol or "").strip() for r in log_rows]
+    pool_rows = {
+        r.symbol: r
+        for r in s.execute(select(WatchlistRow).where(WatchlistRow.symbol.in_(syms))).scalars().all()
+    }
+    pool_list = [pool_rows[sym] for sym in syms if sym in pool_rows]
+    built: dict[str, WatchlistItem] = {}
+    if pool_list:
+        for item in _build_watchlist_items(s, pool_list, force_spot_refresh=force_spot_refresh):
+            built[item.symbol] = item
+    out: list[WatchlistItem] = []
+    for log_row in log_rows:
+        sym = str(log_row.symbol or "").strip()
+        added_at = (log_row.added_at or "").strip()
+        snap = log_row_snapshot_fields(log_row)
+        if sym in built:
+            out.append(_watchlist_item_with_add_meta(built[sym], added_at=added_at, in_pool=True))
+        else:
+            out.append(
+                WatchlistItem(
+                    symbol=sym,
+                    name=(log_row.name or "").strip(),
+                    origin=log_row.origin or WATCHLIST_ORIGIN_MANUAL,
+                    watchlist_added_at=added_at,
+                    in_watchlist_pool=False,
+                    **snap,
+                )
+            )
+    return out
+
+
+def _watchlist_items_from_parts(
+    rows: list[WatchlistRow],
+    bar_by: dict[str, dict],
+    live_by: dict[str, dict],
+) -> list[WatchlistItem]:
     out: list[WatchlistItem] = []
     for r in rows:
         meta = bar_by.get(r.symbol, {})
@@ -1029,6 +1201,49 @@ def _build_watchlist_items(
             )
         )
     return out
+
+
+def _live_spot_refresh_with_progress(
+    symbols: list[str],
+    route: str,
+    *,
+    chunk_size: int = 8,
+) -> dict[str, dict]:
+    """分块拉现价并更新 watchlist_spot_job（成功=拿到有效现价）。"""
+    if watchlist_spot_job_status().get("active"):
+        raise HTTPException(
+            status_code=409,
+            detail="已有「刷新列表」任务进行中，请稍候或点「取消请求」",
+        )
+    clear("watchlist_spot")
+    batch_gen = watchlist_spot_job_start(len(symbols))
+    live_by: dict[str, dict] = {}
+    cancelled = False
+    try:
+        for i in range(0, len(symbols), chunk_size):
+            if watchlist_spot_job_should_cancel(batch_gen):
+                cancelled = True
+                logger.info("watchlist spot refresh cancelled at chunk %s", i)
+                break
+            chunk = symbols[i : i + chunk_size]
+            for sym in chunk:
+                watchlist_spot_job_set_current(sym)
+            try:
+                chunk_live = live_quote_fields_for_codes_enhanced(
+                    chunk, data_source=route, force_spot_refresh=True
+                )
+            except Exception as e:
+                logger.warning("watchlist spot chunk failed: %s", e)
+                chunk_live = {}
+            live_by.update(chunk_live)
+            for sym in chunk:
+                got = _live_row_has_price(chunk_live.get(sym))
+                watchlist_spot_job_tick(sym, got_spot=got)
+    finally:
+        watchlist_spot_job_finish(
+            cancelled=cancelled or watchlist_spot_job_should_cancel(batch_gen)
+        )
+    return live_by
 
 
 def _watchlist_item_with_bars(s, r: WatchlistRow) -> WatchlistItem:
@@ -1107,6 +1322,8 @@ def _watchlist_item_after_ingest(
 返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_last_ingested_at**（最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明），以及 **spot_last_price** / **spot_change_pct**（东财单股/列表快照；东财失败时用通达信批量行情兜底，非交易所 tick）。
 
 - Query **`refresh_spot=true`**（控制台「刷新列表」会带上）：跳过 spot 内存缓存并重新拉现价。
+- Query **`added_date=YYYY-MM-DD`**（东八区）：仅返回该日写入 **watchlist_add_log** 的标的（② 默认查今日）；日志表同时保存加入时的 **bars_last_ingested_at / display_prev_close / display_today_close / spot_last_price / spot_change_pct / bars_last_trade_date** 快照。
+- Query **`pool=true`**：返回完整自选池（忽略 added_date）。
 - 若配置了 `API_KEY`，请先点右上角 **Authorize**。
 - 若列表为空，下一步请用 `POST /watchlist` 添加。
 """,
@@ -1114,14 +1331,34 @@ def _watchlist_item_after_ingest(
 @limiter.limit(get_settings().rate_limit_default)
 def watchlist_list(
     request: Request,
+    response: Response,
     refresh_spot: bool = Query(
         False,
         description="为 true 时强制重新拉现价（东财→通达信兜底），控制台「刷新列表」应传 true",
     ),
+    added_date: str | None = Query(
+        None,
+        description="东八区日期 YYYY-MM-DD；仅返回该日加入自选日志中的标的",
+    ),
+    pool: bool = Query(
+        False,
+        description="为 true 时返回完整自选池，不按加入日期筛选",
+    ),
     _: None = Depends(optional_api_key),
 ):
-    """列出自选池全部标的（按 id 升序）。"""
+    """列出自选；可按加入日志日期筛选或返回全池。"""
     with session_scope() as s:
+        if not pool and added_date:
+            ad = parse_added_date_param(added_date)
+            if not ad:
+                raise HTTPException(status_code=400, detail="added_date 须为 YYYY-MM-DD")
+            items = _build_watchlist_items_for_added_date(
+                s, ad, force_spot_refresh=refresh_spot
+            )
+            response.headers["X-Quant-Watchlist-Added-Date"] = ad
+            response.headers["X-Quant-Watchlist-Add-Count"] = str(len(items))
+            response.headers["X-Quant-Watchlist-View"] = "daily"
+            return items
         rows = s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all()
         missing = [r.symbol for r in rows if not (r.name or "").strip()]
         if missing:
@@ -1130,6 +1367,7 @@ def watchlist_list(
                 r = by_sym.get(sym)
                 if r is not None and not (r.name or "").strip():
                     r.name = nm
+        response.headers["X-Quant-Watchlist-View"] = "pool"
         return _build_watchlist_items(s, rows, force_spot_refresh=refresh_spot)
 
 
@@ -1144,7 +1382,7 @@ def watchlist_list(
 - 与 ingest 拉日线、③ 刷新现价、②「刷新列表」**并存**；本接口只写 bars 中今日一根，不替代完整日线拉取。
 - **`allow_intraday=true`**（默认）：盘中也可用现价补写，值为参考价。
 - **`force_refresh=true`**（默认）：已有今日 bar 时仍用最新现价覆盖。
-- **`symbols`** 省略或空：处理当前自选池全部代码。
+- **`symbols`** 省略或空：处理当前自选池全部代码（控制台「现价补当日收盘」仅传已勾选子集）。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
@@ -1174,12 +1412,44 @@ def watchlist_backfill_today_close(
             symbols = [r.symbol for r in rows]
         if not symbols:
             return WatchlistTodayCloseBackfillOut()
-        raw_results = backfill_watchlist_today_close_batch(
-            symbols,
-            data_source=ds,
-            allow_intraday=body.allow_intraday,
-            force_refresh=body.force_refresh,
-        )
+        clear("backfill_close")
+        symbols_batch_start("backfill_close", len(symbols))
+        raw_results: list[dict[str, Any]] = []
+        cancelled = False
+        pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
+        try:
+            for i, sym in enumerate(symbols):
+                if is_cancelled("backfill_close"):
+                    cancelled = True
+                    logger.info("backfill today close cancelled before %s", sym)
+                    break
+                symbols_batch_set_current("backfill_close", sym)
+                if i > 0 and pause > 0:
+                    time.sleep(pause)
+                try:
+                    raw_results.append(
+                        backfill_today_bar_from_live(
+                            sym,
+                            trade_date=body.trade_date,
+                            data_source=ds,
+                            allow_intraday=body.allow_intraday,
+                            force_refresh=body.force_refresh,
+                        )
+                    )
+                except Exception as e:
+                    logger.warning("backfill today close %s: %s", sym, e)
+                    raw_results.append(
+                        {
+                            "ok": False,
+                            "symbol": sym,
+                            "rows_upserted": 0,
+                            "error": str(e),
+                            "skipped_reason": "exception",
+                        }
+                    )
+                symbols_batch_tick("backfill_close", sym)
+        finally:
+            symbols_batch_finish("backfill_close", cancelled=cancelled)
         result_rows = [WatchlistTodayCloseBackfillRow(**r) for r in raw_results]
         updated = sum(1 for r in result_rows if r.rows_upserted > 0)
         skipped = sum(
@@ -1231,6 +1501,8 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
     days = body.ingest_days if body.ingest_days is not None else get_settings().watchlist_auto_ingest_days
     ds = body.data_source.value if body.data_source is not None else None
     ingest: dict[str, Any] | None = None
+    is_new = False
+    nm_for_log = ""
     with session_scope() as s:
         existing = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
         if existing:
@@ -1240,6 +1512,8 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
                 existing.name = fetch_stock_name(sym) or ""
         else:
             nm = fetch_stock_name(sym) or ""
+            is_new = True
+            nm_for_log = nm
             s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL, name=nm))
     if body.auto_ingest_kline:
         ingest = _auto_ingest_watchlist_kline(sym, ingest_days=days, data_source=ds)
@@ -1254,6 +1528,10 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
             except Exception as e:
                 logger.warning("forward outlook sync after watchlist add %s: %s", sym, e)
     with session_scope() as s:
+        if is_new:
+            record_watchlist_adds_with_snapshot(
+                s, [(sym, nm_for_log, WATCHLIST_ORIGIN_MANUAL)]
+            )
         row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one()
         return _watchlist_item_after_ingest(s, row, ingest)
 
@@ -1326,6 +1604,8 @@ def watchlist_batch_delete(
     description="""
 将多只股票一次性写入自选，**origin=manual**。已在池中的代码会标为手动（不删热门/量化自动以外的其它代码）。
 
+每次成功写入（含已在池中、仅更新为手动的）都会在 **watchlist_add_log** 记一条加入日志，供②按日查询。
+
 用于热门板块填充/预览结果中勾选后「加入自选」。无效代码计入 skipped 与 warnings。
 """,
 )
@@ -1340,6 +1620,7 @@ def watchlist_batch_add(
     skipped = 0
     warnings: list[str] = []
     seen: set[str] = set()
+    log_pairs: list[tuple[str, str, str]] = []
     with session_scope() as s:
         for row in body.stocks:
             try:
@@ -1362,6 +1643,8 @@ def watchlist_batch_add(
                     existing.name = nm_in[:64]
                 elif not (existing.name or "").strip():
                     existing.name = (fetch_stock_name(sym) or "")[:64]
+                use_nm = nm_in or (existing.name or "").strip() or (fetch_stock_name(sym) or "")
+                log_pairs.append((sym, use_nm[:64], WATCHLIST_ORIGIN_MANUAL))
                 updated += 1
             else:
                 use_nm = nm_in or (fetch_stock_name(sym) or "")
@@ -1372,7 +1655,10 @@ def watchlist_batch_add(
                         name=use_nm[:64],
                     )
                 )
+                log_pairs.append((sym, use_nm[:64], WATCHLIST_ORIGIN_MANUAL))
                 added += 1
+        if log_pairs:
+            record_watchlist_adds_with_snapshot(s, log_pairs)
     return WatchlistBatchAddOut(
         added=added,
         updated=updated,
@@ -1463,11 +1749,15 @@ def watchlist_replace_all(
             removed = int(res.rowcount or 0)
         except (TypeError, ValueError):
             removed = 0
+        add_pairs: list[tuple[str, str, str]] = []
         for sym, nm in pairs:
             use_nm = nm
             if not use_nm:
                 use_nm = fetch_stock_name(sym) or ""
             s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT, name=use_nm))
+            add_pairs.append((sym, use_nm, WATCHLIST_ORIGIN_AUTO_HOT))
+        if add_pairs:
+            record_watchlist_adds_with_snapshot(s, add_pairs)
     return WatchlistReplaceAllOut(removed=removed, added=len(pairs), warnings=warnings)
 
 
@@ -1542,6 +1832,7 @@ def watchlist_import_hot_market_snapshot(
                 removed_auto = int(res.rowcount or 0)
             except (TypeError, ValueError):
                 removed_auto = 0
+        add_pairs: list[tuple[str, str, str]] = []
         for sym, nm in pairs:
             row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
             if row is not None:
@@ -1552,7 +1843,10 @@ def watchlist_import_hot_market_snapshot(
             if not use_nm:
                 use_nm = fetch_stock_name(sym) or ""
             s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT, name=use_nm))
+            add_pairs.append((sym, use_nm, WATCHLIST_ORIGIN_AUTO_HOT))
             added += 1
+        if add_pairs:
+            record_watchlist_adds_with_snapshot(s, add_pairs)
     return WatchlistHotSnapshotImportOut(
         added=added,
         skipped_existing_manual=skipped_existing_manual,
@@ -1600,6 +1894,7 @@ def watchlist_sync_from_quant_screen(
             removed_auto = int(res.rowcount or 0)
         except (TypeError, ValueError):
             removed_auto = 0
+        add_pairs: list[tuple[str, str, str]] = []
         for row in body.stocks:
             try:
                 sym = normalize_symbol(row.code)
@@ -1616,7 +1911,10 @@ def watchlist_sync_from_quant_screen(
                 continue
             nm = (row.name or "").strip()
             s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_QUANT, name=nm))
+            add_pairs.append((sym, nm, WATCHLIST_ORIGIN_AUTO_QUANT))
             added += 1
+        if add_pairs:
+            record_watchlist_adds_with_snapshot(s, add_pairs)
     return QuantWatchlistSyncOut(
         added=added,
         skipped_existing_manual=skipped_existing_manual,
@@ -1655,6 +1953,7 @@ def watchlist_fill_hot_sectors(
             board_type=bt,
             exclude_st=body.exclude_st,
             exclude_kcb=body.exclude_kcb,
+            exclude_cyb=body.exclude_cyb,
             selector_data_source=body.selector_data_source.value,
             use_sector_snapshot=body.use_sector_snapshot,
             tushare_token=body.tushare_token,
@@ -1670,8 +1969,10 @@ def watchlist_fill_hot_sectors(
             capital_min_positive_days=body.capital_min_positive_days,
             ma5_exclude_st=body.ma5_exclude_st,
             ma5_exclude_kcb=body.ma5_exclude_kcb,
+            ma5_exclude_cyb=body.ma5_exclude_cyb,
             rising_3d_exclude_st=body.rising_3d_exclude_st,
             rising_3d_exclude_kcb=body.rising_3d_exclude_kcb,
+            rising_3d_exclude_cyb=body.rising_3d_exclude_cyb,
         )
     except HTTPException:
         raise
@@ -1699,6 +2000,7 @@ def watchlist_fill_hot_sectors(
             removed_auto = int(res.rowcount or 0)
         except (TypeError, ValueError):
             removed_auto = 0
+        add_pairs: list[tuple[str, str, str]] = []
         for sym in hot.symbols_for_watchlist:
             row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
             if row is not None:
@@ -1707,7 +2009,10 @@ def watchlist_fill_hot_sectors(
                 continue
             nm = (hot_names.get(sym) or "").strip()
             s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_AUTO_HOT, name=nm))
+            add_pairs.append((sym, nm, WATCHLIST_ORIGIN_AUTO_HOT))
             added += 1
+        if add_pairs:
+            record_watchlist_adds_with_snapshot(s, add_pairs)
 
     summary = FillHotSectorsSummary(
         added=added,
@@ -1740,15 +2045,16 @@ def watchlist_hot_sectors_preview(
     board_type: str = Query("all"),
     exclude_st: bool = Query(True),
     exclude_kcb: bool = Query(True),
+    exclude_cyb: bool = Query(True, description="sector_hot：排除创业板 300/301"),
     selector_data_source: SelectorSectorDataSource = Query(..., description="akshare、mootdx 或 tushare"),
     use_sector_snapshot: bool = Query(True, description="true=优先使用本地板块快照；false=强制请求最新板块数据"),
     tushare_token: str | None = Query(None, description="TuShare 时可选；优先于服务端环境变量"),
     sort_by_trend_strength: bool = Query(True),
     require_technical_pass: bool = Query(False),
     exclude_overextended: bool = Query(False),
-    max_return_20d_pct: float = Query(25.0, ge=0, le=500),
+    max_return_20d_pct: float = Query(22.0, ge=0, le=500),
     enable_liquidity_filter: bool = Query(False),
-    min_avg_turnover_20d_100m: float = Query(1.0, ge=0, le=10000),
+    min_avg_turnover_20d_100m: float = Query(2.5, ge=0, le=10000),
     pick_condition_groups: list[str] = Query(
         default=["sector_hot", "ma5_capital"],
         description="可多选：sector_hot、ma5_capital",
@@ -1758,8 +2064,10 @@ def watchlist_hot_sectors_preview(
     capital_min_positive_days: int = Query(2, ge=1, le=10),
     ma5_exclude_st: bool = Query(True),
     ma5_exclude_kcb: bool = Query(True),
+    ma5_exclude_cyb: bool = Query(True, description="ma5_capital：排除创业板 300/301"),
     rising_3d_exclude_st: bool = Query(True),
     rising_3d_exclude_kcb: bool = Query(True),
+    rising_3d_exclude_cyb: bool = Query(True),
     _: None = Depends(optional_api_key),
 ):
     try:
@@ -1769,6 +2077,7 @@ def watchlist_hot_sectors_preview(
             board_type=board_type,
             exclude_st=exclude_st,
             exclude_kcb=exclude_kcb,
+            exclude_cyb=exclude_cyb,
             selector_data_source=selector_data_source.value,
             use_sector_snapshot=use_sector_snapshot,
             tushare_token=tushare_token,
@@ -1784,8 +2093,10 @@ def watchlist_hot_sectors_preview(
             capital_min_positive_days=capital_min_positive_days,
             ma5_exclude_st=ma5_exclude_st,
             ma5_exclude_kcb=ma5_exclude_kcb,
+            ma5_exclude_cyb=ma5_exclude_cyb,
             rising_3d_exclude_st=rising_3d_exclude_st,
             rising_3d_exclude_kcb=rising_3d_exclude_kcb,
+            rising_3d_exclude_cyb=rising_3d_exclude_cyb,
         )
     except HTTPException:
         raise
@@ -1829,6 +2140,7 @@ def watchlist_hot_sectors_preview_post(
             board_type=body.board_type,
             exclude_st=body.exclude_st,
             exclude_kcb=body.exclude_kcb,
+            exclude_cyb=body.exclude_cyb,
             selector_data_source=route,
             use_sector_snapshot=body.use_sector_snapshot,
             tushare_token=body.tushare_token,
@@ -1844,8 +2156,10 @@ def watchlist_hot_sectors_preview_post(
             capital_min_positive_days=body.capital_min_positive_days,
             ma5_exclude_st=body.ma5_exclude_st,
             ma5_exclude_kcb=body.ma5_exclude_kcb,
+            ma5_exclude_cyb=body.ma5_exclude_cyb,
             rising_3d_exclude_st=body.rising_3d_exclude_st,
             rising_3d_exclude_kcb=body.rising_3d_exclude_kcb,
+            rising_3d_exclude_cyb=body.rising_3d_exclude_cyb,
         )
         n_stocks = sum(len(b.get("stocks") or []) for b in out.sectors_detail)
         n_mc = sum(len(b.get("stocks") or []) for b in out.ma5_capital_sectors_detail)
@@ -1980,62 +2294,86 @@ def ingest_update(
     ds = body.data_source.value if body.data_source is not None else None
     resolved_ds = ds if ds is not None else get_settings().ingest_data_source
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
+    if ingest_batch_status().get("active"):
+        raise HTTPException(
+            status_code=409,
+            detail="已有批量日线拉取进行中，请点「取消拉取」或等待结束后再试",
+        )
     clear("ingest")
-    results = []
+    batch_gen = ingest_batch_start(len(symbols) + len(suffix_errs))
+    results: list[dict[str, Any]] = []
     cancelled = False
-    processed_syms: list[str] = []
-    for i, sym in enumerate(symbols):
-        if is_cancelled("ingest"):
-            cancelled = True
-            logger.info("ingest/update cancelled by user at %s", sym)
-            break
-        processed_syms.append(sym)
-        if i > 0 and pause > 0:
-            time.sleep(pause)
-        nm = wl_name_by_sym.get(sym, "").strip() or None
-        try:
-            if body.skip_bars:
-                rec = local_ingest_result_row(sym, data_source=ds)
-            else:
-                rec = ingest_symbol_range(sym, range_start=st, range_end=en, data_source=ds)
-            rec["watchlist_name"] = nm
-            snap = strength_snapshot_for_symbol(sym)
-            if snap is not None:
-                rec["strength"] = snap
-            results.append(rec)
-        except ValueError as e:
-            results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
-        except Exception as e:
-            results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
-    results.extend(suffix_errs)
-    enrich_ingest_results_with_spot(
-        results, data_source=resolved_ds, skip_bar_fetch=body.skip_bars
+    fundamentals_results: list[dict[str, Any]] | None = (
+        [] if body.include_fundamentals else None
     )
+    fundamentals_cancelled = False
+    for i, sym in enumerate(symbols):
+            if ingest_batch_should_cancel(batch_gen):
+                cancelled = True
+                logger.info("ingest/update cancelled by user at %s", sym)
+                break
+            ingest_batch_set_current(sym)
+            if i > 0 and pause > 0:
+                time.sleep(pause)
+                if ingest_batch_should_cancel(batch_gen):
+                    cancelled = True
+                    logger.info("ingest/update cancelled by user after pause at %s", sym)
+                    break
+            nm = wl_name_by_sym.get(sym, "").strip() or None
+            row_out: dict[str, Any] | None = None
+            try:
+                if body.skip_bars:
+                    row_out = local_ingest_result_row(sym, data_source=ds)
+                else:
+                    row_out = ingest_symbol_range(
+                        sym, range_start=st, range_end=en, data_source=ds
+                    )
+                if ingest_batch_should_cancel(batch_gen):
+                    cancelled = True
+                    logger.info("ingest/update cancelled by user after %s fetch", sym)
+                    break
+                row_out["watchlist_name"] = nm
+                snap = strength_snapshot_for_symbol(sym)
+                if snap is not None:
+                    row_out["strength"] = snap
+                enrich_one_ingest_result_spot(
+                    row_out,
+                    data_source=resolved_ds,
+                    skip_bar_fetch=body.skip_bars,
+                )
+                if ingest_batch_should_cancel(batch_gen):
+                    cancelled = True
+                    break
+                if body.include_fundamentals and fundamentals_results is not None:
+                    if is_cancelled("fundamentals"):
+                        fundamentals_cancelled = True
+                        cancelled = True
+                        break
+                    fundamentals_results.append(
+                        upsert_fundamental_snapshot(sym, ingest_row=row_out)
+                    )
+                results.append(row_out)
+            except ValueError as e:
+                results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
+            except Exception as e:
+                results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
+            ingest_batch_tick(sym)
+    for er in suffix_errs:
+        results.append(er)
+        sym_e = er.get("symbol")
+        if sym_e:
+            ingest_batch_tick(str(sym_e))
     row_by_sym = {
         str(r["symbol"]): r for r in results if r.get("symbol") and "error" not in r
     }
-    fundamentals_results: list[dict[str, Any]] | None = None
-    fundamentals_cancelled = False
-    if body.include_fundamentals and processed_syms:
-        clear("fundamentals")
-        fundamentals_results = []
-        for i, sym in enumerate(processed_syms):
-            if is_cancelled("fundamentals"):
-                fundamentals_cancelled = True
-                logger.info("ingest/update fundamentals cancelled by user at %s", sym)
-                break
-            if i > 0 and pause > 0:
-                time.sleep(pause)
-            fundamentals_results.append(
-                upsert_fundamental_snapshot(sym, ingest_row=row_by_sym.get(sym))
-            )
     ok_syms = [str(r["symbol"]) for r in results if r.get("symbol") and "error" not in r]
     meta_by_sym: dict[str, dict[str, Any]] = {}
     for r in results:
         if r.get("symbol") and "error" not in r:
             meta_by_sym[str(r["symbol"])] = r
     outlook_sync: dict[str, Any] | None = None
-    if ok_syms:
+    if not cancelled and ok_syms:
+        ingest_batch_enter_finalize()
         try:
             outlook_sync = sync_after_ingest(
                 ok_syms,
@@ -2060,6 +2398,11 @@ def ingest_update(
             "PE/PB 来自东财全 A 列表（拉取时刷新，近实时）；主力净流入为日级资金表（非 tick）；"
             "盘中若无「当日」资金行则下行标「末收」；财报指标为最近一期，上下行相同。"
         )
+    ingest_batch_finish(
+        cancelled=cancelled
+        or fundamentals_cancelled
+        or ingest_batch_should_cancel(batch_gen)
+    )
     return out
 
 
@@ -2136,33 +2479,43 @@ def ingest_fundamentals(
     symbols, _, suffix_errs = _watchlist_subset_symbols(body.symbols, wl_pairs)
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
     clear("fundamentals")
+    symbols_batch_start("fundamentals", len(symbols) + len(suffix_errs))
     results: list[dict] = []
     cancelled = False
-    for i, sym in enumerate(symbols):
-        if is_cancelled("fundamentals"):
-            cancelled = True
-            logger.info("ingest/fundamentals cancelled by user at %s", sym)
-            break
-        if i > 0 and pause > 0:
-            time.sleep(pause)
-        ctx_row: dict[str, Any] | None = None
-        try:
-            bars = list_bars_from_db(sym, limit=3)
-            if bars:
-                lb = bars[-1]
-                ctx_row = {
-                    "symbol": sym,
-                    "last_trade_date": lb["trade_date"],
-                    "last_close": lb["close"],
-                }
-                if len(bars) >= 2:
-                    pb = bars[-2]
-                    ctx_row["prev_trade_date"] = pb["trade_date"]
-                    ctx_row["prev_close"] = pb["close"]
-        except ValueError:
-            ctx_row = None
-        results.append(upsert_fundamental_snapshot(sym, ingest_row=ctx_row))
-    results.extend(suffix_errs)
+    try:
+        for i, sym in enumerate(symbols):
+            if is_cancelled("fundamentals"):
+                cancelled = True
+                logger.info("ingest/fundamentals cancelled by user at %s", sym)
+                break
+            symbols_batch_set_current("fundamentals", sym)
+            if i > 0 and pause > 0:
+                time.sleep(pause)
+            ctx_row: dict[str, Any] | None = None
+            try:
+                bars = list_bars_from_db(sym, limit=3)
+                if bars:
+                    lb = bars[-1]
+                    ctx_row = {
+                        "symbol": sym,
+                        "last_trade_date": lb["trade_date"],
+                        "last_close": lb["close"],
+                    }
+                    if len(bars) >= 2:
+                        pb = bars[-2]
+                        ctx_row["prev_trade_date"] = pb["trade_date"]
+                        ctx_row["prev_close"] = pb["close"]
+            except ValueError:
+                ctx_row = None
+            results.append(upsert_fundamental_snapshot(sym, ingest_row=ctx_row))
+            symbols_batch_tick("fundamentals", sym)
+        for er in suffix_errs:
+            results.append(er)
+            sym_e = er.get("symbol")
+            if sym_e:
+                symbols_batch_tick("fundamentals", str(sym_e))
+    finally:
+        symbols_batch_finish("fundamentals", cancelled=cancelled)
     return {
         "results": results,
         "cancelled": cancelled,
@@ -2371,21 +2724,32 @@ def signals_batch(
             response.headers["X-Quant-Signals-Failed-Symbols"] = joined[:1800]
         return []
     clear("signals")
-    _pre_refresh_symbols(
-        symbols, route=route, pre_refresh=pre_refresh, cancel_scope="signals"
-    )
+    symbols_batch_start("signals", len(symbols))
     out: list[SignalOut] = []
     cancelled = False
-    for sym in symbols:
-        if is_cancelled("signals"):
-            cancelled = True
-            logger.info("signals batch cancelled by user before %s", sym)
-            break
-        try:
-            out.append(compute_signal(sym, data_source=route))
-        except Exception as e:
-            failed_syms.append(sym)
-            logger.debug("signal skipped %s: %s", sym, e)
+    pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
+    try:
+        for i, sym in enumerate(symbols):
+            if is_cancelled("signals"):
+                cancelled = True
+                logger.info("signals batch cancelled by user before %s", sym)
+                break
+            symbols_batch_set_current("signals", sym)
+            if i > 0 and pause > 0:
+                time.sleep(pause)
+            if pre_refresh:
+                try:
+                    incremental_refresh(sym, data_source=route)
+                except Exception as e:
+                    logger.debug("pre_refresh skipped %s route=%s: %s", sym, route, e)
+            try:
+                out.append(compute_signal(sym, data_source=route))
+            except Exception as e:
+                failed_syms.append(sym)
+                logger.debug("signal skipped %s: %s", sym, e)
+            symbols_batch_tick("signals", sym)
+    finally:
+        symbols_batch_finish("signals", cancelled=cancelled)
     if cancelled:
         response.headers["X-Quant-Signals-Cancelled"] = "1"
     response.headers["X-Quant-Signals-Success-Count"] = str(len(out))
@@ -3088,23 +3452,28 @@ def alerts_preview(
         prev_map = {row.symbol: json.loads(row.payload_json) for row in cached}
         watch_symbols = [w.symbol for w in watch]
     clear("alerts")
-    _pre_refresh_symbols(
-        watch_symbols,
-        route=route,
-        pre_refresh=body.pre_refresh,
-        cancel_scope="alerts",
-    )
+    symbols_batch_start("alerts", len(watch_symbols))
     current: dict[str, SignalOut] = {}
     cancelled = False
-    for sym in watch_symbols:
+    pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
+    for i, sym in enumerate(watch_symbols):
         if is_cancelled("alerts"):
             cancelled = True
             logger.info("alerts preview cancelled by user before %s", sym)
             break
+        symbols_batch_set_current("alerts", sym)
+        if i > 0 and pause > 0:
+            time.sleep(pause)
+        if body.pre_refresh:
+            try:
+                incremental_refresh(sym, data_source=route)
+            except Exception as e:
+                logger.debug("pre_refresh skipped %s route=%s: %s", sym, route, e)
         try:
             current[sym] = compute_signal(sym, data_source=route)
         except Exception:
             continue
+        symbols_batch_tick("alerts", sym)
     events = detect_changes(prev_map, current)
     from datetime import datetime
 
@@ -3118,6 +3487,7 @@ def alerts_preview(
                 row.updated_at = now
             else:
                 s.add(SignalCacheRow(symbol=sym, payload_json=payload, updated_at=now))
+    symbols_batch_finish("alerts", cancelled=cancelled)
     return {
         "events": events,
         "cancelled": cancelled,
