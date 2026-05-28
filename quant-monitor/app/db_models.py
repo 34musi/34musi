@@ -34,6 +34,15 @@ class BarRow(Base):
     ingested_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
+class SymbolIngestMetaRow(Base):
+    """单标的 K 线首次入库时间（写入后不再更新）；与 bars.ingested_at 互补。"""
+
+    __tablename__ = "symbol_ingest_meta"
+
+    symbol: Mapped[str] = mapped_column(String(16), primary_key=True)
+    first_ingested_at: Mapped[str] = mapped_column(String(40))
+
+
 class WatchlistRow(Base):
     """自选池：每个 symbol 一条记录。"""
 
@@ -60,6 +69,7 @@ class WatchlistAddLogRow(Base):
     origin: Mapped[str] = mapped_column(String(24), default=WATCHLIST_ORIGIN_MANUAL, index=True)
     added_at: Mapped[str] = mapped_column(String(32), index=True)
     added_date: Mapped[str] = mapped_column(String(10), index=True)
+    bars_first_ingested_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     bars_last_ingested_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     display_prev_close: Mapped[float | None] = mapped_column(Float, nullable=True)
     display_today_close: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -1,6 +1,6 @@
 """
 信号计算：基于库内日线计算趋势、强度、技术面 0–100 分；若存在 fundamental_snapshots，
-再叠加扩展因子有界调整（估值/财报同比/主力净流入，Demo 规则），得到合成总分。
+再叠加扩展因子有界调整；并由 app.signal_enhanced 叠加量能/RSI/MACD/相对大盘/事件/动量分位与买入门控。
 
 依赖 ingest.load_bars_df（数据不足时会触发拉取）；`data_source` 与 ingest 枚举一致（含 mootdx/tushare 等），
 K 线入库路径可与核心包 app.quant_stock_selector 对齐。名称展示用 fetch_stock_name。
@@ -16,8 +16,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from app.fundamentals import fundamental_score_delta, load_fundamental_panel_from_db
+from app.fundamentals import (
+    fundamental_score_delta,
+    load_fundamental_panel_from_db,
+    spot_liquidity_fields_for_codes,
+)
+from app.signal_enhanced import apply_enhanced_to_signal_dict, build_signal_enhanced
 from app.ingest import (
+    ensure_today_bar_for_live_signal,
     fetch_stock_name,
     live_quote_fields_for_codes_enhanced,
     load_bars_df,
@@ -293,6 +299,7 @@ def _spot_overlay_for_symbol(
     fund_panel: Any,
     *,
     data_source: str | None = None,
+    name: str | None = None,
 ) -> dict[str, Any]:
     """
     「现价（日线）」列：优先东财单股/列表或通达信快照；失败时回退本地日线末根收盘。
@@ -320,11 +327,22 @@ def _spot_overlay_for_symbol(
             if math.isfinite(bar_c) and bar_c > 0:
                 chg_f = round((px_f / bar_c - 1) * 100, 2)
         spot_m = _build_signal_metrics(df, sym, fund_panel, last_close_override=px_f)
+        live_liq = spot_liquidity_fields_for_codes([sym_n]).get(sym_n) or {}
+        spot_enh = build_signal_enhanced(
+            df,
+            sym=sym_n,
+            name=name,
+            fund_panel=fund_panel,
+            base=spot_m,
+            live_liquidity=live_liq,
+        )
         out: dict[str, Any] = {
             "spot_last_price": round(px_f, 4),
             "spot_buy_suitability_score": spot_m["buy_suitability_score"],
+            "spot_enhanced_buy_score": spot_enh.enhanced_buy_score,
             "spot_buy_hint": spot_m["position_range_text"],
             "spot_position_hint": spot_m["position_hint"],
+            "spot_buy_verdict": spot_enh.buy_verdict,
             "spot_price_source": live.get("live_price_source") or "live_quote",
             "spot_price_basis": "live_quote",
         }
@@ -341,11 +359,23 @@ def _spot_overlay_for_symbol(
         if math.isfinite(prev) and prev > 0:
             chg = round((px / prev - 1) * 100, 2)
     spot_m = _build_signal_metrics(df, sym, fund_panel, last_close_override=px)
+    sym_n = normalize_symbol(sym)
+    live_liq = spot_liquidity_fields_for_codes([sym_n]).get(sym_n) or {}
+    spot_enh = build_signal_enhanced(
+        df,
+        sym=sym_n,
+        name=name,
+        fund_panel=fund_panel,
+        base=spot_m,
+        live_liquidity=live_liq,
+    )
     out = {
         "spot_last_price": round(px, 4),
         "spot_buy_suitability_score": spot_m["buy_suitability_score"],
+        "spot_enhanced_buy_score": spot_enh.enhanced_buy_score,
         "spot_buy_hint": spot_m["position_range_text"],
         "spot_position_hint": spot_m["position_hint"],
+        "spot_buy_verdict": spot_enh.buy_verdict,
         "spot_price_source": "daily_close",
         "spot_price_basis": "daily_bar",
     }
@@ -354,20 +384,51 @@ def _spot_overlay_for_symbol(
     return out
 
 
-def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
+def compute_signal(
+    symbol: str,
+    *,
+    data_source: str | None = None,
+    use_today_bar: bool = False,
+) -> SignalOut:
     """
     对单标的计算完整 SignalOut。
 
     要求至少约 30 根有效 K 线；不足则 ValueError（需先 ingest）。
     data_source：与 ingest 路线一致时传入，便于 load_bars_df 内自动补拉使用同一路线。
+    use_today_bar：为 true 时先用联网现价补写/刷新「今日」日线再算（⑩ 测算当日）。
     """
     sym = normalize_symbol(symbol)
+    if use_today_bar:
+        ensure_today_bar_for_live_signal(sym, data_source=data_source)
     df = load_bars_df(sym, data_source=data_source)
     if df.empty or len(df) < 30:
         raise ValueError("K 线数据不足，请先执行更新 ingest")
 
     fund_panel = load_fundamental_panel_from_db(sym)
     base = _build_signal_metrics(df, sym, fund_panel)
+    name = fetch_stock_name(sym)
+    live_liq = spot_liquidity_fields_for_codes([sym]).get(sym) or {}
+    try:
+        from app.eastmoney_liquidity import merge_eastmoney_spot_into_row
+
+        liq_row: dict[str, Any] = {"symbol": sym}
+        if not df.empty:
+            liq_row["last_volume"] = float(df["volume"].iloc[-1])
+        merge_eastmoney_spot_into_row(liq_row, live_liq, prefer_spot_volume=True)
+        for k, v in liq_row.items():
+            if k.startswith(("spot_", "live_volume")) or k in ("spot_turnover_rate", "spot_amount"):
+                live_liq[k] = v
+    except Exception:
+        pass
+    enhanced = build_signal_enhanced(
+        df,
+        sym=sym,
+        name=name,
+        fund_panel=fund_panel,
+        base=base,
+        live_liquidity=live_liq,
+    )
+    apply_enhanced_to_signal_dict(base, enhanced)
     prev_disp = watchlist_prev_display_for_symbol(sym)
     pc_prev = prev_disp.get("display_prev_close")
     if pc_prev is not None:
@@ -375,7 +436,7 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
         pd_prev = prev_disp.get("display_prev_trade_date")
         if pd_prev:
             base["prev_as_of_date"] = pd_prev
-    spot_extra = _spot_overlay_for_symbol(sym, df, fund_panel, data_source=data_source)
+    spot_extra = _spot_overlay_for_symbol(sym, df, fund_panel, data_source=data_source, name=name)
     src = spot_extra.pop("spot_price_source", None)
     basis = spot_extra.pop("spot_price_basis", None)
     if src or basis:
@@ -385,8 +446,10 @@ def compute_signal(symbol: str, *, data_source: str | None = None) -> SignalOut:
         if basis:
             meta["spot_price_basis"] = basis
         base["meta"] = meta
-    name = fetch_stock_name(sym)
-
+    if use_today_bar:
+        meta = dict(base.get("meta") or {})
+        meta["signal_bar_basis"] = "today_bar_from_live"
+        base["meta"] = meta
     return SignalOut(
         symbol=sym,
         name=name,

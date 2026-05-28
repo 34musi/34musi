@@ -404,7 +404,7 @@ def compute_holding_exit_advice(
             pnl_pct = round((mv - cost_basis) / cost_basis * 100.0, 2)
 
     try:
-        sig = compute_signal(sym, data_source=data_source)
+        sig = compute_signal(sym, data_source=data_source, use_today_bar=live_mode)
     except Exception as e:
         raise ValueError(f"无法计算信号（请先 ③ 拉取 {sym} 日线）：{e}") from e
 
@@ -416,15 +416,13 @@ def compute_holding_exit_advice(
 
     suit_score = int(sig.buy_suitability_score)
     pos_hint = sig.position_hint
-    if live_mode and sig.spot_buy_suitability_score is not None:
-        suit_score = int(sig.spot_buy_suitability_score)
-    if live_mode and sig.spot_position_hint is not None:
-        pos_hint = sig.spot_position_hint
 
     score = 0
     reasons: list[str] = []
     if live_mode:
-        reasons.append("当日测算：浮盈亏与 MA20 对比采用联网现价；适合度用现价代入重算")
+        reasons.append(
+            "当日测算：已用联网现价补写今日日线；浮盈亏、趋势、适合度均基于含当日的 K 线"
+        )
 
     if pnl_pct is not None:
         if pnl_pct <= -stop_demo:

@@ -293,14 +293,21 @@ def spot_liquidity_fields_for_codes(
         qd = _spot_quote_calendar_date_str(row) or _shanghai_today_ymd()
         with _spot_lock:
             fetched_at = _spot_fetched_at_iso
+        tr = None
+        for tr_key in ("换手率", "换手"):
+            tr = _fin_float(row, tr_key)
+            if tr is not None and math.isfinite(tr):
+                break
         out[sym] = {
             "spot_last_price": px,
             "spot_prev_close": _fin_float(row, "昨收"),
             "spot_change_pct": chg,
             "spot_volume": _fin_float(row, "成交量"),
             "spot_amount": _fin_float(row, "成交额"),
+            "spot_turnover_rate": round(float(tr), 4) if tr is not None and math.isfinite(tr) else None,
             "spot_quote_date": qd,
             "spot_fetched_at": fetched_at or _now_iso(),
+            "spot_data_source": "eastmoney_spot_em",
         }
     return out
 

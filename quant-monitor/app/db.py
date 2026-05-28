@@ -30,6 +30,7 @@ from app.db_models import (
     FundamentalSnapshotRow,
     HoldingRow,
     SignalCacheRow,
+    SymbolIngestMetaRow,
     WatchlistAddLogRow,
     WatchlistRow,
 )
@@ -51,6 +52,7 @@ __all__ = [
     # 模型
     "Base",
     "BarRow",
+    "SymbolIngestMetaRow",
     "WatchlistRow",
     "WatchlistAddLogRow",
     "SignalCacheRow",

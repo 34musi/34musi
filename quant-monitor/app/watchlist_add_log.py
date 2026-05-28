@@ -16,6 +16,7 @@ from app.ingest import shanghai_today_date
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 _SNAPSHOT_KEYS = (
+    "bars_first_ingested_at",
     "bars_last_ingested_at",
     "display_prev_close",
     "display_today_close",
@@ -69,7 +70,11 @@ def _norm_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
             out[key] = None
         else:
             s = str(val).strip()
-            out[key] = s[:32] if key == "bars_last_ingested_at" else (s[:10] if s else None)
+            out[key] = (
+                s[:32]
+                if key in ("bars_first_ingested_at", "bars_last_ingested_at")
+                else (s[:10] if s else None)
+            )
     return out
 
 
@@ -98,6 +103,7 @@ def watchlist_add_snapshot_for_symbols(
         live = live_by.get(sym) or {}
         out[sym] = _norm_snapshot(
             {
+                "bars_first_ingested_at": bar.get("bars_first_ingested_at"),
                 "bars_last_ingested_at": bar.get("bars_last_ingested_at"),
                 "display_prev_close": bar.get("display_prev_close"),
                 "display_today_close": bar.get("display_today_close"),
@@ -224,3 +230,31 @@ def count_adds_on_date(session: Session, added_date: str) -> int:
         select(func.count()).select_from(WatchlistAddLogRow).where(WatchlistAddLogRow.added_date == d)
     ).scalar_one()
     return int(n or 0)
+
+
+def latest_added_at_for_symbols(
+    session: Session,
+    symbols: list[str],
+) -> dict[str, str]:
+    """返回 symbol -> 最近一次加入自选时间（UTC ISO）。"""
+    syms = [str(s).strip() for s in symbols if str(s).strip()]
+    if not syms:
+        return {}
+    rows = (
+        session.execute(
+            select(
+                WatchlistAddLogRow.symbol,
+                func.max(WatchlistAddLogRow.added_at),
+            )
+            .where(WatchlistAddLogRow.symbol.in_(syms))
+            .group_by(WatchlistAddLogRow.symbol)
+        )
+        .all()
+    )
+    out: dict[str, str] = {}
+    for sym, at in rows:
+        s = str(sym or "").strip()
+        t = str(at or "").strip()
+        if s and t:
+            out[s] = t[:32]
+    return out

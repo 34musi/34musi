@@ -239,6 +239,10 @@ class WatchlistItem(BaseModel):
         "manual",
         description="manual=手动；auto_hot=热门板块自动填充；auto_quant=⑨量化选股同步（与 auto_hot 同属自动池，会互清）",
     )
+    bars_first_ingested_at: str | None = Field(
+        None,
+        description="该标的在本地 bars 中首次写入 K 线的 UTC ISO 时间（min ingested_at；无则尚未入库）",
+    )
     bars_last_ingested_at: str | None = Field(
         None,
         description="该标的在本地 bars 中最近一次写入/覆盖的 UTC ISO 时间（无则尚未经本服务入库）",
@@ -947,6 +951,54 @@ class SuggestedPositionPctOut(BaseModel):
     high_pct: float = Field(..., ge=0, le=100)
 
 
+BuyVerdict = Literal["strong_trial", "trial", "watch", "avoid"]
+
+
+class SignalBuyGateOut(BaseModel):
+    """增强买入门控：单项是否通过及说明。"""
+
+    code: str
+    label: str
+    passed: bool
+    detail: str
+
+
+class SignalEnhancedOut(BaseModel):
+    """增强评分层：在技术面+扩展因子之上的多维合成与门控结论。"""
+
+    enhanced_buy_score: int = Field(..., ge=0, le=100, description="增强买入适合度（含量能/RSI/MACD/相对大盘等）")
+    legacy_buy_suitability_score: int = Field(
+        ...,
+        ge=0,
+        le=100,
+        description="原 Demo 合成分（技术分+扩展调整），便于对照",
+    )
+    liquidity_adjustment: int = Field(0, description="流动性分项调整（约 -10～+10）")
+    tech_confirm_adjustment: int = Field(0, description="RSI/MACD/突破/ATR 分项（约 -12～+12）")
+    relative_strength_adjustment: int = Field(0, description="相对沪深300超额分项（约 -8～+8）")
+    event_risk_adjustment: int = Field(0, description="ST/涨停区/财报窗口分项（≤0）")
+    momentum_percentile_adjustment: int = Field(0, description="自身20日动量历史分位分项")
+    buy_verdict: BuyVerdict = Field(..., description="综合门控后的买入结论档位")
+    buy_verdict_text: str = Field(..., description="买入结论人可读说明")
+    buy_gates: list[SignalBuyGateOut] = Field(default_factory=list, description="分项门控清单")
+    atr_suggested_position_pct: SuggestedPositionPctOut | None = Field(
+        None,
+        description="按 ATR(14) 缩放后的示例仓位区间",
+    )
+    rsi_14: float | None = None
+    macd_hist: float | None = None
+    atr_14_pct: float | None = Field(None, description="ATR(14) 占收盘价 %")
+    avg_amount_20d_100m: float | None = Field(None, description="近20日日均成交额（亿元）")
+    spot_amount_yuan: float | None = Field(None, description="东财快照当日成交额（元）")
+    excess_ret_20d_vs_benchmark: float | None = Field(None, description="近20日相对基准超额（小数）")
+    ret_20d_self_percentile: float | None = Field(None, description="当前20日涨幅在自身历史的分位 0–100")
+    benchmark_label: str | None = None
+    holding_cost_price: float | None = Field(None, description="若本机有持仓，展示成本价")
+    holding_pnl_pct_vs_cost: float | None = Field(None, description="现价相对成本盈亏 %")
+    enhancement_reasons: list[SignalReason] = Field(default_factory=list)
+    meta: dict[str, Any] = Field(default_factory=dict)
+
+
 class TrialExitGuidanceOut(BaseModel):
     """
     在「试错 / 轻仓参与」语境下的 Demo 离场参考。
@@ -1027,6 +1079,23 @@ class SignalOut(BaseModel):
     risk_tags: list[str]
     reasons: list[SignalReason]
     meta: dict[str, Any] = Field(default_factory=dict)
+    enhanced_buy_score: int | None = Field(
+        None,
+        ge=0,
+        le=100,
+        description="增强买入适合度（含量能/技术确认/相对大盘/事件等 Demo 合成）",
+    )
+    buy_verdict: BuyVerdict | None = Field(None, description="增强门控后的买入结论")
+    buy_verdict_text: str | None = None
+    buy_gates: list[SignalBuyGateOut] = Field(default_factory=list)
+    enhanced: SignalEnhancedOut | None = Field(None, description="增强层完整结构")
+    spot_enhanced_buy_score: int | None = Field(
+        None,
+        ge=0,
+        le=100,
+        description="用现价重算技术面后的增强适合度",
+    )
+    spot_buy_verdict: BuyVerdict | None = None
 
 
 class DisclaimerOut(BaseModel):

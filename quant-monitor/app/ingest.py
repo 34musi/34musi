@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.config import get_settings
-from app.db import BarRow, session_scope
+from app.db import BarRow, SymbolIngestMetaRow, session_scope
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +216,13 @@ def _fetch_and_upsert(
             out["last_trade_date"] = None
             out["last_close"] = None
             out["last_volume"] = None
+        try:
+            with session_scope() as s:
+                first_ing, max_ing = bars_ingest_timestamp_bounds(s, sym)
+            out["bars_first_ingested_at"] = first_ing
+            out["bars_last_ingested_at"] = max_ing
+        except Exception:
+            pass
         return out
     except Exception as e:
         logger.warning("ingest failed for %s: %s", sym, _format_ingest_error(e))
@@ -388,6 +395,41 @@ def _try_backfill_today_bar_from_live(
     """收盘后自动补今日 bar（ingest 拉日线后调用）。"""
     r = backfill_today_bar_from_live(sym, data_source=data_source, allow_intraday=False)
     return int(r.get("rows_upserted") or 0)
+
+
+def ensure_today_bar_for_live_signal(
+    sym: str,
+    *,
+    data_source: str | None = None,
+) -> dict[str, Any]:
+    """
+    测算当日：用联网现价补写或刷新东八区「今日」日线，使信号末根为当日（盘中为参考价）。
+
+    周末/节假日不写入「今日」bar，沿用最近交易日 K 线。失败时抛出 ValueError。
+    """
+    sym_n = normalize_symbol(sym)
+    if shanghai_today_date().weekday() >= 5:
+        return {
+            "ok": True,
+            "symbol": sym_n,
+            "rows_upserted": 0,
+            "skipped_reason": "non_trading_day",
+        }
+    r = backfill_today_bar_from_live(
+        sym_n,
+        data_source=data_source,
+        allow_intraday=True,
+        force_refresh=True,
+    )
+    if r.get("ok"):
+        return r
+    err = str(r.get("error") or "未能写入今日 K 线")
+    reason = str(r.get("skipped_reason") or "")
+    raise ValueError(
+        f"{sym_n} {err}"
+        + (f"（{reason}）" if reason else "")
+        + "；请点「刷新列表」并确认 ③ 数据源与网络"
+    )
 
 
 def backfill_watchlist_today_close_batch(
@@ -914,6 +956,17 @@ def strength_snapshot_for_symbol(
         base20 = closes[-21]
         if abs(base20) > 1e-12:
             out["ret_20d_pct"] = round((last / base20 - 1) * 100, 2)
+    volumes = [float(b.get("volume") or 0) for b in bars]
+    amounts = [float(b.get("amount") or 0) for b in bars]
+    if len(volumes) >= 20:
+        avg_v20 = sum(volumes[-20:]) / 20.0
+        if avg_v20 > 0:
+            out["avg_volume_20"] = round(avg_v20, 4)
+    if len(amounts) >= 20:
+        avg_a20 = sum(amounts[-20:]) / 20.0
+        if avg_a20 > 0:
+            out["avg_amount_20d_yuan"] = round(avg_a20, 2)
+            out["avg_amount_20d_100m"] = round(avg_a20 / 1e8, 4)
     if len(closes) >= 20:
         ma20 = sum(closes[-20:]) / 20.0
         out["ma20"] = round(ma20, 4)
@@ -1164,6 +1217,7 @@ def live_quote_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
             vol = parsed.get("volume")
             if vol is not None and math.isfinite(float(vol)) and float(vol) >= 0:
                 row["live_volume"] = round(float(vol), 4)
+                row["live_volume_source"] = "eastmoney_bid_ask_lots"
             out[sym] = row
         except Exception as e:
             logger.debug("live_quote %s: %s", sym, e)
@@ -1329,6 +1383,13 @@ def augment_live_quote_fields(
             vol = row.get("spot_volume")
             if vol is not None and math.isfinite(float(vol)) and float(vol) >= 0:
                 out[sym]["live_volume"] = round(float(vol), 4)
+                out[sym]["live_volume_source"] = "eastmoney_spot_list"
+            tr = row.get("spot_turnover_rate")
+            if tr is not None and math.isfinite(float(tr)):
+                out[sym]["spot_turnover_rate"] = round(float(tr), 4)
+            amt = row.get("spot_amount")
+            if amt is not None and math.isfinite(float(amt)):
+                out[sym]["spot_amount"] = round(float(amt), 2)
 
     missing = [s for s in uniq if not _live_row_has_price(out.get(s))]
     if missing:
@@ -1492,79 +1553,11 @@ def _daily_snapshot_fields_for_symbol(
     return out
 
 
-_VOLUME_SHRINK_RATIO = 0.8
-_VOLUME_EXPAND_RATIO = 1.2
-_VOLUME_HINTS: dict[str, str] = {
-    "缩量": (
-        "成交低于参照日：多空观望。价涨量缩常显上攻乏力或主力锁筹；"
-        "价跌量缩可能接近阶段底部，亦可能阴跌延续，需结合趋势与位置。"
-    ),
-    "放量": (
-        "成交高于参照日：资金参与度上升。价涨量增偏多趋势延续或突破确认；"
-        "价跌量增需警惕抛压、恐慌盘或主力出货，不宜单凭放量看多。"
-    ),
-    "平量": (
-        "成交与参照日接近：趋势惯性为主。价涨平量可能上攻动能不足；"
-        "价跌平量抛压未明显放大；突破时需等待放量确认。"
-    ),
-}
-
-
 def apply_ingest_volume_compare(row: dict[str, Any]) -> None:
-    """
-    ③ 量比：今行相对昨行参照日的缩量/放量标签与说明（教学用，非投资建议）。
-    """
-    exec_d = str(row.get("ingest_exec_date") or "")[:10]
-    last_td = str(row.get("last_trade_date") or "")[:10]
-    basis = str(row.get("display_pair_basis") or "")
+    """③ 量价评价：量比(相对20日均量) + 涨跌联合一句话 + 危险量提示。"""
+    from app.volume_price_analyze import analyze_ingest_volume_price
 
-    ref_vol = row.get("display_prev_volume")
-    if ref_vol is None:
-        ref_vol = row.get("prev_volume")
-    ref_f: float | None = None
-    if ref_vol is not None and math.isfinite(float(ref_vol)) and float(ref_vol) > 0:
-        ref_f = float(ref_vol)
-
-    today_vol = row.get("live_volume")
-    today_basis = "none"
-    intraday = False
-    if today_vol is not None and math.isfinite(float(today_vol)) and float(today_vol) > 0:
-        today_basis = "live_cumulative"
-        intraday = bool(exec_d and last_td and exec_d > last_td)
-    elif exec_d and last_td and exec_d == last_td:
-        lv = row.get("last_volume")
-        if lv is not None and math.isfinite(float(lv)) and float(lv) > 0:
-            today_vol = lv
-            today_basis = "last_close_full_day"
-    row["display_today_volume"] = today_vol
-    row["volume_today_basis"] = today_basis
-    row["volume_ref_basis"] = basis
-
-    if ref_f is None or today_vol is None:
-        row.pop("volume_vs_prev_label", None)
-        row.pop("volume_vs_prev_ratio", None)
-        row.pop("volume_vs_prev_pct", None)
-        row.pop("volume_vs_prev_hint", None)
-        return
-
-    cur_f = float(today_vol)
-    if cur_f <= 0:
-        return
-    ratio = cur_f / ref_f
-    pct = (ratio - 1.0) * 100.0
-    if ratio < _VOLUME_SHRINK_RATIO:
-        label = "缩量"
-    elif ratio > _VOLUME_EXPAND_RATIO:
-        label = "放量"
-    else:
-        label = "平量"
-    hint = _VOLUME_HINTS[label]
-    if intraday:
-        hint += "（盘中：当日累计量 ÷ 参照日全日收盘量，收盘后对比更准确。）"
-    row["volume_vs_prev_ratio"] = round(ratio, 4)
-    row["volume_vs_prev_pct"] = round(pct, 2)
-    row["volume_vs_prev_label"] = label
-    row["volume_vs_prev_hint"] = hint
+    analyze_ingest_volume_price(row)
 
 
 def resolve_ingest_row_display_pair(sym: str, row: dict[str, Any]) -> None:
@@ -1686,6 +1679,21 @@ def _apply_spot_enrich_to_ingest_row(
         st = strength_snapshot_for_symbol(sym, last_price_override=float(px))
         if st is not None:
             r["spot_strength"] = st
+    route = resolve_data_source(data_source)
+    if route in ("eastmoney", "akshare", "auto"):
+        try:
+            from app.eastmoney_liquidity import merge_eastmoney_spot_into_row
+            from app.fundamentals import load_fundamental_panel_from_db, spot_liquidity_fields_for_codes
+
+            spot_ex = spot_liquidity_fields_for_codes([sym], force_refresh=False).get(sym) or {}
+            merge_eastmoney_spot_into_row(r, spot_ex, prefer_spot_volume=True)
+            if r.get("spot_turnover_rate") is not None:
+                r["volume_data_source"] = "eastmoney"
+            fp = load_fundamental_panel_from_db(sym)
+            if fp is not None:
+                r["fundamentals"] = fp
+        except Exception as e:
+            logger.debug("eastmoney spot merge %s: %s", sym, e)
     apply_ingest_volume_compare(r)
 
 
@@ -1709,6 +1717,7 @@ def enrich_ingest_results_with_spot(
         else {}
     )
     req_at = _now_iso()
+    route = resolve_data_source(data_source)
     for r in results:
         if r.get("error"):
             continue
@@ -1720,6 +1729,17 @@ def enrich_ingest_results_with_spot(
             skip_bar_fetch=skip_bar_fetch,
             req_at=req_at,
         )
+    if route in ("eastmoney", "akshare", "auto") and ok_syms:
+        try:
+            from app.eastmoney_liquidity import merge_eastmoney_spot_batch
+
+            by_sym = {str(r["symbol"]): r for r in results if r.get("symbol") and "error" not in r}
+            merge_eastmoney_spot_batch(by_sym, ok_syms, force_refresh=False)
+            for r in by_sym.values():
+                if r.get("spot_turnover_rate") is not None:
+                    apply_ingest_volume_compare(r)
+        except Exception as e:
+            logger.debug("enrich batch eastmoney spot: %s", e)
 
 
 def enrich_one_ingest_result_spot(
@@ -1805,6 +1825,7 @@ def upsert_bars(df: pd.DataFrame) -> int:
     rows = df.to_dict(orient="records")
     n = 0
     now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    sym_n = normalize_symbol(str(rows[0]["symbol"]))
     with session_scope() as s:
         for r in rows:
             stmt = sqlite_insert(BarRow.__table__).values(
@@ -1827,11 +1848,16 @@ def upsert_bars(df: pd.DataFrame) -> int:
                     "close": stmt.excluded.close,
                     "volume": stmt.excluded.volume,
                     "amount": stmt.excluded.amount,
-                    "ingested_at": stmt.excluded.ingested_at,
+                    # 保留各交易日首次写入时间，供②「首次入库」展示
+                    "ingested_at": func.coalesce(
+                        BarRow.ingested_at, stmt.excluded.ingested_at
+                    ),
                 },
             )
             s.execute(stmt)
             n += 1
+        if n > 0:
+            ensure_symbol_first_ingest(sym_n, session=s, at=now_iso)
     return n
 
 
@@ -2021,6 +2047,121 @@ def watchlist_prev_display_from_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def utc_iso_to_shanghai_ymd(iso: str | None) -> str | None:
+    """UTC ISO 时间转东八区自然日 YYYY-MM-DD。"""
+    if iso is None or not str(iso).strip():
+        return None
+    try:
+        s = str(iso).strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(ZoneInfo("Asia/Shanghai")).date().isoformat()
+    except ValueError:
+        return None
+
+
+def normalize_ingest_date_range(
+    range_start: str | None,
+    range_end: str | None,
+) -> tuple[str | None, str | None]:
+    """校验并规范化东八区首次入库筛选闭区间 [start, end]；起止可只填一侧。"""
+    start = str(range_start).strip()[:10] if range_start else None
+    end = str(range_end).strip()[:10] if range_end else None
+    for label, val in (("开始", start), ("结束", end)):
+        if val:
+            try:
+                date.fromisoformat(val)
+            except ValueError as e:
+                raise ValueError(f"首次入库{label}日期无效：{val}") from e
+    if start and end and start > end:
+        start, end = end, start
+    return start, end
+
+
+def first_ingest_ymd_in_range(
+    iso: str | None,
+    *,
+    range_start: str | None,
+    range_end: str | None,
+) -> bool:
+    """首次入库 UTC ISO 是否落在东八区日期闭区间内（无起止则视为匹配）。"""
+    start, end = normalize_ingest_date_range(range_start, range_end)
+    if not start and not end:
+        return True
+    ymd = utc_iso_to_shanghai_ymd(iso)
+    if not ymd:
+        return False
+    if start and ymd < start:
+        return False
+    if end and ymd > end:
+        return False
+    return True
+
+
+def ensure_symbol_first_ingest(
+    sym: str,
+    *,
+    session: Session | None = None,
+    at: str | None = None,
+) -> str | None:
+    """
+    记录标的首次 K 线入库时间；若已有记录则原样返回，不再更新。
+    在 upsert_bars / 现价补当日收盘 等首次写入时调用。
+    """
+    sym_n = normalize_symbol(sym)
+    now_iso = (at or datetime.now(timezone.utc).replace(microsecond=0).isoformat()).strip()[
+        :40
+    ]
+
+    def _apply(s: Session) -> str | None:
+        row = s.get(SymbolIngestMetaRow, sym_n)
+        if row is not None and (row.first_ingested_at or "").strip():
+            return str(row.first_ingested_at).strip()[:40]
+        if row is None:
+            s.add(SymbolIngestMetaRow(symbol=sym_n, first_ingested_at=now_iso))
+            return now_iso
+        if not (row.first_ingested_at or "").strip():
+            row.first_ingested_at = now_iso
+            return now_iso
+        return str(row.first_ingested_at).strip()[:40]
+
+    if session is not None:
+        return _apply(session)
+    with session_scope() as s:
+        return _apply(s)
+
+
+def bars_ingest_timestamp_bounds(
+    session: Session,
+    sym: str,
+) -> tuple[str | None, str | None]:
+    """返回 (首次入库 UTC ISO, 最近入库 UTC ISO)；首次以 symbol_ingest_meta 为准。"""
+    sym_n = normalize_symbol(sym)
+    meta_row = session.get(SymbolIngestMetaRow, sym_n)
+    first: str | None = None
+    if meta_row is not None and (meta_row.first_ingested_at or "").strip():
+        first = str(meta_row.first_ingested_at).strip()[:40]
+    if not first:
+        min_ing = session.execute(
+            select(func.min(BarRow.ingested_at)).where(
+                BarRow.symbol == sym_n,
+                BarRow.ingested_at.is_not(None),
+            )
+        ).scalar_one_or_none()
+        if min_ing:
+            first = str(min_ing).strip()[:40]
+            if meta_row is None:
+                session.add(SymbolIngestMetaRow(symbol=sym_n, first_ingested_at=first))
+            elif not (meta_row.first_ingested_at or "").strip():
+                meta_row.first_ingested_at = first
+    max_ing = session.execute(
+        select(func.max(BarRow.ingested_at)).where(BarRow.symbol == sym_n)
+    ).scalar_one_or_none()
+    last = str(max_ing).strip()[:40] if max_ing else None
+    return first, last
+
+
 def watchlist_bar_fields_for_session(
     session: Session,
     symbols: list[str],
@@ -2029,7 +2170,7 @@ def watchlist_bar_fields_for_session(
 ) -> dict[str, dict[str, Any]]:
     """
     自选表展示用：每标的在本地 bars 中的最新一行收盘价、最后交易日、
-    以及该标的任意 K 线最近一次入库时间（max ingested_at）。
+    首次/最近入库时间（min/max ingested_at）。
     昨日收盘字段与③ resolve_ingest_row_display_pair 上行「收/昨」一致。
     """
     route = data_source or get_settings().ingest_data_source
@@ -2045,7 +2186,7 @@ def watchlist_bar_fields_for_session(
             .scalars()
             .all()
         )
-        max_ing = session.execute(select(func.max(BarRow.ingested_at)).where(BarRow.symbol == sym)).scalar_one_or_none()
+        first_ing, max_ing = bars_ingest_timestamp_bounds(session, sym)
         if not recent:
             exec_d = shanghai_today_date().isoformat()
             empty_pair = {
@@ -2054,6 +2195,7 @@ def watchlist_bar_fields_for_session(
                 "ingest_exec_date": exec_d,
             }
             out[sym] = {
+                "bars_first_ingested_at": None,
                 "bars_last_ingested_at": None,
                 "bars_last_trade_date": None,
                 "last_close": None,
@@ -2076,6 +2218,7 @@ def watchlist_bar_fields_for_session(
         prev_disp = watchlist_prev_display_from_row(pair_row)
         today_disp = watchlist_today_close_fields(pair_row)
         out[sym] = {
+            "bars_first_ingested_at": first_ing,
             "bars_last_ingested_at": max_ing,
             "bars_last_trade_date": td,
             "last_close": close_v,

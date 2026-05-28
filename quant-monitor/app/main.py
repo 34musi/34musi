@@ -92,6 +92,7 @@ from app.ingest import (
 )
 from app.watchlist_add_log import (
     entries_added_on_date,
+    latest_added_at_for_symbols,
     list_watchlist_add_dates,
     log_row_snapshot_fields,
     parse_added_date_param,
@@ -1127,7 +1128,13 @@ def _build_watchlist_items(
             if symbols
             else {}
         )
-    return _watchlist_items_from_parts(rows, bar_by, live_by)
+    latest_added_by = latest_added_at_for_symbols(s, symbols) if symbols else {}
+    return _watchlist_items_from_parts(
+        rows,
+        bar_by,
+        live_by,
+        latest_added_at_by_symbol=latest_added_by,
+    )
 
 
 def _watchlist_item_with_add_meta(
@@ -1137,6 +1144,42 @@ def _watchlist_item_with_add_meta(
     d["watchlist_added_at"] = added_at
     d["in_watchlist_pool"] = in_pool
     return WatchlistItem(**d)
+
+
+def _build_watchlist_items_for_first_ingest_range(
+    s,
+    *,
+    range_start: str | None = None,
+    range_end: str | None = None,
+    symbols_filter: list[str] | None = None,
+    force_spot_refresh: bool = False,
+) -> list[WatchlistItem]:
+    """按东八区「首次入库」日期闭区间筛选自选池；起止皆空则返回全池。"""
+    from app.ingest import first_ingest_ymd_in_range, normalize_ingest_date_range
+
+    start, end = normalize_ingest_date_range(range_start, range_end)
+    q = select(WatchlistRow)
+    if symbols_filter:
+        q = q.where(WatchlistRow.symbol.in_(symbols_filter))
+    rows = list(s.execute(q.order_by(WatchlistRow.id.asc())).scalars().all())
+    if symbols_filter:
+        by_sym = {r.symbol: r for r in rows}
+        rows = [by_sym[sym] for sym in symbols_filter if sym in by_sym]
+    if not rows:
+        return []
+    items = _build_watchlist_items(s, rows, force_spot_refresh=force_spot_refresh)
+    if not start and not end:
+        items.sort(key=lambda x: (x.bars_first_ingested_at or "", x.symbol))
+        return items
+    out = [
+        it
+        for it in items
+        if first_ingest_ymd_in_range(
+            it.bars_first_ingested_at, range_start=start, range_end=end
+        )
+    ]
+    out.sort(key=lambda x: (x.bars_first_ingested_at or "", x.symbol))
+    return out
 
 
 def _build_watchlist_items_for_added_date(
@@ -1184,8 +1227,11 @@ def _watchlist_items_from_parts(
     rows: list[WatchlistRow],
     bar_by: dict[str, dict],
     live_by: dict[str, dict],
+    *,
+    latest_added_at_by_symbol: dict[str, str] | None = None,
 ) -> list[WatchlistItem]:
     out: list[WatchlistItem] = []
+    latest_map = latest_added_at_by_symbol or {}
     for r in rows:
         meta = bar_by.get(r.symbol, {})
         live = live_by.get(r.symbol) or {}
@@ -1197,6 +1243,7 @@ def _watchlist_items_from_parts(
                 spot_last_price=live.get("live_last_price"),
                 spot_change_pct=live.get("live_change_pct"),
                 spot_quote_date=live.get("live_quote_date"),
+                watchlist_added_at=latest_map.get(r.symbol),
                 **meta,
             )
         )
@@ -1319,11 +1366,13 @@ def _watchlist_item_after_ingest(
     tags=["② 管理自选股票"],
     summary="列出当前已添加的股票",
     description="""
-返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_last_ingested_at**（最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明），以及 **spot_last_price** / **spot_change_pct**（东财单股/列表快照；东财失败时用通达信批量行情兜底，非交易所 tick）。
+返回自选池里**所有**股票代码列表；每项附带本地 **bars** 摘要：**bars_first_ingested_at** / **bars_last_ingested_at**（首次/最近入库 UTC 时间）、**last_close**（最新日线收盘价）、**last_daily_close_label**（最后交易日收盘说明），以及 **spot_last_price** / **spot_change_pct**（东财单股/列表快照；东财失败时用通达信批量行情兜底，非交易所 tick）。
 
 - Query **`refresh_spot=true`**（控制台「刷新列表」会带上）：跳过 spot 内存缓存并重新拉现价。
-- Query **`added_date=YYYY-MM-DD`**（东八区）：仅返回该日写入 **watchlist_add_log** 的标的（② 默认查今日）；日志表同时保存加入时的 **bars_last_ingested_at / display_prev_close / display_today_close / spot_last_price / spot_change_pct / bars_last_trade_date** 快照。
-- Query **`pool=true`**：返回完整自选池（忽略 added_date）。
+- Query **`first_ingest_from` / `first_ingest_to`**（东八区 YYYY-MM-DD，闭区间）：按**首次入库**日期筛选；可只填起始或结束。皆省略且 `pool=false` 时返回**自选池全部**标的。
+- Query **`added_date=YYYY-MM-DD`**：兼容旧参数，等价于起止皆为该日。
+- Query **`symbols=600519&symbols=000001`**（可重复）：仅返回并刷新指定代码子集（须在自选池）。
+- Query **`pool=true`**：返回完整自选池（等同不按日期筛选）。
 - 若配置了 `API_KEY`，请先点右上角 **Authorize**。
 - 若列表为空，下一步请用 `POST /watchlist` 添加。
 """,
@@ -1338,28 +1387,78 @@ def watchlist_list(
     ),
     added_date: str | None = Query(
         None,
-        description="东八区日期 YYYY-MM-DD；仅返回该日加入自选日志中的标的",
+        description="（兼容）东八区 YYYY-MM-DD；等价 first_ingest_from=to=该日",
+    ),
+    first_ingest_from: str | None = Query(
+        None,
+        description="东八区起始日期 YYYY-MM-DD（首次入库 ≥ 该日）",
+    ),
+    first_ingest_to: str | None = Query(
+        None,
+        description="东八区结束日期 YYYY-MM-DD（首次入库 ≤ 该日）",
+    ),
+    symbols: list[str] | None = Query(
+        None,
+        description="仅处理所列 6 位代码（须在自选池）；可重复传参",
     ),
     pool: bool = Query(
         False,
-        description="为 true 时返回完整自选池，不按加入日期筛选",
+        description="为 true 时返回完整自选池，不按首次入库日期筛选",
     ),
     _: None = Depends(optional_api_key),
 ):
-    """列出自选；可按加入日志日期筛选或返回全池。"""
+    """列出自选；可按首次入库日期区间筛选或返回全池。"""
     with session_scope() as s:
-        if not pool and added_date:
-            ad = parse_added_date_param(added_date)
-            if not ad:
-                raise HTTPException(status_code=400, detail="added_date 须为 YYYY-MM-DD")
-            items = _build_watchlist_items_for_added_date(
-                s, ad, force_spot_refresh=refresh_spot
-            )
-            response.headers["X-Quant-Watchlist-Added-Date"] = ad
-            response.headers["X-Quant-Watchlist-Add-Count"] = str(len(items))
-            response.headers["X-Quant-Watchlist-View"] = "daily"
-            return items
-        rows = s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all()
+        rows_all = list(s.execute(select(WatchlistRow).order_by(WatchlistRow.id.asc())).scalars().all())
+        rows_by_sym = {r.symbol: r for r in rows_all}
+        subset_syms: list[str] | None = None
+        if symbols:
+            subset_syms = []
+            seen_sub: set[str] = set()
+            for raw in symbols:
+                try:
+                    sym = normalize_symbol(str(raw))
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e)) from e
+                if sym in seen_sub:
+                    continue
+                seen_sub.add(sym)
+                if sym in rows_by_sym:
+                    subset_syms.append(sym)
+            if not subset_syms:
+                response.headers["X-Quant-Watchlist-View"] = "subset_empty"
+                return []
+        if not pool:
+            ad = parse_added_date_param(added_date) if added_date else None
+            start_raw = (first_ingest_from or "").strip() or (ad if ad else None)
+            end_raw = (first_ingest_to or "").strip() or (ad if ad else None)
+            if ad and not (first_ingest_from or first_ingest_to):
+                start_raw = end_raw = ad
+            if start_raw or end_raw:
+                try:
+                    from app.ingest import normalize_ingest_date_range
+
+                    start_n, end_n = normalize_ingest_date_range(start_raw, end_raw)
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e)) from e
+                items = _build_watchlist_items_for_first_ingest_range(
+                    s,
+                    range_start=start_n,
+                    range_end=end_n,
+                    symbols_filter=subset_syms,
+                    force_spot_refresh=refresh_spot,
+                )
+                if start_n:
+                    response.headers["X-Quant-Watchlist-First-Ingest-From"] = start_n
+                if end_n:
+                    response.headers["X-Quant-Watchlist-First-Ingest-To"] = end_n
+                response.headers["X-Quant-Watchlist-Add-Count"] = str(len(items))
+                response.headers["X-Quant-Watchlist-View"] = "first_ingest_range"
+                return items
+        if subset_syms:
+            rows = [rows_by_sym[sym] for sym in subset_syms if sym in rows_by_sym]
+        else:
+            rows = rows_all
         missing = [r.symbol for r in rows if not (r.name or "").strip()]
         if missing:
             by_sym = {r.symbol: r for r in rows}
@@ -3797,7 +3896,7 @@ def holdings_goal_plan_live_preflight(
     tags=["⑩ 持仓记录（自用）"],
     summary="目标资金测算（当日联网现价）",
     description="""
-与 `goal-plan` 相同逻辑，但**强制联网现价**、适合度按现价重算；K 线结构仍用最近入库日线。
+与 `goal-plan` 相同逻辑；测算前会用联网现价**补写/刷新今日日线**，趋势/MA20/适合度均基于**含当日**的 K 线（盘中为参考价）。
 建议先 `GET …/goal-plan-live/preflight` 确认 `ready=true`。
 """,
 )

@@ -17,6 +17,8 @@ from app.holdings import (
     compute_holding_exit_advice,
 )
 from app.ingest import (
+    backfill_watchlist_today_close_batch,
+    ensure_today_bar_for_live_signal,
     fetch_stock_name,
     live_quote_fields_for_codes_enhanced,
     load_bars_df,
@@ -44,8 +46,8 @@ _GOAL_DISCLAIMER = (
 )
 
 _GOAL_DISCLAIMER_LIVE = (
-    "以下为规则化 Demo 结论：浮盈亏与现价适合度采用联网快照（非 tick）；"
-    "趋势/MA20 等结构仍基于最近入库日线。不能预测涨跌，不构成买卖指令。"
+    "以下为规则化 Demo 结论：测算前会用联网现价补写/刷新「今日」日线（盘中为参考价，非 tick）；"
+    "趋势、MA20、适合度均基于含当日的入库 K 线。不能预测涨跌，不构成买卖指令。"
 )
 
 _DAILY_CLOSE_PRICE_SOURCES = frozenset({"local_daily_close", "daily_close", "daily_bar"})
@@ -290,16 +292,15 @@ def _estimate_near_term_price_outlook(
     )
 
 
-def _signal_scores_for_mode(sig: Any, *, live_mode: bool) -> tuple[int, str, str, str]:
-    bs = int(sig.buy_suitability_score)
-    trend = str(sig.trend)
-    strength = str(sig.strength)
-    pos_hint = str(sig.position_hint)
-    if live_mode and sig.spot_buy_suitability_score is not None:
-        bs = int(sig.spot_buy_suitability_score)
-    if live_mode and sig.spot_position_hint is not None:
-        pos_hint = str(sig.spot_position_hint)
-    return bs, trend, strength, pos_hint
+def _signal_scores_for_mode(sig: Any, *, live_mode: bool = False) -> tuple[int, str, str, str]:
+    """live_mode 时信号已由 compute_signal(use_today_bar=True) 含当日 K 线。"""
+    _ = live_mode
+    return (
+        int(sig.buy_suitability_score),
+        str(sig.trend),
+        str(sig.strength),
+        str(sig.position_hint),
+    )
 
 
 def check_goal_plan_live_readiness(
@@ -337,12 +338,40 @@ def check_goal_plan_live_readiness(
         )
 
     phase, phase_note = _shanghai_session_phase()
-    if bars_last_td and bars_last_td < sh_today and phase in ("after_close", "intraday"):
+    today_bar_note: str | None = None
+    if bar_count >= 30 and shanghai_today_date().weekday() < 5:
+        try:
+            bf = ensure_today_bar_for_live_signal(sym, data_source=data_source)
+            df2 = load_bars_df(sym, data_source=data_source)
+            if not df2.empty:
+                bar_count = len(df2)
+                bars_last_td = str(df2["trade_date"].iloc[-1])[:10]
+            if bf.get("provisional"):
+                today_bar_note = "今日 K 线为盘中参考价（OHLC=现价快照）"
+            elif bf.get("rows_upserted"):
+                today_bar_note = "已补写/刷新今日 K 线"
+            elif bf.get("skipped_reason") == "non_trading_day":
+                today_bar_note = "非交易日，信号按最近一根入库 K 线"
+        except ValueError as e:
+            missing.append(
+                GoalPlanLiveMissingItem(
+                    code="today_bar_backfill_failed",
+                    message=str(e),
+                    action="请点「刷新列表」并确认 ③ 数据源与网络",
+                )
+            )
+
+    if (
+        bars_last_td
+        and bars_last_td < sh_today
+        and phase in ("after_close", "intraday")
+        and shanghai_today_date().weekday() < 5
+    ):
         warnings.append(
             GoalPlanLiveMissingItem(
                 code="bars_stale",
-                message=f"入库 K 线末根为 {bars_last_td}，非今日 {sh_today}",
-                action="收盘后请在 ③ 更新日线，使 MA20/趋势结构含最新一根",
+                message=f"入库 K 线末根仍为 {bars_last_td}，未能写入今日 {sh_today}",
+                action="请点「刷新列表」联网更新现价后重试",
             )
         )
 
@@ -399,6 +428,8 @@ def check_goal_plan_live_readiness(
         summary = (
             f"{sym} 可测算当日：联网现价 {live_px}（{live_src or '—'}）"
             + (f"，报价日 {live_qd}" if live_qd else "")
+            + (f"；{today_bar_note}" if today_bar_note else "")
+            + (f"；K 线末根 {bars_last_td}" if bars_last_td else "")
             + f"。{phase_note}"
         )
     else:
@@ -435,11 +466,22 @@ def _scan_watchlist_picks(
     symbols = [r.symbol for r in rows if r.symbol and r.symbol != exclude_symbol]
     if not symbols:
         return []
+    scan_syms = symbols[:scan_cap]
+    if live_mode and scan_syms and shanghai_today_date().weekday() < 5:
+        try:
+            backfill_watchlist_today_close_batch(
+                scan_syms,
+                data_source=data_source,
+                allow_intraday=True,
+                force_refresh=True,
+            )
+        except Exception:
+            pass
     bar_by = watchlist_bar_fields_for_session(session, symbols)
     scored: list[tuple[int, WatchlistPickOut]] = []
-    for sym in symbols[:scan_cap]:
+    for sym in scan_syms:
         try:
-            sig = compute_signal(sym, data_source=data_source)
+            sig = compute_signal(sym, data_source=data_source, use_today_bar=live_mode)
         except Exception:
             continue
         bar = bar_by.get(sym) or {}
@@ -627,7 +669,7 @@ def compute_holding_goal_plan(
     session_phase, session_phase_note = _shanghai_session_phase()
     if live_mode:
         session_phase_note = (
-            "当日测算：浮盈亏与适合度已用联网现价；趋势/MA20 仍基于最近入库日线。"
+            "当日测算：已补写今日 K 线（联网现价）；信号与浮盈亏均含当日。"
             + session_phase_note
         )
     daily_verdict, daily_verdict_detail, switch_to_symbol = _resolve_daily_verdict(

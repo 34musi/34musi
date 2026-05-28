@@ -85,6 +85,7 @@ def ensure_sqlite_holdings_mark_columns(engine) -> None:
 
 
 WATCHLIST_ADD_LOG_SQLITE_ALTER: tuple[tuple[str, str], ...] = (
+    ("bars_first_ingested_at", "TEXT"),
     ("bars_last_ingested_at", "TEXT"),
     ("display_prev_close", "REAL"),
     ("display_today_close", "REAL"),
