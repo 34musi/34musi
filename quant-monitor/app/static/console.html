@@ -7606,14 +7606,14 @@
   }
 
   function hotSectorPickCountByGroup(payload, groupKey) {
-    if (!payload || !groupKey) return { sectors: 0, stocks: 0 };
+    if (!payload || !groupKey) return { sectors: 0, stocks: 0, stocksUnique: 0 };
     var list = payload[groupKey] || [];
-    var stocks = 0;
-    list.forEach(function (b) {
-      stocks += Array.isArray(b.stocks) ? b.stocks.length : 0;
-    });
-    var withStocks = hotSectorsWithStocks(list, HOT_SECTOR_DISPLAY_MAX);
-    return { sectors: withStocks.length, stocks: stocks };
+    var stats = hotSectorPickGroupStats(list, null);
+    return {
+      sectors: stats.sectorsAll,
+      stocks: stats.stocksTotal,
+      stocksUnique: stats.stocksUnique,
+    };
   }
 
   function persistLastHotSectorPick(payload, requestBody) {
@@ -7937,17 +7937,67 @@
   var _hotKlineCache = {};
 
   function hotSectorsWithStocks(detail, limit) {
-    var maxN = limit == null ? HOT_SECTOR_DISPLAY_MAX : limit;
+    var maxN = limit === undefined ? HOT_SECTOR_DISPLAY_MAX : limit;
     var out = [];
     var list = detail || [];
     for (var i = 0; i < list.length; i++) {
       var stocks = Array.isArray(list[i].stocks) ? list[i].stocks : [];
       if (stocks.length > 0) {
         out.push(list[i]);
-        if (out.length >= maxN) break;
+        if (maxN != null && maxN > 0 && out.length >= maxN) break;
       }
     }
     return out;
+  }
+
+  /** 统计某条件组：有入选股的板块数、入选只次合计、去重代码数。limit=null 表示不限展示条数。 */
+  function hotSectorPickGroupStats(detail, displayLimit) {
+    var dl = displayLimit === undefined ? HOT_SECTOR_DISPLAY_MAX : displayLimit;
+    var allBlocks = hotSectorsWithStocks(detail, null);
+    var shownBlocks = dl == null ? allBlocks : hotSectorsWithStocks(detail, dl);
+    var stocksTotal = 0;
+    var codes = {};
+    allBlocks.forEach(function (b) {
+      (b.stocks || []).forEach(function (st) {
+        stocksTotal += 1;
+        var c = hotStockCode(st);
+        if (c) codes[c] = true;
+      });
+    });
+    return {
+      sectorsAll: allBlocks.length,
+      sectorsShown: shownBlocks.length,
+      stocksTotal: stocksTotal,
+      stocksUnique: Object.keys(codes).length,
+    };
+  }
+
+  function hotPickGroupStatsHtml(stats) {
+    if (!stats || !stats.stocksTotal) {
+      return '<p class="hot-pick-group-stats lead" style="margin:0 0 0.5rem;font-size:0.82rem;color:var(--muted)">本组暂无入选数据。</p>';
+    }
+    var dedupe =
+      stats.stocksUnique > 0 && stats.stocksUnique !== stats.stocksTotal
+        ? "，去重 <strong>" + stats.stocksUnique + "</strong> 只"
+        : "";
+    var tail =
+      stats.sectorsAll > stats.sectorsShown
+        ? "；下表展示前 <strong>" + stats.sectorsShown + "</strong> 个板块（共 <strong>" +
+          stats.sectorsAll +
+          "</strong> 个）"
+        : "";
+    return (
+      '<p class="hot-pick-group-stats lead" style="margin:0 0 0.5rem;font-size:0.82rem">' +
+      "本组共筛出 <strong>" +
+      stats.stocksTotal +
+      "</strong> 只入选（<strong>" +
+      stats.sectorsAll +
+      "</strong> 个板块" +
+      dedupe +
+      "）" +
+      tail +
+      "。</p>"
+    );
   }
 
   function hotMonthDateRange() {
@@ -8892,9 +8942,11 @@
   function hotRenderSectorOverviewTable(detail, pickGroup, sectionHint) {
     pickGroup = pickGroup || "sector_hot";
     sectionHint = sectionHint || "";
+    var stats = hotSectorPickGroupStats(detail, HOT_SECTOR_DISPLAY_MAX);
     var blocks = hotSectorsWithStocks(detail, HOT_SECTOR_DISPLAY_MAX);
     if (!blocks.length) {
       return (
+        hotPickGroupStatsHtml(stats) +
         '<p class="lead" style="margin:0 0 0.75rem">' +
         escHtml(
           pickGroup === "ma5_capital"
@@ -8949,6 +9001,7 @@
         "</td></tr>";
     });
     return (
+      hotPickGroupStatsHtml(stats) +
       '<div class="hot-result-table-wrap hot-overview-table-wrap" style="margin-bottom:0.75rem">' +
       '<table class="hot-result-table hot-overview-table"><thead><tr>' +
       "<th>排名</th><th>板块名称</th><th>热度分</th><th>涨跌幅</th><th>板块类型</th><th>入选数</th>" +
@@ -9657,15 +9710,39 @@
       var parts = [];
       if (groups.indexOf("sector_hot") >= 0) {
         var sh = hotSectorPickCountByGroup(body, "sectors_detail");
-        parts.push("热门筛选 " + sh.stocks + " 只（" + sh.sectors + " 个板块）");
+        parts.push(
+          "热门筛选 " +
+            sh.stocks +
+            " 只（" +
+            sh.sectors +
+            " 个板块" +
+            (sh.stocksUnique !== sh.stocks ? "，去重 " + sh.stocksUnique + " 只" : "") +
+            "）"
+        );
       }
       if (groups.indexOf("ma5_capital") >= 0) {
         var m5 = hotSectorPickCountByGroup(body, "ma5_capital_sectors_detail");
-        parts.push("五日+资金 " + m5.stocks + " 只（" + m5.sectors + " 个板块）");
+        parts.push(
+          "五日+资金 " +
+            m5.stocks +
+            " 只（" +
+            m5.sectors +
+            " 个板块" +
+            (m5.stocksUnique !== m5.stocks ? "，去重 " + m5.stocksUnique + " 只" : "") +
+            "）"
+        );
       }
       if (groups.indexOf("rising_3d") >= 0) {
         var r3 = hotSectorPickCountByGroup(body, "rising_3d_sectors_detail");
-        parts.push("三日连涨 " + r3.stocks + " 只（" + r3.sectors + " 个板块）");
+        parts.push(
+          "三日连涨 " +
+            r3.stocks +
+            " 只（" +
+            r3.sectors +
+            " 个板块" +
+            (r3.stocksUnique !== r3.stocks ? "，去重 " + r3.stocksUnique + " 只" : "") +
+            "）"
+        );
       }
       var warnN =
         body.summary && body.summary.warnings && body.summary.warnings.length
@@ -10397,6 +10474,33 @@
     if (_wlShowFullPool) return false;
     var r = wlGetFirstIngestRange();
     return !!(r.from || r.to);
+  }
+
+  /** 当前时间筛选下该条是否会出现在表格中 */
+  function wlItemPassesCurrentView(item) {
+    if (!item || _wlShowFullPool) return true;
+    return wlFilterByFirstIngestView([item]).length > 0;
+  }
+
+  /** 刚加入自选时若会被日期筛选隐藏，则自动切到「显示全部自选池」 */
+  function wlExpandViewForNewWatchlistItem(item) {
+    if (!item || wlItemPassesCurrentView(item)) return false;
+    _wlShowFullPool = true;
+    var chk = $("chkWlShowFullPool");
+    if (chk) chk.checked = true;
+    return true;
+  }
+
+  function wlEnsureWatchlistItemInCache(item) {
+    if (!item || !item.symbol) return;
+    var sym = String(item.symbol);
+    if (!_wlCachedBody || !Array.isArray(_wlCachedBody)) _wlCachedBody = [];
+    for (var i = 0; i < _wlCachedBody.length; i++) {
+      if (_wlCachedBody[i] && _wlCachedBody[i].symbol === sym) return;
+    }
+    _wlCachedBody.push(item);
+    renderWatchlistTable(_wlCachedBody);
+    persistWatchlistSnapshot();
   }
 
   /** 按「首次入库」起止日期筛选；全池或起止皆空则不筛 */
@@ -11596,6 +11700,11 @@
         ) {
           msg += "；入库条数已上报但列表仍无本地日线，请点「刷新列表」或「重新获取」";
         }
+        var viewExpanded = wlExpandViewForNewWatchlistItem(body);
+        if (viewExpanded) {
+          msg +=
+            "；当前日期筛选看不到刚加入的标的，已自动勾选「显示全部自选池」。";
+        }
         showOut("out-2", msg, body && body.kline_ingest_ok === false);
         $("symAdd").value = "";
         if (body && body.symbol) {
@@ -11607,6 +11716,16 @@
           skipCacheRestore: true,
           keepOutMessage: true,
         });
+        if (body && body.symbol) {
+          var symAdded = String(body.symbol);
+          var visibleAfterRefresh = wlFilterByFirstIngestView(_wlCachedBody || []).some(function (x) {
+            return x && x.symbol === symAdded;
+          });
+          if (!visibleAfterRefresh) {
+            wlExpandViewForNewWatchlistItem(body);
+            wlEnsureWatchlistItemInCache(body);
+          }
+        }
       }
     } catch (e) {
       showOut("out-2", String(e), true);
