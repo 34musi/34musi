@@ -167,6 +167,12 @@
       font-size: 0.9rem;
       cursor: pointer;
       border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
     }
     button.primary {
       background: var(--accent);
@@ -178,6 +184,21 @@
       cursor: not-allowed;
     }
     button.secondary { background: var(--panel); color: var(--text); }
+    button.btn-loading {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    button.btn-loading::before {
+      content: "";
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: btn-loading-spin 0.6s linear infinite;
+      display: inline-block;
+    }
+    @keyframes btn-loading-spin { to { transform: rotate(360deg); } }
     .status-pill {
       display: inline-block;
       padding: 0.2rem 0.55rem;
@@ -4168,7 +4189,10 @@
 
   function beginScope(scope, loadingMessage, loadingOpts) {
     cancelScope(scope);
-    panelLoadingStart(scope, loadingMessage, loadingOpts);
+    loadingOpts = loadingOpts || {};
+    if (!loadingOpts.skipPanelLoading) {
+      panelLoadingStart(scope, loadingMessage, loadingOpts);
+    }
     var controller = new AbortController();
     activeRequests[scope] = { controller: controller };
     refreshCancelButtons();
@@ -4248,6 +4272,7 @@
       if (sc) void userCancelScope(sc);
     });
   });
+  refreshCancelButtons();
 
   function detailToText(detail) {
     if (detail == null) return "";
@@ -8912,7 +8937,10 @@
       return;
     }
     var btn = $("btnHotFill");
-    if (btn) btn.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("btn-loading");
+    }
     var reqBody = hotBuildFillBody();
     hotPickLogClear();
     hotPickLog(
@@ -8958,6 +8986,7 @@
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(reqBody),
+        skipPanelLoading: true,
       });
       var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
       hotPickLog("响应", "HTTP " + res.status + "，耗时 " + elapsed + "s");
@@ -9023,7 +9052,10 @@
         showOut("out-2", String(e), true);
       }
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove("btn-loading");
+      }
     }
   }
 
@@ -9101,6 +9133,7 @@
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(req.payload),
         loadingMessage: "正在拉取日线（" + scopeLab + "）…",
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -9855,6 +9888,7 @@
     );
     btns.forEach(function (b) {
       b.disabled = true;
+      b.classList.add("btn-loading");
     });
     try {
       var res = await fetchCancel("panel-2", "/watchlist/backfill-today-close", {
@@ -9867,6 +9901,7 @@
           data_source: getIngestDataSource(),
         }),
         loadingMessage: "正在用现价补写当日收盘（" + scopeHint + "）…",
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -9907,6 +9942,7 @@
     } finally {
       btns.forEach(function (b) {
         b.disabled = false;
+        b.classList.remove("btn-loading");
       });
     }
   }
@@ -9924,6 +9960,7 @@
       var res = await fetchCancel("panel-2", "/watchlist?refresh_spot=true", {
         headers: authHeaders(),
         loadingMessage: "正在刷新自选列表…",
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (seq !== _wlRefreshSeq) return;
@@ -10122,8 +10159,12 @@
   $("btnRefreshWl").addEventListener("click", async function () {
     var btn = $("btnRefreshWl");
     btn.disabled = true;
+    btn.classList.add("btn-loading");
     try { await refreshWatchlistTable(); } catch (e) { showOut("out-2", String(e), true); }
-    finally { btn.disabled = false; }
+    finally { 
+      btn.disabled = false; 
+      btn.classList.remove("btn-loading");
+    }
   });
   var btnWlBackfillTodayClose = $("btnWlBackfillTodayClose");
   if (btnWlBackfillTodayClose) {
@@ -10152,10 +10193,12 @@
         "\n自选较多时耗时会较长，可用「取消请求」中断。\n确定继续？";
       if (!confirm(msg)) return;
       btnWlRefetchAll.disabled = true;
+      btnWlRefetchAll.classList.add("btn-loading");
       try {
         await wlRefetchKlineSymbols(null, { allWatchlist: true });
       } finally {
         btnWlRefetchAll.disabled = false;
+        btnWlRefetchAll.classList.remove("btn-loading");
       }
     });
   }
@@ -10170,10 +10213,12 @@
         return;
       }
       btnWlRefetchSelected.disabled = true;
+      btnWlRefetchSelected.classList.add("btn-loading");
       try {
         await wlRefetchKlineSymbols(syms);
       } finally {
         btnWlRefetchSelected.disabled = false;
+        btnWlRefetchSelected.classList.remove("btn-loading");
       }
     });
   }
@@ -10206,13 +10251,17 @@
     )
       return;
     var btn = $("btnWlFetchHotSnapStocks");
-    if (btn) btn.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("btn-loading");
+    }
     showOut("out-2", "正在导入快照热门股…", true);
     try {
       var res = await fetchCancel("panel-2", "/watchlist/import-hot-market-snapshot", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({ replace_auto_pool: true })
+        body: JSON.stringify({ replace_auto_pool: true }),
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -10238,7 +10287,10 @@
     } catch (e) {
       showOut("out-2", String(e), true);
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove("btn-loading");
+      }
     }
   }
 
