@@ -2,6 +2,21 @@
 
 A 股日线趋势监控与信号 API：通过 [AkShare](https://github.com/akfamily/akshare) 拉取公开前复权日线，写入本地数据库，再基于均线、动量、波动等规则输出结构化信号（**不构成投资建议**）。
 
+## 架构：核心流水线与辅助层
+
+- **核心**：`app/quant_stock_selector/` — A 股热门板块 → 选股 → 双均线回测 → 导出的完整脚本流水线；数据源抽象（AkShare / TuShare / mootdx）以该包为准。
+- **辅助**：`ingest`、`signals`、`main`、控制台等 — 负责入库、API、展示；ingest 在 `mootdx` / `tushare`（及与东财等价的 `akshare`）路线上 **import 核心包** 拉日线再写入 SQLite，避免两套拉取逻辑。核心包**不**依赖 FastAPI。
+
+命令行（在 **`quant-monitor` 项目根目录** 执行，与 `uvicorn app.main:app` 一致）：
+
+```bash
+python -m app.quant_stock_selector --help
+```
+
+（若 `PYTHONPATH` 仅含 `app` 子目录，则可用 `python -m quant_stock_selector`。）
+
+当前包入口的实际参数与示例，见 [quant_stock_selector_commands.md](quant_stock_selector_commands.md)；该文档已按 `app/quant_stock_selector` 目录下的现有代码同步。
+
 ## 环境要求
 
 - Python 3.10+（推荐）
@@ -23,11 +38,15 @@ pip install -r requirements.txt
 
 ## 启动服务
 
+**Windows 一键启动**：在 `quant-monitor` 目录 **双击 `start.bat`**（自动用 `.venv` 起服务，无需每次 `cd` + 激活环境）。可选 **`start-and-open-ui.bat`** 自动打开 `/ui`。
+
+**标准启动步骤（含本机 / ngrok 外网访问、彩色速查）见 → [docs/STARTUP.md](docs/STARTUP.md)**
+
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- **图形控制台（推荐日常使用）**：<http://127.0.0.1:8000/ui> — 按 ①～⑦ 模块分步操作，详见下文「图形控制台使用说明」。
+- **图形控制台（推荐日常使用）**：<http://127.0.0.1:8000/ui> — 按 ①～⑦、⑩、⑨ 等模块分步操作，详见下文「图形控制台使用说明」。
 - 交互文档：<http://127.0.0.1:8000/docs>（Swagger UI，面向开发者）
 - 服务信息（JSON）：<http://127.0.0.1:8000/>（含 `ui`、`docs` 等字段）
 - 探活：<http://127.0.0.1:8000/health>
@@ -46,12 +65,13 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### ② 管理自选股票
 
-- 输入 6 位 A 股代码（如 `600519`），**确定添加**；**刷新列表**查看当前自选。
+- 输入 6 位 A 股代码（如 `600519`），**确定添加**（默认会**自动拉取近约 30 个日历日的日线**入库，无需先去 ③）；**刷新列表**查看当前自选。列表中 **来源** 列区分 **手动** 与 **热门自动**（`origin`）。环境变量 `WATCHLIST_AUTO_INGEST_DAYS` 可改天数；Body 可设 `auto_ingest_kline: false` 关闭。
+- **热门板块自动填充**：按 `akshare`、`mootdx` 或 **`tushare`**（同花顺 ths_index / ths_daily / ths_member，通常需 TuShare **6000 积分**）拉取热门板块排名，每板块过滤 ST、科创板（688/689）后取前若干只写入自选。**再次填充会先清空上一次「热门自动」条目，不会删除手动自选**；若某代码已是手动，自动列表会跳过。完整东财板块建议 **`akshare`**；`mootdx` 板块覆盖较少。控制台选 TuShare 时会提示填写 **Token**（也可在服务端配置 `TUSHARE_TOKEN`）。预览：`POST /watchlist/hot-sectors/preview`（推荐，Body 可带 `tushare_token`）或 `GET`（Query 亦可传 token，不推荐）；填充：`POST /watchlist/fill-hot-sectors`。
 - **③ 批量更新行情**、**⑤ 变动预览** 只处理自选里的标的；单只股票在 **④** 也可直接查信号（仍需本地有足够 K 线）。
 
 ### ③ 更新行情数据（K 线从哪里来）
 
-- **行情路线**下拉框：决定调用 AkShare / Baostock 时走哪条数据源（`auto` 为新浪→腾讯→Baostock 链式尝试；可选 **仅东方财富日线**，服务端对相邻东财请求有约 **3–5 秒**随机间隔防限流；也可固定「仅新浪」等）。所选值会写入本机并与 **④⑤** 的 `data_source` 联动。
+- **行情路线**下拉框：决定入库走哪条数据源（`auto` 链式；`eastmoney` / `akshare` 均为东财日线；`mootdx`、`tushare` 经核心 `quant_stock_selector` 拉取；另有新浪/腾讯/Baostock）。东财路线有约 **3–5 秒**随机间隔防限流。所选值会写入本机并与 **④⑤** 的 `data_source` 联动。TuShare 需配置 `TUSHARE_TOKEN` 或环境变量同名；`mootdx` 需安装依赖。
 - **K 线落库位置**：拉取成功后写入本机 SQLite（默认 `data/quant_monitor.db` 的 `bars` 表），之后 **④ 信号**、**③ 底部「查询本地 K 线」** 都读这份库。
 - **开始 / 结束日期**（均可空）：
   - **都不填**：从库里已有最后交易日增量更新到今天；
@@ -59,8 +79,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
   - **只填开始日**：从该日拉到今日；
   - **两个都填**：拉取该闭区间（适合补历史）。
 - **测试数据源连接**：短探测，确认网络与数据源是否可用。
-- **开始更新自选行情**：对自选中每一只执行入库（需联网，耗时与标的数量有关）。
-- **扩展因子（量化 Demo）**：与日线相互独立，拉取估值/财报同比/主力净流入等，供信号里的扩展字段与合成评分使用。
+- **开始更新自选行情**：对自选中每一只执行入库（需联网，耗时与标的数量有关）。可勾选 **「同时拉取扩展因子」**（等同一次请求内完成 `POST /ingest/update` + 扩展因子入库），或单独点下方按钮。
+- **扩展因子（量化 Demo）**：估值/财报同比/主力净流入等；勾选「同时拉取扩展因子」或点「仅拉取扩展因子」，结果在**拉取结果表**中展示（无单独表格）；供 ④ 信号合成评分使用。
 - **查询本地 K 线**：输入代码与根数，读库展示已入库 OHLCV（**不发起网络请求**），用于确认某标的是否已有足够日线（信号计算至少需要约 **30** 根有效 K 线）。
 
 ### ④ 查看信号
@@ -161,9 +181,12 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | GET | `/meta/disclaimer` | 免责与数据源说明 |
 | GET | `/meta/self-use` | 自用工具定位与风控检查摘要（无需 Key） |
 | POST / GET / DELETE | `/journal` … | 决策日志（需 Key 时同其它受保护接口） |
-| GET | `/watchlist` | 列出自选 |
-| POST | `/watchlist` | 添加自选 |
+| GET | `/watchlist` | 列出自选（含 `origin`：手动 / 热门自动） |
+| POST | `/watchlist` | 添加自选（`manual`；若原为热门自动则升级为手动） |
 | DELETE | `/watchlist/{symbol}` | 删除自选 |
+| POST | `/watchlist/fill-hot-sectors` | 按热门板块写入 `auto_hot`（`akshare` / `mootdx` / `tushare`）；响应含 `sectors_detail` |
+| GET | `/watchlist/hot-sectors/preview` | 只读预览（Query）；TuShare 建议改用下方 POST |
+| POST | `/watchlist/hot-sectors/preview` | 只读预览（Body 与填充一致，便于传 `tushare_token`） |
 | GET | `/ingest/test-connection` | 测试本机与 AkShare 数据源连通性（短区间探测） |
 | POST | `/ingest/update` | 更新自选日线；Body 可选 `start_date` / `end_date`（区间或增量规则见 `/docs`） |
 | POST | `/ingest/fundamentals` | （可选）扩展因子入库 |

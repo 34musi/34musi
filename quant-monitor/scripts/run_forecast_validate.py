@@ -35,6 +35,8 @@ def main() -> int:
     p.add_argument("--trade-limit", type=int, default=25, dest="trade_limit", help="返回最近多少笔完整买卖（示意）")
     p.add_argument("--ma-short", type=int, default=5, dest="ma_short", help="双均线短周期")
     p.add_argument("--ma-long", type=int, default=10, dest="ma_long", help="双均线长周期（须大于短周期）")
+    p.add_argument("--oos-from", type=str, default=None, dest="oos_from", help="样本外起始日（含）YYYY-MM-DD")
+    p.add_argument("--oos-to", type=str, default=None, dest="oos_to", help="样本外结束日（含）YYYY-MM-DD")
     p.add_argument("--json", action="store_true", help="输出原始 JSON（否则人类可读摘要）")
     args = p.parse_args()
     try:
@@ -51,6 +53,8 @@ def main() -> int:
             trade_limit=args.trade_limit,
             ma_short=args.ma_short,
             ma_long=args.ma_long,
+            oos_from=args.oos_from,
+            oos_to=args.oos_to,
         )
     except ValueError as e:
         print(str(e), file=sys.stderr)

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>K 线与资金流 · 网页数据预览</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --ok: #3ecf8e;
+      --err: #f87171;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); line-height: 1.5; }
+    header {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    header h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+    header a { color: var(--accent); text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    main { padding: 1.25rem 1.5rem; max-width: 1100px; margin: 0 auto; }
+    .lead { color: var(--muted); font-size: 0.88rem; margin: 0 0 1rem; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+    input[type="text"], input[type="password"], input[type="number"], select {
+      width: 100%;
+      max-width: 360px;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+    .row { margin-bottom: 1rem; }
+    .row.inline label { display: inline; margin-right: 0.35rem; }
+    .row.inline input { width: auto; max-width: none; margin-right: 1rem; vertical-align: middle; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; align-items: end; }
+    .btns { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+    button.primary, button.secondary {
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.secondary { background: var(--panel); color: var(--text); }
+    .pill { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; font-size: 0.75rem; margin-left: 0.35rem; }
+    .pill.ok { background: rgba(62, 207, 142, 0.2); color: var(--ok); }
+    .pill.err { background: rgba(248, 113, 113, 0.15); color: var(--err); }
+    .pill.muted { background: rgba(139, 156, 179, 0.15); color: var(--muted); }
+    section.card {
+      margin-top: 1.25rem;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #121a24;
+    }
+    section.card h2 { margin: 0 0 0.65rem; font-size: 1rem; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.5rem; }
+    th, td { border: 1px solid var(--border); padding: 0.4rem 0.5rem; text-align: left; }
+    th { background: var(--panel); color: var(--muted); font-weight: 500; white-space: nowrap; }
+    .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+    pre.raw {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      max-height: 280px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .err-msg { color: var(--err); font-size: 0.85rem; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>网页数据预览 · K 线与当日资金概况</h1>
+    <span>
+      <a href="/ui">返回控制台</a>
+      <span style="color:var(--border);margin:0 0.5rem">|</span>
+      <a href="/docs" target="_blank" rel="noopener">Swagger /docs</a>（搜索 <code>web-data-preview</code>）
+    </span>
+  </header>
+  <main>
+    <p class="lead">
+      本页通过服务端 <strong>POST /ingest/web-data-preview</strong> 拉取数据：K 线走与控制台③相同的日线入库路线（AkShare 等聚合接口）；资金流为<strong>东财个股日级</strong>表，展示「最近交易日」汇总，<strong>不是</strong> tick 级实时主力。仅供技术自览，不构成投资建议。
+    </p>
+
+    <div class="row">
+      <label for="apiKey">API Key（若服务端配置了 API_KEY 则必填，与控制台①相同键名）</label>
+      <input type="password" id="apiKey" placeholder="quant_monitor_api_key 存在本机 localStorage" autocomplete="off" />
+    </div>
+    <div class="row">
+      <button type="button" class="secondary" id="btnLoadKey">从控制台同步密钥（读取 localStorage）</button>
+    </div>
+
+    <div class="row">
+      <label for="symbol">股票代码（6 位）</label>
+      <input type="text" id="symbol" placeholder="如 600519" maxlength="12" autocomplete="off" />
+    </div>
+    <div class="row">
+      <label for="dataSource">K 线写入路线</label>
+      <select id="dataSource">
+        <option value="">（服务端默认 INGEST_DATA_SOURCE）</option>
+        <option value="auto">自动（新浪 → 腾讯 → Baostock）</option>
+        <option value="eastmoney">仅东方财富日线</option>
+        <option value="akshare">AkShare 东财日线</option>
+        <option value="sina">仅新浪财经</option>
+        <option value="tencent">仅腾讯</option>
+        <option value="baostock">仅 Baostock</option>
+        <option value="mootdx">mootdx 通达信日线</option>
+        <option value="tushare">TuShare 日线</option>
+      </select>
+    </div>
+    <div class="grid2">
+      <div class="row">
+        <label for="barLimit">返回 K 线根数</label>
+        <input type="number" id="barLimit" min="1" max="500" value="60" />
+      </div>
+      <div class="row">
+        <label for="flowDays">资金流最近交易日行数</label>
+        <input type="number" id="flowDays" min="1" max="120" value="10" />
+      </div>
+    </div>
+    <div class="row inline">
+      <input type="checkbox" id="refreshKline" checked />
+      <label for="refreshKline">拉取前先联网增量更新该标的 K 线并写入本机库</label>
+    </div>
+    <div class="btns">
+      <button type="button" class="primary" id="btnRun">拉取预览</button>
+    </div>
+    <p id="statusLine" class="lead" style="margin-top:0"></p>
+    <p id="errLine" class="err-msg" hidden></p>
+
+    <section class="card" id="cardRefresh" hidden>
+      <h2>K 线增量结果</h2>
+      <p id="refreshSummary" class="lead" style="margin-bottom:0"></p>
+    </section>
+
+    <section class="card" id="cardBars" hidden>
+      <h2>日线 K 线（本地库，旧 → 新）</h2>
+      <div class="table-wrap" id="barsWrap"></div>
+    </section>
+
+    <section class="card" id="cardFlow" hidden>
+      <h2>个股资金流向（日级，旧 → 新）</h2>
+      <p class="lead" style="margin-top:0;font-size:0.8rem;">最后一行即数据源视角下「最近交易日」资金概况；列名随 AkShare 版本可能略有差异。</p>
+      <div class="table-wrap" id="flowWrap"></div>
+    </section>
+
+    <section class="card" id="cardRaw" hidden>
+      <h2>完整 JSON</h2>
+      <pre class="raw" id="rawJson"></pre>
+    </section>
+  </main>
+  <script>
+    var LS_KEY = "quant_monitor_api_key";
+
+    function $(id) { return document.getElementById(id); }
+
+    function authHeaders() {
+      var h = { "Content-Type": "application/json" };
+      var k = ($("apiKey").value || "").trim();
+      if (k) h["X-API-Key"] = k;
+      return h;
+    }
+
+    function esc(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function tableFromObjects(rows, id) {
+      if (!rows || !rows.length) {
+        return "<p class=\"lead\">无数据</p>";
+      }
+      var keys = Object.keys(rows[0]);
+      var th = keys.map(function (k) { return "<th>" + esc(k) + "</th>"; }).join("");
+      var trs = rows.map(function (r) {
+        var tds = keys.map(function (k) {
+          var v = r[k];
+          return "<td>" + esc(v !== undefined && v !== null ? String(v) : "") + "</td>";
+        }).join("");
+        return "<tr>" + tds + "</tr>";
+      }).join("");
+      return "<table><thead><tr>" + th + "</tr></thead><tbody>" + trs + "</tbody></table>";
+    }
+
+    $("btnLoadKey").addEventListener("click", function () {
+      var v = (localStorage.getItem(LS_KEY) || "").trim();
+      $("apiKey").value = v;
+    });
+
+    $("btnRun").addEventListener("click", async function () {
+      $("errLine").hidden = true;
+      $("errLine").textContent = "";
+      $("statusLine").textContent = "请求中…";
+      $("btnRun").disabled = true;
+      $("cardRefresh").hidden = true;
+      $("cardBars").hidden = true;
+      $("cardFlow").hidden = true;
+      $("cardRaw").hidden = true;
+      try {
+        var sym = ($("symbol").value || "").trim();
+        if (!sym) {
+          throw new Error("请填写股票代码");
+        }
+        var ds = ($("dataSource").value || "").trim();
+        var barLimit = parseInt($("barLimit").value, 10) || 60;
+        var flowDays = parseInt($("flowDays").value, 10) || 10;
+        var body = {
+          symbol: sym,
+          refresh_kline: $("refreshKline").checked,
+          bar_limit: Math.min(500, Math.max(1, barLimit)),
+          fund_flow_recent_days: Math.min(120, Math.max(1, flowDays))
+        };
+        if (ds) body.data_source = ds;
+
+        var res = await fetch("/ingest/web-data-preview", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify(body)
+        });
+        var text = await res.text();
+        var data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(res.status + " " + text.slice(0, 200));
+        }
+        if (!res.ok) {
+          throw new Error((data && data.detail) ? String(data.detail) : res.status + " " + text.slice(0, 200));
+        }
+
+        $("rawJson").textContent = JSON.stringify(data, null, 2);
+        $("cardRaw").hidden = false;
+
+        var pill = "";
+        var kr = data.kline_refresh;
+        if (kr && kr.attempted) {
+          if (kr.ok) pill = '<span class="pill ok">K线增量成功</span>';
+          else pill = '<span class="pill err">K线增量失败</span>';
+        } else if (kr && !kr.attempted) {
+          pill = '<span class="pill muted">未请求联网增量</span>';
+        }
+        $("statusLine").innerHTML = "标的 <strong>" + esc(data.symbol) + "</strong> · 路线 <code>" + esc(data.data_source) + "</code> " + pill;
+
+        if (kr && kr.attempted) {
+          $("cardRefresh").hidden = false;
+          if (kr.ok) {
+            $("refreshSummary").textContent = JSON.stringify(kr.result, null, 2);
+          } else {
+            $("refreshSummary").innerHTML = '<span style="color:var(--err)">' + esc(kr.detail || "未知错误") + "</span>";
+          }
+        }
+
+        $("barsWrap").innerHTML = tableFromObjects(data.bars || [], "bars");
+        $("cardBars").hidden = false;
+
+        $("flowWrap").innerHTML = tableFromObjects(data.fund_flow_recent || [], "flow");
+        $("cardFlow").hidden = false;
+      } catch (e) {
+        $("statusLine").textContent = "";
+        $("errLine").hidden = false;
+        $("errLine").textContent = e.message || String(e);
+      } finally {
+        $("btnRun").disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

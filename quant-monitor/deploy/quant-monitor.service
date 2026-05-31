@@ -1,0 +1,19 @@
+[Unit]
+Description=quant-monitor FastAPI (A-share monitor)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/quant-monitor
+EnvironmentFile=/opt/quant-monitor/.env
+# 使用 venv 内 uvicorn；部署后按实际路径检查
+ExecStart=/opt/quant-monitor/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+Restart=on-failure
+RestartSec=5
+# 批量 ingest 可能较久
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,24 @@
+### Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+### Virtualenv
+venv/
+.venv/
+
+### Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+### IDE
+.idea/
+.vscode/
+
+### Local data artifacts
+data/*.db
+*.db
+
