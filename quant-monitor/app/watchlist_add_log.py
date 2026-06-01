@@ -184,6 +184,19 @@ def list_watchlist_add_dates(session: Session, *, limit: int = 120) -> list[str]
     return [str(r[0]) for r in rows if r and r[0]]
 
 
+def _dedupe_add_log_rows_by_symbol(rows: list[WatchlistAddLogRow]) -> list[WatchlistAddLogRow]:
+    """同一代码仅保留最早一条（调用方需已按 added_at 升序）。"""
+    out: list[WatchlistAddLogRow] = []
+    seen: set[str] = set()
+    for row in rows:
+        sym = str(row.symbol or "").strip()
+        if not sym or sym in seen:
+            continue
+        seen.add(sym)
+        out.append(row)
+    return out
+
+
 def entries_added_on_date(session: Session, added_date: str) -> list[WatchlistAddLogRow]:
     """同日同代码仅保留首次加入的那条日志行（含快照字段）。"""
     d = parse_added_date_param(added_date)
@@ -198,15 +211,30 @@ def entries_added_on_date(session: Session, added_date: str) -> list[WatchlistAd
         .scalars()
         .all()
     )
-    out: list[WatchlistAddLogRow] = []
-    seen: set[str] = set()
-    for row in rows:
-        sym = str(row.symbol or "").strip()
-        if not sym or sym in seen:
-            continue
-        seen.add(sym)
-        out.append(row)
-    return out
+    return _dedupe_add_log_rows_by_symbol(list(rows))
+
+
+def entries_added_in_range(
+    session: Session,
+    *,
+    range_start: str | None = None,
+    range_end: str | None = None,
+) -> list[WatchlistAddLogRow]:
+    """东八区加入日期闭区间；同一代码保留区间内最早加入那条（列表单行展示）。"""
+    from app.ingest import normalize_ingest_date_range
+
+    start, end = normalize_ingest_date_range(range_start, range_end)
+    if not start and not end:
+        return []
+    q = select(WatchlistAddLogRow).order_by(
+        WatchlistAddLogRow.added_at.asc(), WatchlistAddLogRow.id.asc()
+    )
+    if start:
+        q = q.where(WatchlistAddLogRow.added_date >= start)
+    if end:
+        q = q.where(WatchlistAddLogRow.added_date <= end)
+    rows = session.execute(q).scalars().all()
+    return _dedupe_add_log_rows_by_symbol(list(rows))
 
 
 def symbols_added_on_date(session: Session, added_date: str) -> list[tuple[str, str, str, str]]:

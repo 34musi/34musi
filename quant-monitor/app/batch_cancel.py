@@ -60,8 +60,11 @@ def clear_many(scopes: list[str]) -> None:
     if "ingest" in expanded:
         try:
             from app.ingest_batch_job import ingest_batch_status
+            from app.symbols_batch_job import symbols_batch_status
 
-            if ingest_batch_status().get("active"):
+            if ingest_batch_status().get("active") or symbols_batch_status(
+                "ingest"
+            ).get("active"):
                 skip_ingest = True
         except Exception:
             pass

@@ -91,6 +91,7 @@ from app.ingest import (
     watchlist_bar_fields_for_session,
 )
 from app.watchlist_add_log import (
+    entries_added_in_range,
     entries_added_on_date,
     latest_added_at_for_symbols,
     list_watchlist_add_dates,
@@ -952,18 +953,25 @@ def meta_watchlist_add_dates(_: None = Depends(optional_api_key)):
 @app.get(
     "/meta/symbols-batch-status",
     tags=["① 入门必读"],
-    summary="按只批量任务进度（④⑤/扩展因子等）",
-    description="scope 为 signals、alerts、fundamentals、backfill_close；active=true 时 done/total 供按钮显示进度。",
+    summary="按只批量任务进度（③④⑤/扩展因子等）",
+    description=(
+        "scope 为 ingest（③ 更新现价/扩展因子，skip_bars）、signals、alerts、"
+        "fundamentals、backfill_close；active=true 时 done/total 供按钮显示进度。"
+        "② 拉日线进度请用 GET /meta/ingest-batch-status。"
+    ),
 )
 def meta_symbols_batch_status(
-    scope: str = Query(..., description="signals | alerts | fundamentals | backfill_close"),
+    scope: str = Query(
+        ...,
+        description="ingest | signals | alerts | fundamentals | backfill_close",
+    ),
     _: None = Depends(optional_api_key),
 ):
     sc = str(scope or "").strip().lower()
-    if sc not in ("signals", "alerts", "fundamentals", "backfill_close"):
+    if sc not in ("ingest", "signals", "alerts", "fundamentals", "backfill_close"):
         raise HTTPException(
             status_code=400,
-            detail="scope 须为 signals、alerts、fundamentals 或 backfill_close",
+            detail="scope 须为 ingest、signals、alerts、fundamentals 或 backfill_close",
         )
     return symbols_batch_status(sc)
 
@@ -1182,14 +1190,13 @@ def _build_watchlist_items_for_first_ingest_range(
     return out
 
 
-def _build_watchlist_items_for_added_date(
+def _watchlist_items_from_add_log_rows(
     s,
-    added_date: str,
+    log_rows: list,
     *,
     force_spot_refresh: bool = False,
 ) -> list[WatchlistItem]:
-    """按加入日志某日筛选；顺序为当日首次加入时间。"""
-    log_rows = entries_added_on_date(s, added_date)
+    """按加入日志行构建列表项；watchlist_added_at 取该日志时间（非最近一次）。"""
     if not log_rows:
         return []
     syms = [str(r.symbol or "").strip() for r in log_rows]
@@ -1221,6 +1228,35 @@ def _build_watchlist_items_for_added_date(
                 )
             )
     return out
+
+
+def _build_watchlist_items_for_added_date(
+    s,
+    added_date: str,
+    *,
+    force_spot_refresh: bool = False,
+) -> list[WatchlistItem]:
+    """按加入日志某日筛选；顺序为当日首次加入时间。"""
+    return _watchlist_items_from_add_log_rows(
+        s,
+        entries_added_on_date(s, added_date),
+        force_spot_refresh=force_spot_refresh,
+    )
+
+
+def _build_watchlist_items_for_added_range(
+    s,
+    *,
+    range_start: str | None = None,
+    range_end: str | None = None,
+    force_spot_refresh: bool = False,
+) -> list[WatchlistItem]:
+    """按东八区「加入自选」日期闭区间筛选；各日历史互不影响。"""
+    return _watchlist_items_from_add_log_rows(
+        s,
+        entries_added_in_range(s, range_start=range_start, range_end=range_end),
+        force_spot_refresh=force_spot_refresh,
+    )
 
 
 def _watchlist_items_from_parts(
@@ -1370,7 +1406,8 @@ def _watchlist_item_after_ingest(
 
 - Query **`refresh_spot=true`**（控制台「刷新列表」会带上）：跳过 spot 内存缓存并重新拉现价。
 - Query **`first_ingest_from` / `first_ingest_to`**（东八区 YYYY-MM-DD，闭区间）：按**首次入库**日期筛选；可只填起始或结束。皆省略且 `pool=false` 时返回**自选池全部**标的。
-- Query **`added_date=YYYY-MM-DD`**：兼容旧参数，等价于起止皆为该日。
+- Query **`added_from` / `added_to`**（东八区 YYYY-MM-DD，闭区间）：按**加入自选**日志日期筛选；各日历史互不影响，返回该区间内对应日的加入时间（非最近一次）。
+- Query **`added_date=YYYY-MM-DD`**：兼容旧参数，等价于 `first_ingest_from=to=该日`（首次入库，非加入自选）。
 - Query **`symbols=600519&symbols=000001`**（可重复）：仅返回并刷新指定代码子集（须在自选池）。
 - Query **`pool=true`**：返回完整自选池（等同不按日期筛选）。
 - 若配置了 `API_KEY`，请先点右上角 **Authorize**。
@@ -1396,6 +1433,14 @@ def watchlist_list(
     first_ingest_to: str | None = Query(
         None,
         description="东八区结束日期 YYYY-MM-DD（首次入库 ≤ 该日）",
+    ),
+    added_from: str | None = Query(
+        None,
+        description="东八区起始日期 YYYY-MM-DD（加入自选 ≥ 该日）",
+    ),
+    added_to: str | None = Query(
+        None,
+        description="东八区结束日期 YYYY-MM-DD（加入自选 ≤ 该日）",
     ),
     symbols: list[str] | None = Query(
         None,
@@ -1429,6 +1474,33 @@ def watchlist_list(
                 response.headers["X-Quant-Watchlist-View"] = "subset_empty"
                 return []
         if not pool:
+            added_start_raw = (added_from or "").strip()
+            added_end_raw = (added_to or "").strip()
+            if added_start_raw or added_end_raw:
+                try:
+                    from app.ingest import normalize_ingest_date_range
+
+                    added_start_n, added_end_n = normalize_ingest_date_range(
+                        added_start_raw, added_end_raw
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e)) from e
+                items = _build_watchlist_items_for_added_range(
+                    s,
+                    range_start=added_start_n,
+                    range_end=added_end_n,
+                    force_spot_refresh=refresh_spot,
+                )
+                if subset_syms:
+                    allow = set(subset_syms)
+                    items = [it for it in items if it.symbol in allow]
+                if added_start_n:
+                    response.headers["X-Quant-Watchlist-Added-From"] = added_start_n
+                if added_end_n:
+                    response.headers["X-Quant-Watchlist-Added-To"] = added_end_n
+                response.headers["X-Quant-Watchlist-Add-Count"] = str(len(items))
+                response.headers["X-Quant-Watchlist-View"] = "added_range"
+                return items
             ad = parse_added_date_param(added_date) if added_date else None
             start_raw = (first_ingest_from or "").strip() or (ad if ad else None)
             end_raw = (first_ingest_to or "").strip() or (ad if ad else None)
@@ -1585,14 +1657,14 @@ def watchlist_backfill_today_close(
 2. 在 Request body 里把 `symbol` 改成你要的 6 位代码（示例已填 `600519`）
 3. 点 **Execute**
 
-已存在相同代码时不会报错，会原样返回该代码。
+已存在相同代码时不会报错；**每次添加**（含已在池中的代码）均记一条加入日志，按东八区加入时间查询，不影响历史其它日期的加入记录。
 
 默认 **`auto_ingest_kline=true`**：添加成功后自动联网拉取近 **30 个日历日**（可用 `ingest_days` 或环境变量 `WATCHLIST_AUTO_INGEST_DAYS` 调整）的日线写入本地 `bars`，② 列表即可显示「最近入库 / 收盘参考」。可选 **`data_source`** 与 ③ 行情路线一致。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
 def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optional_api_key)):
-    """添加自选；代码规范化后若已存在则幂等返回该标的；默认自动拉取近一月日线。"""
+    """添加自选；代码规范化后若已存在则幂等返回该标的；每次均记加入日志；默认自动拉取近一月日线。"""
     try:
         sym = normalize_symbol(body.symbol)
     except ValueError as e:
@@ -1600,7 +1672,6 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
     days = body.ingest_days if body.ingest_days is not None else get_settings().watchlist_auto_ingest_days
     ds = body.data_source.value if body.data_source is not None else None
     ingest: dict[str, Any] | None = None
-    is_new = False
     nm_for_log = ""
     with session_scope() as s:
         existing = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one_or_none()
@@ -1609,9 +1680,9 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
                 existing.origin = WATCHLIST_ORIGIN_MANUAL
             if not (existing.name or "").strip():
                 existing.name = fetch_stock_name(sym) or ""
+            nm_for_log = (existing.name or "").strip() or fetch_stock_name(sym) or ""
         else:
             nm = fetch_stock_name(sym) or ""
-            is_new = True
             nm_for_log = nm
             s.add(WatchlistRow(symbol=sym, origin=WATCHLIST_ORIGIN_MANUAL, name=nm))
     if body.auto_ingest_kline:
@@ -1627,10 +1698,9 @@ def watchlist_add(body: WatchlistIn, request: Request, _: None = Depends(optiona
             except Exception as e:
                 logger.warning("forward outlook sync after watchlist add %s: %s", sym, e)
     with session_scope() as s:
-        if is_new:
-            record_watchlist_adds_with_snapshot(
-                s, [(sym, nm_for_log, WATCHLIST_ORIGIN_MANUAL)]
-            )
+        record_watchlist_adds_with_snapshot(
+            s, [(sym, nm_for_log, WATCHLIST_ORIGIN_MANUAL)]
+        )
         row = s.execute(select(WatchlistRow).where(WatchlistRow.symbol == sym)).scalar_one()
         return _watchlist_item_after_ingest(s, row, ingest)
 
@@ -2393,13 +2463,38 @@ def ingest_update(
     ds = body.data_source.value if body.data_source is not None else None
     resolved_ds = ds if ds is not None else get_settings().ingest_data_source
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
-    if ingest_batch_status().get("active"):
+    if ingest_batch_status().get("active") or symbols_batch_status("ingest").get("active"):
         raise HTTPException(
             status_code=409,
-            detail="已有批量日线拉取进行中，请点「取消拉取」或等待结束后再试",
+            detail="已有批量行情任务进行中，请等待结束或取消后再试",
         )
     clear("ingest")
-    batch_gen = ingest_batch_start(len(symbols) + len(suffix_errs))
+    batch_total = len(symbols) + len(suffix_errs)
+    use_kline_job = not body.skip_bars
+    batch_gen: int | None = None
+    if use_kline_job:
+        batch_gen = ingest_batch_start(batch_total)
+    else:
+        symbols_batch_start("ingest", batch_total)
+
+    def _ingest_update_should_cancel() -> bool:
+        if use_kline_job:
+            assert batch_gen is not None
+            return ingest_batch_should_cancel(batch_gen)
+        return is_cancelled("ingest")
+
+    def _ingest_update_set_current(symbol: str | None) -> None:
+        if use_kline_job:
+            ingest_batch_set_current(symbol)
+        else:
+            symbols_batch_set_current("ingest", symbol)
+
+    def _ingest_update_tick(symbol: str | None = None) -> None:
+        if use_kline_job:
+            ingest_batch_tick(symbol)
+        else:
+            symbols_batch_tick("ingest", symbol)
+
     results: list[dict[str, Any]] = []
     cancelled = False
     fundamentals_results: list[dict[str, Any]] | None = (
@@ -2407,14 +2502,14 @@ def ingest_update(
     )
     fundamentals_cancelled = False
     for i, sym in enumerate(symbols):
-            if ingest_batch_should_cancel(batch_gen):
+            if _ingest_update_should_cancel():
                 cancelled = True
                 logger.info("ingest/update cancelled by user at %s", sym)
                 break
-            ingest_batch_set_current(sym)
+            _ingest_update_set_current(sym)
             if i > 0 and pause > 0:
                 time.sleep(pause)
-                if ingest_batch_should_cancel(batch_gen):
+                if _ingest_update_should_cancel():
                     cancelled = True
                     logger.info("ingest/update cancelled by user after pause at %s", sym)
                     break
@@ -2427,7 +2522,7 @@ def ingest_update(
                     row_out = ingest_symbol_range(
                         sym, range_start=st, range_end=en, data_source=ds
                     )
-                if ingest_batch_should_cancel(batch_gen):
+                if _ingest_update_should_cancel():
                     cancelled = True
                     logger.info("ingest/update cancelled by user after %s fetch", sym)
                     break
@@ -2440,7 +2535,7 @@ def ingest_update(
                     data_source=resolved_ds,
                     skip_bar_fetch=body.skip_bars,
                 )
-                if ingest_batch_should_cancel(batch_gen):
+                if _ingest_update_should_cancel():
                     cancelled = True
                     break
                 if body.include_fundamentals and fundamentals_results is not None:
@@ -2456,12 +2551,12 @@ def ingest_update(
                 results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
             except Exception as e:
                 results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
-            ingest_batch_tick(sym)
+            _ingest_update_tick(sym)
     for er in suffix_errs:
         results.append(er)
         sym_e = er.get("symbol")
         if sym_e:
-            ingest_batch_tick(str(sym_e))
+            _ingest_update_tick(str(sym_e))
     row_by_sym = {
         str(r["symbol"]): r for r in results if r.get("symbol") and "error" not in r
     }
@@ -2472,7 +2567,8 @@ def ingest_update(
             meta_by_sym[str(r["symbol"])] = r
     outlook_sync: dict[str, Any] | None = None
     if not cancelled and ok_syms:
-        ingest_batch_enter_finalize()
+        if use_kline_job:
+            ingest_batch_enter_finalize()
         try:
             outlook_sync = sync_after_ingest(
                 ok_syms,
@@ -2497,11 +2593,13 @@ def ingest_update(
             "PE/PB 来自东财全 A 列表（拉取时刷新，近实时）；主力净流入为日级资金表（非 tick）；"
             "盘中若无「当日」资金行则下行标「末收」；财报指标为最近一期，上下行相同。"
         )
-    ingest_batch_finish(
-        cancelled=cancelled
-        or fundamentals_cancelled
-        or ingest_batch_should_cancel(batch_gen)
+    finish_cancelled = (
+        cancelled or fundamentals_cancelled or _ingest_update_should_cancel()
     )
+    if use_kline_job:
+        ingest_batch_finish(cancelled=finish_cancelled)
+    else:
+        symbols_batch_finish("ingest", cancelled=finish_cancelled)
     return out
 
 

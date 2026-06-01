@@ -3416,8 +3416,8 @@
         <div class="wl-daily-view-bar" id="wlDailyViewBar">
           <span class="wl-daily-view-label">时间筛选（东八区）</span>
           <select id="wlDateFilterMode" title="选择按哪种时间筛选">
-            <option value="first_ingest" selected>首次入库</option>
-            <option value="added_at">加入自选</option>
+            <option value="added_at" selected>加入自选</option>
+            <option value="first_ingest">首次入库</option>
           </select>
           <label class="wl-ingest-range-lbl" for="wlFirstIngestFrom">起</label>
           <input type="date" id="wlFirstIngestFrom" autocomplete="off" title="起始日期（可选）；与「止」皆空则查全部" />
@@ -4093,6 +4093,8 @@
   var _wlCachedBody = null;
   /** ② 当前实际渲染出来的最新筛选结果（供③④直接复用）。 */
   var _wlLastRenderedBody = [];
+  /** 最近一次列表请求是否已由服务端按加入自选日期筛过 */
+  var _wlServerAddedRangeFilter = false;
   var _wlRefreshSeq = 0;
   var _wlRefreshListCtrl = null;
   /** 从⑨等批量加入自选后，下一次 refreshWatchlistTable 时跳到最后一页（新记录 id 最大在列表末尾）。 */
@@ -4309,32 +4311,43 @@
     }
   }
 
+  function tickIngestBatchPoll(btnId, verb) {
+    if (_ingestBatchStatusFetching) return;
+    _ingestBatchStatusFetching = true;
+    void (async function () {
+      try {
+        var st = await fetchSymbolsBatchStatus("ingest");
+        if (st && st.active) {
+          setActionButtonLoading(btnId, true, batchProgressLabel(st, verb));
+          return;
+        }
+        if (_ingestUpdatePostInFlight) {
+          setActionButtonLoading(
+            btnId,
+            true,
+            st && st.total > 0
+              ? batchProgressLabel(st, verb)
+              : "正在更新…"
+          );
+          return;
+        }
+        stopBatchProgressPoll("ingest");
+        if (st && st.total > 0 && !st.active) {
+          finishActionButtonLoading(btnId, st, st.cancelled ? "已取消" : "完成");
+        } else {
+          setActionButtonLoading(btnId, false);
+        }
+      } finally {
+        _ingestBatchStatusFetching = false;
+      }
+    })();
+  }
+
   function startIngestBatchPoll(btnId, verb) {
     stopBatchProgressPoll("ingest");
+    tickIngestBatchPoll(btnId, verb);
     _batchProgressPolls.ingest = setInterval(function () {
-      if (_ingestBatchStatusFetching) return;
-      _ingestBatchStatusFetching = true;
-      void (async function () {
-        try {
-          var st = await fetchWlRefetchJobStatus();
-          if (st && st.active) {
-            setActionButtonLoading(btnId, true, batchProgressLabel(st, verb));
-            return;
-          }
-          if (_ingestUpdatePostInFlight) {
-            setActionButtonLoading(btnId, true, "正在完成…");
-            return;
-          }
-          stopBatchProgressPoll("ingest");
-          if (st && st.total > 0 && !st.active) {
-            finishActionButtonLoading(btnId, st, st.cancelled ? "已取消" : "完成");
-          } else {
-            setActionButtonLoading(btnId, false);
-          }
-        } finally {
-          _ingestBatchStatusFetching = false;
-        }
-      })();
+      tickIngestBatchPoll(btnId, verb);
     }, BATCH_PROGRESS_POLL_MS);
   }
 
@@ -4367,7 +4380,9 @@
 
   function estimateWlSubsetBatchTotal(parseSubsetFn) {
     var subset = resolveSubsetSymbolsWithPanel2(parseSubsetFn);
-    return subset && subset.length ? subset.length : 0;
+    if (subset && subset.length) return subset.length;
+    if (_wlCachedBody && _wlCachedBody.length) return _wlCachedBody.length;
+    return 0;
   }
 
   function panel2SymbolsForCurrentView() {
@@ -4416,7 +4431,7 @@
   }
 
   async function syncPanel3BatchButtonsFromServer() {
-    var stIng = await fetchWlRefetchJobStatus();
+    var stIng = await fetchSymbolsBatchStatus("ingest");
     if (stIng && stIng.active) {
       beginPanelServerTask("panel-3");
       setActionButtonLoading("btnIngest", true, batchProgressLabel(stIng, "正在更新"));
@@ -4721,9 +4736,17 @@
     delete optsIn.skipPanelLoading;
     var signal;
     if (skipPanelLoading) {
-      cancelScope(scope);
+      var prevSkip = activeRequests[scope];
+      if (prevSkip && prevSkip.controller) {
+        try {
+          prevSkip.controller.abort();
+        } catch (eAbortSkip) {}
+      }
       var ctrl = new AbortController();
-      activeRequests[scope] = { controller: ctrl };
+      activeRequests[scope] = {
+        controller: ctrl,
+        serverTask: !!(prevSkip && prevSkip.serverTask),
+      };
       refreshCancelButtons();
       signal = ctrl.signal;
     } else {
@@ -10557,10 +10580,12 @@
     persistWatchlistSnapshot();
   }
 
-  /** 按「首次入库」起止日期筛选；全池或起止皆空则不筛 */
-  function wlFilterByFirstIngestView(body) {
+  /** 按当前视图筛选；加入自选模式且已由服务端按 added_from/to 筛过时不再二次过滤 */
+  function wlFilterByFirstIngestView(body, opts) {
+    opts = opts || {};
     if (!Array.isArray(body)) return [];
     if (_wlShowFullPool) return body;
+    if (opts.serverAddedRange && wlGetDateFilterMode() === "added_at") return body;
     var r = wlGetFirstIngestRange();
     if (!r.from && !r.to) return body;
     var mode = wlGetDateFilterMode();
@@ -10580,7 +10605,10 @@
       parts.push("pool=true");
     } else {
       var r = wlGetFirstIngestRange();
-      if (wlGetDateFilterMode() === "first_ingest") {
+      if (wlGetDateFilterMode() === "added_at") {
+        if (r.from) parts.push("added_from=" + encodeURIComponent(r.from));
+        if (r.to) parts.push("added_to=" + encodeURIComponent(r.to));
+      } else if (wlGetDateFilterMode() === "first_ingest") {
         if (r.from) parts.push("first_ingest_from=" + encodeURIComponent(r.from));
         if (r.to) parts.push("first_ingest_to=" + encodeURIComponent(r.to));
       }
@@ -10634,7 +10662,7 @@
     var chk = $("chkWlShowFullPool");
     if (chk) chk.checked = _wlShowFullPool;
     var modeSel = $("wlDateFilterMode");
-    if (modeSel && !modeSel.value) modeSel.value = "first_ingest";
+    if (modeSel && !modeSel.value) modeSel.value = "added_at";
     wlUpdateDailyViewHint(null);
   }
 
@@ -10934,7 +10962,9 @@
   function renderWatchlistTable(body) {
     var wrap = $("wl-table-wrap");
     if (!wrap) return;
-    var viewRows = wlFilterByFirstIngestView(body);
+    var viewRows = wlFilterByFirstIngestView(body, {
+      serverAddedRange: _wlServerAddedRangeFilter,
+    });
     _wlLastRenderedBody = Array.isArray(viewRows) ? viewRows.slice() : [];
     if (!Array.isArray(body) || !viewRows.length) {
       _wlJumpToLastPageAfterRefreshOnce = false;
@@ -11556,12 +11586,16 @@
         return;
       }
       _wlCachedBody = Array.isArray(body) ? body : [];
+      _wlServerAddedRangeFilter =
+        res.headers.get("X-Quant-Watchlist-View") === "added_range";
       var addCntHdr = res.headers.get("X-Quant-Watchlist-Add-Count");
       var adHdr =
         res.headers.get("X-Quant-Watchlist-First-Ingest-Date") ||
         res.headers.get("X-Quant-Watchlist-Added-Date");
       if (!_wlShowFullPool) {
-        var filteredN = wlFilterByFirstIngestView(_wlCachedBody).length;
+        var filteredN = wlFilterByFirstIngestView(_wlCachedBody, {
+          serverAddedRange: _wlServerAddedRangeFilter,
+        }).length;
         var hdrLab = adHdr;
         if (!hdrLab) hdrLab = wlFirstIngestRangeLabel();
         wlUpdateDailyViewHint(
@@ -11574,7 +11608,9 @@
       renderWatchlistTable(_wlCachedBody);
       persistWatchlistSnapshot();
       if (opts.skipCacheRestore && !keepOutMessage) {
-        var qn = wlFilterByFirstIngestView(_wlCachedBody).length;
+        var qn = wlFilterByFirstIngestView(_wlCachedBody, {
+          serverAddedRange: _wlServerAddedRangeFilter,
+        }).length;
         var qlab = _wlShowFullPool ? "全部自选池" : wlFirstIngestRangeLabel();
         showOut2("查询完成：" + qlab + " 共 " + qn + " 只。", false);
       }
@@ -14797,7 +14833,6 @@
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(fundPayload),
         skipPanelLoading: true,
-        skipClearServerScopes: true,
       });
       var body = await readBody(res);
       if (res.ok) {
@@ -15036,13 +15071,13 @@
     }
     var totalHint = subset !== null ? subset.length : estimateWlSubsetBatchTotal(parseIngestSubsetSymbols);
     beginPanelServerTask("panel-3");
+    _ingestUpdatePostInFlight = true;
     setActionButtonLoading(
       "btnIngest",
       true,
       batchProgressLabel({ done: 0, total: totalHint }, "正在更新")
     );
     startIngestBatchPoll("btnIngest", "正在更新");
-    _ingestUpdatePostInFlight = true;
     try {
       lastIngestRequestDates = { start: null, end: null };
       var payload = { data_source: getIngestDataSource(), skip_bars: true };
@@ -15053,7 +15088,6 @@
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(payload),
         skipPanelLoading: true,
-        skipClearServerScopes: true,
       });
       var body = await readBody(res);
       if (res.ok) {
