@@ -2480,9 +2480,22 @@
       padding: 0.85rem 1rem;
       background: var(--bg);
     }
-    .hot-overview-table-wrap { max-height: 300px; }
+    .hot-overview-table-wrap { max-height: none; }
     .hot-sector-quickview .hot-result-table-wrap { max-height: 280px; }
     .hot-sector-body > .hot-result-table-wrap { max-height: 440px; }
+    .hot-sector-pager {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.5rem 0 0.25rem;
+      flex-wrap: wrap;
+    }
+    .hot-sector-pager-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex: 1 1 auto;
+      text-align: center;
+    }
     .hot-pick-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -8015,6 +8028,8 @@
   var _hotLastWithTechnical = false;
   var _hotActiveSectorRank = null;
   var HOT_SECTOR_DISPLAY_MAX = 10;
+  /** 各板块组的当前分页页码（1-based） */
+  var _hotSectorPage = { sector_hot: 1, ma5_capital: 1, rising_3d: 1 };
   /** 近一月日线内存缓存：symbol -> { bars, from, to } */
   var _hotKlineCache = {};
 
@@ -8062,12 +8077,6 @@
       stats.stocksUnique > 0 && stats.stocksUnique !== stats.stocksTotal
         ? "，去重 <strong>" + stats.stocksUnique + "</strong> 只"
         : "";
-    var tail =
-      stats.sectorsAll > stats.sectorsShown
-        ? "；下表展示前 <strong>" + stats.sectorsShown + "</strong> 个板块（共 <strong>" +
-          stats.sectorsAll +
-          "</strong> 个）"
-        : "";
     return (
       '<p class="hot-pick-group-stats lead" style="margin:0 0 0.5rem;font-size:0.82rem">' +
       "本组共筛出 <strong>" +
@@ -8076,9 +8085,7 @@
       stats.sectorsAll +
       "</strong> 个板块" +
       dedupe +
-      "）" +
-      tail +
-      "。</p>"
+      "）。</p>"
     );
   }
 
@@ -8765,7 +8772,7 @@
     if (pickGroup === "ma5_capital") src = _hotLastMa5CapitalDetail;
     else if (pickGroup === "rising_3d") src = _hotLastRising3dDetail;
     else src = _hotLastSectorsDetail;
-    var blocks = hotSectorsWithStocks(src, HOT_SECTOR_DISPLAY_MAX);
+    var blocks = hotSectorsWithStocks(src, null);
     for (var i = 0; i < blocks.length; i++) {
       if (String(blocks[i].sector_rank) === String(rank)) return i + 1;
     }
@@ -8911,10 +8918,109 @@
     }
   }
 
+  /**
+   * 逐只发送 /watchlist/batch-add，每成功一只实时更新进度 "N / M 只：code name"。
+   * 不拉取 K 线数据（跳过 hotEnsureFirstIngestForRows）。
+   */
+  async function hotAddAllWithRoll(stocks) {
+    if (!guardKey()) return;
+
+    function setProgress(text, done) {
+      var el = $("hotAddWlProgress");
+      if (el) {
+        el.textContent = text;
+        el.style.color = done ? "#52c41a" : "#7eb8f7";
+      }
+    }
+
+    if (!stocks || !stocks.length) {
+      setProgress("没有候选股票，请先获取热门板块数据。", false);
+      showOut("out-2", "请先勾选要加入自选的股票。", true);
+      return;
+    }
+    var total = stocks.length;
+    var doneCount = 0;
+    var totalAdded = 0;
+    var totalUpdated = 0;
+    var totalSkipped = 0;
+    var totalFailed = 0;
+
+    setProgress("准备加入，共 " + total + " 只…", false);
+
+    for (var i = 0; i < stocks.length; i++) {
+      var st = stocks[i];
+      var label = (st.code || "") + (st.name ? " " + st.name : "");
+      setProgress("正在加入 " + (i + 1) + " / " + total + " 只：" + label + "…", false);
+      try {
+        var res = await fetch("/watchlist/batch-add", {
+          method: "POST",
+          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+          body: JSON.stringify({ stocks: [st] }),
+        });
+        var body = await readBody(res);
+        if (res.ok && body) {
+          totalAdded   += body.added   != null ? body.added   : 0;
+          totalUpdated += body.updated != null ? body.updated : 0;
+          totalSkipped += body.skipped != null ? body.skipped : 0;
+        } else {
+          totalFailed++;
+        }
+      } catch (e) {
+        totalFailed++;
+      }
+      doneCount++;
+      setProgress("已加入 " + doneCount + " / " + total + " 只：" + label, false);
+    }
+
+    // 全部完成
+    var msg = "完成 " + total + " 只：新增 " + totalAdded + " 条，更新 " + totalUpdated + " 条";
+    if (totalSkipped > 0) msg += "，跳过 " + totalSkipped + " 条";
+    if (totalFailed  > 0) msg += "，失败 " + totalFailed + " 条";
+    setProgress(msg, true);
+    showOut("out-2", "全部入选加入自选完成（" + total + " 只）：新增 " + totalAdded +
+      " 条，已在池中更新为手动 " + totalUpdated + " 条。" +
+      (totalSkipped > 0 ? " 跳过无效 " + totalSkipped + " 条。" : "") +
+      (totalFailed  > 0 ? " 请求失败 " + totalFailed  + " 条。" : ""), false);
+
+    refreshWatchlistTable({
+      refreshSpot: false,
+      skipCacheRestore: true,
+      keepOutMessage: true,
+    }).catch(function () {});
+  }
+
+  function hotReRenderGroupBlock(pickGroup) {
+    var wrap = $("hotSectorsWrap");
+    if (!wrap) return;
+    var sectionHints = {
+      sector_hot: "按上方「热门板块筛选 · 参数」条件入选；与下方五日+资金表独立。",
+      ma5_capital: "与组一同批热门板块成分内筛选；日线走热门数据路线，资金流为东财日级。",
+      rising_3d: "扫描全部热门板块成分；最近 3 个交易日收盘逐日高于前一日。"
+    };
+    var detail = pickGroup === "ma5_capital" ? _hotLastMa5CapitalDetail
+                : pickGroup === "rising_3d"  ? _hotLastRising3dDetail
+                : _hotLastSectorsDetail;
+    var block = wrap.querySelector('.hot-pick-group-block[data-hot-pick-group="' + pickGroup + '"]');
+    if (!block) return;
+    var titleEl = block.querySelector(".hot-pick-group-title");
+    var titleHtml = titleEl ? titleEl.outerHTML : "";
+    block.innerHTML = titleHtml + hotRenderSectorOverviewTable(detail, pickGroup, sectionHints[pickGroup] || "");
+  }
+
   function bindHotSectorOverviewActions(withTechnical) {
     if (!document.body._hotSectorOverviewBound) {
       document.body._hotSectorOverviewBound = true;
       document.body.addEventListener("click", async function (ev) {
+        var pageBtn = ev.target.closest(".hot-sector-page-btn");
+        if (pageBtn && !pageBtn.disabled) {
+          var grpPage = pageBtn.getAttribute("data-hot-pick-group") || "rising_3d";
+          var action = pageBtn.getAttribute("data-hot-page-action");
+          var cur = _hotSectorPage[grpPage] || 1;
+          if (action === "prev") _hotSectorPage[grpPage] = Math.max(1, cur - 1);
+          else if (action === "next") _hotSectorPage[grpPage] = cur + 1;
+          hotReRenderGroupBlock(grpPage);
+          return;
+        }
         var viewBtn = ev.target.closest(".hot-sector-view-btn");
         if (viewBtn) {
           var rank = viewBtn.getAttribute("data-hot-sector-rank");
@@ -8997,18 +9103,16 @@
           btnEl.disabled = true;
           btnEl.classList.add("btn-loading");
           try {
-            await hotAddStocksToWatchlist(
-              hotCollectAllPickRows(
-                hotMergeHotPickDetails(
-                  _hotLastDisplayDetail.length ? _hotLastDisplayDetail : _hotLastSectorsDetail,
-                  _hotLastMa5DisplayDetail.length ? _hotLastMa5DisplayDetail : _hotLastMa5CapitalDetail,
-                  _hotLastRising3dDisplayDetail.length
-                    ? _hotLastRising3dDisplayDetail
-                    : _hotLastRising3dDetail
-                )
-              ),
-              "全部入选加入自选"
+            var allStocks = hotCollectAllPickRows(
+              hotMergeHotPickDetails(
+                _hotLastDisplayDetail.length ? _hotLastDisplayDetail : _hotLastSectorsDetail,
+                _hotLastMa5DisplayDetail.length ? _hotLastMa5DisplayDetail : _hotLastMa5CapitalDetail,
+                _hotLastRising3dDisplayDetail.length
+                  ? _hotLastRising3dDisplayDetail
+                  : _hotLastRising3dDetail
+              )
             );
+            await hotAddAllWithRoll(allStocks);
           } finally {
             btnEl.disabled = false;
             btnEl.classList.remove("btn-loading");
@@ -9052,9 +9156,9 @@
   function hotRenderSectorOverviewTable(detail, pickGroup, sectionHint) {
     pickGroup = pickGroup || "sector_hot";
     sectionHint = sectionHint || "";
-    var stats = hotSectorPickGroupStats(detail, HOT_SECTOR_DISPLAY_MAX);
-    var blocks = hotSectorsWithStocks(detail, HOT_SECTOR_DISPLAY_MAX);
-    if (!blocks.length) {
+    var stats = hotSectorPickGroupStats(detail, null);
+    var allBlocks = hotSectorsWithStocks(detail, null);
+    if (!allBlocks.length) {
       return (
         hotPickGroupStatsHtml(stats) +
         '<p class="lead" style="margin:0 0 0.75rem">' +
@@ -9068,12 +9172,21 @@
         "</p>"
       );
     }
+    var totalBlocks = allBlocks.length;
+    var page = (_hotSectorPage[pickGroup] || 1);
+    var totalPages = Math.max(1, Math.ceil(totalBlocks / HOT_SECTOR_DISPLAY_MAX));
+    if (page > totalPages) page = totalPages;
+    if (page < 1) page = 1;
+    _hotSectorPage[pickGroup] = page;
+    var pageStart = (page - 1) * HOT_SECTOR_DISPLAY_MAX;
+    var pageEnd = Math.min(pageStart + HOT_SECTOR_DISPLAY_MAX, totalBlocks);
+    var blocks = allBlocks.slice(pageStart, pageEnd);
     var rows = "";
-    blocks.forEach(function (block, displayIdx) {
+    blocks.forEach(function (block, idx) {
       var metrics = block.sector_metrics || {};
       var stocks = block.stocks || [];
       var rank = block.sector_rank != null ? String(block.sector_rank) : "";
-      var displayNum = displayIdx + 1;
+      var displayNum = pageStart + idx + 1;
       var name = metrics.sector_name != null ? String(metrics.sector_name) : "（未命名）";
       var hs = metrics.hot_score != null ? hotFmtNum(metrics.hot_score, 2) : "—";
       var chg = metrics.change_pct != null ? hotFmtPct(metrics.change_pct) : "—";
@@ -9110,6 +9223,17 @@
         countCell +
         "</td></tr>";
     });
+    var pagerHtml = "";
+    if (totalPages > 1) {
+      pagerHtml =
+        '<div class="hot-sector-pager" data-hot-pick-group="' + escHtml(pickGroup) + '">' +
+        '<button type="button" class="secondary hot-sector-page-btn" data-hot-pick-group="' + escHtml(pickGroup) + '" data-hot-page-action="prev"' +
+        (page <= 1 ? " disabled" : "") + '>上一页</button>' +
+        '<span class="hot-sector-pager-meta">第 ' + page + ' / ' + totalPages + ' 页（共 ' + totalBlocks + ' 个板块）</span>' +
+        '<button type="button" class="secondary hot-sector-page-btn" data-hot-pick-group="' + escHtml(pickGroup) + '" data-hot-page-action="next"' +
+        (page >= totalPages ? " disabled" : "") + '>下一页</button>' +
+        '</div>';
+    }
     return (
       hotPickGroupStatsHtml(stats) +
       '<div class="hot-result-table-wrap hot-overview-table-wrap" style="margin-bottom:0.75rem">' +
@@ -9118,8 +9242,9 @@
       "</tr></thead><tbody>" +
       rows +
       "</tbody></table>" +
+      pagerHtml +
       '<p class="m3-hint" style="margin:0.45rem 0 0;font-size:0.74rem">' +
-      escHtml(sectionHint || "仅展示有入选股的前 " + HOT_SECTOR_DISPLAY_MAX + " 个板块。") +
+      escHtml(sectionHint || "扫描全部热门板块成分；最近 3 个交易日收盘逐日高于前一日。") +
       " 点「查看」在<strong>下方</strong>展开本组明细；K 线按钮「本地缓存」/「API最新」与上方热门数据路线一致；资金流为东财日级。</p></div>"
     );
   }
@@ -9370,9 +9495,10 @@
     var wantSector = condGroups.indexOf("sector_hot") >= 0;
     var wantMa5 = condGroups.indexOf("ma5_capital") >= 0;
     var wantRising3d = condGroups.indexOf("rising_3d") >= 0;
-    var displayDetail = wantSector ? hotSectorsWithStocks(detail, HOT_SECTOR_DISPLAY_MAX) : [];
-    var displayMa5 = wantMa5 ? hotSectorsWithStocks(ma5Detail, HOT_SECTOR_DISPLAY_MAX) : [];
-    var displayRising3d = wantRising3d ? hotSectorsWithStocks(rising3dDetail, HOT_SECTOR_DISPLAY_MAX) : [];
+    _hotSectorPage = { sector_hot: 1, ma5_capital: 1, rising_3d: 1 };
+    var displayDetail = wantSector ? hotSectorsWithStocks(detail, null) : [];
+    var displayMa5 = wantMa5 ? hotSectorsWithStocks(ma5Detail, null) : [];
+    var displayRising3d = wantRising3d ? hotSectorsWithStocks(rising3dDetail, null) : [];
     var summ = payload.summary || {};
     sumLine.hidden = false;
     var warnings = Array.isArray(summ.warnings) ? summ.warnings : [];
@@ -9524,6 +9650,7 @@
       '<div class="hot-pick-toolbar">' +
       '<div class="btns">' +
       '<button type="button" class="secondary" id="btnHotAddWlAll">全部入选加入自选</button>' +
+      '<span id="hotAddWlProgress" style="margin-left:12px;font-size:0.85rem;color:#7eb8f7;vertical-align:middle;"></span>' +
       "</div>" +
       '<p class="m3-hint hot-pick-toolbar-hint" style="margin:0;font-size:0.78rem">按板块挑选：先点「查看」→ 勾选 → 明细内「将勾选股加入自选」。若要一次加入本次全部候选，用左侧按钮。</p>' +
       "</div>";

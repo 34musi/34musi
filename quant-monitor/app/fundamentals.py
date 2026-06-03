@@ -351,17 +351,70 @@ def _preferred_fund_flow_dates(sym: str) -> list[str]:
     return out
 
 
+def _load_individual_fund_flow_df_direct(sym_n: str, mkt: str) -> pd.DataFrame | None:
+    """
+    akshare 失败时的 fallback：直接请求东财 push2 接口拉取个股资金流日线。
+    返回与 akshare stock_individual_fund_flow 相同列名的 DataFrame。
+    """
+    try:
+        import requests as _req
+        market_map = {"sh": 1, "sz": 0, "bj": 0}
+        secid = f"{market_map.get(mkt, 0)}.{sym_n}"
+        url = "https://push2.eastmoney.com/api/qt/stock/fflow/kline/get"
+        params = {
+            "secid": secid,
+            "lmt": 0,
+            "klt": 101,
+            "fields1": "f1,f2,f3,f7",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65",
+            "ut": "b2884a393a59ad64002292a3e90d46a5",
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://data.eastmoney.com/zjlx/" + sym_n + ".html",
+        }
+        r = _req.get(url, params=params, headers=headers, timeout=10)
+        d = r.json()
+        klines = (d.get("data") or {}).get("klines", [])
+        if not klines:
+            return None
+        # 字段顺序：日期,主力净流入-净额,小单净流入-净额,中单净流入-净额,大单净流入-净额,超大单净流入-净额,
+        #           主力净流入-净占比,小单净流入-净占比,中单净流入-净占比,大单净流入-净占比,超大单净流入-净占比,
+        #           收盘价,涨跌幅,-,-
+        cols = [
+            "日期", "主力净流入-净额", "小单净流入-净额", "中单净流入-净额",
+            "大单净流入-净额", "超大单净流入-净额",
+            "主力净流入-净占比", "小单净流入-净占比", "中单净流入-净占比",
+            "大单净流入-净占比", "超大单净流入-净占比",
+            "收盘价", "涨跌幅", "-", "-",
+        ]
+        rows = [line.split(",") for line in klines]
+        df = pd.DataFrame(rows)
+        # 补齐列数
+        while len(df.columns) < len(cols):
+            df[len(df.columns)] = None
+        df = df.iloc[:, :len(cols)]
+        df.columns = cols
+        for c in cols[1:]:
+            if c != "-":
+                df[c] = pd.to_numeric(df[c], errors="coerce")
+        return df
+    except Exception as e:
+        logger.debug("fund_flow direct fallback %s: %s", sym_n, e)
+        return None
+
+
 def _load_individual_fund_flow_df(sym: str) -> pd.DataFrame | None:
     sym_n = normalize_symbol(sym)
     mkt = em_fund_flow_market(sym_n)
     try:
         df = ak.stock_individual_fund_flow(stock=sym_n, market=mkt)
+        if df is not None and not df.empty:
+            return df
+        raise ValueError("empty df")
     except Exception as e:
-        logger.debug("fund_flow df %s: %s", sym_n, e)
-        return None
-    if df is None or df.empty:
-        return None
-    return df
+        logger.debug("fund_flow akshare %s: %s，尝试 push2 直连", sym_n, e)
+        return _load_individual_fund_flow_df_direct(sym_n, mkt)
 
 
 def _fund_flow_pick_basis(want: str, *, exec_d: str, bar_d: str | None) -> str:

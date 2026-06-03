@@ -91,6 +91,61 @@ def _pct_change_series(s: pd.Series, n: int) -> float:
     return (cur - prev) / abs(prev)
 
 
+def _benchmark_returns_from_local() -> dict[str, float | None]:
+    """从本地 DB bars 表读取 sh000300 日线，计算基准收益率。"""
+    try:
+        from sqlalchemy import select
+
+        from app.db_models import BarRow
+        from app.db_session import session_scope
+
+        with session_scope() as s:
+            rows = s.execute(
+                select(BarRow)
+                .where(BarRow.symbol == "sh000300")
+                .order_by(BarRow.trade_date.asc())
+            ).scalars().all()
+            closes = [float(r.close) for r in rows if r.close is not None]
+        if len(closes) < 25:
+            return {"ret_5d": None, "ret_10d": None, "ret_20d": None}
+        c = pd.Series(closes)
+        return {
+            "ret_5d": _pct_change_series(c, 5),
+            "ret_10d": _pct_change_series(c, 10),
+            "ret_20d": _pct_change_series(c, 20),
+        }
+    except Exception as e:
+        logger.debug("benchmark local db fallback: %s", e)
+        return {"ret_5d": None, "ret_10d": None, "ret_20d": None}
+
+
+def _benchmark_returns_direct() -> dict[str, float | None]:
+    """用腾讯 ifzq 接口拉取沪深300历史日线，计算基准收益率。"""
+    try:
+        import requests as _req
+        url = "http://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        params = {"param": "sh000300,day,,,100,qfq"}
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        r = _req.get(url, params=params, headers=headers, timeout=10)
+        d = r.json()
+        day_data = d.get("data", {}).get("sh000300", {}).get("day", [])
+        if not day_data or len(day_data) < 25:
+            return {"ret_5d": None, "ret_10d": None, "ret_20d": None}
+        # 每行格式: [date, open, close, high, low, volume]
+        closes = [float(row[2]) for row in day_data if len(row) >= 3]
+        if len(closes) < 25:
+            return {"ret_5d": None, "ret_10d": None, "ret_20d": None}
+        c = pd.Series(closes)
+        return {
+            "ret_5d": _pct_change_series(c, 5),
+            "ret_10d": _pct_change_series(c, 10),
+            "ret_20d": _pct_change_series(c, 20),
+        }
+    except Exception as e:
+        logger.debug("benchmark tencent fetch: %s", e)
+        return {"ret_5d": None, "ret_10d": None, "ret_20d": None}
+
+
 def _benchmark_returns() -> dict[str, float | None]:
     now = time.time()
     if now - float(_BENCH_CACHE.get("fetched_at") or 0) < _BENCH_TTL_SEC:
@@ -120,8 +175,22 @@ def _benchmark_returns() -> dict[str, float | None]:
         out["ret_20d"] = _pct_change_series(c, 20)
         _BENCH_CACHE.update({**out, "fetched_at": now})
     except Exception as e:
-        logger.debug("benchmark sh000300: %s", e)
-        _BENCH_CACHE["fetched_at"] = now
+        logger.debug("benchmark akshare failed: %s，尝试直接请求", e)
+        # fallback 1：直接带 UA 请求东财
+        direct = _benchmark_returns_direct()
+        if any(v is not None for v in direct.values()):
+            out = direct
+            _BENCH_CACHE.update({**out, "fetched_at": now})
+            logger.debug("benchmark direct ok: %s", out)
+        else:
+            # fallback 2：本地 DB
+            local = _benchmark_returns_from_local()
+            if any(v is not None for v in local.values()):
+                out = local
+                _BENCH_CACHE.update({**out, "fetched_at": now})
+                logger.debug("benchmark local DB ok: %s", out)
+            else:
+                _BENCH_CACHE["fetched_at"] = now
     return out
 
 
@@ -365,7 +434,7 @@ def _event_risk_adjustment(
 def _momentum_percentile_adjustment(df: pd.DataFrame, ret20: float) -> tuple[int, list[SignalReason], dict[str, Any]]:
     """用自身历史 20 日收益分位衡量「是否过热」。"""
     meta: dict[str, Any] = {}
-    if np.isnan(ret20) or len(df) < 80:
+    if np.isnan(ret20) or len(df) < 50:
         return 0, [], meta
     c = df["close"].astype(float)
     rets20: list[float] = []
@@ -420,6 +489,8 @@ def _build_buy_gates(
     risk_tags: list[str],
     avg_amt_20d_100m: float | None,
     rsi_14: float | None,
+    df: "pd.DataFrame | None" = None,
+    sym: str | None = None,
 ) -> list[SignalBuyGateOut]:
     gates: list[SignalBuyGateOut] = []
 
@@ -460,18 +531,24 @@ def _build_buy_gates(
             ),
         )
     )
-    excess = meta_enh.get("excess_ret_20d_vs_benchmark")
-    rs_ok = excess is None or float(excess) >= -0.05
+    # 股性强弱：用自身20日涨幅历史分位，>= 85分位视为股性偏强（追高风险，不视为失败），
+    # < 20分位视为股性偏弱，其余为正常。分位未算出时跳过。
+    pct_20d = meta_enh.get("ret_20d_self_percentile")
+    if pct_20d is None:
+        stock_char_ok = True
+        stock_char_detail = "历史数据不足，跳过"
+    elif float(pct_20d) < 20:
+        stock_char_ok = False
+        stock_char_detail = f"近20日动能处自身历史 {float(pct_20d):.0f}% 分位，股性偏弱"
+    else:
+        stock_char_ok = True
+        stock_char_detail = f"近20日动能处自身历史 {float(pct_20d):.0f}% 分位"
     gates.append(
         SignalBuyGateOut(
             code="relative_strength",
-            label="相对大盘",
-            passed=rs_ok,
-            detail=(
-                f"20日超额 {float(excess)*100:.1f}%"
-                if excess is not None
-                else "基准未拉取，跳过"
-            ),
+            label="股性强弱",
+            passed=stock_char_ok,
+            detail=stock_char_detail,
         )
     )
     rsi_ok = rsi_14 is None or not math.isfinite(rsi_14) or float(rsi_14) < 82
@@ -483,13 +560,24 @@ def _build_buy_gates(
             detail=f"RSI(14)={rsi_14:.1f}" if rsi_14 is not None else "—",
         )
     )
+    # 资金流向门控：直接用本地已有成交量数据（量比）判断
     flow_ok = True
-    flow_detail = "未拉扩展因子"
-    if fund_panel is not None:
-        inf = getattr(fund_panel, "main_net_inflow", None)
-        if inf is not None and math.isfinite(float(inf)):
-            flow_ok = float(inf) >= 0
-            flow_detail = f"主力净流入 {float(inf)/1e8:.2f}亿" if abs(float(inf)) >= 1e8 else f"主力净流入 {inf:.0f}元"
+    flow_detail = "量价数据不足"
+    if df is not None and len(df) >= 20:
+        try:
+            v = df["volume"].astype(float)
+            vol_today = float(v.iloc[-1])
+            vol_20d_avg = float(v.iloc[-20:].mean())
+            if vol_20d_avg > 0:
+                vol_ratio = vol_today / vol_20d_avg
+                flow_ok = vol_ratio >= 1.2
+                flow_detail = f"量比 {vol_ratio:.2f}（今日/20日均量）"
+            else:
+                flow_detail = "成交量均值为0"
+        except Exception as _ve:
+            logger.debug("vol_ratio calc %s: %s", sym, _ve)
+            flow_detail = "量比计算失败"
+
     gates.append(
         SignalBuyGateOut(code="fund_flow", label="资金流向", passed=flow_ok, detail=flow_detail)
     )
@@ -605,6 +693,8 @@ def build_signal_enhanced(
         risk_tags=list(base.get("risk_tags") or []),
         avg_amt_20d_100m=liq_meta.get("avg_amount_20d_100m"),
         rsi_14=tech_meta.get("rsi_14"),
+        df=df,
+        sym=sym,
     )
     verdict, verdict_text = _resolve_verdict(enhanced_score, trend, strength, gates)
 
