@@ -4248,6 +4248,24 @@
   /** ③ POST /ingest/update 未返回前，避免轮询因 active=false 提前结束按钮 */
   var _ingestUpdatePostInFlight = false;
 
+  /** ③ 增量渲染：轮询期间逐只渲染结果 */
+  var _ingestPartialResults = [];
+  var _ingestPartialOffset = 0;
+  var _ingestPartialMeta = {};
+
+  async function fetchIngestPartialResults(offset) {
+    try {
+      var res = await fetch(
+        "/meta/symbols-batch-partial-results?scope=ingest&offset=" + encodeURIComponent(offset),
+        { headers: authHeaders() }
+      );
+      if (!res.ok) return null;
+      return await readBody(res);
+    } catch (e) {
+      return null;
+    }
+  }
+
   function batchProgressLabel(st, verb) {
     verb = verb || "正在处理";
     if (!st) return verb + "…";
@@ -4319,6 +4337,22 @@
         var st = await fetchSymbolsBatchStatus("ingest");
         if (st && st.active) {
           setActionButtonLoading(btnId, true, batchProgressLabel(st, verb));
+          // 增量拉取部分结果并渲染
+          var pr = await fetchIngestPartialResults(_ingestPartialOffset);
+          if (pr && pr.results && pr.results.length > 0) {
+            _ingestPartialResults = _ingestPartialResults.concat(pr.results);
+            _ingestPartialOffset += pr.results.length;
+            if (!_ingestPartialMeta.data_source && pr.meta) {
+              _ingestPartialMeta = pr.meta;
+            }
+            var curPage = ingestResultPage || 1;
+            renderIngestResult({
+              results: _ingestPartialResults,
+              ingest_data_source: _ingestPartialMeta.data_source || "auto",
+              skip_bars: _ingestPartialMeta.skip_bars != null ? _ingestPartialMeta.skip_bars : true,
+              cancelled: false,
+            }, { incrementalPage: curPage, incremental: true });
+          }
           return;
         }
         if (_ingestUpdatePostInFlight) {
@@ -4329,6 +4363,22 @@
               ? batchProgressLabel(st, verb)
               : "正在更新…"
           );
+          // POST 尚未返回但任务已不 active，拉取最后一批增量
+          var prFinal = await fetchIngestPartialResults(_ingestPartialOffset);
+          if (prFinal && prFinal.results && prFinal.results.length > 0) {
+            _ingestPartialResults = _ingestPartialResults.concat(prFinal.results);
+            _ingestPartialOffset += prFinal.results.length;
+            if (!_ingestPartialMeta.data_source && prFinal.meta) {
+              _ingestPartialMeta = prFinal.meta;
+            }
+            var curPage2 = ingestResultPage || 1;
+            renderIngestResult({
+              results: _ingestPartialResults,
+              ingest_data_source: _ingestPartialMeta.data_source || "auto",
+              skip_bars: _ingestPartialMeta.skip_bars != null ? _ingestPartialMeta.skip_bars : true,
+              cancelled: false,
+            }, { incrementalPage: curPage2, incremental: true });
+          }
           return;
         }
         stopBatchProgressPoll("ingest");
@@ -9086,7 +9136,7 @@
     var head =
       hotPickColumnThHtml() +
       "<th>排名</th><th>代码</th><th>名称</th><th>连涨天数</th>" +
-      "<th>3日%</th><th>5日%</th><th>10日%</th><th>最新价</th><th>操作</th>";
+      "<th>今日%</th><th>3日%</th><th>5日%</th><th>10日%</th><th>最新价</th><th>操作</th>";
     var body = "";
     stocks.forEach(function (st, idx) {
       var sr = st.stock_rank_in_sector != null ? st.stock_rank_in_sector : idx + 1;
@@ -9105,6 +9155,8 @@
         escHtml(nm) +
         '</td><td class="col-num">' +
         escHtml(st.rising_consecutive_days != null ? String(st.rising_consecutive_days) : "—") +
+        '</td><td class="col-num">' +
+        hotPctCell(st.return_1d) +
         '</td><td class="col-num">' +
         hotPctCell(st.return_3d) +
         '</td><td class="col-num">' +
@@ -15072,6 +15124,9 @@
     var totalHint = subset !== null ? subset.length : estimateWlSubsetBatchTotal(parseIngestSubsetSymbols);
     beginPanelServerTask("panel-3");
     _ingestUpdatePostInFlight = true;
+    _ingestPartialResults = [];
+    _ingestPartialOffset = 0;
+    _ingestPartialMeta = {};
     setActionButtonLoading(
       "btnIngest",
       true,
@@ -18928,7 +18983,10 @@
     mergeFundamentalsIntoBody(body);
     var nFund = ingestFundColumnCount(body);
     lastIngestResultBody = body;
-    if (opts.fromStorage && opts.savedPage != null) {
+    if (opts.incrementalPage != null) {
+      var sp = parseInt(String(opts.incrementalPage), 10);
+      ingestResultPage = isFinite(sp) && sp >= 1 ? sp : 1;
+    } else if (opts.fromStorage && opts.savedPage != null) {
       var sp = parseInt(String(opts.savedPage), 10);
       ingestResultPage = isFinite(sp) && sp >= 1 ? sp : 1;
     } else ingestResultPage = 1;
@@ -19130,8 +19188,12 @@
     $("ingest-result-wrap").innerHTML = html;
     $("ingest-result-wrap").hidden = false;
     renderIngestTablePage();
-    persistLastIngestSnapshot();
+    if (!opts.incremental) {
+      persistLastIngestSnapshot();
+    }
     if (opts.fromStorage) {
+      stopIngestLivePoll();
+    } else if (opts.incremental) {
       stopIngestLivePoll();
     } else {
       startIngestLivePoll();

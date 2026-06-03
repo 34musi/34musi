@@ -45,6 +45,8 @@ from app.ingest_batch_job import (
 )
 from app.symbols_batch_job import (
     symbols_batch_finish,
+    symbols_batch_partial_results,
+    symbols_batch_push_result,
     symbols_batch_set_current,
     symbols_batch_start,
     symbols_batch_status,
@@ -974,6 +976,32 @@ def meta_symbols_batch_status(
             detail="scope 须为 ingest、signals、alerts、fundamentals 或 backfill_close",
         )
     return symbols_batch_status(sc)
+
+
+@app.get(
+    "/meta/symbols-batch-partial-results",
+    tags=["① 入门必读"],
+    summary="批量任务已完成结果的增量拉取",
+    description=(
+        "供控制台在批量任务进行中增量渲染结果表。"
+        "传入 offset（已拉取条数），返回从该位置起的新结果。"
+    ),
+)
+def meta_symbols_batch_partial_results(
+    scope: str = Query(
+        ...,
+        description="ingest | signals | alerts | fundamentals | backfill_close",
+    ),
+    offset: int = Query(0, ge=0, description="从第几条开始取（已拉取条数）"),
+    _: None = Depends(optional_api_key),
+):
+    sc = str(scope or "").strip().lower()
+    if sc not in ("ingest", "signals", "alerts", "fundamentals", "backfill_close"):
+        raise HTTPException(
+            status_code=400,
+            detail="scope 须为 ingest、signals、alerts、fundamentals 或 backfill_close",
+        )
+    return symbols_batch_partial_results(sc, offset)
 
 
 @app.get(
@@ -2469,13 +2497,17 @@ def ingest_update(
             detail="已有批量行情任务进行中，请等待结束或取消后再试",
         )
     clear("ingest")
-    batch_total = len(symbols) + len(suffix_errs)
+    batch_total = len(symbols)
     use_kline_job = not body.skip_bars
     batch_gen: int | None = None
     if use_kline_job:
         batch_gen = ingest_batch_start(batch_total)
     else:
-        symbols_batch_start("ingest", batch_total)
+        symbols_batch_start("ingest", batch_total, meta={
+            "data_source": resolved_ds,
+            "skip_bars": body.skip_bars,
+            "include_fundamentals": bool(body.include_fundamentals),
+        })
 
     def _ingest_update_should_cancel() -> bool:
         if use_kline_job:
@@ -2547,10 +2579,15 @@ def ingest_update(
                         upsert_fundamental_snapshot(sym, ingest_row=row_out)
                     )
                 results.append(row_out)
+                symbols_batch_push_result("ingest", row_out)
             except ValueError as e:
-                results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
+                err_row = {"symbol": sym, "watchlist_name": nm, "error": str(e)}
+                results.append(err_row)
+                symbols_batch_push_result("ingest", err_row)
             except Exception as e:
-                results.append({"symbol": sym, "watchlist_name": nm, "error": str(e)})
+                err_row = {"symbol": sym, "watchlist_name": nm, "error": str(e)}
+                results.append(err_row)
+                symbols_batch_push_result("ingest", err_row)
             _ingest_update_tick(sym)
     for er in suffix_errs:
         results.append(er)

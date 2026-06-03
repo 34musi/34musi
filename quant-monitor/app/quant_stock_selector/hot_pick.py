@@ -836,12 +836,20 @@ def _rising_3d_pick_from_constituents(
         try:
             screen = evaluate_screen(hist)
             detail["latest_close"] = screen.latest_close
+            detail["return_1d"] = _return_over_last_n_closes(hist, 1)
             detail["return_3d"] = _return_over_last_n_closes(hist, 3)
             detail["return_5d"] = screen.return_5d
             detail["return_10d"] = screen.return_10d
             detail["return_20d"] = screen.return_20d
         except Exception:
             pass
+
+        # 今日下跌的不纳入候选
+        r1d = safe_float(detail.get("return_1d"))
+        if r1d is not None and r1d < 0:
+            failed_rising += 1
+            continue
+
         detail["_sort_rising"] = streak
         detail["_sort_return_3d"] = safe_float(detail.get("return_3d"))
         candidates.append(detail)
