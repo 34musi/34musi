@@ -1,7 +1,41 @@
 """
-Pydantic 请求/响应模型：与 FastAPI 的 response_model、请求体验证对齐。
+Pydantic 请求/响应模型：API 契约层，与 FastAPI 校验及 OpenAPI 文档对齐。
 
-类型别名（Literal）约束 trend / strength / position_hint 的合法取值，便于 OpenAPI 展示枚举。
+## 功能作用
+
+本模块定义 quant-monitor 全部 HTTP 接口的 **输入 Body / Query 模型** 与
+**response_model** 输出结构。业务模块（`signals`、`ingest`、`holdings` 等）
+在内部也可复用部分模型（如 `SignalOut`、`FundamentalPanel`）。
+
+特点：
+
+- 字段 `description` 写入 OpenAPI，供 `/docs` 与控制台开发者阅读；
+- `Literal` / `Enum` 约束枚举值（趋势、强度、仓位提示、行情路线等）；
+- `@field_validator` / `@model_validator` 做入参规范化（代码 strip、上限等）。
+
+## 模型分组（与 main.py tags 对应）
+
+| 分组 | 代表类型 |
+|------|----------|
+| 类型别名 | `TrendRegime`, `StrengthRegime`, `PositionHint`, `WatchlistOrigin`, `BuyVerdict` |
+| 枚举 | `IngestDataSource`, `SectorScreenDataSource`, `SelectorSectorDataSource` |
+| meta / 批量 | `CancelBatchIn` |
+| ⑤ 变动 | `AlertsPreviewIn` |
+| ③ ingest | `IngestUpdateIn`, `IngestFundamentalsIn`, `WebDataPreviewIn` |
+| ② 自选 | `WatchlistIn`, `WatchlistItem`, `FillHotSectorsIn`, … |
+| ⑨ 选股 | `SectorScreenIn`, `SectorScreenOut`, `SectorConstituentsTopIn` |
+| ④ 信号 | `SignalOut`, `FundamentalPanel`, `DailyBarOut`, … |
+| ⑦ 日志 | `JournalIn`, `JournalOut`, `ForwardOutlookOut` |
+| ⑩ 持仓 | `HoldingOut`, `HoldingGoalPlanOut`, `HoldingExitAdviceOut`, … |
+| ⑧ 研究 | `ForecastValidateOut` 及子结构 |
+| ⑨ 快照 | `HotMarketSnapshotOut`, `HotMarketSnapshotRefreshIn` |
+| 说明 | `DisclaimerOut`, `SelfUseMetaOut` |
+
+## 使用约定
+
+- 新增 API 时优先在此定义 In/Out，再在 `main.py` 引用 `response_model`；
+- 与 ORM 行（`db_models`）不同：本模块仅描述 **API 边界**，不含 SQLAlchemy 映射；
+- 嵌套模型（如 `SignalOut.enhanced`）保持可选，便于渐进增强响应。
 """
 
 from datetime import date
@@ -10,9 +44,14 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# --- 信号域类型别名 ---
+
 TrendRegime = Literal["bullish", "sideways", "bearish"]
 StrengthRegime = Literal["strong", "neutral", "weak"]
 PositionHint = Literal["avoid", "cautious", "trial", "moderate"]
+
+
+# --- 枚举：行情与选股路线 ---
 
 
 class IngestDataSource(str, Enum):
@@ -28,6 +67,9 @@ class IngestDataSource(str, Enum):
     tushare = "tushare"
 
 
+# --- meta：批量任务取消 ---
+
+
 class CancelBatchIn(BaseModel):
     """POST /meta/cancel-batch：中断进行中的批量任务（与控制台「取消请求」配合）。"""
 
@@ -35,6 +77,9 @@ class CancelBatchIn(BaseModel):
         default_factory=lambda: ["all"],
         description="ingest / signals / alerts / fundamentals / pre_refresh / hot_sectors / sector_screen / all",
     )
+
+
+# --- ⑤ 变动预览 ---
 
 
 class AlertsPreviewIn(BaseModel):
@@ -48,6 +93,9 @@ class AlertsPreviewIn(BaseModel):
         None,
         description="行情路线，与 POST /ingest/update 一致；不传则用服务端 INGEST_DATA_SOURCE",
     )
+
+
+# --- ③ 行情 ingest ---
 
 
 class IngestSymbolSubsetOptional(BaseModel):
@@ -136,6 +184,8 @@ class WebDataPreviewIn(BaseModel):
         description="资金流表返回最近多少个交易日的行（东财日级；「当日」以数据源最新行为准）",
     )
 
+
+# --- ② 自选 / 热门板块 ---
 
 WatchlistOrigin = Literal["manual", "auto_hot", "auto_quant"]
 
@@ -588,6 +638,9 @@ class FillHotSectorsOut(BaseModel):
     summary: FillHotSectorsSummary
 
 
+# --- ⑨ 板块选股 ---
+
+
 class SectorScreenDataSource(str, Enum):
     """与命令行 `quant_stock_selector.py --data-source` 一致。"""
 
@@ -892,6 +945,9 @@ class SectorConstituentsTopOut(BaseModel):
     )
 
 
+# --- ④ 信号与行情 ---
+
+
 class DailyBarOut(BaseModel):
     """本地 SQLite 中的单根日线（前复权）；用于控制台与接口展示真实 OHLCV。"""
 
@@ -1098,12 +1154,18 @@ class SignalOut(BaseModel):
     spot_buy_verdict: BuyVerdict | None = None
 
 
+# --- 免责说明 ---
+
+
 class DisclaimerOut(BaseModel):
     """免责与数据源说明（部分接口嵌在 JSON 里返回）。"""
 
     disclaimer: str
     data_source_note: str
     data_delay_note: str
+
+
+# --- ⑦ 决策日志 ---
 
 
 class JournalIn(BaseModel):
@@ -1141,6 +1203,8 @@ class JournalOut(BaseModel):
     executed_as_planned: bool | None = None
     actual_action: str | None = None
 
+
+# --- ⑩ 持仓 ---
 
 HoldingStatus = Literal["holding", "closed"]
 HOLDING_LOT_SIZE = 100
@@ -1292,6 +1356,20 @@ class HoldingOut(BaseModel):
     unrealized_pnl_pct: float | None = Field(None, description="浮动盈亏（%），仅 holding")
     realized_pnl_amt: float | None = Field(None, description="已实现盈亏（元），仅 closed")
     realized_pnl_pct: float | None = Field(None, description="已实现盈亏（%），仅 closed")
+
+
+class HoldingsNotifyIn(BaseModel):
+    """POST /holdings/notify：将定时刷新结果 POST 到外部 Webhook。"""
+
+    url: str = Field(..., min_length=8, max_length=2000, description="通知地址，须 http:// 或 https://")
+    items: list[HoldingOut] = Field(default_factory=list, description="本次刷新得到的持仓行")
+    picked_ids: list[int] = Field(default_factory=list, description="勾选的持仓记录 id")
+    refreshed_at: str | None = Field(None, description="刷新完成时刻 ISO；省略则由服务端填充")
+
+
+class HoldingsNotifyOut(BaseModel):
+    ok: bool = True
+    detail: str = ""
 
 
 HoldingExitAction = Literal["strong_close", "consider_close", "watch", "hold"]
@@ -1519,6 +1597,9 @@ class HoldingGoalPlanOut(BaseModel):
     disclaimer_note: str
 
 
+# --- ⑦ 前向展望 ---
+
+
 class ForwardOutlookSyncIn(BaseModel):
     """POST /forward-outlook/sync：③ 后手动触发或补同步。"""
 
@@ -1558,6 +1639,9 @@ class ForwardOutlookOut(BaseModel):
     updated_at: str
 
 
+# --- meta / 自用说明 ---
+
+
 class SelfUseMetaOut(BaseModel):
     """自用定位与风控检查摘要（不含真实资金数据）。"""
 
@@ -1568,6 +1652,9 @@ class SelfUseMetaOut(BaseModel):
     journal_api: str
     holdings_api: str = "/holdings"
     example_risk_policy_file: str
+
+
+# --- ⑨ 热门快照 ---
 
 
 class HotMarketSnapshotOut(BaseModel):
@@ -1616,6 +1703,9 @@ class HotMarketSnapshotRefreshOut(BaseModel):
 
     saved_to: str
     snapshot: HotMarketSnapshotOut
+
+
+# --- ⑧ 回测研究 ---
 
 
 class ForecastConfusionOut(BaseModel):

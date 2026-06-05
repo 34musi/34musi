@@ -1,12 +1,63 @@
 """
-可验证的「未来 H 日涨跌方向」walk-forward 评估（仅历史日线，无前视）。
+可验证的「未来 H 日涨跌方向」walk-forward 样本外评估（仅历史日线，严格无前视）。
 
-- 特征：仅用当日及以前收盘价/量构造（与 signals 同源风格：ret5/20、MA20 斜率、量比、距 60 日高回撤、20 日实现波动）。
-- 标签：t 日收盘至 t+H 日收盘的累计收益是否 > 0（H 为交易日跨度）。
-- 方法对比：双均线多空（教材常见）、固定趋势规则、walk-forward Logistic（NumPy）、因果多数类基线。
-- 扩展因子：`fundamental_snapshots` 仅为每标的**最新快照**，无法对齐历史每个交易日，故**不**并入 walk-forward 特征（见响应 `fundamentals_backtest`）。
+## 功能作用
 
-与常见「pandas/numpy → 回测验证 → 仿真/实盘」入门路径对齐；非投资建议。
+本模块对单只 A 股做 **walk-forward** 方向预测与简易交易回放，供研究/自学验证策略假设，
+**不构成投资建议**。核心思路：
+
+1. 从本地 SQLite（或可选联网 incremental）读取日线；
+2. 用 t 日及以前数据构造特征、产生多空信号；
+3. 在样本外（OOS）区间检验「未来 H 个交易日累计涨跌是否为正」是否猜对；
+4. 按「收盘出信号、次日开盘成交」规则模拟买卖，计入佣金/印花税/滑点。
+
+## 标签与特征
+
+| 项目 | 说明 |
+|------|------|
+| **标签** | `close[t+H]/close[t] - 1 > 0`（H 为交易日跨度，默认 5） |
+| **特征** | `ret5`、`ret20`、`ma20_slope`、`vol_ratio`、`dd_from_high`、`vol_sigma` |
+| **因果性** | 特征与信号均仅用当日及以前 OHLCV，不使用未来 bar |
+
+特征风格与 `signals` 模块相近；扩展因子 **不** 并入 walk-forward（见下）。
+
+## 四种对比方法（FORECAST_METHOD_KEYS）
+
+| 键名 | 说明 |
+|------|------|
+| `dual_ma_cross` | 双均线：短均线 > 长均线 → 看多（默认 5/10 日） |
+| `rule_trend` | 固定规则：ret20>0 且 MA20 斜率>0 → 看多 |
+| `logistic_walkforward` | NumPy 自实现 Logistic，每隔 `retrain_every` 步用扩展窗重训 |
+| `majority_causal` | 因果多数类基线：用该日之前历史标签众数预测 |
+
+## 对外接口
+
+| 符号 / 函数 | 用途 |
+|-------------|------|
+| `FEATURE_NAMES` | 六维特征名元组 |
+| `FORECAST_METHOD_KEYS` | 可选方法键名 |
+| `build_feature_matrix` | 由日线 DataFrame 构造特征矩阵与标签（供 `forward_outlook` 复用） |
+| `run_forecast_validate` | **主入口**：单标的 walk-forward 评估，返回 metrics + 交易示意 |
+
+## 调用方
+
+- `GET /research/forecast-validate`（`main.research_forecast_validate`）
+- `scripts/run_forecast_validate.py`（命令行）
+- `forward_outlook.py`（③ ingest 后自动登记前向展望，复用特征与 Logistic 逻辑）
+
+## 扩展因子说明
+
+`fundamental_snapshots` 仅存每标的**最新一行**快照，无法对齐历史上每个交易日「当时可知」
+的基本面，故 walk-forward **不** 把估值/财务并入特征；响应字段 `fundamentals_backtest` 说明此限制。
+「④ 查看信号」的合成得分使用当前快照，与本案历史回测用途不同。
+
+## 交易回放假设（示意）
+
+- 信号：t 日收盘后产生；调仓：t+1 日开盘 ± 滑点成交
+- 默认初始资金 10 万、整手 100 股、单次满仓；含佣金/卖出印花税/最低佣金
+- 返回最近 `trade_limit` 笔完整买卖 + 汇总指标（夏普、最大回撤等）
+
+与常见「pandas/numpy → 回测验证 → 平台仿真」入门路径对齐。
 """
 
 from __future__ import annotations
@@ -20,8 +71,13 @@ import pandas as pd
 from app.fundamentals import load_fundamental_panel_from_db
 from app.ingest import load_bars_for_forecast, normalize_symbol
 
+# --- 模块常量 ---
+
+# Logistic walk-forward 使用的六维特征名（与 build_feature_matrix 列一致）
 FEATURE_NAMES = ("ret5", "ret20", "ma20_slope", "vol_ratio", "dd_from_high", "vol_sigma")
+# run_forecast_validate 可返回的方法键名；methods=None 时四种全开
 FORECAST_METHOD_KEYS = ("dual_ma_cross", "logistic_walkforward", "rule_trend", "majority_causal")
+
 TRADING_DAYS_PER_YEAR = 252
 DEFAULT_COMMISSION_BPS = 3.0
 DEFAULT_SELL_TAX_BPS = 5.0
@@ -29,6 +85,9 @@ DEFAULT_SLIPPAGE_BPS = 2.0
 DEFAULT_INITIAL_CASH = 100000.0
 DEFAULT_LOT_SIZE = 100
 DEFAULT_MIN_COMMISSION_CNY = 5.0
+
+
+# --- 入参校验与日期 ---
 
 
 def _bps_to_ratio(bps: float) -> float:
@@ -76,6 +135,9 @@ def _trade_cost_ratios(*, commission_bps: float, sell_tax_bps: float, slippage_b
     return buy_cost, sell_cost
 
 
+# --- Logistic 回归与特征标准化 ---
+
+
 def _sigmoid(z: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-np.clip(z, -30.0, 30.0)))
 
@@ -115,6 +177,9 @@ def _standardize(X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 def _apply_standardize(x: np.ndarray, mu: np.ndarray, std: np.ndarray) -> np.ndarray:
     return (x - mu) / (std + 1e-9)
+
+
+# --- 分类指标与风险收益统计 ---
 
 
 def _auc_binary(y_true: np.ndarray, scores: np.ndarray) -> float | None:
@@ -165,11 +230,24 @@ def _sharpe_ratio(returns: np.ndarray) -> float | None:
     return float(round(float(r.mean()) / sigma * np.sqrt(TRADING_DAYS_PER_YEAR), 4))
 
 
+# --- 特征与标签构造 ---
+
+
 def build_feature_matrix(df: pd.DataFrame, horizon: int) -> tuple[pd.DataFrame, pd.Series, pd.Series]:
     """
-    与 df 行对齐的特征与标签。
+    由日线 DataFrame 构造 walk-forward 用的特征矩阵与标签（与 df 行对齐）。
 
-    返回 (features, y_up, fwd_ret)；无效行在调用方 dropna。
+    参数:
+        df:      须含 `open/high/low/close/volume/trade_date` 等列。
+        horizon: 未来 H 个交易日持有期，用于 `fwd_ret` 与 `y_up` 标签。
+
+    返回:
+        (features, y_up, fwd_ret)：
+        - features: 六列 FEATURE_NAMES；
+        - y_up: 1=未来 H 日累计收益>0，0=否则；
+        - fwd_ret: 未来 H 日累计收益率。
+
+    含 NaN 的行由调用方 `dropna` 过滤；特征仅用 t 及以前数据，无前视。
     """
     c = df["close"].astype(float)
     h = df["high"].astype(float)
@@ -211,6 +289,7 @@ def _metrics_block(
     fwd: np.ndarray,
     scores: np.ndarray | None = None,
 ) -> dict[str, Any]:
+    """汇总 OOS 分类指标：准确率、平衡准确率、混淆矩阵、AUC、预测多/空时的平均前向收益等。"""
     y_true = np.asarray(y_true, dtype=int)
     y_pred = np.asarray(y_pred, dtype=int)
     fwd = np.asarray(fwd, dtype=float)
@@ -259,7 +338,11 @@ def _metrics_block(
     }
 
 
+# --- 交易回放（样本外示意） ---
+
+
 def _commission_fee(trade_value: float, *, commission_bps: float, min_commission_cny: float) -> float:
+    """单边佣金：max(最低佣金, 成交额 × bps)。"""
     if trade_value <= 0:
         return 0.0
     return max(float(min_commission_cny), float(trade_value) * _bps_to_ratio(commission_bps))
@@ -499,6 +582,9 @@ def _trades_from_predictions(
     return trades, open_leg, equity_curve, summary
 
 
+# --- 策略信号 ---
+
+
 def _dual_ma_signal_series(closes: np.ndarray, short: int, long: int) -> np.ndarray:
     """
     每个收盘时点：短均线 > 长均线 → 1（看多），否则 0。
@@ -534,6 +620,7 @@ def _attach_trades_to_method(
     slippage_bps: float,
     min_commission_cny: float,
 ) -> dict[str, Any]:
+    """在方法 metrics 上附加 trade_summary、最近 trades、open_leg、equity_curve_tail。"""
     all_trades, open_leg, equity_curve, summary = _trades_from_predictions(
         dates_oos,
         opens_oos,
@@ -549,6 +636,9 @@ def _attach_trades_to_method(
     tail = all_trades[-max_trades:] if len(all_trades) > max_trades else all_trades
     out = {**base, "trade_summary": summary, "trades": tail, "open_leg": open_leg, "equity_curve_tail": equity_curve[-20:]}
     return out
+
+
+# --- 主入口 ---
 
 
 def run_forecast_validate(
@@ -575,18 +665,33 @@ def run_forecast_validate(
     live_as_of: str | None = None,
 ) -> dict[str, Any]:
     """
-    对单标的做 walk-forward OOS 评估；默认数据来自本地 bars。
+    对单标的执行 walk-forward 样本外方向评估与交易示意（主入口）。
 
-    horizon：预测未来 H 个交易日累计涨跌方向。
-    min_train_rows：从该样本索引起进入 OOS（前段仅用于训练逻辑回归）。
-    retrain_every：每隔多少根 OOS 步长重训一次 logistic（中间沿用上一权重）。
-    ma_short / ma_long：双均线策略周期（短 < 长），与常见教材 5/10 类似。
-    oos_from / oos_to：若指定，则仅在该闭区间内做样本外指标与成交示意（训练仍使用此前全部历史，无前视）。
-    methods：要返回的方法键名子集；None 表示四种全部（dual_ma_cross / logistic_walkforward / rule_trend / majority_causal）。
-    live_bars：为 True 时先联网拉取 incremental 窗口内的日线再回测；False 则仅读库、不联网。
-    live_persist：live_bars 时 True=incremental_refresh 写入 SQLite 后读库；False=仅将联网数据与内存中的本地行合并，不写库。
-    data_source：live_bars 时传给拉取逻辑；None 时用服务端默认 ingest 路线。
-    live_as_of：live_bars 时作为 incremental 截止日期（含当日）YYYY-MM-DD；None 则用服务器当天。宜与③结束日期或样本外 oos_to 对齐。
+    流程概要:
+        1. 加载日线（本地 SQLite；live_bars=True 时可先联网 incremental）；
+        2. build_feature_matrix 构造特征与 H 日方向标签；
+        3. 前 min_train_rows 根为训练窗起点，之后为 OOS（可用 oos_from/oos_to 再过滤）；
+        4. 并行计算四种方法的 OOS 预测与分类指标；
+        5. 对每种方法做简易交易回放，返回 metrics、trades、pedagogy 等。
+
+    主要参数:
+        horizon:         未来 H 个交易日累计涨跌方向（标签定义）。
+        min_train_rows:  进入 OOS 前的最少样本数（前段用于 Logistic 训练）。
+        retrain_every:   Logistic 每隔多少 OOS 步用扩展窗重训。
+        ma_short/ma_long: 双均线周期（须 ma_short < ma_long）。
+        oos_from/oos_to:  样本外日期闭区间过滤（训练仍用此前全部历史）。
+        methods:          方法键名子集；None=四种全开。
+        live_bars:        True 时先联网拉 incremental 再回测。
+        live_persist:     live_bars 时是否写入 SQLite。
+        data_source:      live_bars 时的行情路线。
+        live_as_of:       live_bars 增量截止日 YYYY-MM-DD。
+
+    返回:
+        含 symbol、n_oos、methods（各含 metrics/trades/trade_summary）、
+        how_to_read、pedagogy、fundamentals_backtest、strategy_params 等的 dict。
+
+    异常:
+        ValueError — K 线不足、参数非法、OOS 区间为空等。
     """
     sym = normalize_symbol(symbol)
     if horizon < 1 or horizon > 60:
@@ -686,13 +791,14 @@ def run_forecast_validate(
                 + " 请在 ② 清空样本外日期或扩大区间；都留空则使用全部样本外段。"
             )
 
-    # --- 多数类基线（每个时点用历史标签的众数预测当日标签，严格因果）---
+    # --- 样本外：四种方法的预测 ---
+    # 多数类基线（每个时点用历史标签的众数预测当日标签，严格因果）
     maj_pred = np.zeros(len(oos_idx), dtype=int)
     for j, k in enumerate(oos_idx):
         hist = y[:k]
         maj_pred[j] = 1 if hist.mean() >= 0.5 else 0
 
-    # --- 规则：ret20>0 且 ma20 斜率>0 ---
+    # 规则：ret20>0 且 ma20 斜率>0 → 看多
     rule_pred = np.zeros(len(oos_idx), dtype=int)
     i_ret20 = FEATURE_NAMES.index("ret20")
     i_slope = FEATURE_NAMES.index("ma20_slope")
@@ -700,7 +806,7 @@ def run_forecast_validate(
         row = X[k]
         rule_pred[j] = 1 if (row[i_ret20] > 0 and row[i_slope] > 0) else 0
 
-    # --- Logistic walk-forward ---
+    # Logistic walk-forward：周期性用 [0:k) 扩展窗重训，对 k 日做预测
     log_pred = np.zeros(len(oos_idx), dtype=int)
     log_scores = np.zeros(len(oos_idx), dtype=float)
     state: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None

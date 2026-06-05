@@ -1,8 +1,56 @@
 """
-③ 行情更新后的自动前向展望：校验本地 K 线质量，并登记「未来 H 个交易日」方向演示预测。
+③ 行情更新后的自动前向展望：K 线质量审计 +「未来 H 日」方向演示 + 到期自动结算。
 
-- ③ ingest 成功后由服务端自动 sync + settle（无需手填⑦）。
-- 待 H 个交易日收盘入库后自动结算，⑦ 展示 pending / settled。
+## 功能作用
+
+在 `POST /ingest/update`（③ 批量拉日线）成功后，本模块对成功更新的标的**自动**：
+
+1. **审计**本地 K 线质量（根数、末根成交量、与③返回收盘偏差、日期间隔等）；
+2. **登记**基于末根及此前历史的 H 日方向演示预测（默认 H=3），写入 `forward_outlook` 表；
+3. **结算**已到期的 pending 记录：当库内已有 `signal_trade_date + H` 个交易日收盘时，
+   计算实际涨跌并与预测对比，状态变为 `settled`。
+
+用户无需手填⑦决策日志；控制台 **⑦** 与 `GET /forward-outlook` 展示 pending / settled 列表。
+
+## 预测方法（末根投票）
+
+复用 `forecast_validate` 的特征与模型逻辑，对**最后一根有效 K 线**综合：
+
+| 来源 | 说明 |
+|------|------|
+| `logistic` | 全历史训练 Logistic，对末根特征预测 prob_up |
+| `rule_trend` | ret20>0 且 MA20 斜率>0 → 看多 |
+| `dual_ma` | 5/10 日双均线 → 看多/空 |
+| `signal` | `compute_signal` 的 trend（bullish 计多票；③ 自动 sync 时跳过以免联网） |
+
+多数票决定 `predicted_up`；数据不足时 `predicted_up=None`。
+
+## 生命周期
+
+```
+③ ingest 成功 → sync_after_ingest → sync_symbol_outlook (pending)
+                                              ↓
+                         库内 K 线增至 signal_date + H 日
+                                              ↓
+                    _settle_row → settled（actual_return_pct / 命中与否）
+```
+
+同一 `(symbol, signal_trade_date, horizon)` 仅一条记录；**已 settled 不再覆盖**预测与结算结果。
+
+## 对外接口
+
+| 函数 | 用途 |
+|------|------|
+| `sync_symbol_outlook` | 单只：审计 + 预测 + upsert + 尝试结算 |
+| `sync_after_ingest` | ③ 批量成功后逐只 sync（`main` 自动调用） |
+| `settle_all_pending` | 扫描全部 pending 并结算到期项 |
+| `row_to_dict` | ORM 行 → API / 控制台 dict |
+| `isfinite_pair` | 浮点有限性判断（审计用，可被测试引用） |
+
+## 非投资建议
+
+展望为算法演示与数据质量跟踪，短周期方向噪声大，**不构成投资建议**。
+与 `forecast_validate` 的 walk-forward 回测用途不同：本案是「登记一次、等待 H 日后验收」。
 """
 
 from __future__ import annotations
@@ -16,33 +64,58 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import select
 
-from app.db_models import ForwardOutlookRow
+from app.db_models import ForwardOutlookRow, WatchlistRow
 from app.db_session import session_scope
 from app.forecast_validate import (
     FEATURE_NAMES,
-    build_feature_matrix,
     _apply_standardize,
     _dual_ma_signal_series,
     _fit_logistic,
     _sigmoid,
     _standardize,
+    build_feature_matrix,
 )
 from app.ingest import fetch_stock_name, fetch_stock_names_map, load_bars_from_db, normalize_symbol
-from app.db_models import WatchlistRow
 from app.signals import compute_signal
 
 logger = logging.getLogger(__name__)
 
+# --- 模块常量 ---
+
 DEFAULT_HORIZON = 3
+"""默认展望跨度：未来 H 个交易日（与 ingest 后 auto-sync 一致）。"""
+
 MIN_BARS_FOR_OUTLOOK = 30
+"""K 线少于该根数时审计报 issue；Logistic 需更多样本见 MIN_TRAIN_ROWS。"""
+
 MIN_TRAIN_ROWS = 80
+"""末根 Logistic 预测至少需要的有效训练行数。"""
+
+
+# --- 工具 ---
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def isfinite_pair(a: float, b: float) -> bool:
+    """两浮点均为有限值时返回 True（用于收盘偏差审计）。"""
+    return bool(np.isfinite(a) and np.isfinite(b))
+
+
+# --- K 线质量审计 ---
+
+
 def _audit_bars(df: pd.DataFrame, *, ingest_last_close: float | None = None) -> dict[str, Any]:
+    """
+    审计本地 K 线是否适合生成信号/展望。
+
+    检查项：是否为空、根数、末根成交量、与③ ingest 返回收盘偏差（>2%）、
+    自然日期间隔是否超过 10 天（可能缺日）。
+
+    返回 dict 含 ok、bars_count、first/last_trade_date、last_close、issues 列表。
+    """
     issues: list[str] = []
     if df.empty:
         return {
@@ -87,12 +160,27 @@ def _audit_bars(df: pd.DataFrame, *, ingest_last_close: float | None = None) -> 
     }
 
 
-def isfinite_pair(a: float, b: float) -> bool:
-    return bool(np.isfinite(a) and np.isfinite(b))
+# --- 方向预测（末根） ---
 
 
-def _predict_last_bar(sym: str, df: pd.DataFrame, horizon: int) -> dict[str, Any]:
-    """基于末根及此前历史，给出 H 日方向演示预测（非投资建议）。"""
+def _predict_last_bar(
+    sym: str,
+    df: pd.DataFrame,
+    horizon: int,
+    *,
+    skip_compute_signal: bool = False,
+) -> dict[str, Any]:
+    """
+    基于末根及此前历史，给出 H 日方向演示预测（非投资建议）。
+
+    参数:
+        skip_compute_signal: True 时跳过 ``compute_signal``，避免 ③ 自动收尾里
+            ``skip_bars=True`` 场景下 K 线不足触发 ``incremental_refresh`` 联网。
+            跳过后 ``signal.trend`` 不参与投票，仅 Logistic/规则/双均线生效。
+
+    返回:
+        含 signal_trade_date、methods（各子预测）、predicted_up、summary_zh 的 dict。
+    """
     sym_date = str(df["trade_date"].iloc[-1])
     last_close = float(df["close"].iloc[-1])
     out: dict[str, Any] = {
@@ -101,10 +189,13 @@ def _predict_last_bar(sym: str, df: pd.DataFrame, horizon: int) -> dict[str, Any
         "horizon": horizon,
         "methods": {},
     }
-    try:
-        sig = compute_signal(sym)
-    except Exception:
+    if skip_compute_signal:
         sig = None
+    else:
+        try:
+            sig = compute_signal(sym)
+        except Exception:
+            sig = None
     feat, y_up, _fwd = build_feature_matrix(df, horizon)
     train_mask = feat.notna().all(axis=1) & y_up.notna()
     if int(train_mask.sum()) < MIN_TRAIN_ROWS:
@@ -152,6 +243,7 @@ def _predict_last_bar(sym: str, df: pd.DataFrame, horizon: int) -> dict[str, Any
             "strength": sig.strength,
             "score": sig.buy_suitability_score,
         }
+    # 多数票合成 predicted_up（signal.trend bullish 加票，bearish 仅增分母）
     votes_up = 0
     votes = 0
     for key in ("logistic", "rule_trend", "dual_ma"):
@@ -177,10 +269,14 @@ def _predict_last_bar(sym: str, df: pd.DataFrame, horizon: int) -> dict[str, Any
 
 
 def _predict_for_symbol(sym: str, horizon: int) -> dict[str, Any]:
+    """读库并预测（含 compute_signal；供手动 sync 等场景）。"""
     df = load_bars_from_db(sym)
     if df.empty:
         raise ValueError("本地无 K 线")
     return _predict_last_bar(sym, df, horizon)
+
+
+# --- 到期结算 ---
 
 
 def _trade_date_index(dates: list[str], td: str) -> int | None:
@@ -191,6 +287,11 @@ def _trade_date_index(dates: list[str], td: str) -> int | None:
 
 
 def _settle_row(row: ForwardOutlookRow, df: pd.DataFrame) -> bool:
+    """
+    若 pending 且库内已有 signal 日 + H 根收盘，则写入实际收益并标记 settled。
+
+    返回 True 表示本次完成了结算。
+    """
     if row.status == "settled":
         return False
     dates = [str(x) for x in df["trade_date"].tolist()]
@@ -219,7 +320,11 @@ def _settle_row(row: ForwardOutlookRow, df: pd.DataFrame) -> bool:
     return True
 
 
+# --- 名称解析 ---
+
+
 def _resolve_stock_name(sym: str, preferred: str | None = None) -> str:
+    """优先用传入简称，否则拉东财名称。"""
     nm = (preferred or "").strip()
     if nm and nm.lower() != "nan":
         return nm[:64]
@@ -227,7 +332,7 @@ def _resolve_stock_name(sym: str, preferred: str | None = None) -> str:
 
 
 def _stock_names_for_symbols(symbols: list[str], session) -> dict[str, str]:
-    """自选简称优先，缺失则批量拉东财简称。"""
+    """自选简称优先，缺失则批量拉东财简称（列表 API 展示用）。"""
     syms = list(dict.fromkeys(symbols))
     out: dict[str, str] = {}
     if not syms:
@@ -248,6 +353,9 @@ def _stock_names_for_symbols(symbols: list[str], session) -> dict[str, str]:
     return out
 
 
+# --- 对外接口 ---
+
+
 def sync_symbol_outlook(
     sym: str,
     *,
@@ -256,7 +364,14 @@ def sync_symbol_outlook(
     ingest_last_trade_date: str | None = None,
     stock_name: str | None = None,
 ) -> ForwardOutlookRow | None:
-    """为单标的写入/更新 pending 展望；并尝试结算到期记录。"""
+    """
+    为单标的写入/更新 pending 展望，并尝试结算该标的到期记录。
+
+    唯一键：(symbol, signal_trade_date, horizon)。已 settled 的记录不覆盖预测与结算，
+    仅补全 stock_name。数据质量有问题时在 summary 前加「【数据待核对】」前缀。
+
+    ③ 自动 sync 时 `skip_compute_signal=True`，避免 skip_bars 路径下联网。
+    """
     sym = normalize_symbol(sym)
     h = max(1, min(60, int(horizon)))
     df = load_bars_from_db(sym)
@@ -265,7 +380,7 @@ def sync_symbol_outlook(
     if df.empty:
         return None
     try:
-        pred = _predict_last_bar(sym, df, h)
+        pred = _predict_last_bar(sym, df, h, skip_compute_signal=True)
     except Exception as e:
         logger.debug("forward outlook predict failed %s: %s", sym, e)
         pred = {
@@ -326,7 +441,11 @@ def sync_symbol_outlook(
 
 
 def settle_all_pending() -> int:
-    """扫描全部 pending，能结算则结算。返回新结算条数。"""
+    """
+    扫描 `forward_outlook` 中全部 pending，对 K 线已够 H 日的记录执行结算。
+
+    返回本次新结算的条数。`GET /forward-outlook` 列表前也会调用。
+    """
     n = 0
     with session_scope() as s:
         rows = s.execute(
@@ -345,7 +464,14 @@ def sync_after_ingest(
     horizon: int = DEFAULT_HORIZON,
     ingest_meta_by_sym: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """③ 批量更新后：逐只登记展望并尝试结算。"""
+    """
+    ③ 批量更新成功后：逐只登记展望并尝试结算。
+
+    `ingest_meta_by_sym` 可传每只的 last_close、last_trade_date、watchlist_name，
+    用于数据质量审计与简称。结束后额外 `settle_all_pending` 处理其它到期 pending。
+
+    由 `main` 在 ingest batch finish 之后调用；结果写入响应 `forward_outlook_sync`。
+    """
     meta = ingest_meta_by_sym or {}
     created = 0
     failed: list[str] = []
@@ -378,6 +504,7 @@ def sync_after_ingest(
 
 
 def row_to_dict(row: ForwardOutlookRow, *, stock_name: str | None = None) -> dict[str, Any]:
+    """将 `ForwardOutlookRow` 转为 `ForwardOutlookOut` 兼容的 dict。"""
     audit = None
     if row.data_quality_json:
         try:

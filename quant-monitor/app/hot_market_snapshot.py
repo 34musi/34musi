@@ -1,17 +1,59 @@
 """
-热门市场快照：优先从新浪财经拉取「最近一次收盘/当前截面」的板块与个股涨跌幅序，
-失败则按链继续（与 ingest 路线命名对齐）；结果写入本地 JSON 供后续读取。
+热门市场快照：板块热度 + 个股热门榜，链式拉取并落盘 JSON。
 
-说明：
-- 新浪板块：`ak.stock_industry.stock_sector_spot`（概念/行业，公开行情页数据）。
-- 新浪个股：沪深 A 股节点 `getHQNodeData`，`sort=changepercent` 降序；**仅保留沪、深主板**后取前 N（不含科创 688/689、创业板 300/301、北交所等）。
-- 腾讯：个股用 QQ `getBoardRankList`（仅支持 sort_type=price，客户端按 `zdf` 排序取前 N）；
-  腾讯无稳定公开的「板块涨跌幅全表」接口，故在该步以东方财富板块表补齐（见返回中的 sector_source）。
-- Baostock：无对等的板块热度/全市场热门股接口，链中该步会失败并进入下一源。
-- 东财 / akshare：板块用 `AkShareDataSource.get_sector_rankings`；个股用东财人气榜 `stock_hot_rank_em`（与新浪「涨幅序」含义不同，见 notes）。
-- 个股表「相关业务类型」：落盘前以东财 **`stock_individual_info_em`（qt/stock/get）中的「行业」** 写入 `related_business`；与 `ulist` 接口的 f127 语义不同，不能用 ulist 批量字段以免误取涨跌幅等数值（旧快照需重新刷新后才有）。
+## 功能作用
+
+从公开行情源拉取「最近一次收盘/当前截面」的**板块涨跌幅序**与**个股热门榜**，
+写入 `data/hot_market_snapshot.json`，供控制台 **⑨ 热门市场快照**、**② 导入热门股**、
+**⑨ 选股**（`data_source=hot_chain`）等模块**只读**使用，减轻重复联网与限流。
+
+默认数据源链（与 ingest 路线命名对齐）：
+
+```
+sina → tencent → baostock → eastmoney → akshare
+```
+
+任一步成功即返回；全部失败则 `DataSourceError`。
+
+## 各源说明（摘要）
+
+| 源 | 板块 | 个股 | 备注 |
+|----|------|------|------|
+| **sina** | 新浪概念/行业 `stock_sector_spot` | 沪深 A 按涨幅降序，**仅沪深主板** Top N | 默认首选 |
+| **tencent** | 无对等全表 → **东财板块补齐** | QQ `getBoardRankList` 按 zdf 重排 | `sector_source=eastmoney` |
+| **baostock** | — | — | 无对等接口，链中跳过 |
+| **eastmoney / akshare** | 东财 `get_sector_rankings` | 东财人气榜 `stock_hot_rank_em` | 与「涨幅序」含义不同 |
+
+个股表附加 **`related_business`**：落盘前逐只调东财 `stock_individual_info_em` 的「行业」
+（勿用 ulist 批量 f127，语义不同易误显示涨跌幅）。
+
+## 沪深主板过滤
+
+热门股列表统一筛 **沪 60 / 深 000–003**（排除科创 688/689、创业 300/301、北交所等），
+见 `_is_hs_main_board_equity`。
+
+## 对外接口
+
+| 函数 / 类型 | 用途 |
+|-------------|------|
+| `HotMarketSnapshot` | 可序列化快照结构（sectors + stocks + metadata） |
+| `fetch_hot_market_snapshot` | 按链联网拉取，成功返回 snapshot |
+| `save_hot_market_snapshot` | 原子写入 JSON（`.tmp` 再 replace） |
+| `load_hot_market_snapshot` | 读本地 JSON；不存在返回 None |
+| `default_hot_market_snapshot_path` | 默认 `{data_dir}/hot_market_snapshot.json` |
+
+## 调用方
+
+- `POST /meta/hot-market-snapshot/refresh`、`GET /meta/hot-market-snapshot`
+- `POST /watchlist/import-hot-market-snapshot`（② 导入 auto_hot 自选）
+- `quant_stock_selector.hot_chain_datasource`、`sectors._constituents_from_hot_market_snapshot`
+- `POST /research/sector-screen`（`data_source=hot_chain`、合并 snapshot stocks）
+
+## 数据说明
+
+快照为公开页/接口截面，非交易所实时推送；东财人气榜与新浪涨幅序不可直接对比。
+旧快照无 `related_business` 时需重新「刷新热门快照」。
 """
-
 from __future__ import annotations
 
 import json
@@ -36,6 +78,10 @@ from app.quant_stock_selector.market_utils import normalize_code, normalize_scor
 logger = logging.getLogger(__name__)
 
 DEFAULT_CHAIN: tuple[str, ...] = ("sina", "tencent", "baostock", "eastmoney", "akshare")
+"""默认尝试顺序，与 ingest 公开路线命名一致。"""
+
+
+# --- 沪深主板过滤与行业 enrichment ---
 
 
 def _is_hs_main_board_equity(code: object) -> bool:
@@ -106,16 +152,20 @@ def _enrich_stocks_related_business(stocks: pd.DataFrame) -> pd.DataFrame:
         s["related_business"] = [""] * len(s)
         return s
 
+# --- 外部 API URL ---
+
 SINA_HQ_DATA_URL = (
     "https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData"
 )
 TENCENT_BOARD_RANK_URL = "https://proxy.finance.qq.com/cgi/cgi-bin/rank/hs/getBoardRankList"
 
 
+# --- 快照数据结构 ---
+
+
 @dataclass
 class HotMarketSnapshot:
-    """写入 hot_market_snapshot.json 的可序列化结构。"""
-
+    """写入 hot_market_snapshot.json 的可序列化结构（sectors + stocks + 元数据）。"""
     fetched_at: str
     provider: str
     chain_attempted: list[str]
@@ -131,6 +181,9 @@ class HotMarketSnapshot:
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# --- 新浪：板块与涨幅榜 ---
 
 
 def _normalize_sina_sector_frames(frames: list[pd.DataFrame], source: str) -> pd.DataFrame:
@@ -235,6 +288,9 @@ def fetch_sina_hot_stocks(*, top_n: int) -> pd.DataFrame:
     return out
 
 
+# --- 腾讯：个股排行（板块由东财补齐） ---
+
+
 def fetch_tencent_hot_stocks(*, top_n: int) -> pd.DataFrame:
     """腾讯沪深京 A 股排行：接口仅支持按价排序，这里拉一批后按 zdf 重排。"""
     r = requests.get(
@@ -275,6 +331,9 @@ def fetch_tencent_hot_stocks(*, top_n: int) -> pd.DataFrame:
     )
 
 
+# --- 东财：板块表与人气榜 ---
+
+
 def _em_sector_frame(ds: AkShareDataSource) -> pd.DataFrame:
     """
     东财板块表：连拉概念+行业时易受远端断连/限流，与 ingest 东财线类似，做多次重试与退避。
@@ -295,6 +354,9 @@ def _em_sector_frame(ds: AkShareDataSource) -> pd.DataFrame:
     if last is not None:
         raise DataSourceError(f"东财板块表多次重试后仍失败: {last}") from last
     raise DataSourceError("东财板块热度为空")
+
+
+# --- 各源 bundle（组装 HotMarketSnapshot） ---
 
 
 def _bundle_sina(*, top_stocks: int) -> HotMarketSnapshot:
@@ -406,6 +468,9 @@ def _bundle_akshare(*, top_stocks: int) -> HotMarketSnapshot:
     return b
 
 
+# --- DataFrame → 记录 / 快照构造 ---
+
+
 def _df_sectors_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     d = df.copy()
     for col in d.columns:
@@ -458,15 +523,23 @@ def _try_provider(name: str, top_stocks: int) -> HotMarketSnapshot:
     raise DataSourceError(f"未知热门快照源: {name!r}")
 
 
+# --- 主入口与本地 JSON 读写 ---
+
+
 def fetch_hot_market_snapshot(
     *,
     top_stocks: int = 100,
     chain: Sequence[str] | None = None,
 ) -> HotMarketSnapshot:
     """
-    按顺序尝试各数据源，成功则返回并应由调用方持久化。
+    按顺序尝试各数据源链，成功则返回 snapshot（由调用方 `save_hot_market_snapshot` 落盘）。
 
-    默认链与 ingest 的公开路线命名对齐：sina → tencent → baostock → eastmoney → akshare
+    参数:
+        top_stocks: 个股表保留条数（筛主板后）。
+        chain:      源名称序列；None 则用 DEFAULT_CHAIN。
+
+    异常:
+        DataSourceError — 全部路线失败。
     """
     c = tuple(chain) if chain else DEFAULT_CHAIN
     last_err: Exception | None = None
@@ -487,10 +560,12 @@ def fetch_hot_market_snapshot(
 
 
 def default_hot_market_snapshot_path() -> Path:
+    """默认落盘路径：`{data_dir}/hot_market_snapshot.json`。"""
     return get_settings().data_dir / "hot_market_snapshot.json"
 
 
 def save_hot_market_snapshot(snap: HotMarketSnapshot, path: Path | None = None) -> Path:
+    """原子写入 JSON（先写 .tmp 再 replace），返回最终路径。"""
     p = path or default_hot_market_snapshot_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     payload = asdict(snap)
@@ -501,6 +576,7 @@ def save_hot_market_snapshot(snap: HotMarketSnapshot, path: Path | None = None) 
 
 
 def load_hot_market_snapshot(path: Path | None = None) -> HotMarketSnapshot | None:
+    """读取本地快照；文件不存在时返回 None。"""
     p = path or default_hot_market_snapshot_path()
     if not p.exists():
         return None

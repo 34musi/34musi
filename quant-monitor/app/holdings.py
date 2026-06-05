@@ -1,10 +1,58 @@
-"""⑩ 持仓记录：读写与行情盈亏估算（非交易所成交回报）。"""
+"""
+⑩ 持仓记录：本机 SQLite 读写、行情盈亏估算与进/离场 Demo 建议（非券商回报）。
+
+## 功能作用
+
+本模块管理 `holdings` 表中的自用持仓记录，并为控制台 **⑩ 持仓记录** 提供：
+
+1. **列表与盈亏**：批量拉盘口/日线价，估算市值、浮动/已实现盈亏（非交易所成交回报）。
+2. **平仓建议**（`compute_holding_exit_advice`）：成本浮盈亏 + ④ 信号 → 离场压力 0–100 分。
+3. **建仓建议**（`compute_holding_entry_advice`）：④ 信号 → 建仓适合度 0–100 分（持仓/已平仓均可评估）。
+4. **复盘汇总**（`compute_holdings_review_summary`）：已平仓记录的胜率、合计盈亏、平均持仓天数。
+
+`holdings_goal.py` 依赖本模块的 `build_holdings_list`、`compute_holding_exit_advice` 做目标测算。
+
+## 持仓状态
+
+| 常量 | 含义 |
+|------|------|
+| `HOLDING_STATUS_HOLDING` | 持仓中：用参考价算浮动盈亏 |
+| `HOLDING_STATUS_CLOSED` | 已平仓：用卖出价算已实现盈亏 |
+
+## 参考价优先级
+
+持仓中市值估算：联网 `live_last_price` → `spot_last_price` → 本地 `last_close`。
+已平仓展示价优先 `sell_price`。
+
+## 对外接口（常用）
+
+| 函数 | 用途 |
+|------|------|
+| `build_holdings_list` | `GET /holdings` 列表 enrichment |
+| `holding_row_to_out` | 单条 ORM → `HoldingOut` |
+| `apply_holding_defaults` | 新建时补名称、时间戳 |
+| `validate_holding_sell_price` | 卖出价误填股数等 sanity check |
+| `create_closed_holding_record` | `POST /holdings/closed-record` 补录复盘 |
+| `compute_holding_exit_advice` | `GET …/exit-advice`、goal-plan 输入 |
+| `compute_holding_entry_advice` | `GET …/entry-advice` |
+| `compute_holdings_review_summary` | `GET /holdings/review-summary` |
+| `holding_days_for_row` | 持仓天数（含首尾日历日） |
+
+## 非投资建议
+
+盈亏为规则估算；进/离场打分为 Demo，不构成买卖指令。
+"""
 
 from __future__ import annotations
 
+import json
+import logging
 import math
 from datetime import date, datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
+
+import requests
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -19,8 +67,15 @@ from app.ingest import (
 from app.schemas import HoldingEntryAdviceOut, HoldingExitAdviceOut, HoldingOut
 from app.signals import compute_signal
 
+logger = logging.getLogger(__name__)
+
+# --- 状态常量 ---
+
 HOLDING_STATUS_HOLDING = "holding"
 HOLDING_STATUS_CLOSED = "closed"
+
+
+# --- 持仓天数与校验 ---
 
 
 def holding_days_for_row(row: HoldingRow) -> int | None:
@@ -78,6 +133,9 @@ def validate_holding_sell_price(
                 f"卖出均价 {px:g} 相对成本 {cp:g} 元/股 过高，请确认未误填股数或总金额"
             )
     return round(px, 4)
+
+
+# --- 参考价与盈亏计算 ---
 
 
 def _price_from_bar_spot(
@@ -153,6 +211,9 @@ def _pnl_fields(
     return out
 
 
+# --- ORM → API 与列表构建 ---
+
+
 def holding_row_to_out(
     row: HoldingRow,
     *,
@@ -202,6 +263,11 @@ def build_holdings_list(
     force_spot_refresh: bool = False,
     persist_snapshots: bool = False,
 ) -> list[HoldingOut]:
+    """
+    批量将 HoldingRow 转为 HoldingOut，并 enrichment 行情与盈亏字段。
+
+    一次拉取所有 symbol 的 bar/spot；`persist_snapshots=True` 时回写 mark_price 等到 ORM。
+    """
     symbols = list({r.symbol for r in rows})
     bar_by = watchlist_bar_fields_for_session(session, symbols) if symbols else {}
     spot_by = (
@@ -229,6 +295,9 @@ def build_holdings_list(
             r.updated_at = now
         out.append(item)
     return out
+
+
+# --- 补录与复盘汇总 ---
 
 
 def create_closed_holding_record(
@@ -320,13 +389,20 @@ def compute_holdings_review_summary(session: Session) -> dict[str, Any]:
     }
 
 
+# --- 新建/更新默认值 ---
+
+
 def apply_holding_defaults(row: HoldingRow, *, sym: str) -> None:
+    """补全简称（东财）、created_at/updated_at 时间戳。"""
     if not (row.name or "").strip():
         row.name = fetch_stock_name(sym) or ""
     now = _utc_now_iso()
     if not row.created_at:
         row.created_at = now
     row.updated_at = now
+
+
+# --- 平仓建议（离场压力分） ---
 
 
 def compute_holding_exit_advice(
@@ -515,6 +591,9 @@ def compute_holding_exit_advice(
     )
 
 
+# --- 建仓建议（建仓适合度分） ---
+
+
 def compute_holding_entry_advice(
     row: HoldingRow,
     *,
@@ -666,3 +745,136 @@ def compute_holding_entry_advice(
         position_hint=sig.position_hint,
         signal_as_of_date=sig.as_of_date,
     )
+
+
+# --- Webhook 通知（⑩ 定时刷新） ---
+
+
+_WECOM_WEBHOOK_HOST = "qyapi.weixin.qq.com"
+_WECOM_WEBHOOK_PATH_PREFIX = "/cgi-bin/webhook/send"
+
+
+def _is_wecom_webhook_url(url: str) -> bool:
+    p = urlparse(url)
+    return (
+        (p.hostname or "").lower() == _WECOM_WEBHOOK_HOST
+        and (p.path or "").startswith(_WECOM_WEBHOOK_PATH_PREFIX)
+    )
+
+
+def _format_holdings_notify_wecom_text(
+    *,
+    items: list[HoldingOut],
+    picked_ids: list[int],
+    refreshed_at: str,
+) -> str:
+    """企业微信机器人 text 消息（单条上限约 3500 字）。"""
+    lines = [
+        "【持仓现价刷新】",
+        f"时间：{refreshed_at}",
+        f"勾选 {len(picked_ids)} 条，本次推送 {len(items)} 条",
+        "",
+    ]
+    for it in items:
+        px = it.current_price
+        px_s = f"{px:.4f}" if px is not None else "—"
+        chg = it.spot_change_pct
+        chg_s = f"{chg:+.2f}%" if chg is not None else "—"
+        if it.status == HOLDING_STATUS_CLOSED:
+            pnl = it.realized_pnl_pct
+            pnl_s = f"{pnl:+.2f}%" if pnl is not None else "—"
+            lines.append(f"{it.symbol} {it.name or ''} 已平仓 卖价{px_s} 盈亏{pnl_s}")
+        else:
+            pnl = it.unrealized_pnl_pct
+            pnl_s = f"{pnl:+.2f}%" if pnl is not None else "—"
+            lines.append(
+                f"{it.symbol} {it.name or ''} 现价{px_s} {chg_s} 浮盈{pnl_s}"
+            )
+    return "\n".join(lines)[:3500]
+
+
+def normalize_holdings_notify_url(raw: str) -> str:
+    """校验通知地址：仅允许 http(s) 外链，降低 SSRF 风险。"""
+    url = (raw or "").strip()
+    if not url:
+        raise ValueError("通知地址不能为空")
+    if len(url) > 2000:
+        raise ValueError("通知地址过长")
+    p = urlparse(url)
+    if p.scheme not in ("http", "https") or not p.netloc:
+        raise ValueError("通知地址须为 http:// 或 https:// 开头的完整 URL")
+    host = (p.hostname or "").lower()
+    if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+        raise ValueError("通知地址不能为本机回环地址")
+    return url
+
+
+def post_holdings_refresh_webhook(
+    url: str,
+    *,
+    items: list[HoldingOut],
+    picked_ids: list[int],
+    refreshed_at: str | None = None,
+    timeout: float = 12.0,
+) -> tuple[bool, str]:
+    """将定时刷新结果 POST 到通知地址；企业微信机器人自动转 text 格式。"""
+    at = (refreshed_at or "").strip() or datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    if _is_wecom_webhook_url(url):
+        body = {
+            "msgtype": "text",
+            "text": {
+                "content": _format_holdings_notify_wecom_text(
+                    items=items,
+                    picked_ids=picked_ids,
+                    refreshed_at=at,
+                )
+            },
+        }
+    else:
+        body = {
+            "event": "holdings_spot_refresh",
+            "refreshed_at": at,
+            "picked_ids": picked_ids,
+            "count": len(items),
+            "symbols": [it.symbol for it in items],
+            "items": [it.model_dump() for it in items],
+        }
+    try:
+        r = requests.post(
+            url,
+            json=body,
+            timeout=timeout,
+            allow_redirects=False,
+        )
+        detail = (r.text or "").strip()
+        if r.ok:
+            if _is_wecom_webhook_url(url):
+                try:
+                    data = r.json()
+                except ValueError:
+                    data = {}
+                if data.get("errcode", 0) != 0:
+                    msg = str(data.get("errmsg") or detail or "企业微信返回失败")
+                    logger.warning(
+                        "holdings wecom notify rejected: errcode=%s %s",
+                        data.get("errcode"),
+                        msg[:120],
+                    )
+                    return False, msg[:240]
+            logger.info(
+                "holdings notify sent ok (%s items) -> %s",
+                len(items),
+                urlparse(url).hostname or url[:40],
+            )
+            return True, ""
+        if len(detail) > 240:
+            detail = detail[:240] + "…"
+        logger.warning(
+            "holdings notify HTTP %s: %s",
+            r.status_code,
+            detail[:120],
+        )
+        return False, f"通知地址返回 HTTP {r.status_code}" + (f"：{detail}" if detail else "")
+    except Exception as e:
+        logger.warning("holdings notify webhook failed: %s", e, exc_info=True)
+        return False, str(e) or "通知发送失败"

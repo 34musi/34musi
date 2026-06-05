@@ -1,10 +1,45 @@
 """
-信号计算：基于库内日线计算趋势、强度、技术面 0–100 分；若存在 fundamental_snapshots，
-再叠加扩展因子有界调整；并由 app.signal_enhanced 叠加量能/RSI/MACD/相对大盘/事件/动量分位与买入门控。
+信号计算：基于库内日线生成趋势、强度、评分与仓位提示（④ 信号核心）。
 
-依赖 ingest.load_bars_df（数据不足时会触发拉取）；`data_source` 与 ingest 枚举一致（含 mootdx/tushare 等），
-K 线入库路径可与核心包 app.quant_stock_selector 对齐。名称展示用 fetch_stock_name。
-非投资建议。
+## 功能作用
+
+本模块是 quant-monitor **④ 信号** 的业务核心：对单只 A 股读取本地日线
+（`ingest.load_bars_df`），计算技术面启发式得分，可选叠加扩展因子调整
+（`fundamentals.fundamental_score_delta`），再调用 `signal_enhanced` 生成
+增强分、买入门控与 verdict，最终组装为 `SignalOut`。
+
+典型调用链（`GET /signals/{symbol}`、`alerts.detect_changes`、持仓建议等）：
+
+1. `normalize_symbol` 规范化代码；
+2. 可选 `ensure_today_bar_for_live_signal`（⑩ 当日测算）补写今日 K 线；
+3. `load_bars_df` 读库（不足时由 ingest 侧触发补拉）；
+4. `_build_signal_metrics` → 趋势/强度/technical_score/仓位提示；
+5. `build_signal_enhanced` + `apply_enhanced_to_signal_dict` 叠加增强层；
+6. `_spot_overlay_for_symbol` 用联网现价重算 spot_* 字段（与截止日 K 线可不同日）；
+7. 返回 `SignalOut`（含 fundamentals、reasons、meta、enhanced 等）。
+
+## 主要逻辑块
+
+| 块 | 函数 | 说明 |
+|----|------|------|
+| 技术指标 | `_ma`, `_pct_change`, `_rolling_vol` | 均线、收益率、已实现波动率 |
+| 基础信号 | `_build_signal_metrics` | 趋势/强度/technical_score/扩展因子合成/仓位提示 |
+| 现价覆盖 | `_spot_overlay_for_symbol` | 东财/通达信快照或回退末根收盘，重算 spot 分 |
+| 对外入口 | `compute_signal` | 单标的完整 `SignalOut` |
+
+## 对外接口
+
+| 函数 | 调用方 | 用途 |
+|------|--------|------|
+| `compute_signal` | `main.py` GET /signals、alerts、holdings 等 | 单标的信号主入口 |
+| `_build_signal_metrics` | 本模块、`signal_enhanced` 间接 | 可被 `last_close_override` 注入现价 |
+
+## 约定
+
+- 至少约 **30 根**有效 K 线，否则 `ValueError`（需先 ingest）；
+- `data_source` 与 ingest 枚举一致，传给 `load_bars_df` 以统一补拉路线；
+- 扩展因子缺失时仍返回信号，但 `fund_missing` reason 提示执行 POST /ingest/fundamentals；
+- **非投资建议**；仓位区间、试错止损均为 Demo 文案。
 """
 
 from __future__ import annotations
@@ -43,6 +78,9 @@ from app.schemas import (
 logger = logging.getLogger(__name__)
 
 
+# --- 技术指标辅助 ---
+
+
 def _ma(s: pd.Series, n: int) -> pd.Series:
     """滚动均线；min_periods 取 n 与 n//3 的较大值，避免初期全 NaN。"""
     return s.rolling(n, min_periods=max(3, n // 3)).mean()
@@ -64,6 +102,9 @@ def _rolling_vol(close: pd.Series, n: int = 20) -> float:
     if len(r) < n:
         return float("nan")
     return float(r.iloc[-n:].std(ddof=0) or 0.0)
+
+
+# --- 基础信号指标（趋势 / 强度 / 评分 / 仓位） ---
 
 
 def _build_signal_metrics(
@@ -293,6 +334,9 @@ def _build_signal_metrics(
     }
 
 
+# --- 现价覆盖（spot_* 字段，与截止日 K 线可不同日） ---
+
+
 def _spot_overlay_for_symbol(
     sym: str,
     df: pd.DataFrame,
@@ -382,6 +426,9 @@ def _spot_overlay_for_symbol(
     if chg is not None:
         out["spot_change_pct"] = chg
     return out
+
+
+# --- 对外入口 ---
 
 
 def compute_signal(

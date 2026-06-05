@@ -1,4 +1,48 @@
-"""自选加入日志：按东八区日期记录每次写入自选池的标的，供②按日查询。"""
+"""
+自选加入日志：按东八区日期记录每次写入自选池的标的，供②按日查询。
+
+## 功能作用
+
+本模块维护 `watchlist_add_log` 表的读写逻辑：每当标的**成功写入自选池**
+（手动添加、批量导入、热门填充、quant 同步等），追加一条加入记录，并可选
+附带与 **② 自选表格** 一致的行情/入库快照字段，供控制台按日筛选、回顾
+「某天加入了哪些票、当时价量如何」。
+
+典型流程：
+
+1. `main.py` 在 POST /watchlist、批量添加、fill-hot-sectors 等成功后调用
+   `record_watchlist_adds_with_snapshot`；
+2. 写入前由 `watchlist_add_snapshot_for_symbols` 抓取 bars + live quote；
+3. 控制台通过 `GET /watchlist/add-dates` 拉日期列表，再按日/区间查询条目。
+
+## 快照字段（_SNAPSHOT_KEYS）
+
+| 字段 | 含义 |
+|------|------|
+| `bars_first_ingested_at` / `bars_last_ingested_at` | K 线首次/末次入库时间 |
+| `display_prev_close` / `display_today_close` | 昨收 / 今收展示价 |
+| `spot_last_price` / `spot_change_pct` | 联网现价与涨跌幅 |
+| `bars_last_trade_date` / `spot_quote_date` | 末根 K 线日 / 现价日期 |
+
+## 对外接口
+
+| 函数 | 用途 |
+|------|------|
+| `record_watchlist_add` | 单条追加（可自带 snapshot） |
+| `record_watchlist_adds_with_snapshot` | 批量追加并自动抓快照 |
+| `list_watchlist_add_dates` | 有记录的东八区日期列表（新→旧） |
+| `entries_added_on_date` | 指定日加入条目（同日同代码去重取最早） |
+| `entries_added_in_range` | 日期闭区间查询（同代码取区间内最早） |
+| `symbols_added_on_date` | 简化为 (symbol, name, origin, added_at) 元组 |
+| `latest_added_at_for_symbols` | 各代码最近一次加入时间 |
+| `log_row_snapshot_fields` | ORM 行 → 快照 dict（API 响应用） |
+
+## 约定
+
+- `added_date` 一律东八区自然日（`YYYY-MM-DD`）；`added_at` 为 UTC ISO；
+- 同一 `added_date` 内同一代码可有多条日志，**展示时按 symbol 去重保留最早**；
+- `_norm_snapshot` 对浮点/字符串长度做裁剪，避免脏数据入库。
+"""
 
 from __future__ import annotations
 
@@ -12,6 +56,8 @@ from sqlalchemy.orm import Session
 
 from app.db_models import WatchlistAddLogRow, WatchlistRow
 from app.ingest import shanghai_today_date
+
+# --- 常量与日期工具 ---
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -28,6 +74,7 @@ _SNAPSHOT_KEYS = (
 
 
 def shanghai_today_ymd() -> str:
+    """东八区今日日期字符串 YYYY-MM-DD。"""
     return shanghai_today_date().isoformat()
 
 
@@ -47,6 +94,9 @@ def parse_added_date_param(raw: str | None) -> str | None:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+# --- 快照字段归一化 ---
 
 
 def _norm_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
@@ -76,6 +126,9 @@ def _norm_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
                 else (s[:10] if s else None)
             )
     return out
+
+
+# --- 写入：抓快照并记录加入 ---
 
 
 def watchlist_add_snapshot_for_symbols(
@@ -117,6 +170,7 @@ def watchlist_add_snapshot_for_symbols(
 
 
 def log_row_snapshot_fields(row: WatchlistAddLogRow) -> dict[str, Any]:
+    """从 ORM 行提取 _SNAPSHOT_KEYS 字段，供 API 响应序列化。"""
     return _norm_snapshot({k: getattr(row, k, None) for k in _SNAPSHOT_KEYS})
 
 
@@ -174,7 +228,11 @@ def record_watchlist_adds_with_snapshot(
         )
 
 
+# --- 查询：按日 / 区间 / 最近加入时间 ---
+
+
 def list_watchlist_add_dates(session: Session, *, limit: int = 120) -> list[str]:
+    """返回 watchlist_add_log 中出现过的东八区日期（distinct，新→旧）。"""
     rows = session.execute(
         select(WatchlistAddLogRow.added_date)
         .distinct()
@@ -251,6 +309,7 @@ def symbols_added_on_date(session: Session, added_date: str) -> list[tuple[str, 
 
 
 def count_adds_on_date(session: Session, added_date: str) -> int:
+    """指定东八区日期的加入日志条数（含重复 symbol，未去重）。"""
     d = parse_added_date_param(added_date)
     if not d:
         return 0

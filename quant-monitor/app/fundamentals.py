@@ -1,8 +1,55 @@
 """
-扩展因子（Demo）：东财 A 股列表估值、财务主要指标同比、个股日级主力净流入。
+扩展因子（Demo）：东财估值、财报主要指标、个股日级主力净流入的拉取、缓存与入库。
 
-- 全市场 spot 表按 TTL 内存缓存，批量更新自选时共用，减轻限流。
-- 入库表 fundamental_snapshots；信号侧读取后与技术面分数做有界合成（非投资建议）。
+## 功能作用
+
+本模块从 AkShare / 东财接口拉取 A 股**扩展基本面因子**，组装为 `FundamentalPanel`，
+写入 SQLite `fundamental_snapshots`，供 **④ 信号** 与 **③ ingest** 展示/合成使用。
+
+数据源概览：
+
+| 类别 | 接口 / 表 | 说明 |
+|------|-----------|------|
+| 估值 PE/PB | `stock_zh_a_spot_em` 全 A 列表 | TTL 内存缓存，批量自选共用 |
+| 估值兜底 | `stock_value_em` | spot 缺字段时单股补 PE(TTM)/PB |
+| 财报指标 | `stock_financial_analysis_indicator_em` | 最近报告期：同比、ROE、杠杆、现金流等 |
+| 主力资金 | `stock_individual_fund_flow` | 日级净流入；失败时 push2 直连 fallback |
+| 流动性 | 同上 spot 表 | `spot_liquidity_fields_for_codes` 供 ingest / 信号 |
+
+**非投资建议**：规则为 Demo 启发式，`fundamental_score_delta` 对技术面分数做 **±15** 有界调整。
+
+## 数据流
+
+```
+AkShare/东财 → build_fundamental_panels_dual → upsert_fundamental_snapshot → fundamental_snapshots
+                                                      ↓
+                              load_fundamental_panel_from_db → signals.compute_signal 合成得分
+```
+
+- **双行面板**：`build_fundamental_panels_dual` 返回 (今/执行日, 昨/上一档)，资金流行按
+  执行日、入库末根日、本地 bars 优先级选取；昨行主要用于 ③ 上下行对比展示。
+- **spot 缓存**：`_get_spot_em_df` 进程内 TTL（`fundamentals_spot_cache_ttl_sec`），
+  估值与流动性共用，减轻东财限流。
+
+## 对外接口（常用）
+
+| 函数 | 用途 |
+|------|------|
+| `upsert_fundamental_snapshot` | `POST /ingest/fundamentals`：拉远端并 upsert 单只 |
+| `build_fundamental_panels_dual` | 拉远端组装今/昨双 panel（不写库） |
+| `build_fundamental_panel` | 仅「当前」panel 的便捷封装 |
+| `load_fundamental_panel_from_db` | 信号侧只读缓存 |
+| `fundamental_score_delta` | Demo 规则 → 技术面分调整量与 reasons |
+| `spot_liquidity_fields_for_codes` | 全 A spot 流动性字段（换手率/量/额） |
+| `fetch_valuation_from_spot` | 单股 PE/PB |
+| `fetch_individual_fund_flow_*` | 资金流最近行/指标（选股、预览用） |
+| `em_seccode` / `em_fund_flow_market` | 东财 secid / 市场 sh|sz|bj |
+
+## 限制说明
+
+- 表内仅存**每标的最新一行**快照，**不能**用于 `forecast_validate` 的历史 walk-forward
+  （避免用今日财务冒充过去每一天的可知信息）。
+- 财报为最近一期；资金流为日级非 tick；盘中可能无「当日」资金行则回退末收日。
 """
 
 from __future__ import annotations
@@ -29,10 +76,15 @@ from app.schemas import FundamentalPanel, SignalReason
 
 logger = logging.getLogger(__name__)
 
+# --- 东财全 A spot 内存缓存（估值 + 流动性共用） ---
+
 _spot_lock = threading.Lock()
 _spot_mono_ts: float = 0.0
 _spot_df: pd.DataFrame | None = None
 _spot_fetched_at_iso: str | None = None
+
+
+# --- 时间与东财代码映射 ---
 
 
 def _now_iso() -> str:
@@ -44,6 +96,7 @@ def _shanghai_today_ymd() -> str:
 
 
 def em_seccode(sym: str) -> str:
+    """6 位代码 → 东财 secid 后缀形式，如 600519 → 600519.SH。"""
     s = normalize_symbol(sym)
     if s.startswith("6"):
         return f"{s}.SH"
@@ -53,12 +106,16 @@ def em_seccode(sym: str) -> str:
 
 
 def em_fund_flow_market(sym: str) -> str:
+    """AkShare 个股资金流 market 参数：sh / sz / bj。"""
     s = normalize_symbol(sym)
     if s.startswith(("8", "4")):
         return "bj"
     if s.startswith("6"):
         return "sh"
     return "sz"
+
+
+# --- 估值 PE/PB（spot 表 + 单股兜底） ---
 
 
 def _get_spot_em_df(*, force_refresh: bool = False) -> pd.DataFrame | None:
@@ -148,6 +205,7 @@ def _fetch_valuation_from_value_em(sym: str) -> tuple[float | None, float | None
 def fetch_valuation_from_spot(
     sym: str, *, force_refresh: bool = False
 ) -> tuple[float | None, float | None]:
+    """优先全 A spot 行读 PE/PB；缺失时 fallback `stock_value_em` 单股接口。"""
     df = _get_spot_em_df(force_refresh=force_refresh)
     row = _spot_row_for_symbol(sym, df) if df is not None else None
     pe, pb = (None, None) if row is None else _read_pe_pb_from_spot_row(row)
@@ -171,6 +229,9 @@ def _fin_float(row: pd.Series, key: str) -> float | None:
     except (TypeError, ValueError):
         return None
     return f if math.isfinite(f) else None
+
+
+# --- 财报主要指标（最近报告期） ---
 
 
 def fetch_financial_em_main(sym: str) -> dict[str, Any]:
@@ -255,6 +316,9 @@ def _spot_quote_calendar_date_str(row: pd.Series) -> str | None:
     return None
 
 
+# --- 流动性 spot 字段（供 ingest / eastmoney_liquidity） ---
+
+
 def spot_liquidity_fields_for_codes(
     codes: list[str],
     *,
@@ -298,18 +362,27 @@ def spot_liquidity_fields_for_codes(
             tr = _fin_float(row, tr_key)
             if tr is not None and math.isfinite(tr):
                 break
+        spot_vol = _fin_float(row, "成交量")
+        if spot_vol is None:
+            spot_vol = _fin_float(row, "总手")
+        spot_amt = _fin_float(row, "成交额")
+        if spot_amt is None:
+            spot_amt = _fin_float(row, "总金额")
         out[sym] = {
             "spot_last_price": px,
             "spot_prev_close": _fin_float(row, "昨收"),
             "spot_change_pct": chg,
-            "spot_volume": _fin_float(row, "成交量"),
-            "spot_amount": _fin_float(row, "成交额"),
+            "spot_volume": spot_vol,
+            "spot_amount": spot_amt,
             "spot_turnover_rate": round(float(tr), 4) if tr is not None and math.isfinite(tr) else None,
             "spot_quote_date": qd,
             "spot_fetched_at": fetched_at or _now_iso(),
             "spot_data_source": "eastmoney_spot_em",
         }
     return out
+
+
+# --- 个股日级主力资金流 ---
 
 
 def _parse_fund_flow_row_date(row: pd.Series) -> str | None:
@@ -546,6 +619,9 @@ def fetch_latest_main_flow(sym: str) -> tuple[float | None, str | None, str | No
     return _main_flow_from_row(last), trade_date, basis
 
 
+# --- 因子面板组装 ---
+
+
 def _assemble_fundamental_panel(
     fin: dict[str, Any],
     *,
@@ -610,6 +686,9 @@ def _ingest_context_for_fundamentals(sym: str, ingest_row: dict[str, Any] | None
     exec_d = str(row.get("ingest_exec_date") or _shanghai_today_ymd())[:10]
     bar_d = str(row.get("display_bar_trade_date") or row.get("last_trade_date") or "")[:10] or None
     return {"exec_date": exec_d, "bar_trade_date": bar_d}
+
+
+# --- 拉取远端：双行 panel / 单 panel ---
 
 
 def build_fundamental_panels_dual(
@@ -753,8 +832,16 @@ def build_fundamental_panel(sym: str, *, force_spot_refresh: bool = False) -> Fu
     return panel_cur
 
 
+# --- 信号合成：Demo 基本面分调整 ---
+
+
 def fundamental_score_delta(panel: FundamentalPanel) -> tuple[int, list[SignalReason]]:
-    """Demo：估值 / 成长 / 资金流 / 盈利与杠杆启发式，总和限制在 [-15, 15]。"""
+    """
+    根据 `FundamentalPanel` 计算对技术面分数的有界调整量（Demo 启发式）。
+
+    覆盖估值 PE/PB、成长同比、主力净流入、ROE、负债率、流动比率、毛利率、
+    经营现金流等；原始加总限制在 [-15, 15]，并返回对应 `SignalReason` 列表。
+    """
     raw = 0
     reasons: list[SignalReason] = []
     pe = panel.pe_dynamic
@@ -855,7 +942,11 @@ def fundamental_score_delta(panel: FundamentalPanel) -> tuple[int, list[SignalRe
     return delta, reasons
 
 
+# --- SQLite 读取与 upsert ---
+
+
 def load_fundamental_panel_from_db(symbol: str) -> FundamentalPanel | None:
+    """从 `fundamental_snapshots` 读取单标的最新快照；无记录时返回 None。"""
     sym = normalize_symbol(symbol)
     with session_scope() as s:
         row = s.execute(select(FundamentalSnapshotRow).where(FundamentalSnapshotRow.symbol == sym)).scalar_one_or_none()
@@ -884,7 +975,14 @@ def load_fundamental_panel_from_db(symbol: str) -> FundamentalPanel | None:
 def upsert_fundamental_snapshot(
     sym: str, *, ingest_row: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """拉取远端并 upsert；返回 JSON 友好摘要（含 snapshot / snapshot_prev 双行）。"""
+    """
+    拉取远端因子并 upsert 到 `fundamental_snapshots`（按 symbol 唯一）。
+
+    `ingest_row` 可选：传入 ③ 结果行时，资金流行与执行日/末根日对齐更准确。
+
+    返回 JSON 友好 dict：`ok`、`snapshot`、可选 `snapshot_prev`、
+    `ingest_exec_date`、`display_bar_trade_date` 等。
+    """
     sym = normalize_symbol(sym)
     try:
         panel, panel_prev = build_fundamental_panels_dual(

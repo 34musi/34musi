@@ -1,4 +1,44 @@
-"""⑩ 持仓目标测算：留仓 vs 换仓 + 自选池备选（Demo，非投资建议）。"""
+"""
+⑩ 持仓目标测算：距目标进度 + 留仓/换仓 Demo 路径（非投资建议）。
+
+## 功能作用
+
+本模块为控制台 **⑩ 持仓记录** 提供「起始资金 → 目标资金」相关的规则化测算：
+
+1. **目标进度**（`compute_goal_progress`）：汇总全部持仓（含已平仓）浮动/已实现盈亏，
+   估算当前权益、距目标差距与完成度 %。
+2. **目标路径**（`compute_holding_goal_plan`）：对单条**持仓中**记录，结合离场压力分、
+   ④ 适合度，扫描 **② 自选池**备选，给出留/走/换/达标结论与分步说明。
+3. **当日测算**（`live_mode` + `check_goal_plan_live_readiness`）：联网现价补写今日 K 线，
+   信号与浮盈亏含当日（盘中为参考价，非 tick）。
+
+## 决策逻辑概要
+
+| 输出 | 含义 |
+|------|------|
+| `position_decision` | `hold` / `watch` / `switch` / `goal_reached` |
+| `daily_verdict` | 收盘口径一句话：**留** / **走** / **换** / **达标** |
+
+核心输入来自 `holdings.compute_holding_exit_advice`（离场压力 0–100）与
+自选池 `_scan_watchlist_picks`（按适合度排序 Top N）。`_decide_position` 比较
+当前适合度与最佳备选差距（`alt_edge`）及 `gap_to_target` 是否已达标。
+
+## 对外接口
+
+| 函数 | 用途 |
+|------|------|
+| `compute_goal_progress` | `GET /holdings/goal-progress` |
+| `compute_holding_goal_plan` | `POST /holdings/{id}/goal-plan` 与 `goal-plan-live` |
+| `check_goal_plan_live_readiness` | `GET …/goal-plan-live/preflight` 预检数据是否齐全 |
+
+## 依赖与模式
+
+- **daily 模式**：按最近入库收盘 K 线与列表现价（可选 `current_price`）。
+- **live 模式**：`ensure_today_bar_for_live_signal` + `compute_signal(use_today_bar=True)`。
+- 附 `_estimate_near_term_price_outlook`：基于 MA20/60 日高/趋势给出近几日参考价区间（规则推算，非预测）。
+
+**Demo 免责声明**：不能预测涨跌，不构成买卖指令；实盘请自行决策并设止损。
+"""
 
 from __future__ import annotations
 
@@ -40,6 +80,8 @@ from app.signals import compute_signal
 PositionDecision = Literal["hold", "switch", "watch", "goal_reached"]
 DailyVerdict = Literal["留", "走", "换", "达标"]
 
+# --- 免责声明文案 ---
+
 _GOAL_DISCLAIMER = (
     "以下为规则化 Demo 结论：基于最近收盘 K 线、④适合度与离场压力分，"
     "不能预测次日涨跌，不构成买卖指令；实盘请自行决策并设止损。"
@@ -51,6 +93,9 @@ _GOAL_DISCLAIMER_LIVE = (
 )
 
 _DAILY_CLOSE_PRICE_SOURCES = frozenset({"local_daily_close", "daily_close", "daily_bar"})
+
+
+# --- 交易时段与账户汇总 ---
 
 
 def _shanghai_session_phase() -> tuple[str, str]:
@@ -97,7 +142,10 @@ def _portfolio_pnl_breakdown(holdings: list[HoldingOut]) -> tuple[float, float, 
             closed_n += 1
             if h.realized_pnl_amt is not None:
                 closed_pnl += float(h.realized_pnl_amt)
-    return round(holding_pnl, 2), round(closed_pnl, 2), holding_n, closed_n
+    return round(holding_pnl + closed_pnl, 2), holding_n, closed_n
+
+
+# --- 目标进度（全账户） ---
 
 
 def compute_goal_progress(
@@ -106,7 +154,11 @@ def compute_goal_progress(
     start_capital: float,
     target_capital: float,
 ) -> HoldingGoalProgressOut:
-    """按本机全部持仓（含已平仓）估算当前权益与距目标差距。"""
+    """
+    按本机全部持仓（含已平仓）估算当前权益与距目标差距。
+
+    当前权益 ≈ 起始资金 + 浮动盈亏 + 已实现盈亏；返回完成度 % 与中文 summary。
+    """
     if target_capital <= start_capital:
         raise ValueError("目标资金须大于起始资金")
 
@@ -159,7 +211,11 @@ def compute_goal_progress(
     )
 
 
+# --- 信号文案与近端价位参考 ---
+
+
 def _pick_reason(sig: Any) -> str:
+    """从 SignalOut 提取自选候选的简短理由文案。"""
     parts: list[str] = []
     if getattr(sig, "trend", None) == "bullish":
         parts.append("趋势偏多")
@@ -301,6 +357,9 @@ def _signal_scores_for_mode(sig: Any, *, live_mode: bool = False) -> tuple[int, 
         str(sig.strength),
         str(sig.position_hint),
     )
+
+
+# --- 当日测算预检 ---
 
 
 def check_goal_plan_live_readiness(
@@ -453,6 +512,9 @@ def check_goal_plan_live_readiness(
     )
 
 
+# --- 自选池扫描 ---
+
+
 def _scan_watchlist_picks(
     session: Session,
     *,
@@ -516,12 +578,21 @@ def _scan_watchlist_picks(
     return [p for _, p in scored[:limit]]
 
 
+# --- 留/走/换决策 ---
+
+
 def _decide_position(
     exit_advice: HoldingExitAdviceOut,
     picks: list[WatchlistPickOut],
     *,
     gap: float,
 ) -> tuple[PositionDecision, str]:
+    """
+    根据离场压力、当前/备选适合度与距目标 gap，返回决策枚举与中文摘要。
+
+    规则要点：gap≤0 → goal_reached；离场压力≥65 倾向 switch；
+    alt_edge 与 cur_score 差距大且 gap>0 时考虑换仓；否则 hold/watch。
+    """
     cur_score = exit_advice.buy_suitability_score or 0
     best_alt = picks[0].buy_suitability_score if picks else 0
     alt_edge = best_alt - cur_score
@@ -619,6 +690,9 @@ def _resolve_daily_verdict(
     return "留", f"暂无明确卖出信号，可先持有 {symbol}；收盘后或次日开盘前再测一次。", None
 
 
+# --- 主入口：单持仓目标路径 ---
+
+
 def compute_holding_goal_plan(
     row: HoldingRow,
     *,
@@ -629,6 +703,19 @@ def compute_holding_goal_plan(
     current_price: float | None = None,
     live_mode: bool = False,
 ) -> HoldingGoalPlanOut:
+    """
+    对单条持仓中记录测算「起始→目标」Demo 路径（主入口）。
+
+    流程：汇总账户权益与 gap → 离场建议 → 扫描自选 Top5 → 决策留/换/观察/达标
+    → 生成 daily_verdict、近端价位参考、分步 steps 列表。
+
+    参数:
+        live_mode: True 时使用当日 K 线（需预检或 ensure today bar）；False 为收盘口径。
+        current_price: daily 模式下可选，与列表「当前价格」列一致。
+
+    返回:
+        `HoldingGoalPlanOut`（含 exit_advice、watchlist_picks、steps、disclaimer_note）。
+    """
     if row.status != HOLDING_STATUS_HOLDING:
         raise ValueError("仅持仓中记录可测算目标路径")
     if target_capital <= start_capital:

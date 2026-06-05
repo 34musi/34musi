@@ -1,8 +1,46 @@
 """
-增强信号层（Demo）：在技术面 + 扩展因子之上叠加量能/流动性、技术确认（RSI/MACD/突破）、
-相对沪深300超额、事件风险提示、简易历史分位与多条件买入门控。
+增强信号层（Demo）：在技术面 + 扩展因子之上叠加多维评分与买入门控。
 
-供 GET /signals 与「④ 查看信号」展示；非投资建议。
+## 功能作用
+
+本模块为 `compute_signal`（`app/signals.py`）提供 **增强层** 计算：在
+`_build_signal_metrics` 产出的基础分（技术面 + 扩展因子调整）之上，再叠加：
+
+- **流动性**：近 20 日日均成交额、东财快照成交额/换手率；
+- **技术确认**：RSI(14)、MACD 柱、ATR(14) 占价比、60 日高点突破；
+- **相对强度**：个股 5/10/20 日收益 vs 沪深300（东财日线，带缓存与多级 fallback）；
+- **事件风险**：ST/退市字样、临近涨停区、财报期窗口；
+- **历史分位**：自身 20 日涨幅在近史中的分位（过热/偏弱判断）。
+
+最终合成 `enhanced_buy_score`，经 **多条件门控**（`buy_gates`）得出
+`buy_verdict`（strong_trial / trial / watch / avoid），并按 ATR 缩放示例仓位区间。
+
+供 `GET /signals` 与控制台「④ 查看信号」展示；**非投资建议**。
+
+## 主要逻辑块
+
+| 块 | 函数 | 说明 |
+|----|------|------|
+| 技术指标 | `_rsi`, `_macd_hist`, `_atr_pct`, `_pct_change_series` | 纯 pandas 计算，供确认层使用 |
+| 基准收益 | `_benchmark_returns*` | 沪深300 5/10/20 日收益；akshare → 腾讯 → 本地 DB |
+| 分项调整 | `_liquidity_adjustment` 等 5 个 `_`*_adjustment` | 各返回 (分值, reasons, meta)，有界 clamp |
+| 门控与结论 | `_build_buy_gates`, `_resolve_verdict` | 8 项门控 +  verdict 规则 |
+| 对外入口 | `build_signal_enhanced`, `apply_enhanced_to_signal_dict` | 构建 `SignalEnhancedOut` 并写回 signal dict |
+
+## 对外接口
+
+| 函数 | 调用方 | 用途 |
+|------|--------|------|
+| `build_signal_enhanced` | `signals.compute_signal` | 输入 K 线 df + base metrics，返回完整增强结构 |
+| `apply_enhanced_to_signal_dict` | `signals.compute_signal` | 将增强分/门控/verdict/reasons 合并进响应 dict |
+
+## 约定
+
+- `base` dict 须含 `trend/strength/risk_tags/meta/technical_score/fundamental_adjustment/
+  buy_suitability_score/suggested_position_pct` 等（由 `_build_signal_metrics` 提供）；
+- 基准 `_BENCH_CACHE` TTL 默认 3600 秒，避免频繁联网拉指数；
+- 各 adjustment 分值有独立上下界（如流动性 ±10、技术确认 ±12），合成后再 clamp 到 0–100；
+- `BuyVerdict` 与 `schemas.BuyVerdict` 取值一致，门控通过数与 critical 项共同决定 verdict。
 """
 
 from __future__ import annotations
@@ -29,9 +67,13 @@ logger = logging.getLogger(__name__)
 
 BuyVerdict = Literal["strong_trial", "trial", "watch", "avoid"]
 
+# 沪深300 基准收益进程内缓存（TTL 见 _BENCH_TTL_SEC）
 _BENCH_CACHE: dict[str, Any] = {"ret_5d": None, "ret_10d": None, "ret_20d": None, "fetched_at": 0.0}
 _BENCH_TTL_SEC = 3600.0
 _BENCH_LABEL = "沪深300(东财日线)"
+
+
+# --- 技术指标辅助 ---
 
 
 def _rsi(close: pd.Series, period: int = 14) -> float:
@@ -89,6 +131,9 @@ def _pct_change_series(s: pd.Series, n: int) -> float:
     if prev == 0 or not math.isfinite(prev) or not math.isfinite(cur):
         return float("nan")
     return (cur - prev) / abs(prev)
+
+
+# --- 沪深300 基准收益（带缓存与 fallback） ---
 
 
 def _benchmark_returns_from_local() -> dict[str, float | None]:
@@ -194,6 +239,9 @@ def _benchmark_returns() -> dict[str, float | None]:
     return out
 
 
+# --- 持仓上下文（可选附加到 enhanced meta） ---
+
+
 def _holding_hint_for_symbol(sym: str) -> dict[str, Any] | None:
     try:
         from sqlalchemy import select
@@ -228,6 +276,9 @@ def _parse_ymd(s: str | None) -> datetime | None:
         return datetime.strptime(str(s)[:10], "%Y-%m-%d")
     except ValueError:
         return None
+
+
+# --- 增强分项调整（liquidity / tech / RS / event / momentum） ---
 
 
 def _liquidity_adjustment(
@@ -463,6 +514,9 @@ def _momentum_percentile_adjustment(df: pd.DataFrame, ret20: float) -> tuple[int
     return int(max(-5, min(5, raw))), reasons, meta
 
 
+# --- 仓位缩放、买入门控与 verdict ---
+
+
 def _atr_scaled_position(
     base: SuggestedPositionPctOut,
     atr_pct: float | None,
@@ -620,6 +674,9 @@ def _resolve_verdict(
     return ("avoid", "门控或分数不足：Demo 不建议新开仓")
 
 
+# --- 对外入口 ---
+
+
 def build_signal_enhanced(
     df: pd.DataFrame,
     *,
@@ -630,8 +687,11 @@ def build_signal_enhanced(
     live_liquidity: dict[str, Any] | None = None,
 ) -> SignalEnhancedOut:
     """
-    在 _build_signal_metrics 的 base 结果上叠加增强层。
-    base 需含 trend/strength/risk_tags/meta/technical_score/fundamental_adjustment/suggested_position_pct 等。
+    在 `_build_signal_metrics` 的 base 结果上叠加增强层，返回 `SignalEnhancedOut`。
+
+    `base` 须含 trend/strength/risk_tags/meta/technical_score/fundamental_adjustment/
+    buy_suitability_score/suggested_position_pct/as_of_date/close 等字段。
+    `live_liquidity` 可选传入东财 spot 成交额、换手率，用于流动性分项。
     """
     meta = dict(base.get("meta") or {})
     technical = int(base.get("technical_score") or 0)
@@ -750,7 +810,12 @@ def build_signal_enhanced(
 
 
 def apply_enhanced_to_signal_dict(base: dict[str, Any], enhanced: SignalEnhancedOut) -> None:
-    """把增强层写回 compute_signal 用的 dict（reasons/meta/仓位）。"""
+    """
+    将增强层字段写回 `compute_signal` 使用的 dict（原地修改）。
+
+    写入 enhanced 子结构、enhanced_buy_score、buy_verdict、buy_gates；
+    合并 meta、追加 enhancement_reasons；若有 ATR 缩放仓位则覆盖 suggested_position_pct。
+    """
     base["enhanced"] = enhanced
     base["enhanced_buy_score"] = enhanced.enhanced_buy_score
     base["buy_verdict"] = enhanced.buy_verdict

@@ -362,6 +362,55 @@
       color: var(--text);
       font-size: 0.9rem;
     }
+    .hd-auto-refresh-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+      margin: 0.65rem 0 0;
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .hd-auto-refresh-bar label { margin-bottom: 0; }
+    .hd-auto-refresh-bar select {
+      min-width: 6.5rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.88rem;
+    }
+    .hd-auto-refresh-hint {
+      color: var(--muted);
+      font-size: 0.78rem;
+      flex: 1 1 12rem;
+      min-width: 10rem;
+    }
+    .hd-auto-refresh-hint.is-active { color: var(--accent); }
+    .hd-auto-refresh-bar .hd-notify-url-in {
+      flex: 1 1 14rem;
+      min-width: 10rem;
+      max-width: 28rem;
+      padding: 0.38rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.86rem;
+    }
+    #panel-10 .hd-pick-col {
+      width: 2.25rem;
+      text-align: center;
+      vertical-align: middle;
+    }
+    #panel-10 .hd-pick-col input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      cursor: pointer;
+    }
     .hd-entry-mode-row {
       display: flex;
       flex-wrap: wrap;
@@ -3811,8 +3860,33 @@
             查看上次测算
           </button>
         </div>
+        <div class="hd-auto-refresh-bar" id="hdAutoRefreshBar">
+          <span class="wl-daily-view-label">定时刷新现价</span>
+          <label for="hdAutoRefreshSec">间隔</label>
+          <select id="hdAutoRefreshSec" title="联网刷新勾选行的现价并写回库">
+            <option value="30">30 秒</option>
+            <option value="60" selected>60 秒</option>
+            <option value="120">2 分钟</option>
+            <option value="300">5 分钟</option>
+          </select>
+          <label for="hdNotifyUrl">通知地址</label>
+          <input
+            type="url"
+            id="hdNotifyUrl"
+            class="hd-notify-url-in"
+            placeholder="https://你的服务/webhook"
+            autocomplete="off"
+            title="每次刷新成功后，服务端将把 JSON 结果 POST 到此地址"
+          />
+          <button type="button" class="secondary" id="btnHdPickHolding">勾选持仓中</button>
+          <button type="button" class="secondary" id="btnHdClearPick">清空勾选</button>
+          <button type="button" class="secondary" id="btnHdNotifyTest" title="用当前勾选行或缓存数据试发一条，不刷新现价">测试通知</button>
+          <button type="button" class="primary" id="btnHdAutoRefreshStart">开始定时刷新</button>
+          <button type="button" class="secondary" id="btnHdAutoRefreshStop" hidden>停止</button>
+          <span class="hd-auto-refresh-hint" id="hdAutoRefreshHint">填写通知地址、勾选记录后点「开始」；每次刷新后推送 JSON 到该地址。</span>
+        </div>
         <div id="hd-table-wrap" class="wl-table-scroll" style="margin-top:0.75rem;">
-          <p class="lead" style="margin:0">进入本页<strong>不会</strong>自动加载。点「<strong>查询</strong>」读库（拉取全部）；「<strong>显示</strong>」切换仅本地筛选。点「<strong>刷新列表</strong>」联网更新现价并写回库。「计算距目标」需手动点击。</p>
+          <p class="lead" style="margin:0">进入本页<strong>不会</strong>自动联网。点「<strong>查询</strong>」读库；「<strong>显示</strong>」仅本地筛选；「<strong>刷新列表</strong>」联网更新现价。上次列表与定时勾选会<strong>自动从本机缓存恢复</strong>展示。</p>
         </div>
         <div id="hd-advice-panel" class="hd-advice-panel" hidden aria-live="polite"></div>
         <pre class="out" id="out-10" hidden></pre>
@@ -4084,6 +4158,8 @@
   /** 上次「刷新列表」成功返回的自选全量（本机缓存） */
   var LS_LAST_WL_LIST = "quant_monitor_last_watchlist_v1";
   var LS_LAST_WL_KLINE_DATES = "quant_monitor_wl_kline_dates_v1";
+  /** ⑩ 持仓列表 + 定时刷新勾选（本机缓存，刷新页面后恢复展示） */
+  var LS_LAST_HD_LIST = "quant_monitor_last_holdings_v1";
   /** ② 批量拉取日线任务（刷新页面后恢复按钮 loading） */
   var LS_WL_REFETCH_JOB = "quant_monitor_wl_refetch_job_v1";
   var LS_INGEST_PAGE_SIZE = "quant_monitor_ingest_page_size";
@@ -4266,6 +4342,26 @@
   var _ingestPartialOffset = 0;
   var _ingestPartialMeta = {};
 
+  /** ④ 信号增量渲染：与③一致——后端边算边 push，前端按 offset 增量拉，每来一只覆盖渲染 */
+  var _signalsPartialResults = [];
+  var _signalsPartialOffset = 0;
+  var _signalsPartialMeta = {};
+  /** ④ POST /signals 未返回前，避免轮询因 active=false 提前结束按钮 */
+  var _signalsPostInFlight = false;
+
+  async function fetchSignalsPartialResults(offset) {
+    try {
+      var res = await fetch(
+        "/meta/symbols-batch-partial-results?scope=signals&offset=" + encodeURIComponent(offset),
+        { headers: authHeaders() }
+      );
+      if (!res.ok) return null;
+      return await readBody(res);
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function fetchIngestPartialResults(offset) {
     try {
       var res = await fetch(
@@ -4406,11 +4502,119 @@
     })();
   }
 
-  function startIngestBatchPoll(btnId, verb) {
+  function startIngestBatchPoll(btnId, verb, opts) {
+    opts = opts || {};
     stopBatchProgressPoll("ingest");
-    tickIngestBatchPoll(btnId, verb);
-    _batchProgressPolls.ingest = setInterval(function () {
+    if (opts.delayFirstTick) {
+      // POST 尚未发出时，延迟首次 tick 以等待服务端 active=true
+      _batchProgressPolls.ingest = setTimeout(function () {
+        tickIngestBatchPoll(btnId, verb);
+        _batchProgressPolls.ingest = setInterval(function () {
+          tickIngestBatchPoll(btnId, verb);
+        }, BATCH_PROGRESS_POLL_MS);
+      }, opts.delayFirstTick);
+    } else {
       tickIngestBatchPoll(btnId, verb);
+      _batchProgressPolls.ingest = setInterval(function () {
+        tickIngestBatchPoll(btnId, verb);
+      }, BATCH_PROGRESS_POLL_MS);
+    }
+  }
+
+  /**
+   * ④ 信号增量渲染：把已 push 的结果即时展示到 #signals-out-wrap，
+   * 不等 POST /signals 返回——和③ ingest 表格"来一个加一个"一致。
+   */
+  function renderSignalsIncremental(list, dataSource, preRefresh) {
+    var wrap = $("signals-out-wrap");
+    if (!wrap || !Array.isArray(list)) return;
+    // 过滤掉错误占位（仅 symbol+error），仅展示真信号
+    var okList = list.filter(function (it) {
+      return it && typeof it === "object" && !it.error && it.symbol;
+    });
+    wrap.hidden = false;
+    var headHtml = signalsFormHeaderHtml(dataSource || "auto", preRefresh ? "1" : "0");
+    if (!okList.length) {
+      // 还没有任何成功结果时，只放一个进度提示，避免清空过久
+      wrap.innerHTML =
+        headHtml +
+        '<p class="lead" style="margin:0">正在计算，已处理 ' +
+        list.length +
+        " 只…</p>";
+      return;
+    }
+    lastSignalsList = okList;
+    if (signalsResultPage < 1) signalsResultPage = 1;
+    _signalsPanelMeta = {
+      headHtml: headHtml,
+      skipNote:
+        '<p class="lead" style="margin:0.35rem 0 0;font-size:0.8rem;color:var(--muted);">已增量展示 <strong>' +
+        okList.length +
+        "</strong> 只成功结果（计算仍在进行，会持续追加）。</p>",
+      fundHint: "",
+      notesHtml: "",
+      body: okList,
+    };
+    paintSignalsPanelTable();
+  }
+
+  function tickSignalsBatchPoll(btnId, verb) {
+    if (_symbolsBatchStatusFetching.signals) return;
+    _symbolsBatchStatusFetching.signals = true;
+    void (async function () {
+      try {
+        var st = await fetchSymbolsBatchStatus("signals");
+        if (st && st.active) {
+          setActionButtonLoading(btnId, true, batchProgressLabel(st, verb));
+          var pr = await fetchSignalsPartialResults(_signalsPartialOffset);
+          if (pr && pr.results && pr.results.length > 0) {
+            _signalsPartialResults = _signalsPartialResults.concat(pr.results);
+            _signalsPartialOffset += pr.results.length;
+            if (pr.meta) _signalsPartialMeta = pr.meta;
+            renderSignalsIncremental(
+              _signalsPartialResults,
+              _signalsPartialMeta.data_source,
+              _signalsPartialMeta.pre_refresh
+            );
+          }
+          return;
+        }
+        if (_signalsPostInFlight) {
+          setActionButtonLoading(
+            btnId,
+            true,
+            st && st.total > 0 ? batchProgressLabel(st, verb) : verb + "…"
+          );
+          var prFinal = await fetchSignalsPartialResults(_signalsPartialOffset);
+          if (prFinal && prFinal.results && prFinal.results.length > 0) {
+            _signalsPartialResults = _signalsPartialResults.concat(prFinal.results);
+            _signalsPartialOffset += prFinal.results.length;
+            if (prFinal.meta) _signalsPartialMeta = prFinal.meta;
+            renderSignalsIncremental(
+              _signalsPartialResults,
+              _signalsPartialMeta.data_source,
+              _signalsPartialMeta.pre_refresh
+            );
+          }
+          return;
+        }
+        stopBatchProgressPoll("signals");
+        if (st && st.total > 0 && !st.active) {
+          finishActionButtonLoading(btnId, st, st.cancelled ? "已取消" : "完成");
+        } else {
+          setActionButtonLoading(btnId, false);
+        }
+      } finally {
+        _symbolsBatchStatusFetching.signals = false;
+      }
+    })();
+  }
+
+  function startSignalsBatchPoll(btnId, verb) {
+    stopBatchProgressPoll("signals");
+    tickSignalsBatchPoll(btnId, verb);
+    _batchProgressPolls.signals = setInterval(function () {
+      tickSignalsBatchPoll(btnId, verb);
     }, BATCH_PROGRESS_POLL_MS);
   }
 
@@ -4516,7 +4720,11 @@
     if (st && st.active && btn && !btn.classList.contains("btn-success")) {
       beginPanelServerTask("panel-4");
       setActionButtonLoading("btnSignalsAll", true, batchProgressLabel(st, "正在计算"));
-      startSymbolsBatchPoll("signals", "signals", "btnSignalsAll", "正在计算");
+      // 跨页面恢复：重置增量缓存并启动专属轮询，让进行中的任务继续把已算好的结果即时上屏
+      _signalsPartialResults = [];
+      _signalsPartialOffset = 0;
+      _signalsPartialMeta = {};
+      startSignalsBatchPoll("btnSignalsAll", "正在计算");
     }
   }
 
@@ -4952,17 +5160,16 @@
     if (id === "5") {
       void syncPanel5AlertsBtnFromServer();
     }
+    if (id !== "10") {
+      hdStopAutoRefresh({ silent: true });
+    }
     if (id === "9") {
       tryRestoreLastQssSectorScreenFromStorage();
       tryRestoreLastQssSingleFromStorage();
     }
     if (id === "7") void refreshForwardOutlookPanel();
     if (id === "10") {
-      hdResetFilterDisplay();
-      hdLoadEntryMode();
-      hdInitArchiveDates();
-      hdUpdateGoalLastBtnState();
-      hdShowHoldingsIdle();
+      hdEnterPanel10();
     }
   }
 
@@ -15254,12 +15461,25 @@
     _ingestPartialResults = [];
     _ingestPartialOffset = 0;
     _ingestPartialMeta = {};
+    (function () {
+      var w = $("ingest-result-wrap");
+      if (w) {
+        var oldBanner = w.querySelector(".ingest-cache-banner");
+        if (oldBanner) oldBanner.remove();
+        if (!w.hidden && w.innerHTML) {
+          w.insertAdjacentHTML(
+            "afterbegin",
+            '<p class="lead ingest-updating-banner" style="margin:0 0 0.65rem;padding:0.45rem 0.6rem;border-radius:6px;background:rgba(61,139,253,0.12);border:1px solid rgba(61,139,253,0.35);font-size:0.82rem;">正在<strong>开始更新自选行情</strong>… 完成后下方表格将刷新为本次结果。</p>'
+          );
+        }
+      }
+    })();
     setActionButtonLoading(
       "btnIngest",
       true,
       batchProgressLabel({ done: 0, total: totalHint }, "正在更新")
     );
-    startIngestBatchPoll("btnIngest", "正在更新");
+    startIngestBatchPoll("btnIngest", "正在更新", { delayFirstTick: 500 });
     try {
       lastIngestRequestDates = { start: null, end: null };
       var payload = { data_source: getIngestDataSource(), skip_bars: true };
@@ -15273,7 +15493,7 @@
       });
       var body = await readBody(res);
       if (res.ok) {
-        renderIngestResult(body);
+        renderIngestResult(body, { fromStorage: false });
         if (body && body.cancelled) {
           showOut3("更新已取消：仅完成部分自选，详见下方表格。", true);
         } else if (body && body.fundamentals_cancelled) {
@@ -15319,7 +15539,12 @@
       true,
       batchProgressLabel({ done: 0, total: totalHint }, "正在计算")
     );
-    startSymbolsBatchPoll("signals", "signals", "btnSignalsAll", "正在计算");
+    // 重置增量缓存并启动专属轮询：每来一只就追加渲染（与③一致）
+    _signalsPartialResults = [];
+    _signalsPartialOffset = 0;
+    _signalsPartialMeta = {};
+    _signalsPostInFlight = true;
+    startSignalsBatchPoll("btnSignalsAll", "正在计算");
     var w = $("signals-out-wrap");
     try {
       var res = await fetchCancel("panel-4", "/signals" + signalsQuerySuffix(subset), {
@@ -15344,6 +15569,7 @@
           : '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
       }
     } finally {
+      _signalsPostInFlight = false;
       stopBatchProgressPoll("signals");
       endPanelServerTask("panel-4");
       var stFin = await fetchSymbolsBatchStatus("signals");
@@ -15693,12 +15919,465 @@
   }
 
   var _hdHoldingsListCache = null;
+  var _hdAutoRefreshTimer = null;
+  var _hdAutoRefreshInFlight = false;
+  var _hdAutoRefreshSelectedIds = Object.create(null);
+
+  function hdAutoRefreshSelectedIdList() {
+    return Object.keys(_hdAutoRefreshSelectedIds)
+      .map(function (k) {
+        return parseInt(k, 10);
+      })
+      .filter(function (n) {
+        return isFinite(n) && n > 0;
+      });
+  }
+
+  function hdIsAutoRefreshPicked(id) {
+    return !!_hdAutoRefreshSelectedIds[String(id)];
+  }
+
+  function hdSetAutoRefreshPicked(id, on) {
+    var key = String(id);
+    if (on) _hdAutoRefreshSelectedIds[key] = true;
+    else delete _hdAutoRefreshSelectedIds[key];
+    persistHoldingsSnapshot();
+  }
+
+  function persistHoldingsSnapshot() {
+    try {
+      if (
+        !_hdHoldingsListCache ||
+        !Array.isArray(_hdHoldingsListCache.allItems) ||
+        !_hdHoldingsListCache.allItems.length
+      ) {
+        localStorage.removeItem(LS_LAST_HD_LIST);
+        return;
+      }
+      var secEl = $("hdAutoRefreshSec");
+      var notifyEl = $("hdNotifyUrl");
+      localStorage.setItem(
+        LS_LAST_HD_LIST,
+        JSON.stringify({
+          ts: Date.now(),
+          allItems: _hdHoldingsListCache.allItems,
+          pickedIds: hdAutoRefreshSelectedIdList(),
+          autoRefreshSec: secEl && secEl.value ? String(secEl.value) : "60",
+          notifyUrl: notifyEl && notifyEl.value ? String(notifyEl.value).trim() : "",
+        })
+      );
+    } catch (ePersistHd) {
+      try {
+        console.warn("quant-monitor: 无法缓存持仓列表", ePersistHd);
+      } catch (e2) {}
+    }
+  }
+
+  function hdHydrateHoldingsFromStorage() {
+    try {
+      var raw = localStorage.getItem(LS_LAST_HD_LIST);
+      if (!raw) return false;
+      var data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.allItems) || !data.allItems.length) return false;
+      _hdHoldingsListCache = { allItems: data.allItems };
+      _hdAutoRefreshSelectedIds = Object.create(null);
+      var validIds = Object.create(null);
+      data.allItems.forEach(function (it) {
+        if (it && it.id != null) validIds[String(it.id)] = true;
+      });
+      (data.pickedIds || []).forEach(function (id) {
+        var key = String(id);
+        if (validIds[key]) _hdAutoRefreshSelectedIds[key] = true;
+      });
+      var secEl = $("hdAutoRefreshSec");
+      if (secEl && data.autoRefreshSec) secEl.value = String(data.autoRefreshSec);
+      var notifyEl = $("hdNotifyUrl");
+      if (notifyEl && data.notifyUrl) notifyEl.value = String(data.notifyUrl);
+      return true;
+    } catch (eHydrateHd) {
+      return false;
+    }
+  }
+
+  function ensureHdCacheHydrated() {
+    if (_hdHoldingsListCache && Array.isArray(_hdHoldingsListCache.allItems) && _hdHoldingsListCache.allItems.length) {
+      return true;
+    }
+    return hdHydrateHoldingsFromStorage();
+  }
+
+  function hdEnterPanel10() {
+    hdResetFilterDisplay();
+    hdLoadEntryMode();
+    hdInitArchiveDates();
+    hdUpdateGoalLastBtnState();
+    ensureHdCacheHydrated();
+    if (_hdHoldingsListCache && Array.isArray(_hdHoldingsListCache.allItems) && _hdHoldingsListCache.allItems.length) {
+      hdRestoreHoldingsTableFromCache();
+      void refreshHoldingsReviewSummary();
+      var n = hdAutoRefreshSelectedIdList().length;
+      var total = _hdHoldingsListCache.allItems.length;
+      hdUpdateAutoRefreshHint(
+        n
+          ? "已恢复 " + total + " 条列表；已勾选 " + n + " 条（可开始定时刷新）。"
+          : "已恢复 " + total + " 条列表；勾选记录后可开始定时刷新。",
+        false
+      );
+    } else {
+      hdShowHoldingsIdle();
+    }
+  }
+
+  function hdUpdateAutoRefreshHint(text, active) {
+    var el = $("hdAutoRefreshHint");
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("is-active", !!active);
+  }
+
+  function hdGetNotifyUrl() {
+    var el = $("hdNotifyUrl");
+    var url = el && el.value ? String(el.value).trim() : "";
+    if (!url) return "";
+    if (!/^https?:\/\/.+/i.test(url)) return "";
+    return url;
+  }
+
+  function hdApiErrorDetail(body) {
+    if (!body || typeof body !== "object") return "";
+    var d = body.detail;
+    if (typeof d === "string") return d;
+    if (Array.isArray(d)) {
+      return d
+        .map(function (x) {
+          if (!x || typeof x !== "object") return String(x);
+          var loc = x.loc ? x.loc.join(".") : "";
+          return (loc ? loc + ": " : "") + (x.msg || JSON.stringify(x));
+        })
+        .join("；");
+    }
+    return "";
+  }
+
+  function hdItemsForNotifyFromCache(idList) {
+    if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) return [];
+    var want = Object.create(null);
+    (idList || []).forEach(function (id) {
+      want[String(id)] = true;
+    });
+    return _hdHoldingsListCache.allItems.filter(function (it) {
+      return it && it.id != null && want[String(it.id)];
+    });
+  }
+
+  function hdSyncAutoRefreshButtons(running) {
+    var startBtn = $("btnHdAutoRefreshStart");
+    var stopBtn = $("btnHdAutoRefreshStop");
+    var secSel = $("hdAutoRefreshSec");
+    var notifyEl = $("hdNotifyUrl");
+    if (startBtn) startBtn.hidden = !!running;
+    if (stopBtn) stopBtn.hidden = !running;
+    if (secSel) secSel.disabled = !!running;
+    if (notifyEl) notifyEl.disabled = !!running;
+  }
+
+  async function hdSendHoldingsNotify(rows, idList, opts) {
+    opts = opts || {};
+    var url = hdGetNotifyUrl();
+    if (!url) return { ok: false, skipped: true, detail: "未填写通知地址" };
+    if (!Array.isArray(rows) || !rows.length) {
+      return { ok: false, skipped: true, detail: "无刷新数据" };
+    }
+    try {
+      var res = await panelFetch("/holdings/notify", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          url: url,
+          items: rows,
+          picked_ids: idList || [],
+          refreshed_at: new Date().toISOString(),
+        }),
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        var errDetail = hdApiErrorDetail(body);
+        return {
+          ok: false,
+          skipped: false,
+          detail: errDetail || (await formatError(res, body)),
+        };
+      }
+      return { ok: true, skipped: false, detail: "" };
+    } catch (e) {
+      return { ok: false, skipped: false, detail: String(e) };
+    }
+  }
+
+  function hdStopAutoRefresh(opts) {
+    opts = opts || {};
+    if (_hdAutoRefreshTimer) {
+      clearInterval(_hdAutoRefreshTimer);
+      _hdAutoRefreshTimer = null;
+    }
+    hdSyncAutoRefreshButtons(false);
+    if (!opts.silent) {
+      hdUpdateAutoRefreshHint(
+        "已停止定时刷新。在列表勾选记录后可再次点开始。",
+        false
+      );
+    }
+  }
+
+  function hdMergeHoldingsUpdates(updates) {
+    if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) return;
+    var byId = Object.create(null);
+    _hdHoldingsListCache.allItems.forEach(function (it) {
+      if (it && it.id != null) byId[String(it.id)] = it;
+    });
+    (updates || []).forEach(function (it) {
+      if (it && it.id != null) byId[String(it.id)] = it;
+    });
+    _hdHoldingsListCache.allItems = Object.keys(byId)
+      .map(function (k) {
+        return byId[k];
+      })
+      .sort(function (a, b) {
+        return (b.id || 0) - (a.id || 0);
+      });
+    persistHoldingsSnapshot();
+  }
+
+  function hdBuildHoldingsSyncUrl(idList) {
+    var parts = ["sync=true", "limit=500"];
+    (idList || []).forEach(function (id) {
+      parts.push("ids=" + encodeURIComponent(String(id)));
+    });
+    return "/holdings?" + parts.join("&");
+  }
+
+  async function hdRefreshSelectedHoldingsSync(opts) {
+    opts = opts || {};
+    var idList = hdAutoRefreshSelectedIdList();
+    if (!idList.length) {
+      if (!opts.silent) {
+        showOut("out-10", "请先在列表勾选要定时刷新的持仓记录。", true);
+        hdUpdateAutoRefreshHint("未勾选任何记录。", false);
+      }
+      return false;
+    }
+    if (_hdAutoRefreshInFlight) return false;
+    if (apiKeyRequired() && !getApiKey()) {
+      showOut("out-10", "请先在「①」保存 API Key。", true);
+      return false;
+    }
+    _hdAutoRefreshInFlight = true;
+    try {
+      var res = await fetchCancel("panel-10", hdBuildHoldingsSyncUrl(idList), {
+        headers: authHeaders(),
+        loadingMessage: opts.quiet ? "" : "正在刷新所选持仓现价…",
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        if (!opts.silent) showOut("out-10", await formatError(res, body), true);
+        return false;
+      }
+      var rows = Array.isArray(body) ? body : [];
+      if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) {
+        _hdHoldingsListCache = { allItems: rows };
+      } else {
+        hdMergeHoldingsUpdates(rows);
+      }
+      hdApplyHoldingsFilter();
+      var notifyRes = await hdSendHoldingsNotify(rows, idList, opts);
+      var ts = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      var hint =
+        "最近刷新 " +
+        ts +
+        "：已更新 " +
+        rows.length +
+        "/" +
+        idList.length +
+        " 条现价";
+      if (notifyRes.ok) hint += "；已推送通知。";
+      else if (!notifyRes.skipped && notifyRes.detail) hint += "；通知失败：" + notifyRes.detail;
+      hdUpdateAutoRefreshHint(hint, !!_hdAutoRefreshTimer);
+      if (!opts.silent && !_hdAutoRefreshTimer) {
+        var msg = "已刷新所选 " + idList.length + " 条记录的现价（写回库）。";
+        if (notifyRes.ok) msg += " 已推送到通知地址。";
+        else if (!notifyRes.skipped && notifyRes.detail) msg += " 通知失败：" + notifyRes.detail;
+        showOut("out-10", msg, !notifyRes.ok && !notifyRes.skipped);
+      }
+      return true;
+    } catch (e) {
+      if (!isRequestAborted(e) && !opts.silent) showOut("out-10", String(e), true);
+      return false;
+    } finally {
+      _hdAutoRefreshInFlight = false;
+    }
+  }
+
+  function hdBindHoldingsPickEvents() {
+    var wrap = $("hd-table-wrap");
+    if (!wrap) return;
+    wrap.querySelectorAll(".hd-pick-cb").forEach(function (el) {
+      if (el._hdPickBound) return;
+      el._hdPickBound = true;
+      el.addEventListener("change", function () {
+        var id = parseInt(el.getAttribute("data-id"), 10);
+        if (!isFinite(id)) return;
+        hdSetAutoRefreshPicked(id, !!el.checked);
+        hdUpdatePickAllCheckbox();
+        if (!_hdAutoRefreshTimer) {
+          var n = hdAutoRefreshSelectedIdList().length;
+          hdUpdateAutoRefreshHint(
+            n ? "已勾选 " + n + " 条；点「开始定时刷新」联网更新现价。" : "在列表勾选要定时刷新的记录后点「开始」。",
+            false
+          );
+        }
+      });
+    });
+    var pickAll = $("chkHdPickAll");
+    if (pickAll && !pickAll._hdPickAllBound) {
+      pickAll._hdPickAllBound = true;
+      pickAll.addEventListener("change", function () {
+        var on = !!pickAll.checked;
+        wrap.querySelectorAll(".hd-pick-cb").forEach(function (el) {
+          el.checked = on;
+          var id = parseInt(el.getAttribute("data-id"), 10);
+          if (isFinite(id)) hdSetAutoRefreshPicked(id, on);
+        });
+        if (!_hdAutoRefreshTimer) {
+          var n = hdAutoRefreshSelectedIdList().length;
+          hdUpdateAutoRefreshHint(
+            n ? "已勾选 " + n + " 条；点「开始定时刷新」联网更新现价。" : "在列表勾选要定时刷新的记录后点「开始」。",
+            false
+          );
+        }
+      });
+    }
+  }
+
+  function hdUpdatePickAllCheckbox() {
+    var pickAll = $("chkHdPickAll");
+    var wrap = $("hd-table-wrap");
+    if (!pickAll || !wrap) return;
+    var boxes = wrap.querySelectorAll(".hd-pick-cb");
+    if (!boxes.length) {
+      pickAll.checked = false;
+      pickAll.indeterminate = false;
+      return;
+    }
+    var checked = 0;
+    boxes.forEach(function (el) {
+      if (el.checked) checked++;
+    });
+    pickAll.checked = checked === boxes.length;
+    pickAll.indeterminate = checked > 0 && checked < boxes.length;
+  }
+
+  function hdPickHoldingsByStatus(status) {
+    if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) {
+      showOut("out-10", "请先点「查询」加载持仓列表。", true);
+      return;
+    }
+    _hdHoldingsListCache.allItems.forEach(function (it) {
+      if (!it || it.id == null) return;
+      if (!status || it.status === status) hdSetAutoRefreshPicked(it.id, true);
+    });
+    hdApplyHoldingsFilter();
+    var n = hdAutoRefreshSelectedIdList().length;
+    hdUpdateAutoRefreshHint(
+      n ? "已勾选 " + n + " 条；点「开始定时刷新」联网更新现价。" : "在列表勾选要定时刷新的记录后点「开始」。",
+      false
+    );
+  }
+
+  function hdClearHoldingsPick() {
+    _hdAutoRefreshSelectedIds = Object.create(null);
+    hdApplyHoldingsFilter();
+    persistHoldingsSnapshot();
+    hdUpdateAutoRefreshHint("在列表勾选要定时刷新的记录后点「开始」。", false);
+  }
+
+  async function hdTestHoldingsNotify() {
+    if (!guardKey()) return;
+    if (!hdGetNotifyUrl()) {
+      showOut("out-10", "请先填写有效的通知地址（http:// 或 https://）。", true);
+      var notifyEl = $("hdNotifyUrl");
+      if (notifyEl) notifyEl.focus();
+      return;
+    }
+    persistHoldingsSnapshot();
+    var idList = hdAutoRefreshSelectedIdList();
+    var rows = hdItemsForNotifyFromCache(idList);
+    if (!rows.length && _hdHoldingsListCache && Array.isArray(_hdHoldingsListCache.allItems)) {
+      rows = _hdHoldingsListCache.allItems.slice(0, 3);
+      idList = rows.map(function (it) {
+        return it.id;
+      });
+    }
+    if (!rows.length) {
+      showOut("out-10", "请先点「查询」加载列表，并勾选要通知的记录。", true);
+      return;
+    }
+    showOut("out-10", "正在发送测试通知…", true);
+    var notifyRes = await hdSendHoldingsNotify(rows, idList, { silent: true });
+    if (notifyRes.ok) {
+      showOut(
+        "out-10",
+        "测试通知已发送（" + rows.length + " 条）。请到企业微信/ Webhook 查看是否收到。",
+        false
+      );
+      hdUpdateAutoRefreshHint("测试通知发送成功（" + rows.length + " 条）。", false);
+    } else if (notifyRes.skipped) {
+      showOut("out-10", notifyRes.detail || "未发送。", true);
+    } else {
+      showOut("out-10", "测试通知失败：" + (notifyRes.detail || "未知错误"), true);
+      hdUpdateAutoRefreshHint("测试通知失败：" + (notifyRes.detail || ""), false);
+    }
+  }
+
+  async function hdStartAutoRefresh() {
+    if (!guardKey()) return;
+    if (_hdAutoRefreshTimer) return;
+    var notifyUrl = hdGetNotifyUrl();
+    if (!notifyUrl) {
+      showOut("out-10", "请先填写有效的通知地址（http:// 或 https://）。", true);
+      var notifyEl = $("hdNotifyUrl");
+      if (notifyEl) notifyEl.focus();
+      return;
+    }
+    persistHoldingsSnapshot();
+    var idList = hdAutoRefreshSelectedIdList();
+    if (!idList.length) {
+      showOut("out-10", "请先在列表勾选要定时刷新的持仓记录（可用「勾选持仓中」）。", true);
+      return;
+    }
+    var secEl = $("hdAutoRefreshSec");
+    var sec = secEl && secEl.value ? parseInt(secEl.value, 10) : 60;
+    if (!isFinite(sec) || sec < 10) sec = 60;
+    hdSyncAutoRefreshButtons(true);
+    hdUpdateAutoRefreshHint(
+      "定时刷新已启动（每 " + sec + " 秒），共 " + idList.length + " 条…",
+      true
+    );
+    var ok = await hdRefreshSelectedHoldingsSync({ silent: true, quiet: true });
+    if (!ok) {
+      hdStopAutoRefresh({ silent: true });
+      hdUpdateAutoRefreshHint("首次刷新失败，定时未启动。", false);
+      return;
+    }
+    _hdAutoRefreshTimer = setInterval(function () {
+      void hdRefreshSelectedHoldingsSync({ silent: true, quiet: true });
+    }, sec * 1000);
+  }
 
   function hdShowHoldingsIdle() {
     var wrap = $("hd-table-wrap");
     if (wrap) {
       wrap.innerHTML =
-        '<p class="lead" style="margin:0">点「<strong>查询</strong>」从本机数据库加载<strong>全部</strong>记录；切换「<strong>显示</strong>」仅在本地筛选，不重复读库；需要更新现价时点「<strong>刷新列表</strong>」。</p>';
+        '<p class="lead" style="margin:0">点「<strong>查询</strong>」从本机数据库加载<strong>全部</strong>记录；切换「<strong>显示</strong>」仅在本地筛选。需要更新现价时点「<strong>刷新列表</strong>」；定时勾选在查询/刷新后会自动保存。</p>';
     }
     var box = $("hd-review-wrap");
     if (box) box.hidden = true;
@@ -15735,6 +16414,7 @@
       showOut("out-10", "", false);
       _hdHoldingsListCache = { allItems: rows };
       hdApplyHoldingsFilter();
+      persistHoldingsSnapshot();
     } catch (e) {
       if (isRequestAborted(e)) showOut("out-10", "查询已取消。", true);
       else showOut("out-10", String(e), true);
@@ -15978,8 +16658,15 @@
               item.id +
               '">恢复持仓</button>';
           }
+          var picked = hdIsAutoRefreshPicked(item.id);
           return (
-            "<tr><td>" +
+            '<tr><td class="hd-pick-col">' +
+            '<input type="checkbox" class="hd-pick-cb" data-id="' +
+            escHtml(String(item.id)) +
+            '"' +
+            (picked ? " checked" : "") +
+            ' title="勾选后加入定时刷新" />' +
+            "</td><td>" +
             escHtml(sym) +
             "</td><td>" +
             nm +
@@ -16021,9 +16708,11 @@
         })
         .join("");
       wrap.innerHTML =
-        '<table><thead><tr><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
+        '<table><thead><tr><th class="hd-pick-col"><input type="checkbox" id="chkHdPickAll" title="全选当前列表" /></th><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
         rows +
         "</tbody></table>";
+      hdBindHoldingsPickEvents();
+      hdUpdatePickAllCheckbox();
       wrap.querySelectorAll(".hd-del").forEach(function (el) {
         el.addEventListener("click", function () {
           hdDelete(parseInt(el.getAttribute("data-id"), 10), el.getAttribute("data-status"));
@@ -16124,6 +16813,7 @@
       var allRows = Array.isArray(body) ? body : [];
       _hdHoldingsListCache = { allItems: allRows };
       hdApplyHoldingsFilter();
+      persistHoldingsSnapshot();
     } catch (e) {
       if (isRequestAborted(e)) showOut("out-10", "刷新持仓已取消。", true);
       else showOut("out-10", String(e), true);
@@ -17076,7 +17766,16 @@
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
       else {
-        showOut("out-10", "已删除。请点击「查询」或「刷新列表」更新表格。", false);
+        if (_hdHoldingsListCache && Array.isArray(_hdHoldingsListCache.allItems)) {
+          _hdHoldingsListCache.allItems = _hdHoldingsListCache.allItems.filter(function (it) {
+            return it && it.id !== id;
+          });
+          hdSetAutoRefreshPicked(id, false);
+          hdApplyHoldingsFilter();
+        } else {
+          persistHoldingsSnapshot();
+        }
+        showOut("out-10", "已删除。", false);
       }
     } catch (e) {
       showOut("out-10", String(e), true);
@@ -17413,6 +18112,51 @@
       } finally {
         btnHdRefresh.disabled = false;
       }
+    });
+  }
+  var btnHdPickHolding = $("btnHdPickHolding");
+  if (btnHdPickHolding) {
+    btnHdPickHolding.addEventListener("click", function () {
+      hdPickHoldingsByStatus("holding");
+    });
+  }
+  var btnHdClearPick = $("btnHdClearPick");
+  if (btnHdClearPick) {
+    btnHdClearPick.addEventListener("click", function () {
+      hdClearHoldingsPick();
+    });
+  }
+  var btnHdNotifyTest = $("btnHdNotifyTest");
+  if (btnHdNotifyTest) {
+    btnHdNotifyTest.addEventListener("click", function () {
+      void hdTestHoldingsNotify();
+    });
+  }
+  var btnHdAutoRefreshStart = $("btnHdAutoRefreshStart");
+  if (btnHdAutoRefreshStart) {
+    btnHdAutoRefreshStart.addEventListener("click", function () {
+      void hdStartAutoRefresh();
+    });
+  }
+  var btnHdAutoRefreshStop = $("btnHdAutoRefreshStop");
+  if (btnHdAutoRefreshStop) {
+    btnHdAutoRefreshStop.addEventListener("click", function () {
+      hdStopAutoRefresh();
+    });
+  }
+  var hdAutoRefreshSecEl = $("hdAutoRefreshSec");
+  if (hdAutoRefreshSecEl) {
+    hdAutoRefreshSecEl.addEventListener("change", function () {
+      persistHoldingsSnapshot();
+    });
+  }
+  var hdNotifyUrlEl = $("hdNotifyUrl");
+  if (hdNotifyUrlEl) {
+    hdNotifyUrlEl.addEventListener("change", function () {
+      persistHoldingsSnapshot();
+    });
+    hdNotifyUrlEl.addEventListener("blur", function () {
+      persistHoldingsSnapshot();
     });
   }
   hdLoadGoalInputs();
@@ -19580,6 +20324,7 @@
   initSignalsInterpretClick();
   updateSignalsLastBtnState();
   updateIngestLastBtnState();
+  ensureHdCacheHydrated();
   var initial = sessionStorage.getItem(SS_MOD) || "1";
   if (!modules.some(function (m) { return m.id === initial; })) initial = "1";
   showPanel(initial);

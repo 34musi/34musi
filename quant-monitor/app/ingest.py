@@ -1,17 +1,55 @@
 """
-行情摄取：通过 AkShare / Baostock 拉 A 股前复权日线，规范化后写入 SQLite（bars 表）。
+行情摄取（ingest）：拉 A 股前复权日线、写 SQLite，并为信号/自选/持仓提供读库与现价。
 
-路线 `auto`：新浪 → 腾讯 → Baostock；`eastmoney` / `akshare`：东财日线（`stock_zh_a_hist`），
-相邻请求全局随机间隔约 3–5 秒（可配置）以防限流；`mootdx` / `tushare` 经 `app.quant_stock_selector` 核心拉取后转入库格式；亦可固定其它单一源（见 resolve_data_source）。
+## 功能作用
 
-职责划分：
-- normalize_symbol：统一为 6 位数字代码。
-- fetch_ak_daily：单次区间拉取并转为内部列名（支持 data_source 覆盖）。
-- incremental_refresh：相对库内最新日期做增量（带重叠窗口防漏日）。
-- load_bars_df：给信号模块读库；不足 min_bars 时自动触发一次刷新。
-- load_bars_from_db：仅读库、不联网刷新；供 walk-forward 验证等可复现研究使用。
-- load_bars_for_forecast：可选先联网拉取 incremental 窗口并与本地行合并（可不写库），供行内回测。
-- list_bars_from_db：按日期倒序取最近 limit 根再转为升序，供行情展示 API 使用。
+本模块是 quant-monitor 的**数据层核心**，负责：
+
+1. **联网拉取**多源前复权日线（AkShare / Baostock / mootdx / TuShare 等）；
+2. **规范化**列名与代码，**upsert** 到 SQLite `bars` 表；
+3. **增量更新**（相对库内末根日期重叠窗口防漏日）；
+4. **读库**供 `signals`、`forecast_validate`、持仓、自选展示使用；
+5. **现价/强弱** enrichment（东财 push2、列表快照、mootdx 等）供 ③ 结果行与 ② 列表。
+
+控制台 **③ 更新行情**（`POST /ingest/update`）、`GET /ingest/bars`、信号计算、
+walk-forward 回测、前向展望 pre_refresh 等均依赖本模块。
+
+## 行情路线（data_source）
+
+| 路线 | 行为 |
+|------|------|
+| `auto` | 新浪 → 腾讯 → Baostock 链式尝试 |
+| `eastmoney` / `akshare` | 东财 `stock_zh_a_hist`，全局随机间隔 3–5s（可配置） |
+| `sina` / `tencent` / `baostock` | 固定单一源 |
+| `mootdx` / `tushare` | 经 `quant_stock_selector` 核心拉取后转入库格式 |
+
+解析：`resolve_data_source(explicit)`，未传则用 `Settings.ingest_data_source`。
+
+## 职责分层（常用入口）
+
+| 层级 | 函数 | 说明 |
+|------|------|------|
+| 拉取 | `fetch_ak_daily` / `fetch_daily_with_provider` | 指定区间日线 DataFrame |
+| 入库 | `incremental_refresh` / `ingest_symbol_range` | 增量或区间拉取并 upsert |
+| 写库 | `upsert_bars` | INSERT ON CONFLICT 按日覆盖 |
+| 读库（信号） | `load_bars_df` | 全量升序；不足 min_bars 可自动 incremental |
+| 读库（研究） | `load_bars_from_db` / `load_bars_for_forecast` | 仅库或可选联网合并（可不写库） |
+| 读库（API） | `list_bars_from_db` | 最近 N 根或日期区间，带 change_pct |
+| 现价 | `live_quote_fields_for_codes_enhanced` | 多源合并现价/涨跌幅 |
+| ③ 展示 | `enrich_*_ingest_*` / `local_ingest_result_row` | 结果行上下行、spot、强弱 |
+| 工具 | `normalize_symbol` / `shanghai_today_date` / `fetch_stock_name` | 全项目共用 |
+
+## 与其它模块
+
+- `ingest_batch_job`：③ 批量拉日线时的进度（skip_bars=false）；
+- `fundamentals` / `eastmoney_liquidity`：扩展因子与流动性 spot；
+- `forward_outlook` / `alerts`：pre_refresh 调用 `incremental_refresh`。
+
+## 配置相关
+
+东财节流：`eastmoney_request_min_interval_sec` / `max`；
+重试：`akshare_fetch_retries`；批量间隔：`akshare_pause_between_symbols_sec`；
+代理绕过：`ingest_eastmoney_bypass_proxy`（`_temporary_clear_proxy_env`）。
 """
 
 from __future__ import annotations
@@ -48,6 +86,9 @@ _eastmoney_throttle_lock = threading.Lock()
 _eastmoney_next_monotonic: float = 0.0
 
 
+# --- 路线解析 ---
+
+
 def resolve_data_source(explicit: str | None) -> str:
     """
     解析本次拉取使用的路线关键字。
@@ -71,6 +112,9 @@ def _yyyymmdd_to_iso(yyyymmdd: str) -> str:
 
 def _baostock_symbol(sym: str) -> str:
     return f"sh.{sym}" if sym.startswith("6") else f"sz.{sym}"
+
+
+# --- 网络错误与拉取入库核心 ---
 
 
 def _is_transient_http_error(exc: BaseException) -> bool:
@@ -159,6 +203,11 @@ def _format_ingest_error(exc: BaseException) -> str:
 def _fetch_and_upsert(
     sym: str, start: str, end: str, mode: str, *, data_source: str | None = None
 ) -> dict:
+    """
+    拉取 [start,end] 区间日线、upsert，并组装 ingest 结果摘要 dict。
+
+    含 last/prev 交易日、可选当日 bar 补写、bars 首次/末次入库时间等字段。
+    """
     try:
         try:
             before_rows = list_bars_from_db(sym, limit=3)
@@ -229,6 +278,9 @@ def _fetch_and_upsert(
         raise RuntimeError(_format_ingest_error(e)) from e
 
 
+# --- 代码规范与时间（东八区） ---
+
+
 def normalize_symbol(symbol: str) -> str:
     """去掉非数字字符，校验长度为 6；否则抛 ValueError。"""
     s = re.sub(r"\D", "", symbol.strip())
@@ -252,6 +304,9 @@ def _shanghai_a_share_session_closed() -> bool:
     if now.weekday() >= 5:
         return False
     return now.time() >= time(15, 0)
+
+
+# --- 当日 K 线补写（盘中现价 → 临时 bar） ---
 
 
 def backfill_today_bar_from_live(
@@ -553,6 +608,9 @@ def _temporary_clear_proxy_env(*, enabled: bool) -> Iterator[None]:
             os.environ[k] = v
 
 
+# --- 东财日线节流与拉取 ---
+
+
 def _eastmoney_schedule_next_gap() -> None:
     """在锁内调用：根据配置设定下一次允许发起东财日线请求的时间点。"""
     global _eastmoney_next_monotonic
@@ -787,8 +845,10 @@ def _fetch_auto_chain(sym: str, start_y: str, end_y: str) -> tuple[pd.DataFrame,
     raise RuntimeError("日线拉取失败，新浪与备选源均未成功:\n" + "\n".join(errs))
 
 
-def fetch_daily_with_provider(
-    symbol: str, start_date: str, end_date: str, *, data_source: str | None = None
+# --- 对外拉取 API ---
+
+
+def fetch_daily_with_provider(    symbol: str, start_date: str, end_date: str, *, data_source: str | None = None
 ) -> tuple[pd.DataFrame, str | None]:
     """拉取日线并返回 (DataFrame, 实际数据提供方)；provider 在无行时为 None。"""
     route = resolve_data_source(data_source)
@@ -814,6 +874,9 @@ def fetch_ak_daily(
     """
     df, _ = fetch_daily_with_provider(symbol, start_date, end_date, data_source=data_source)
     return df
+
+
+# --- 读库（bars 表） ---
 
 
 def max_stored_date(symbol: str) -> str | None:
@@ -1167,14 +1230,19 @@ def _parse_bid_ask_em_df(df: pd.DataFrame) -> dict[str, float | None]:
             pass
     if out["px"] is not None and out["chg"] is None and out["prev_close"]:
         out["chg"] = round((float(out["px"]) / float(out["prev_close"]) - 1) * 100, 2)
-    if "总手" in m:
-        try:
-            v = float(m["总手"])
-            if math.isfinite(v) and v >= 0:
-                out["volume"] = v
-        except (TypeError, ValueError):
-            pass
+    for vol_key in ("总手", "成交量", "成交总手"):
+        if vol_key in m:
+            try:
+                v = float(m[vol_key])
+                if math.isfinite(v) and v >= 0:
+                    out["volume"] = v
+                    break
+            except (TypeError, ValueError):
+                pass
     return out
+
+
+# --- 现价 / 盘口（多源合并） ---
 
 
 def live_quote_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
@@ -1464,6 +1532,39 @@ def augment_live_quote_fields(
     missing = [s for s in uniq if not _live_row_has_price(out.get(s))]
     if missing:
         _merge_live_quote_rows(out, live_quote_fields_from_local_bars(missing), only_missing=missing)
+
+    # --- volume fallback: fill missing live_volume from spot list ---
+    vol_missing = [
+        sym for sym in uniq
+        if _live_row_has_price(out.get(sym))
+        and not (
+            out.get(sym, {}).get("live_volume") is not None
+            and math.isfinite(float(out[sym]["live_volume"]))
+            and float(out[sym]["live_volume"]) > 0
+        )
+    ]
+    if vol_missing and route != "sina":
+        try:
+            with _temporary_clear_proxy_env(enabled=bool(s.ingest_eastmoney_bypass_proxy)):
+                spot_vol_by = spot_liquidity_fields_for_codes(
+                    vol_missing, force_refresh=False
+                )
+        except Exception as e:
+            logger.debug("augment_live_quote volume fallback: %s", e)
+            spot_vol_by = {}
+        for sym in vol_missing:
+            row = spot_vol_by.get(sym) or {}
+            vol = row.get("spot_volume")
+            if vol is not None and math.isfinite(float(vol)) and float(vol) > 0:
+                out[sym]["live_volume"] = round(float(vol), 4)
+                out[sym]["live_volume_source"] = "eastmoney_spot_list_vol_fallback"
+            tr = row.get("spot_turnover_rate")
+            if tr is not None and math.isfinite(float(tr)) and sym in out:
+                out[sym]["spot_turnover_rate"] = round(float(tr), 4)
+            amt = row.get("spot_amount")
+            if amt is not None and math.isfinite(float(amt)) and sym in out:
+                out[sym]["spot_amount"] = round(float(amt), 2)
+
     return out
 
 
@@ -1478,6 +1579,9 @@ def live_quote_fields_for_codes_enhanced(
     return augment_live_quote_fields(
         codes, base, data_source=data_source, force_spot_refresh=force_spot_refresh
     )
+
+
+# --- ③ ingest 结果行 enrichment ---
 
 
 def local_ingest_result_row(sym: str, *, data_source: str | None = None) -> dict[str, Any]:
@@ -1687,6 +1791,11 @@ def _apply_spot_enrich_to_ingest_row(
 
             spot_ex = spot_liquidity_fields_for_codes([sym], force_refresh=False).get(sym) or {}
             merge_eastmoney_spot_into_row(r, spot_ex, prefer_spot_volume=True)
+            if r.get("live_volume") is None:
+                logger.debug(
+                    "enrich %s: live_volume still None after spot merge; spot_volume=%s, last_volume=%s",
+                    sym, spot_ex.get("spot_volume"), r.get("last_volume"),
+                )
             if r.get("spot_turnover_rate") is not None:
                 r["volume_data_source"] = "eastmoney"
             fp = load_fundamental_panel_from_db(sym)
@@ -1813,6 +1922,9 @@ def enrich_ingest_results_with_spot_progress(
         if on_symbol_done:
             on_symbol_done(sym)
     return False
+
+
+# --- 写库 ---
 
 
 def upsert_bars(df: pd.DataFrame) -> int:
@@ -2263,8 +2375,10 @@ def incremental_fetch_window_yyyymmdd(
     return start, end
 
 
-def incremental_refresh(
-    symbol: str,
+# --- 增量/区间入库 ---
+
+
+def incremental_refresh(    symbol: str,
     lookback_years: int = 5,
     *,
     as_of_date: date | None = None,
@@ -2422,8 +2536,10 @@ def test_akshare_connectivity(*, data_source: str | None = None) -> dict:
         }
 
 
-def load_bars_df(
-    symbol: str, min_bars: int = 80, *, data_source: str | None = None
+# --- 读库（信号 / 研究） ---
+
+
+def load_bars_df(    symbol: str, min_bars: int = 80, *, data_source: str | None = None
 ) -> pd.DataFrame:
     """
     从库中读出该标的全部日线为 DataFrame（按日期升序）。
@@ -2486,6 +2602,9 @@ def load_bars_from_db(symbol: str) -> pd.DataFrame:
             for r in rows
         ]
     return pd.DataFrame(data)
+
+
+# --- 证券简称与交易日 ---
 
 
 def fetch_stock_name(symbol: str) -> str | None:

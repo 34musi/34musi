@@ -1,8 +1,46 @@
 """
-FastAPI 应用入口：健康检查、自选池、行情摄取、信号查询、告警预览与元信息。
+FastAPI 应用入口：HTTP API、图形控制台静态页与 OpenAPI 文档。
 
-启动时 lifespan 内 init_db；多数写操作与敏感读依赖 optional_api_key（配置 API_KEY 时生效）。
-限流使用 slowapi，按客户端 IP（get_remote_address）计桶。
+## 功能作用
+
+`main.py` 是 quant-monitor 的 **Web 服务层**：将各业务模块（ingest、signals、holdings、
+quant_stock_selector 等）暴露为 REST 接口，并托管 **[/ui](/ui)** 图形控制台。
+
+- 启动时 `lifespan` → `init_db()` 建表；
+- 约 **60+** 个路由，按控制台步骤分为 OpenAPI **tags ①～⑩**；
+- 敏感读写默认 `Depends(optional_api_key)`（配置了 `API_KEY` 时须 `X-API-Key`）；
+- 限流：`slowapi` + `get_remote_address`，多数接口 `@limiter.limit(...)`。
+
+## 控制台步骤与路由分组
+
+| Tag | 主题 | 代表接口 |
+|-----|------|----------|
+| ① 入门必读 | 健康、鉴权、批量取消/进度、热门快照 meta | `/health`, `/meta/*` |
+| ② 管理自选 | 自选 CRUD、现价刷新、热门股导入 | `/watchlist`, `/watchlist/*` |
+| ③ 更新行情 | 日线 ingest、扩展因子、连通性测试 | `/ingest/update`, `/ingest/fundamentals` |
+| ④ 查看信号 | K 线查询、批量/单只信号 | `/signals`, `/quotes/{symbol}/bars` |
+| ⑤ 变动预览 | 信号缓存对比 | `/alerts/preview` |
+| ⑥ 说明与免责 | 免责声明全文 | `/meta/disclaimer` 等 |
+| ⑦ 决策日志 | 自用复盘 journal、前向展望 | `/journal`, `/forward-outlook` |
+| ⑧ 研究 | walk-forward 预测验证 | `/research/forecast-validate` |
+| ⑨ 量化选股 | 板块选股 pipeline | `/research/sector-screen` |
+| ⑩ 持仓记录 | 持仓 CRUD、进离场与目标测算 | `/holdings/*` |
+
+## 文件结构（阅读顺序）
+
+1. **导入** — 聚合 `app.*` 子模块；
+2. **OPENAPI_DESCRIPTION / OPENAPI_TAGS** — Swagger 小白说明（人类读 `/docs`）；
+3. **FastAPI 实例** — CORS、limiter、lifespan；
+4. **`_*` 辅助函数** — 自选 enrich、热门板块、sector-screen 编排等（非路由）；
+5. **`@app.get/post` 路由** — 按 tag 分段；
+6. **静态资源** — `/ui`, `/static`。
+
+## 非路由入口
+
+- `GET /`, `/health` — 无需 Key（health 探活）；
+- `GET /ui`, `/ui/web-crawler` — `include_in_schema=False`，不在 Swagger 列表。
+
+业务逻辑应放在对应 `app/*.py` 模块；本文件以 **编排与 HTTP 边界** 为主，避免继续膨胀。
 """
 
 from __future__ import annotations
@@ -128,6 +166,8 @@ from app.holdings import (
     compute_holding_exit_advice,
     compute_holdings_review_summary,
     create_closed_holding_record,
+    normalize_holdings_notify_url,
+    post_holdings_refresh_webhook,
     validate_holding_sell_price,
 )
 from app.holdings_goal import (
@@ -166,6 +206,8 @@ from app.schemas import (
     HoldingGoalPlanOut,
     HoldingGoalProgressOut,
     HoldingIn,
+    HoldingsNotifyIn,
+    HoldingsNotifyOut,
     HoldingOut,
     HoldingUpdateIn,
     JournalIn,
@@ -220,8 +262,12 @@ from app.alerts import detect_changes, signal_to_snapshot
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+# --- 日志 ---
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# --- OpenAPI 文档（Swagger /docs 展示用） ---
 
 # ---------- OpenAPI / Swagger：面向小白的说明与分组 ----------
 OPENAPI_DESCRIPTION = """
@@ -357,6 +403,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- 内部辅助函数（路由编排，非业务核心） ---
 
 
 def _resolve_ingest_route(data_source: IngestDataSource | None) -> str:
@@ -861,6 +910,9 @@ def _disclaimer_payload() -> DisclaimerOut:
     )
 
 
+# --- ① 入门必读 / meta（健康、鉴权、批量任务、热门快照） ---
+
+
 @app.get(
     "/health",
     tags=["① 入门必读"],
@@ -1140,7 +1192,7 @@ def _build_watchlist_items(
     *,
     force_spot_refresh: bool = False,
 ) -> list[WatchlistItem]:
-    """批量附带本地 bars 摘要与现价（东财 push2/列表 → 通达信快照兜底）。"""
+    """批量附带本地 bars 摘要；现价仅 refresh_spot/force_spot_refresh 时联网拉取。"""
     symbols = [r.symbol for r in rows]
     route = get_settings().ingest_data_source
     bar_by = watchlist_bar_fields_for_session(s, symbols, data_source=route)
@@ -1157,13 +1209,7 @@ def _build_watchlist_items(
         else:
             live_by = _live_spot_refresh_with_progress(symbols, route)
     else:
-        live_by = (
-            live_quote_fields_for_codes_enhanced(
-                symbols, data_source=route, force_spot_refresh=force_spot_refresh
-            )
-            if symbols
-            else {}
-        )
+        live_by = {}
     latest_added_by = latest_added_at_for_symbols(s, symbols) if symbols else {}
     return _watchlist_items_from_parts(
         rows,
@@ -1218,6 +1264,32 @@ def _build_watchlist_items_for_first_ingest_range(
     return out
 
 
+def _watchlist_item_from_add_log_row(
+    log_row,
+    pool_row: WatchlistRow | None = None,
+) -> WatchlistItem:
+    """按加入日志行（含写入时快照）构建列表项，不联网拉现价。"""
+    sym = str(log_row.symbol or "").strip()
+    added_at = (log_row.added_at or "").strip()
+    snap = log_row_snapshot_fields(log_row)
+    if pool_row is not None:
+        name = (pool_row.name or "").strip() or (log_row.name or "").strip()
+        origin = pool_row.origin or log_row.origin or WATCHLIST_ORIGIN_MANUAL
+        in_pool = True
+    else:
+        name = (log_row.name or "").strip()
+        origin = log_row.origin or WATCHLIST_ORIGIN_MANUAL
+        in_pool = False
+    return WatchlistItem(
+        symbol=sym,
+        name=name,
+        origin=origin,
+        watchlist_added_at=added_at,
+        in_watchlist_pool=in_pool,
+        **snap,
+    )
+
+
 def _watchlist_items_from_add_log_rows(
     s,
     log_rows: list,
@@ -1232,29 +1304,24 @@ def _watchlist_items_from_add_log_rows(
         r.symbol: r
         for r in s.execute(select(WatchlistRow).where(WatchlistRow.symbol.in_(syms))).scalars().all()
     }
+    if not force_spot_refresh:
+        return [
+            _watchlist_item_from_add_log_row(log_row, pool_rows.get(str(log_row.symbol or "").strip()))
+            for log_row in log_rows
+        ]
     pool_list = [pool_rows[sym] for sym in syms if sym in pool_rows]
     built: dict[str, WatchlistItem] = {}
     if pool_list:
-        for item in _build_watchlist_items(s, pool_list, force_spot_refresh=force_spot_refresh):
+        for item in _build_watchlist_items(s, pool_list, force_spot_refresh=True):
             built[item.symbol] = item
     out: list[WatchlistItem] = []
     for log_row in log_rows:
         sym = str(log_row.symbol or "").strip()
         added_at = (log_row.added_at or "").strip()
-        snap = log_row_snapshot_fields(log_row)
         if sym in built:
             out.append(_watchlist_item_with_add_meta(built[sym], added_at=added_at, in_pool=True))
         else:
-            out.append(
-                WatchlistItem(
-                    symbol=sym,
-                    name=(log_row.name or "").strip(),
-                    origin=log_row.origin or WATCHLIST_ORIGIN_MANUAL,
-                    watchlist_added_at=added_at,
-                    in_watchlist_pool=False,
-                    **snap,
-                )
-            )
+            out.append(_watchlist_item_from_add_log_row(log_row, pool_row=None))
     return out
 
 
@@ -1422,6 +1489,9 @@ def _watchlist_item_after_ingest(
     rows = ingest.get("rows_upserted")
     d["kline_ingest_rows"] = int(rows) if ingest.get("ok") and rows is not None else None
     return WatchlistItem(**d)
+
+
+# --- ② 管理自选股票 ---
 
 
 @app.get(
@@ -2438,6 +2508,9 @@ def _watchlist_subset_symbols(
     return ordered, wl_name_by_sym, suffix_errs
 
 
+# --- ③ 更新行情数据 ---
+
+
 @app.post(
     "/ingest/update",
     tags=["③ 更新行情数据"],
@@ -2602,10 +2675,17 @@ def ingest_update(
     for r in results:
         if r.get("symbol") and "error" not in r:
             meta_by_sym[str(r["symbol"])] = r
+    # 先把 batch 状态置为 finished：避免前端按钮在“前向展望同步”期间仍显示 N/N 转圈。
+    # ③ 控制台只关心 ingest 进度本身，前向展望是后置的“自动收尾”，不应阻塞按钮归位。
+    finish_cancelled = (
+        cancelled or fundamentals_cancelled or _ingest_update_should_cancel()
+    )
+    if use_kline_job:
+        ingest_batch_finish(cancelled=finish_cancelled)
+    else:
+        symbols_batch_finish("ingest", cancelled=finish_cancelled)
     outlook_sync: dict[str, Any] | None = None
     if not cancelled and ok_syms:
-        if use_kline_job:
-            ingest_batch_enter_finalize()
         try:
             outlook_sync = sync_after_ingest(
                 ok_syms,
@@ -2630,13 +2710,6 @@ def ingest_update(
             "PE/PB 来自东财全 A 列表（拉取时刷新，近实时）；主力净流入为日级资金表（非 tick）；"
             "盘中若无「当日」资金行则下行标「末收」；财报指标为最近一期，上下行相同。"
         )
-    finish_cancelled = (
-        cancelled or fundamentals_cancelled or _ingest_update_should_cancel()
-    )
-    if use_kline_job:
-        ingest_batch_finish(cancelled=finish_cancelled)
-    else:
-        symbols_batch_finish("ingest", cancelled=finish_cancelled)
     return out
 
 
@@ -2902,6 +2975,9 @@ def quotes_daily_bars(
     return rows
 
 
+# --- ④ 查看信号 ---
+
+
 @app.get(
     "/signals",
     response_model=list[SignalOut],
@@ -2958,7 +3034,11 @@ def signals_batch(
             response.headers["X-Quant-Signals-Failed-Symbols"] = joined[:1800]
         return []
     clear("signals")
-    symbols_batch_start("signals", len(symbols))
+    symbols_batch_start(
+        "signals",
+        len(symbols),
+        meta={"data_source": route, "pre_refresh": bool(pre_refresh)},
+    )
     out: list[SignalOut] = []
     cancelled = False
     pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
@@ -2977,10 +3057,23 @@ def signals_batch(
                 except Exception as e:
                     logger.debug("pre_refresh skipped %s route=%s: %s", sym, route, e)
             try:
-                out.append(compute_signal(sym, data_source=route))
+                sig = compute_signal(sym, data_source=route)
+                out.append(sig)
+                # ④ 增量推送：成功一只就让前端轮询拿到，及时上屏
+                try:
+                    symbols_batch_push_result("signals", sig.model_dump())
+                except Exception as e:
+                    logger.debug("signals partial push failed %s: %s", sym, e)
             except Exception as e:
                 failed_syms.append(sym)
                 logger.debug("signal skipped %s: %s", sym, e)
+                # 失败也推一条占位，便于前端知道该只已处理
+                try:
+                    symbols_batch_push_result(
+                        "signals", {"symbol": sym, "error": str(e)}
+                    )
+                except Exception:
+                    pass
             symbols_batch_tick("signals", sym)
     finally:
         symbols_batch_finish("signals", cancelled=cancelled)
@@ -3031,6 +3124,9 @@ def signals_one(
         return compute_signal(sym, data_source=route)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+# --- ⑧ 研究：预测验证 ---
 
 
 @app.get(
@@ -3593,6 +3689,9 @@ def _run_sector_constituents_top(body: SectorConstituentsTopIn) -> SectorConstit
     )
 
 
+# --- ⑨ 量化选股 ---
+
+
 @app.post(
     "/research/sector-screen",
     response_model=SectorScreenOut,
@@ -3649,6 +3748,9 @@ def research_sector_constituents_top(
     _: None = Depends(optional_api_key),
 ):
     return _run_sector_constituents_top(body)
+
+
+# --- ⑤ 变动预览 ---
 
 
 @app.post(
@@ -3737,6 +3839,9 @@ def _holding_one_out(s, row: HoldingRow) -> HoldingOut:
     return build_holdings_list(s, [row])[0]
 
 
+# --- ⑩ 持仓记录（自用） ---
+
+
 @app.get(
     "/holdings",
     response_model=list[HoldingOut],
@@ -3748,6 +3853,8 @@ def _holding_one_out(s, row: HoldingRow) -> HoldingOut:
 每条附带**估算**浮动/已实现盈亏：参考价为盘口现价（若有）或本地最新日线收盘；**非**券商成交回报，不构成投资建议。
 
 **Query `sync`**（默认 `true`）：联网刷新现价估算，并将 `mark_price` / `mark_price_at` / `updated_at` 写回本机 `holdings` 表；设为 `false` 则只读库、不联网、不回写。
+
+**Query `ids`**（可重复）：仅刷新/返回所列持仓记录 id（控制台⑩定时刷新勾选行）。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
@@ -3762,19 +3869,76 @@ def holdings_list(
         True,
         description="为 true 时联网拉现价并写回 holdings 快照列（mark_price 等）",
     ),
+    ids: list[int] | None = Query(
+        None,
+        description="仅处理所列持仓记录 id；可重复传参",
+    ),
     _: None = Depends(optional_api_key),
 ):
     st = (status or "").strip().lower() or None
     if st is not None and st not in (HOLDING_STATUS_HOLDING, HOLDING_STATUS_CLOSED):
         raise HTTPException(status_code=400, detail="status 须为 holding 或 closed")
+    subset_ids: list[int] | None = None
+    if ids:
+        subset_ids = []
+        seen_ids: set[int] = set()
+        for raw in ids:
+            try:
+                hid = int(raw)
+            except (TypeError, ValueError) as e:
+                raise HTTPException(status_code=400, detail="ids 须为整数") from e
+            if hid <= 0 or hid in seen_ids:
+                continue
+            seen_ids.add(hid)
+            subset_ids.append(hid)
+        if not subset_ids:
+            return []
     with session_scope() as s:
         q = select(HoldingRow).order_by(HoldingRow.id.desc()).limit(limit)
         if st:
             q = q.where(HoldingRow.status == st)
+        if subset_ids:
+            q = q.where(HoldingRow.id.in_(subset_ids))
         rows = list(s.execute(q).scalars().all())
+        if subset_ids:
+            order = {hid: i for i, hid in enumerate(subset_ids)}
+            rows.sort(key=lambda r: order.get(r.id, 10**9))
         return build_holdings_list(
             s, rows, force_spot_refresh=sync, persist_snapshots=sync
         )
+
+
+@app.post(
+    "/holdings/notify",
+    response_model=HoldingsNotifyOut,
+    tags=["⑩ 持仓记录（自用）"],
+    summary="推送定时刷新结果到通知地址",
+    description="""
+将本次刷新得到的持仓 JSON **POST** 到控制台填写的通知地址（Webhook）。
+
+请求体示例字段：`event=holdings_spot_refresh`、`refreshed_at`、`picked_ids`、`items`（与列表行一致）。
+服务端代发，避免浏览器 CORS 限制。
+""",
+)
+@limiter.limit("30/minute")
+def holdings_notify(
+    body: HoldingsNotifyIn,
+    request: Request,
+    _: None = Depends(optional_api_key),
+):
+    try:
+        url = normalize_holdings_notify_url(body.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    ok, detail = post_holdings_refresh_webhook(
+        url,
+        items=body.items,
+        picked_ids=body.picked_ids,
+        refreshed_at=body.refreshed_at,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail=detail or "通知发送失败")
+    return HoldingsNotifyOut(ok=True, detail=detail)
 
 
 @app.get(
@@ -4218,6 +4382,9 @@ def _journal_row_to_out(row: DecisionJournalRow) -> JournalOut:
     )
 
 
+# --- ⑦ 决策日志 / 前向展望 ---
+
+
 @app.post(
     "/journal",
     response_model=JournalOut,
@@ -4405,6 +4572,9 @@ def forward_outlook_sync(
         meta[sym] = {"watchlist_name": wl_name.get(sym, "")}
     result = sync_after_ingest(syms, horizon=body.horizon, ingest_meta_by_sym=meta)
     return ForwardOutlookSyncOut(**result)
+
+
+# --- 根路径与静态控制台 ---
 
 
 @app.get(

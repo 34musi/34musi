@@ -1,17 +1,56 @@
 """
 ③ 拉取结果「量」列：量价联合评价与危险量提示（非固定百科文案）。
 
-- 量比主口径：当日量（盘中按交易进度折算全日）÷ 近 20 日均量
-- 辅助口径：相对上一完整交易日全日量
-- 结合当日涨跌幅给出对本股强弱的一句话评价
-"""
+## 功能作用
 
+本模块为 **③ 更新 ingest** 结果行的「量」列提供动态文案：结合当日涨跌幅、
+量比（相对近 20 日均量）、相对昨日量、东财换手率与主力净流入，生成
+**对本股强弱的一句话评价**，并在异常组合时标记 **危险量**。
+
+由 `ingest.apply_ingest_volume_compare` 在组装单行结果后调用
+`analyze_ingest_volume_price(row)`，**原地写入** row 字段，供控制台表格展示。
+
+## 量比口径
+
+| 口径 | 说明 |
+|------|------|
+| 主口径 | 当日量 ÷ 近 20 日均量（`spot_strength` / `prev_strength` 中的 `avg_volume_20`） |
+| 盘中折算 | 若执行日晚于末根 K 线日，按已交易分钟数外推全日量（开盘前 10 分钟不外推） |
+| 辅助口径 | 相对上一完整交易日全日量（`display_prev_volume`） |
+| 回退 | 无 20 日均量时，退化为相对昨日量比 |
+
+## 写入字段（analyze_ingest_volume_price）
+
+| 字段 | 含义 |
+|------|------|
+| `volume_vs_prev_hint` | 主评价文案（含量比前缀、盘中进度说明） |
+| `volume_vs_prev_label` | 缩量 / 平量 / 放量 |
+| `volume_ratio_vs_ma20` | 相对 20 日均量比 |
+| `volume_danger` / `volume_danger_hint` | 是否危险量及说明 |
+| `volume_price_side` | up / down / flat / unknown |
+| `display_today_volume` / `volume_today_basis` | 当日量及来源（live / 末根全日） |
+
+## 对外接口
+
+| 函数 | 调用方 | 用途 |
+|------|--------|------|
+| `analyze_ingest_volume_price` | `ingest.apply_ingest_volume_compare` | 单行 ingest 结果量价分析 |
+| `shanghai_trading_elapsed_minutes` | 本模块 | A 股连续竞价已交易分钟数（盘中量比折算） |
+
+## 约定
+
+- 阈值常量（`_VOL_SHRINK`、`_VOL_EXTREME` 等）为 Demo 规则，非交易指令；
+- 成交量单位经 `eastmoney_liquidity.coerce_volume_to_bar_unit` 与 K 线对齐；
+- 数据不足时清除量价相关字段，不抛异常。
+"""
 from __future__ import annotations
 
 import math
 from datetime import datetime, time
 from typing import Any
 from zoneinfo import ZoneInfo
+
+# --- 阈值与交易时段 ---
 
 _SH_TZ = ZoneInfo("Asia/Shanghai")
 _TRADING_MINUTES = 240
@@ -42,6 +81,9 @@ def shanghai_trading_elapsed_minutes() -> int:
         cur = datetime.combine(now.date(), t, tzinfo=_SH_TZ)
         return 120 + max(0, int((cur - base).total_seconds() // 60))
     return _TRADING_MINUTES
+
+
+# --- 行数据提取与单位归一 ---
 
 
 def _price_side(chg_pct: float | None) -> str:
@@ -115,8 +157,10 @@ def _price_chg_pct(row: dict[str, Any]) -> float | None:
     return None
 
 
-def _compose_hint(
-    *,
+# --- 评价文案合成 ---
+
+
+def _compose_hint(    *,
     side: str,
     vol_label: str,
     ratio_ma20: float,
@@ -209,9 +253,15 @@ def _compose_hint(
     return f"{prefix}：{hint}", danger, danger_hint
 
 
+# --- 对外入口 ---
+
+
 def analyze_ingest_volume_price(row: dict[str, Any]) -> None:
     """
-    写入 row：volume_vs_prev_*、volume_ratio_vs_ma20、volume_danger、volume_danger_hint 等。
+    对 ingest 结果行做量价联合分析，原地写入 volume_* / volume_danger 等字段。
+
+    依赖 row 中 ingest_exec_date、last_trade_date、live_volume / last_volume、
+    display_prev_volume、spot_strength 等；数据不足时清除相关键并返回。
     """
     exec_d = str(row.get("ingest_exec_date") or "")[:10]
     last_td = str(row.get("last_trade_date") or "")[:10]
