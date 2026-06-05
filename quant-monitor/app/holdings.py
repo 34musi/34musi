@@ -749,48 +749,107 @@ def compute_holding_entry_advice(
 
 # --- Webhook 通知（⑩ 定时刷新） ---
 
+# channel: wecom_markdown | dingtalk_markdown | json
+_HOLDINGS_NOTIFY_CHANNELS = {
+    "wecom_markdown": {
+        "host": "qyapi.weixin.qq.com",
+        "path_prefix": "/cgi-bin/webhook/send",
+        "title": "# 持仓现价刷新",
+        "limit": 4096,
+    },
+    "dingtalk_markdown": {
+        "host": "oapi.dingtalk.com",
+        "path_prefix": "/robot/send",
+        "title": "#### 持仓现价刷新",
+        "limit": 20000,
+    },
+}
 
-_WECOM_WEBHOOK_HOST = "qyapi.weixin.qq.com"
-_WECOM_WEBHOOK_PATH_PREFIX = "/cgi-bin/webhook/send"
 
-
-def _is_wecom_webhook_url(url: str) -> bool:
+def _holdings_notify_channel(url: str) -> str:
     p = urlparse(url)
-    return (
-        (p.hostname or "").lower() == _WECOM_WEBHOOK_HOST
-        and (p.path or "").startswith(_WECOM_WEBHOOK_PATH_PREFIX)
-    )
+    host = (p.hostname or "").lower()
+    path = p.path or ""
+    for name, cfg in _HOLDINGS_NOTIFY_CHANNELS.items():
+        if host == cfg["host"] and path.startswith(cfg["path_prefix"]):
+            return name
+    return "json"
 
 
-def _format_holdings_notify_wecom_text(
+def _clip_log_text(text: str, *, limit: int = 2000) -> str:
+    s = (text or "").strip()
+    if len(s) <= limit:
+        return s
+    return s[:limit] + "…"
+
+
+def _fmt_holdings_pct(channel: str, value: float | None) -> str:
+    if value is None:
+        return "—"
+    if channel == "wecom_markdown":
+        color = "info" if value >= 0 else "warning"
+        return f'<font color="{color}">{value:+.2f}%</font>'
+    return f"{value:+.2f}%"
+
+
+def _build_holdings_notify_body(
+    url: str,
     *,
     items: list[HoldingOut],
     picked_ids: list[int],
     refreshed_at: str,
-) -> str:
-    """企业微信机器人 text 消息（单条上限约 3500 字）。"""
-    lines = [
-        "【持仓现价刷新】",
-        f"时间：{refreshed_at}",
-        f"勾选 {len(picked_ids)} 条，本次推送 {len(items)} 条",
-        "",
-    ]
-    for it in items:
-        px = it.current_price
-        px_s = f"{px:.4f}" if px is not None else "—"
-        chg = it.spot_change_pct
-        chg_s = f"{chg:+.2f}%" if chg is not None else "—"
-        if it.status == HOLDING_STATUS_CLOSED:
-            pnl = it.realized_pnl_pct
-            pnl_s = f"{pnl:+.2f}%" if pnl is not None else "—"
-            lines.append(f"{it.symbol} {it.name or ''} 已平仓 卖价{px_s} 盈亏{pnl_s}")
+    alert_triggers: dict[str, str] | None = None,
+) -> tuple[dict, str, str]:
+    """按目标 Webhook 类型构造请求体，并返回 (body, 正文预览, channel)。"""
+    channel = _holdings_notify_channel(url)
+    if channel in _HOLDINGS_NOTIFY_CHANNELS:
+        cfg = _HOLDINGS_NOTIFY_CHANNELS[channel]
+        lines = [
+            cfg["title"],
+            f"> 时间：{refreshed_at}",
+            f"> 勾选 {len(picked_ids)} 条，本次推送 {len(items)} 条",
+            "",
+        ]
+        triggers = alert_triggers or {}
+        for it in items:
+            px = it.current_price
+            px_s = f"{px:.4f}" if px is not None else "—"
+            title = f"**{it.symbol} {it.name or ''}**"
+            trigger_note = (triggers.get(str(it.id)) or "").strip()
+            if it.status == HOLDING_STATUS_CLOSED:
+                lines.append(f"{title} 已平仓")
+                lines.append(
+                    f"卖价 {px_s} | 盈亏 {_fmt_holdings_pct(channel, it.realized_pnl_pct)}"
+                )
+            else:
+                lines.append(title)
+                lines.append(
+                    f"现价 {px_s} | {_fmt_holdings_pct(channel, it.spot_change_pct)}"
+                    f" | 浮盈 {_fmt_holdings_pct(channel, it.unrealized_pnl_pct)}"
+                )
+            if trigger_note:
+                lines.append(f"> {trigger_note}")
+            lines.append("")
+        text = "\n".join(lines).rstrip()[: cfg["limit"]]
+        if channel == "wecom_markdown":
+            body = {"msgtype": "markdown", "markdown": {"content": text}}
         else:
-            pnl = it.unrealized_pnl_pct
-            pnl_s = f"{pnl:+.2f}%" if pnl is not None else "—"
-            lines.append(
-                f"{it.symbol} {it.name or ''} 现价{px_s} {chg_s} 浮盈{pnl_s}"
-            )
-    return "\n".join(lines)[:3500]
+            body = {
+                "msgtype": "markdown",
+                "markdown": {"title": "持仓现价刷新", "text": text},
+                "at": {"atMobiles": [], "isAtAll": False},
+            }
+        return body, text, channel
+    body = {
+        "event": "holdings_spot_refresh",
+        "refreshed_at": refreshed_at,
+        "picked_ids": picked_ids,
+        "count": len(items),
+        "symbols": [it.symbol for it in items],
+        "items": [it.model_dump() for it in items],
+    }
+    preview = json.dumps(body, ensure_ascii=False)
+    return body, preview, channel
 
 
 def normalize_holdings_notify_url(raw: str) -> str:
@@ -815,66 +874,78 @@ def post_holdings_refresh_webhook(
     items: list[HoldingOut],
     picked_ids: list[int],
     refreshed_at: str | None = None,
+    alert_triggers: dict[str, str] | None = None,
     timeout: float = 12.0,
-) -> tuple[bool, str]:
-    """将定时刷新结果 POST 到通知地址；企业微信机器人自动转 text 格式。"""
+) -> tuple[bool, str, dict]:
+    """将定时刷新结果 POST 到通知地址；企业微信/钉钉自动转 markdown 格式。"""
     at = (refreshed_at or "").strip() or datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    if _is_wecom_webhook_url(url):
-        body = {
-            "msgtype": "text",
-            "text": {
-                "content": _format_holdings_notify_wecom_text(
-                    items=items,
-                    picked_ids=picked_ids,
-                    refreshed_at=at,
-                )
-            },
-        }
-    else:
-        body = {
-            "event": "holdings_spot_refresh",
-            "refreshed_at": at,
-            "picked_ids": picked_ids,
-            "count": len(items),
-            "symbols": [it.symbol for it in items],
-            "items": [it.model_dump() for it in items],
-        }
+    body, preview, channel = _build_holdings_notify_body(
+        url,
+        items=items,
+        picked_ids=picked_ids,
+        refreshed_at=at,
+        alert_triggers=alert_triggers,
+    )
+    meta = {
+        "channel": channel,
+        "preview": _clip_log_text(preview, limit=800),
+        "remote_reply": "",
+    }
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    payload_text = json.dumps(body, ensure_ascii=False)
+    logger.info(
+        "holdings notify request: method=POST url=%s headers=%s body=%s",
+        (url or "").strip(),
+        headers,
+        _clip_log_text(payload_text),
+    )
     try:
         r = requests.post(
             url,
-            json=body,
+            data=payload_text.encode("utf-8"),
+            headers=headers,
             timeout=timeout,
             allow_redirects=False,
         )
         detail = (r.text or "").strip()
+        logger.info(
+            "holdings notify response: status=%s headers=%s body=%s",
+            r.status_code,
+            dict(r.headers),
+            _clip_log_text(detail, limit=1000),
+        )
         if r.ok:
-            if _is_wecom_webhook_url(url):
-                try:
-                    data = r.json()
-                except ValueError:
-                    data = {}
-                if data.get("errcode", 0) != 0:
-                    msg = str(data.get("errmsg") or detail or "企业微信返回失败")
+            try:
+                data = r.json()
+            except ValueError:
+                data = {}
+            meta["remote_reply"] = _clip_log_text(detail, limit=240)
+            if isinstance(data, dict) and "errcode" in data:
+                if data.get("errcode") != 0:
+                    msg = str(data.get("errmsg") or detail or "Webhook 返回失败")
                     logger.warning(
-                        "holdings wecom notify rejected: errcode=%s %s",
+                        "holdings webhook notify rejected: errcode=%s %s",
                         data.get("errcode"),
                         msg[:120],
                     )
-                    return False, msg[:240]
+                    return False, msg[:240], meta
+                meta["remote_reply"] = "errcode:0 ok"
             logger.info(
-                "holdings notify sent ok (%s items) -> %s",
+                "holdings notify sent ok (%s items, %s) -> %s",
                 len(items),
+                channel,
                 urlparse(url).hostname or url[:40],
             )
-            return True, ""
+            return True, "", meta
         if len(detail) > 240:
             detail = detail[:240] + "…"
+        meta["remote_reply"] = detail
         logger.warning(
             "holdings notify HTTP %s: %s",
             r.status_code,
             detail[:120],
         )
-        return False, f"通知地址返回 HTTP {r.status_code}" + (f"：{detail}" if detail else "")
+        return False, f"通知地址返回 HTTP {r.status_code}" + (f"：{detail}" if detail else ""), meta
     except Exception as e:
         logger.warning("holdings notify webhook failed: %s", e, exc_info=True)
-        return False, str(e) or "通知发送失败"
+        return False, str(e) or "通知发送失败", meta

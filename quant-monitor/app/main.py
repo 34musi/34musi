@@ -3916,6 +3916,8 @@ def holdings_list(
     description="""
 将本次刷新得到的持仓 JSON **POST** 到控制台填写的通知地址（Webhook）。
 
+前端可按每只股票「推送价」过滤后再调用本接口；`alert_triggers` 会写入 markdown 正文（如「触发≥15.50」）。
+
 请求体示例字段：`event=holdings_spot_refresh`、`refreshed_at`、`picked_ids`、`items`（与列表行一致）。
 服务端代发，避免浏览器 CORS 限制。
 """,
@@ -3930,15 +3932,22 @@ def holdings_notify(
         url = normalize_holdings_notify_url(body.url)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    ok, detail = post_holdings_refresh_webhook(
+    ok, detail, meta = post_holdings_refresh_webhook(
         url,
         items=body.items,
         picked_ids=body.picked_ids,
         refreshed_at=body.refreshed_at,
+        alert_triggers=body.alert_triggers,
     )
     if not ok:
         raise HTTPException(status_code=502, detail=detail or "通知发送失败")
-    return HoldingsNotifyOut(ok=True, detail=detail)
+    return HoldingsNotifyOut(
+        ok=True,
+        detail=detail,
+        channel=str(meta.get("channel") or ""),
+        preview=str(meta.get("preview") or ""),
+        remote_reply=str(meta.get("remote_reply") or ""),
+    )
 
 
 @app.get(

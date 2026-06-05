@@ -411,6 +411,39 @@
       height: 1rem;
       cursor: pointer;
     }
+    #panel-10 .hd-notify-rule-col {
+      min-width: 4.5rem;
+      text-align: center;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    #panel-10 .hd-notify-rule-none {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    #panel-10 .hd-notify-rule-set {
+      color: var(--accent);
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+    .hd-auto-refresh-bar .hd-notify-rule-op {
+      min-width: 3.2rem;
+      padding: 0.35rem 0.45rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.88rem;
+    }
+    .hd-auto-refresh-bar .hd-notify-rule-price-in {
+      width: 5.5rem;
+      padding: 0.38rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 0.86rem;
+    }
     .hd-entry-mode-row {
       display: flex;
       flex-wrap: wrap;
@@ -3861,9 +3894,9 @@
           </button>
         </div>
         <div class="hd-auto-refresh-bar" id="hdAutoRefreshBar">
-          <span class="wl-daily-view-label">定时刷新现价</span>
+          <span class="wl-daily-view-label">定时推送</span>
           <label for="hdAutoRefreshSec">间隔</label>
-          <select id="hdAutoRefreshSec" title="联网刷新勾选行的现价并写回库">
+          <select id="hdAutoRefreshSec" title="按间隔检查推送条件（不刷新列表，现价请点上方「刷新列表」）">
             <option value="30">30 秒</option>
             <option value="60" selected>60 秒</option>
             <option value="120">2 分钟</option>
@@ -3874,16 +3907,32 @@
             type="url"
             id="hdNotifyUrl"
             class="hd-notify-url-in"
-            placeholder="https://你的服务/webhook"
+            placeholder="企业微信/钉钉机器人 Webhook"
             autocomplete="off"
-            title="每次刷新成功后，服务端将把 JSON 结果 POST 到此地址"
+            title="企业微信/钉钉 Webhook；列表刷新后，仅对勾选且达推送价的标的发送通知"
           />
           <button type="button" class="secondary" id="btnHdPickHolding">勾选持仓中</button>
           <button type="button" class="secondary" id="btnHdClearPick">清空勾选</button>
+          <label for="hdNotifyRuleOp">推送价</label>
+          <select id="hdNotifyRuleOp" class="hd-notify-rule-op" title="≥ 涨到该价推送；≤ 跌到该价推送；任意=每次刷新都推送">
+            <option value="gte" selected>≥</option>
+            <option value="lte">≤</option>
+            <option value="">任意</option>
+          </select>
+          <input
+            type="number"
+            id="hdNotifyRulePrice"
+            class="hd-notify-rule-price-in"
+            placeholder="元"
+            step="0.0001"
+            min="0"
+            title="填价格后点「应用到勾选」；选「任意」可清除推送价条件"
+          />
+          <button type="button" class="secondary" id="btnHdApplyNotifyPrice" title="将上方条件写入已勾选行">应用到勾选</button>
+          <button type="button" class="secondary" id="btnHdClearNotifyPrice" title="清除已勾选行的推送价（恢复为任意）">清除推送价</button>
           <button type="button" class="secondary" id="btnHdNotifyTest" title="用当前勾选行或缓存数据试发一条，不刷新现价">测试通知</button>
-          <button type="button" class="primary" id="btnHdAutoRefreshStart">开始定时刷新</button>
-          <button type="button" class="secondary" id="btnHdAutoRefreshStop" hidden>停止</button>
-          <span class="hd-auto-refresh-hint" id="hdAutoRefreshHint">填写通知地址、勾选记录后点「开始」；每次刷新后推送 JSON 到该地址。</span>
+          <button type="button" class="primary" id="btnHdAutoRefreshStart">开始定时</button>
+          <span class="hd-auto-refresh-hint" id="hdAutoRefreshHint">现价请点上方「刷新列表」；勾选+推送价后「开始定时」仅按间隔检查并推送，再点同一按钮即「取消定时」。</span>
         </div>
         <div id="hd-table-wrap" class="wl-table-scroll" style="margin-top:0.75rem;">
           <p class="lead" style="margin:0">进入本页<strong>不会</strong>自动联网。点「<strong>查询</strong>」读库；「<strong>显示</strong>」仅本地筛选；「<strong>刷新列表</strong>」联网更新现价。上次列表与定时勾选会<strong>自动从本机缓存恢复</strong>展示。</p>
@@ -4158,7 +4207,7 @@
   /** 上次「刷新列表」成功返回的自选全量（本机缓存） */
   var LS_LAST_WL_LIST = "quant_monitor_last_watchlist_v1";
   var LS_LAST_WL_KLINE_DATES = "quant_monitor_wl_kline_dates_v1";
-  /** ⑩ 持仓列表 + 定时刷新勾选（本机缓存，刷新页面后恢复展示） */
+  /** ⑩ 持仓列表 + 定时推送 + 推送勾选（本机缓存，刷新页面后恢复展示） */
   var LS_LAST_HD_LIST = "quant_monitor_last_holdings_v1";
   /** ② 批量拉取日线任务（刷新页面后恢复按钮 loading） */
   var LS_WL_REFETCH_JOB = "quant_monitor_wl_refetch_job_v1";
@@ -15920,8 +15969,14 @@
 
   var _hdHoldingsListCache = null;
   var _hdAutoRefreshTimer = null;
+  /** 定时任务是否在运行（与 interval id 分开，便于停止后忽略在途请求） */
+  var _hdAutoRefreshActive = false;
   var _hdAutoRefreshInFlight = false;
   var _hdAutoRefreshSelectedIds = Object.create(null);
+  /** 定时推送价规则：id -> { op: gte|lte, price } */
+  var _hdNotifyPriceRules = Object.create(null);
+  /** 已推送过的达标记录，价格回落后清除 */
+  var _hdNotifyAlertFired = Object.create(null);
 
   function hdAutoRefreshSelectedIdList() {
     return Object.keys(_hdAutoRefreshSelectedIds)
@@ -15962,6 +16017,8 @@
           ts: Date.now(),
           allItems: _hdHoldingsListCache.allItems,
           pickedIds: hdAutoRefreshSelectedIdList(),
+          notifyPriceRules: _hdNotifyPriceRules,
+          notifyAlertFired: _hdNotifyAlertFired,
           autoRefreshSec: secEl && secEl.value ? String(secEl.value) : "60",
           notifyUrl: notifyEl && notifyEl.value ? String(notifyEl.value).trim() : "",
         })
@@ -15989,6 +16046,21 @@
         var key = String(id);
         if (validIds[key]) _hdAutoRefreshSelectedIds[key] = true;
       });
+      _hdNotifyPriceRules = Object.create(null);
+      if (data.notifyPriceRules && typeof data.notifyPriceRules === "object") {
+        Object.keys(data.notifyPriceRules).forEach(function (k) {
+          var r = data.notifyPriceRules[k];
+          if (!r || typeof r !== "object") return;
+          var norm = hdNormalizeNotifyPriceRule(r.op, r.price);
+          if (norm) _hdNotifyPriceRules[k] = norm;
+        });
+      }
+      _hdNotifyAlertFired = Object.create(null);
+      if (data.notifyAlertFired && typeof data.notifyAlertFired === "object") {
+        Object.keys(data.notifyAlertFired).forEach(function (k) {
+          if (data.notifyAlertFired[k]) _hdNotifyAlertFired[k] = true;
+        });
+      }
       var secEl = $("hdAutoRefreshSec");
       if (secEl && data.autoRefreshSec) secEl.value = String(data.autoRefreshSec);
       var notifyEl = $("hdNotifyUrl");
@@ -16019,8 +16091,8 @@
       var total = _hdHoldingsListCache.allItems.length;
       hdUpdateAutoRefreshHint(
         n
-          ? "已恢复 " + total + " 条列表；已勾选 " + n + " 条（可开始定时刷新）。"
-          : "已恢复 " + total + " 条列表；勾选记录后可开始定时刷新。",
+          ? "已恢复 " + total + " 条列表；已勾选 " + n + " 条推送标的（可开始定时）。"
+          : "已恢复 " + total + " 条列表；现价请点「刷新列表」，勾选行用于推送。",
         false
       );
     } else {
@@ -16043,6 +16115,18 @@
     return url;
   }
 
+  function hdFormatNotifySuccess(body, rowCount) {
+    var lines = [
+      "测试通知已发送（" + rowCount + " 条）。请到企业微信/钉钉对应群聊查看。",
+    ];
+    if (body && typeof body === "object") {
+      if (body.channel) lines.push("通道：" + body.channel);
+      if (body.remote_reply) lines.push("远端：" + body.remote_reply);
+      if (body.preview) lines.push("", "推送正文预览：", String(body.preview));
+    }
+    return lines.join("\n");
+  }
+
   function hdApiErrorDetail(body) {
     if (!body || typeof body !== "object") return "";
     var d = body.detail;
@@ -16059,6 +16143,145 @@
     return "";
   }
 
+  function hdNormalizeNotifyPriceRule(op, priceRaw) {
+    var opStr = op === "gte" || op === "lte" ? op : "";
+    var price = parseFloat(String(priceRaw == null ? "" : priceRaw).trim());
+    if (!opStr || !isFinite(price) || price <= 0) return null;
+    return { op: opStr, price: price };
+  }
+
+  function hdGetNotifyPriceRule(id) {
+    return _hdNotifyPriceRules[String(id)] || null;
+  }
+
+  function hdSetNotifyPriceRule(id, op, priceRaw) {
+    var key = String(id);
+    var rule = hdNormalizeNotifyPriceRule(op, priceRaw);
+    if (rule) _hdNotifyPriceRules[key] = rule;
+    else delete _hdNotifyPriceRules[key];
+    delete _hdNotifyAlertFired[key];
+    persistHoldingsSnapshot();
+  }
+
+  function hdGetHoldingNotifyPrice(item) {
+    if (!item) return null;
+    var px = item.current_price;
+    if (px == null || !isFinite(Number(px))) px = item.ref_price;
+    if (px == null || !isFinite(Number(px))) return null;
+    return Number(px);
+  }
+
+  function hdItemMeetsNotifyRule(item, rule) {
+    if (!item || !rule) return false;
+    var px = hdGetHoldingNotifyPrice(item);
+    if (px == null) return false;
+    return rule.op === "lte" ? px <= rule.price : px >= rule.price;
+  }
+
+  function hdFormatNotifyTriggerLabel(rule, px) {
+    var opLab = rule.op === "lte" ? "≤" : "≥";
+    var pxS = px != null && isFinite(px) ? hdFmtNum(px, 4) : "—";
+    return "触发" + opLab + hdFmtNum(rule.price, 4) + "（现价 " + pxS + "）";
+  }
+
+  function hdFormatNotifyRuleBrief(id) {
+    var rule = hdGetNotifyPriceRule(id);
+    if (!rule) {
+      return '<span class="hd-notify-rule-none" title="未设推送价：该勾选行每次刷新都推送">任意</span>';
+    }
+    var opLab = rule.op === "lte" ? "≤" : "≥";
+    return (
+      '<span class="hd-notify-rule-set" title="达标后推送（同条件不重复）">' +
+      opLab +
+      hdFmtNum(rule.price, 4) +
+      "</span>"
+    );
+  }
+
+  function hdApplyNotifyPriceToPicked() {
+    var idList = hdAutoRefreshSelectedIdList();
+    if (!idList.length) {
+      showOut("out-10", "请先勾选要设定推送价的记录。", true);
+      return;
+    }
+    var opEl = $("hdNotifyRuleOp");
+    var pxEl = $("hdNotifyRulePrice");
+    var op = opEl && opEl.value != null ? String(opEl.value) : "";
+    var px = pxEl && pxEl.value != null ? String(pxEl.value).trim() : "";
+    if (op && !px) {
+      showOut("out-10", "请填写推送价，或选「任意」表示每次刷新都推送。", true);
+      if (pxEl) pxEl.focus();
+      return;
+    }
+    idList.forEach(function (id) {
+      if (!op) hdSetNotifyPriceRule(id, "", "");
+      else hdSetNotifyPriceRule(id, op, px);
+    });
+    hdApplyHoldingsFilter();
+    var lab = !op ? "任意（每次推送）" : (op === "lte" ? "≤" : "≥") + px;
+    showOut("out-10", "已为 " + idList.length + " 条设定推送价：" + lab + "。", false);
+  }
+
+  function hdClearNotifyPriceForPicked() {
+    var idList = hdAutoRefreshSelectedIdList();
+    if (!idList.length) {
+      showOut("out-10", "请先勾选要清除推送价的记录。", true);
+      return;
+    }
+    idList.forEach(function (id) {
+      hdSetNotifyPriceRule(id, "", "");
+    });
+    var opEl = $("hdNotifyRuleOp");
+    var pxEl = $("hdNotifyRulePrice");
+    if (opEl) opEl.value = "";
+    if (pxEl) pxEl.value = "";
+    hdApplyHoldingsFilter();
+    showOut("out-10", "已清除 " + idList.length + " 条的推送价（恢复为任意）。", false);
+  }
+
+  function hdFilterItemsForNotify(rows, opts) {
+    opts = opts || {};
+    if (opts.forceAll) {
+      return {
+        items: (rows || []).filter(function (it) {
+          return it && it.id != null;
+        }),
+        triggers: Object.create(null),
+        reason: "",
+      };
+    }
+    var out = [];
+    var triggers = Object.create(null);
+    var scheduled = !!opts.scheduled;
+    (rows || []).forEach(function (item) {
+      if (!item || item.id == null) return;
+      var key = String(item.id);
+      var rule = hdGetNotifyPriceRule(item.id);
+      if (!rule) {
+        out.push(item);
+        return;
+      }
+      var px = hdGetHoldingNotifyPrice(item);
+      if (!hdItemMeetsNotifyRule(item, rule)) {
+        if (scheduled) delete _hdNotifyAlertFired[key];
+        return;
+      }
+      if (scheduled && _hdNotifyAlertFired[key]) return;
+      if (scheduled) _hdNotifyAlertFired[key] = true;
+      triggers[item.id] = hdFormatNotifyTriggerLabel(rule, px);
+      out.push(item);
+    });
+    if (scheduled) persistHoldingsSnapshot();
+    var reason = "";
+    if (!out.length) {
+      var hasRule = (rows || []).some(function (it) {
+        return it && it.id != null && hdGetNotifyPriceRule(it.id);
+      });
+      reason = hasRule ? "无达标标的（已设推送价但未触发）" : "无可推送数据";
+    }
+    return { items: out, triggers: triggers, reason: reason };
+  }
+
   function hdItemsForNotifyFromCache(idList) {
     if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) return [];
     var want = Object.create(null);
@@ -16071,14 +16294,33 @@
   }
 
   function hdSyncAutoRefreshButtons(running) {
-    var startBtn = $("btnHdAutoRefreshStart");
-    var stopBtn = $("btnHdAutoRefreshStop");
+    var btn = $("btnHdAutoRefreshStart");
     var secSel = $("hdAutoRefreshSec");
     var notifyEl = $("hdNotifyUrl");
-    if (startBtn) startBtn.hidden = !!running;
-    if (stopBtn) stopBtn.hidden = !running;
+    if (btn) {
+      if (!btn.dataset.labelStart) btn.dataset.labelStart = "开始定时";
+      if (!btn.dataset.labelStop) btn.dataset.labelStop = "取消定时";
+      btn.textContent = running ? btn.dataset.labelStop : btn.dataset.labelStart;
+      btn.classList.toggle("primary", !running);
+      btn.classList.toggle("secondary", !!running);
+    }
     if (secSel) secSel.disabled = !!running;
     if (notifyEl) notifyEl.disabled = !!running;
+  }
+
+  function setHdRefreshButtonLoading(btnId, loading, text) {
+    var btn = $(btnId || "btnHdRefresh");
+    if (!btn) return;
+    if (!btn.dataset.defaultText) {
+      btn.dataset.defaultText = btn.textContent || "刷新列表";
+    }
+    if (loading) {
+      btn.disabled = true;
+      btn.textContent = text || "正在刷新列表…";
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = btn.dataset.defaultText || "刷新列表";
   }
 
   async function hdSendHoldingsNotify(rows, idList, opts) {
@@ -16088,15 +16330,21 @@
     if (!Array.isArray(rows) || !rows.length) {
       return { ok: false, skipped: true, detail: "无刷新数据" };
     }
+    var alertTriggers = opts.alertTriggers || Object.create(null);
+    var triggerPayload = Object.create(null);
+    Object.keys(alertTriggers).forEach(function (k) {
+      if (alertTriggers[k]) triggerPayload[String(k)] = String(alertTriggers[k]);
+    });
     try {
-      var res = await panelFetch("/holdings/notify", {
+      var res = await fetch("/holdings/notify", {
         method: "POST",
-        headers: authHeaders(),
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify({
           url: url,
           items: rows,
           picked_ids: idList || [],
           refreshed_at: new Date().toISOString(),
+          alert_triggers: triggerPayload,
         }),
       });
       var body = await readBody(res);
@@ -16108,7 +16356,15 @@
           detail: errDetail || (await formatError(res, body)),
         };
       }
-      return { ok: true, skipped: false, detail: "" };
+      return {
+        ok: true,
+        skipped: false,
+        detail: "",
+        channel: body && body.channel ? String(body.channel) : "",
+        preview: body && body.preview ? String(body.preview) : "",
+        remote_reply: body && body.remote_reply ? String(body.remote_reply) : "",
+        body: body,
+      };
     } catch (e) {
       return { ok: false, skipped: false, detail: String(e) };
     }
@@ -16116,6 +16372,7 @@
 
   function hdStopAutoRefresh(opts) {
     opts = opts || {};
+    _hdAutoRefreshActive = false;
     if (_hdAutoRefreshTimer) {
       clearInterval(_hdAutoRefreshTimer);
       _hdAutoRefreshTimer = null;
@@ -16123,94 +16380,68 @@
     hdSyncAutoRefreshButtons(false);
     if (!opts.silent) {
       hdUpdateAutoRefreshHint(
-        "已停止定时刷新。在列表勾选记录后可再次点开始。",
+        "定时推送已取消。更新现价请点上方「刷新列表」。",
         false
       );
     }
   }
 
-  function hdMergeHoldingsUpdates(updates) {
-    if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) return;
-    var byId = Object.create(null);
-    _hdHoldingsListCache.allItems.forEach(function (it) {
-      if (it && it.id != null) byId[String(it.id)] = it;
-    });
-    (updates || []).forEach(function (it) {
-      if (it && it.id != null) byId[String(it.id)] = it;
-    });
-    _hdHoldingsListCache.allItems = Object.keys(byId)
-      .map(function (k) {
-        return byId[k];
-      })
-      .sort(function (a, b) {
-        return (b.id || 0) - (a.id || 0);
-      });
-    persistHoldingsSnapshot();
-  }
-
-  function hdBuildHoldingsSyncUrl(idList) {
-    var parts = ["sync=true", "limit=500"];
-    (idList || []).forEach(function (id) {
-      parts.push("ids=" + encodeURIComponent(String(id)));
-    });
-    return "/holdings?" + parts.join("&");
-  }
-
-  async function hdRefreshSelectedHoldingsSync(opts) {
-    opts = opts || {};
-    var idList = hdAutoRefreshSelectedIdList();
-    if (!idList.length) {
-      if (!opts.silent) {
-        showOut("out-10", "请先在列表勾选要定时刷新的持仓记录。", true);
-        hdUpdateAutoRefreshHint("未勾选任何记录。", false);
-      }
-      return false;
-    }
+  /** 定时任务单次：仅检查勾选+推送价并通知（不刷新列表） */
+  async function hdAutoRefreshTick() {
+    if (!_hdAutoRefreshActive) return false;
     if (_hdAutoRefreshInFlight) return false;
     if (apiKeyRequired() && !getApiKey()) {
+      hdStopAutoRefresh({ silent: true });
       showOut("out-10", "请先在「①」保存 API Key。", true);
       return false;
     }
     _hdAutoRefreshInFlight = true;
+    var notifyFiltered = { items: [], triggers: Object.create(null), reason: "" };
     try {
-      var res = await fetchCancel("panel-10", hdBuildHoldingsSyncUrl(idList), {
-        headers: authHeaders(),
-        loadingMessage: opts.quiet ? "" : "正在刷新所选持仓现价…",
-      });
-      var body = await readBody(res);
-      if (!res.ok) {
-        if (!opts.silent) showOut("out-10", await formatError(res, body), true);
+      if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) {
+        hdUpdateAutoRefreshHint("请先点上方「刷新列表」或「查询」加载现价。", true);
         return false;
       }
-      var rows = Array.isArray(body) ? body : [];
-      if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) {
-        _hdHoldingsListCache = { allItems: rows };
-      } else {
-        hdMergeHoldingsUpdates(rows);
+      var idList = hdAutoRefreshSelectedIdList();
+      var notifyRes = { ok: false, skipped: true, detail: "未勾选推送标的" };
+      if (idList.length && hdGetNotifyUrl()) {
+        var rows = hdItemsForNotifyFromCache(idList);
+        notifyFiltered = hdFilterItemsForNotify(rows, { scheduled: true });
+        if (notifyFiltered.items.length) {
+          notifyRes = await hdSendHoldingsNotify(notifyFiltered.items, idList, {
+            alertTriggers: notifyFiltered.triggers,
+          });
+        } else {
+          notifyRes = {
+            ok: false,
+            skipped: true,
+            detail: notifyFiltered.reason || "无达标标的",
+          };
+        }
+      } else if (idList.length && !hdGetNotifyUrl()) {
+        notifyRes = { ok: false, skipped: true, detail: "未填写通知地址" };
       }
-      hdApplyHoldingsFilter();
-      var notifyRes = await hdSendHoldingsNotify(rows, idList, opts);
+      if (!_hdAutoRefreshActive) return true;
+
       var ts = new Date().toLocaleTimeString("zh-CN", { hour12: false });
-      var hint =
-        "最近刷新 " +
-        ts +
-        "：已更新 " +
-        rows.length +
-        "/" +
-        idList.length +
-        " 条现价";
-      if (notifyRes.ok) hint += "；已推送通知。";
-      else if (!notifyRes.skipped && notifyRes.detail) hint += "；通知失败：" + notifyRes.detail;
-      hdUpdateAutoRefreshHint(hint, !!_hdAutoRefreshTimer);
-      if (!opts.silent && !_hdAutoRefreshTimer) {
-        var msg = "已刷新所选 " + idList.length + " 条记录的现价（写回库）。";
-        if (notifyRes.ok) msg += " 已推送到通知地址。";
-        else if (!notifyRes.skipped && notifyRes.detail) msg += " 通知失败：" + notifyRes.detail;
-        showOut("out-10", msg, !notifyRes.ok && !notifyRes.skipped);
+      var hint = "最近检查 " + ts;
+      if (idList.length) {
+        if (notifyRes.ok) {
+          hint += "：已推送 " + notifyFiltered.items.length + " 条";
+        } else if (notifyRes.skipped) {
+          hint += "：未推送（" + (notifyRes.detail || "无达标") + "）";
+        } else if (notifyRes.detail) {
+          hint += "：通知失败（" + notifyRes.detail + "）";
+        }
+      } else {
+        hint += "：未勾选推送标的";
       }
+      hdUpdateAutoRefreshHint(hint, true);
       return true;
     } catch (e) {
-      if (!isRequestAborted(e) && !opts.silent) showOut("out-10", String(e), true);
+      if (_hdAutoRefreshActive) {
+        hdUpdateAutoRefreshHint("推送检查失败：" + String(e), true);
+      }
       return false;
     } finally {
       _hdAutoRefreshInFlight = false;
@@ -16228,10 +16459,12 @@
         if (!isFinite(id)) return;
         hdSetAutoRefreshPicked(id, !!el.checked);
         hdUpdatePickAllCheckbox();
-        if (!_hdAutoRefreshTimer) {
+        if (!_hdAutoRefreshActive) {
           var n = hdAutoRefreshSelectedIdList().length;
           hdUpdateAutoRefreshHint(
-            n ? "已勾选 " + n + " 条；点「开始定时刷新」联网更新现价。" : "在列表勾选要定时刷新的记录后点「开始」。",
+            n
+              ? "已勾选 " + n + " 条推送标的；点「开始定时」启动检查。"
+              : "现价请点上方「刷新列表」；勾选行用于推送。",
             false
           );
         }
@@ -16247,10 +16480,12 @@
           var id = parseInt(el.getAttribute("data-id"), 10);
           if (isFinite(id)) hdSetAutoRefreshPicked(id, on);
         });
-        if (!_hdAutoRefreshTimer) {
+        if (!_hdAutoRefreshActive) {
           var n = hdAutoRefreshSelectedIdList().length;
           hdUpdateAutoRefreshHint(
-            n ? "已勾选 " + n + " 条；点「开始定时刷新」联网更新现价。" : "在列表勾选要定时刷新的记录后点「开始」。",
+            n
+              ? "已勾选 " + n + " 条推送标的；点「开始定时」启动检查。"
+              : "现价请点上方「刷新列表」；勾选行用于推送。",
             false
           );
         }
@@ -16288,7 +16523,9 @@
     hdApplyHoldingsFilter();
     var n = hdAutoRefreshSelectedIdList().length;
     hdUpdateAutoRefreshHint(
-      n ? "已勾选 " + n + " 条；点「开始定时刷新」联网更新现价。" : "在列表勾选要定时刷新的记录后点「开始」。",
+      n
+        ? "已勾选 " + n + " 条推送标的；点「开始定时」启动检查。"
+        : "现价请点上方「刷新列表」；勾选行用于推送。",
       false
     );
   }
@@ -16297,7 +16534,7 @@
     _hdAutoRefreshSelectedIds = Object.create(null);
     hdApplyHoldingsFilter();
     persistHoldingsSnapshot();
-    hdUpdateAutoRefreshHint("在列表勾选要定时刷新的记录后点「开始」。", false);
+    hdUpdateAutoRefreshHint("现价请点上方「刷新列表」；勾选行用于推送。", false);
   }
 
   async function hdTestHoldingsNotify() {
@@ -16322,14 +16559,29 @@
       return;
     }
     showOut("out-10", "正在发送测试通知…", true);
-    var notifyRes = await hdSendHoldingsNotify(rows, idList, { silent: true });
+    var testFiltered = hdFilterItemsForNotify(rows, { forceAll: true });
+    var testTriggers = Object.create(null);
+    testFiltered.items.forEach(function (item) {
+      var rule = hdGetNotifyPriceRule(item.id);
+      if (!rule) return;
+      var px = hdGetHoldingNotifyPrice(item);
+      if (hdItemMeetsNotifyRule(item, rule)) {
+        testTriggers[item.id] = hdFormatNotifyTriggerLabel(rule, px);
+      }
+    });
+    var notifyRes = await hdSendHoldingsNotify(testFiltered.items, idList, {
+      silent: true,
+      alertTriggers: testTriggers,
+    });
     if (notifyRes.ok) {
       showOut(
         "out-10",
-        "测试通知已发送（" + rows.length + " 条）。请到企业微信/ Webhook 查看是否收到。",
-        false
+        hdFormatNotifySuccess(notifyRes.body, rows.length),
+        true
       );
-      hdUpdateAutoRefreshHint("测试通知发送成功（" + rows.length + " 条）。", false);
+      var hint = "测试通知发送成功（" + rows.length + " 条）";
+      if (notifyRes.remote_reply) hint += "；" + notifyRes.remote_reply;
+      hdUpdateAutoRefreshHint(hint, false);
     } else if (notifyRes.skipped) {
       showOut("out-10", notifyRes.detail || "未发送。", true);
     } else {
@@ -16338,38 +16590,35 @@
     }
   }
 
+  function hdToggleAutoRefresh() {
+    if (_hdAutoRefreshActive || _hdAutoRefreshTimer) {
+      hdStopAutoRefresh();
+      return;
+    }
+    void hdStartAutoRefresh();
+  }
+
   async function hdStartAutoRefresh() {
     if (!guardKey()) return;
-    if (_hdAutoRefreshTimer) return;
-    var notifyUrl = hdGetNotifyUrl();
-    if (!notifyUrl) {
-      showOut("out-10", "请先填写有效的通知地址（http:// 或 https://）。", true);
-      var notifyEl = $("hdNotifyUrl");
-      if (notifyEl) notifyEl.focus();
-      return;
-    }
+    if (_hdAutoRefreshActive || _hdAutoRefreshTimer) return;
     persistHoldingsSnapshot();
     var idList = hdAutoRefreshSelectedIdList();
-    if (!idList.length) {
-      showOut("out-10", "请先在列表勾选要定时刷新的持仓记录（可用「勾选持仓中」）。", true);
-      return;
-    }
     var secEl = $("hdAutoRefreshSec");
     var sec = secEl && secEl.value ? parseInt(secEl.value, 10) : 60;
     if (!isFinite(sec) || sec < 10) sec = 60;
+    _hdAutoRefreshActive = true;
     hdSyncAutoRefreshButtons(true);
-    hdUpdateAutoRefreshHint(
-      "定时刷新已启动（每 " + sec + " 秒），共 " + idList.length + " 条…",
-      true
-    );
-    var ok = await hdRefreshSelectedHoldingsSync({ silent: true, quiet: true });
-    if (!ok) {
-      hdStopAutoRefresh({ silent: true });
-      hdUpdateAutoRefreshHint("首次刷新失败，定时未启动。", false);
-      return;
+    var startHint = "定时推送已启动（每 " + sec + " 秒检查）";
+    if (idList.length) startHint += "；勾选 " + idList.length + " 条";
+    else startHint += "；未勾选推送标的";
+    if (idList.length && !hdGetNotifyUrl()) {
+      startHint += "；未填通知地址";
     }
+    startHint += "。现价请点上方「刷新列表」…";
+    hdUpdateAutoRefreshHint(startHint, true);
+    void hdAutoRefreshTick();
     _hdAutoRefreshTimer = setInterval(function () {
-      void hdRefreshSelectedHoldingsSync({ silent: true, quiet: true });
+      void hdAutoRefreshTick();
     }, sec * 1000);
   }
 
@@ -16659,14 +16908,18 @@
               '">恢复持仓</button>';
           }
           var picked = hdIsAutoRefreshPicked(item.id);
+          var notifyRuleCell =
+            '<td class="hd-notify-rule-col">' + hdFormatNotifyRuleBrief(item.id) + "</td>";
           return (
             '<tr><td class="hd-pick-col">' +
             '<input type="checkbox" class="hd-pick-cb" data-id="' +
             escHtml(String(item.id)) +
             '"' +
             (picked ? " checked" : "") +
-            ' title="勾选后加入定时刷新" />' +
-            "</td><td>" +
+            ' title="勾选后参与推送筛选（不限制刷新列表范围）" />' +
+            "</td>" +
+            notifyRuleCell +
+            "<td>" +
             escHtml(sym) +
             "</td><td>" +
             nm +
@@ -16708,7 +16961,7 @@
         })
         .join("");
       wrap.innerHTML =
-        '<table><thead><tr><th class="hd-pick-col"><input type="checkbox" id="chkHdPickAll" title="全选当前列表" /></th><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
+        '<table><thead><tr><th class="hd-pick-col"><input type="checkbox" id="chkHdPickAll" title="全选当前列表" /></th><th class="hd-notify-rule-col" title="在上方工具栏设定；任意=每次刷新都推送">推送价</th><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
         rows +
         "</tbody></table>";
       hdBindHoldingsPickEvents();
@@ -16790,18 +17043,24 @@
       });
   }
 
-  async function refreshHoldingsTable() {
+  async function refreshHoldingsTable(opts) {
+    opts = opts || {};
     var wrap = $("hd-table-wrap");
     if (!wrap) return;
     if (apiKeyRequired() && !getApiKey()) {
       wrap.innerHTML = "<p class=\"lead\">请先在「①」保存 API Key。</p>";
       return;
     }
+    var btnId = opts.buttonId || "btnHdRefresh";
+    var useBtnLoading = opts.useButtonLoading !== false;
+    if (useBtnLoading) {
+      setHdRefreshButtonLoading(btnId, true, "正在刷新列表…");
+    }
     void refreshHoldingsReviewSummary();
     try {
       var res = await fetchCancel("panel-10", "/holdings?limit=200&sync=true", {
         headers: authHeaders(),
-        loadingMessage: "正在加载持仓并写回现价快照…",
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -16814,9 +17073,12 @@
       _hdHoldingsListCache = { allItems: allRows };
       hdApplyHoldingsFilter();
       persistHoldingsSnapshot();
+      if (_hdAutoRefreshActive) void hdAutoRefreshTick();
     } catch (e) {
       if (isRequestAborted(e)) showOut("out-10", "刷新持仓已取消。", true);
       else showOut("out-10", String(e), true);
+    } finally {
+      if (useBtnLoading) setHdRefreshButtonLoading(btnId, false);
     }
   }
 
@@ -18106,12 +18368,7 @@
   if (btnHdRefresh) {
     btnHdRefresh.addEventListener("click", async function () {
       if (!guardKey()) return;
-      btnHdRefresh.disabled = true;
-      try {
-        await refreshHoldingsTable();
-      } finally {
-        btnHdRefresh.disabled = false;
-      }
+      await refreshHoldingsTable({ buttonId: "btnHdRefresh", useButtonLoading: true });
     });
   }
   var btnHdPickHolding = $("btnHdPickHolding");
@@ -18126,6 +18383,18 @@
       hdClearHoldingsPick();
     });
   }
+  var btnHdApplyNotifyPrice = $("btnHdApplyNotifyPrice");
+  if (btnHdApplyNotifyPrice) {
+    btnHdApplyNotifyPrice.addEventListener("click", function () {
+      hdApplyNotifyPriceToPicked();
+    });
+  }
+  var btnHdClearNotifyPrice = $("btnHdClearNotifyPrice");
+  if (btnHdClearNotifyPrice) {
+    btnHdClearNotifyPrice.addEventListener("click", function () {
+      hdClearNotifyPriceForPicked();
+    });
+  }
   var btnHdNotifyTest = $("btnHdNotifyTest");
   if (btnHdNotifyTest) {
     btnHdNotifyTest.addEventListener("click", function () {
@@ -18135,13 +18404,7 @@
   var btnHdAutoRefreshStart = $("btnHdAutoRefreshStart");
   if (btnHdAutoRefreshStart) {
     btnHdAutoRefreshStart.addEventListener("click", function () {
-      void hdStartAutoRefresh();
-    });
-  }
-  var btnHdAutoRefreshStop = $("btnHdAutoRefreshStop");
-  if (btnHdAutoRefreshStop) {
-    btnHdAutoRefreshStop.addEventListener("click", function () {
-      hdStopAutoRefresh();
+      hdToggleAutoRefresh();
     });
   }
   var hdAutoRefreshSecEl = $("hdAutoRefreshSec");
@@ -18213,12 +18476,10 @@
   if (btnHdRefreshArchive) {
     btnHdRefreshArchive.addEventListener("click", async function () {
       if (!guardKey()) return;
-      btnHdRefreshArchive.disabled = true;
-      try {
-        await refreshHoldingsTable();
-      } finally {
-        btnHdRefreshArchive.disabled = false;
-      }
+      await refreshHoldingsTable({
+        buttonId: "btnHdRefreshArchive",
+        useButtonLoading: true,
+      });
     });
   }
   var btnHdArchive = $("btnHdArchive");

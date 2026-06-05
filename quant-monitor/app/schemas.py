@@ -1365,11 +1365,18 @@ class HoldingsNotifyIn(BaseModel):
     items: list[HoldingOut] = Field(default_factory=list, description="本次刷新得到的持仓行")
     picked_ids: list[int] = Field(default_factory=list, description="勾选的持仓记录 id")
     refreshed_at: str | None = Field(None, description="刷新完成时刻 ISO；省略则由服务端填充")
+    alert_triggers: dict[str, str] = Field(
+        default_factory=dict,
+        description="holding_id（字符串键）-> 价格达标说明，写入推送正文",
+    )
 
 
 class HoldingsNotifyOut(BaseModel):
     ok: bool = True
     detail: str = ""
+    channel: str = Field("", description="wecom_markdown / dingtalk_markdown / json")
+    preview: str = Field("", description="实际推送的正文摘要，便于在控制台核对")
+    remote_reply: str = Field("", description="Webhook 远端返回摘要")
 
 
 HoldingExitAction = Literal["strong_close", "consider_close", "watch", "hold"]
