@@ -218,7 +218,8 @@
       white-space: nowrap;
     }
     .wl-ingest-fix,
-    .wl-refetch-kline {
+    .wl-refetch-kline,
+    .wl-view-kline {
       margin-left: 0.35rem;
       color: var(--accent);
       cursor: pointer;
@@ -228,6 +229,10 @@
       text-decoration: underline;
       padding: 0;
       white-space: nowrap;
+    }
+    .wl-view-kline {
+      margin-left: 0;
+      margin-right: 0.45rem;
     }
     .wl-kline-fetch-block {
       margin: 0.85rem 0 1rem;
@@ -2297,6 +2302,8 @@
       border-radius: 10px;
       background: rgba(61, 139, 253, 0.06);
       font-size: 0.86rem;
+      position: relative;
+      overflow: visible;
     }
     #panel-2 .wl-daily-view-bar label,
     #panel-2 .wl-daily-view-label {
@@ -2312,6 +2319,35 @@
     #panel-2 .wl-daily-view-bar input[type="date"] {
       padding: 0.4rem 0.55rem;
       font-size: 0.9rem;
+    }
+    #panel-2 .wl-date-range-picker {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.5rem;
+      padding: 0.35rem 0.55rem;
+      border: 1px solid rgba(61, 139, 253, 0.38);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.12);
+    }
+    #panel-2 .wl-date-range-picker label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    #panel-2 .wl-date-range-picker input[type="date"] {
+      min-width: 9.5rem;
+      padding: 0.35rem 0.45rem;
+      font-size: 0.86rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+    }
+    #panel-2 .wl-date-range-sep {
+      color: var(--muted);
+      font-size: 0.9rem;
+      user-select: none;
     }
     #panel-2 .wl-daily-view-bar select {
       padding: 0.38rem 0.5rem;
@@ -2365,6 +2401,10 @@
     #panel-2 #wl-table-wrap .wl-col-code { min-width: 4.5rem; }
     #panel-2 #wl-table-wrap .wl-col-name { min-width: 5.5rem; max-width: 8rem; }
     #panel-2 #wl-table-wrap .wl-col-ingest { min-width: 9rem; max-width: 11rem; }
+    #panel-2 #wl-table-wrap .wl-op-col {
+      min-width: 9.5rem;
+      white-space: nowrap;
+    }
     #panel-2 #wl-table-wrap .wl-col-kline-date {
       min-width: 5.5rem;
       max-width: 7rem;
@@ -3294,7 +3334,7 @@
         <p class="lead wl-page-intro">管理要关注的 6 位 A 股代码；拉数据与算信号均基于自选列表。下方可选<strong>量化池</strong>或<strong>手动 + 热门板块</strong>维护，<strong>手动</strong>条目在任何模式下都会保留。</p>
         <details class="wl-page-details">
           <summary>自选池来源与行为说明</summary>
-          <p class="lead">开启量化开关后，⑨「运行选股评估」成功时会自动写入自选（来源「量化自动」，并清空原热门/量化自动项，不删手动）。关闭后仅由热门板块与手动添加维护。⑨快照「将所选加入自选」会清空全部自选后仅保留勾选（热门自动）；「获取快照热门股票」导入前会清空自动池。</p>
+          <p class="lead">开启量化开关后，⑨「运行选股评估」成功时会自动写入自选（来源「量化自动」，并清空原热门/量化自动项，不删手动）。关闭后仅由热门板块与手动添加维护。⑨快照「将所选加入自选」会清空全部自选后仅保留勾选（热门自动）。</p>
         </details>
         <div id="wlQuantModeCard" class="wl-quant-mode-card">
           <label class="wl-quant-switch-label" for="chkWlUseQuant">
@@ -3456,12 +3496,12 @@
           <div class="wl-manual-shell-body">
             <details class="wl-page-details wl-manual-details">
               <summary>操作说明（添加、删除、快照导入）</summary>
-              <p class="lead wl-manual-lead">输入 6 位代码点<strong>确定添加</strong>后按<strong>上方日期区间</strong>自动入库日线（路线与③共用）。行内「<strong>重新获取</strong>」= 拉日线 + 该行现价；完成后会自动<strong>刷新列表</strong>。勾选后点<strong>重新获取所选日线</strong>同理。<strong>现价补当日收盘</strong>仅处理<strong>表格中已勾选</strong>的股票。<strong>删除所选</strong>等仅改本机列表，全表现价请点<strong>刷新列表</strong>。「获取快照热门股票」读 <code>data/hot_market_snapshot.json</code>，导入前清空自动池；无文件请先在⑨刷新热门快照。</p>
+              <p class="lead wl-manual-lead">输入 6 位代码点<strong>确定添加</strong>仅写入自选库（<strong>不</strong>自动拉 K 线或现价）。K 线请用上方「<strong>拉取日线</strong>」；表格与现价请点<strong>刷新列表</strong>。行内「<strong>重新获取</strong>」仅拉该行日线入库。<strong>重新获取日线</strong>：有勾选仅拉所选，未勾选拉<strong>自选池全部</strong>（与下方日期筛选无关）；拉取完成后<strong>不会</strong>自动刷新表格。<strong>现价补当日收盘</strong>仅处理<strong>表格中已勾选</strong>的股票。<strong>删除所选</strong>等仅改本机列表，全表现价请点<strong>刷新列表</strong>。</p>
             </details>
 
             <section class="wl-manual-section wl-manual-section--dates" aria-labelledby="wlManualDatesTitle">
               <h4 class="wl-manual-section-title" id="wlManualDatesTitle">拉取日线（本地 K 线）</h4>
-              <p class="wl-manual-section-hint">与③共用行情路线；此处<strong>拉日线入库</strong>。留空日期默认近约 30 个日历日。</p>
+              <p class="wl-manual-section-hint">与③共用行情路线；此处<strong>拉日线入库</strong>。「<strong>按日期拉取日线</strong>」<strong>只做一件事</strong>：按上方<strong>开始/结束日期</strong>闭区间联网拉 K 线入库（须先填写；不补当日 bar、不拉区间外数据）。「<strong>重新获取日线</strong>」为增量至今日（不传区间）。</p>
               <div class="wl-manual-dates-grid">
                 <div class="field-stack">
                   <label for="wlIngestStartDate">开始日期（含）</label>
@@ -3476,10 +3516,11 @@
                 行情路线（与③联动）：<strong id="wlRouteEcho">—</strong>
               </p>
               <div class="btns wl-kline-fetch-actions">
-                <button type="button" class="primary" id="btnWlRefetchSelected" title="未勾选时拉取②当前筛选后展示的数据；勾选则仅拉所选">重新获取所选日线</button>
+                <button type="button" class="secondary" id="btnWlRefetchByDate" title="仅按上方开始/结束日期闭区间拉 K 线入库；未勾选时拉自选池全部，勾选则仅拉所选">按日期拉取日线</button>
+                <button type="button" class="primary" id="btnWlRefetchSelected" title="增量更新至东八区今日（不传日期区间）；未勾选时拉自选池全部，勾选则仅拉所选">重新获取日线</button>
                 <button type="button" class="secondary btn-wl-cancel-refetch" id="btnWlCancelRefetch" hidden title="终止当前日线拉取（已入库部分保留）">取消拉取</button>
               </div>
-              <p class="wl-manual-footnote">未勾选行时等同拉取<strong>自选池全部</strong>；拉取中可点<strong>取消拉取</strong>（已完成入库的保留）。刷新页面后若后台仍在拉取，按钮会保持进度显示。</p>
+              <p class="wl-manual-footnote"><strong>按日期拉取日线</strong>：仅拉取已填日期区间内的 K 线入库，不会默认 30 日、不会自动改结束日、不会补写当日收盘，拉完<strong>不自动刷新表格</strong>。<strong>重新获取日线</strong>：增量至今日。均未勾选行时拉<strong>自选池全部</strong>；要看最新列表请点<strong>刷新列表</strong>。</p>
             </section>
 
             <hr class="wl-manual-divider" aria-hidden="true" />
@@ -3492,15 +3533,14 @@
               </div>
               <div class="btns wl-manual-action-btns">
                 <button type="button" class="primary" id="btnAddWl">确定添加</button>
-                <button type="button" class="secondary" id="btnRefreshWl">刷新列表</button>
+                <button type="button" class="secondary" id="btnRefreshWl" title="未勾选时刷新自选池全部；勾选后仅刷新所选（读 SQLite K 线 + 联网现价）">刷新列表</button>
                 <button type="button" class="secondary" id="btnWlBackfillTodayClose" title="仅对表格中已勾选股票，用联网现价补写今日日线 bar（填「当日收盘」）；须先勾选">现价补当日收盘</button>
-                <button type="button" class="secondary" id="btnWlFetchHotSnapStocks" title="POST /watchlist/import-hot-market-snapshot">获取快照热门股票</button>
                 <button type="button" class="secondary" id="btnWlBatchDelete" title="删除表格中已勾选的股票（可跨页累积勾选）">删除所选</button>
                 <button type="button" class="secondary" id="btnWlClearAuto" title="POST /watchlist/delete-all scope=auto">清空自动池</button>
                 <button type="button" class="secondary wl-btn-danger" id="btnWlDeleteAll" title="POST /watchlist/delete-all scope=all">全部删除</button>
                 <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
               </div>
-              <p class="wl-manual-footnote">「<strong>刷新列表</strong>」联网加载自选；进入本页或 F5 不自动请求，有缓存则先展示缓存。</p>
+              <p class="wl-manual-footnote">「<strong>刷新列表</strong>」联网更新（读 SQLite 已有 K 线 + 强制刷新现价）：<strong>有勾选仅刷新所选，未勾选刷新自选池全部</strong>，并合并进自选快照。「<strong>查询</strong>」只在上述快照里按时间筛选，<strong>不联网、不请求接口</strong>。K 线入库请用上方「拉取日线」。进入本页或 F5 可先展示本机缓存。</p>
               <p class="cancel-hint wl-manual-footnote" data-cancel-hint="panel-2" hidden>可中断热门板块预览、刷新列表等本页联网请求。</p>
               <div class="wl-panel-out-wrap" aria-live="polite">
                 <pre class="out" id="out-2" hidden></pre>
@@ -3514,17 +3554,20 @@
             <option value="added_at" selected>加入自选</option>
             <option value="first_ingest">首次入库</option>
           </select>
-          <label class="wl-ingest-range-lbl" for="wlFirstIngestFrom">起</label>
-          <input type="date" id="wlFirstIngestFrom" autocomplete="off" title="起始日期（可选）；与「止」皆空则查全部" />
-          <label class="wl-ingest-range-lbl" for="wlFirstIngestTo">止</label>
-          <input type="date" id="wlFirstIngestTo" autocomplete="off" title="结束日期（可选）；与「起」皆空则查全部" />
+          <div class="wl-date-range-picker" id="wlDateRangePicker" title="起始日与结束日同在一处填写；皆空则查全部">
+            <label for="wlFirstIngestFrom">起始</label>
+            <input type="date" id="wlFirstIngestFrom" autocomplete="off" title="区间起始日（东八区，含当日）" />
+            <span class="wl-date-range-sep" aria-hidden="true">～</span>
+            <label for="wlFirstIngestTo">结束</label>
+            <input type="date" id="wlFirstIngestTo" autocomplete="off" title="区间结束日（东八区，含当日）" />
+          </div>
           <button type="button" class="secondary" id="btnWlQueryDailyAdds">查询</button>
           <button type="button" class="secondary" id="btnWlTodayAdds">今天</button>
           <button type="button" class="secondary" id="btnWlClearFirstIngestDates" title="清空起止日期并查询全部">清空</button>
           <label class="wl-daily-pool-toggle" title="与清空日期等效：不按首次入库筛选">
             <input type="checkbox" id="chkWlShowFullPool" /> 显示全部自选池
           </label>
-          <span class="wl-daily-view-hint" id="wlDailyViewHint">起止日期可选：都为空则查全部；填起/止可筛时间段。</span>
+          <span class="wl-daily-view-hint" id="wlDailyViewHint">日期区间可选：起始与结束同在一框填写，都为空则查全部。</span>
         </div>
         <div id="wl-table-wrap"></div>
       </section>
@@ -3572,6 +3615,12 @@
                 <label class="fv-live-bars-label">
                   <input type="checkbox" id="chkIngestIncludeFundamentals" />
                   <span>同时拉取<strong>扩展因子</strong>（估值 PE/PB；成长 营收/净利同比+财报期；质量 ROE/ROA/毛利率/净利率；杠杆 资产负债率/流动比/速动比；现金流 每股经营现金流；资金 主力净流入+资金流日期；写库后 ④ 可合成 ±15 分）</span>
+                </label>
+              </div>
+              <div class="row" style="margin-top:0.15rem">
+                <label class="fv-live-bars-label">
+                  <input type="checkbox" id="chkIngestReuseWlSpot" checked />
+                  <span>复用<strong>② 刷新列表</strong>现价快照（<strong>不重复联网</strong>拉 push2/spot；需先在②点「刷新列表」。无快照的标的用本地 bars 回退；取消勾选则与原先一样逐只联网拉现价）</span>
                 </label>
               </div>
               <div id="ingest-test-wrap" hidden></div>
@@ -4201,12 +4250,18 @@
   var LS_KEY = "quant_monitor_api_key";
   var LS_DS = "quant_monitor_ingest_data_source";
   var LS_INGEST_FUNDAMENTALS = "quant_monitor_ingest_include_fundamentals";
+  var LS_INGEST_REUSE_WL_SPOT = "quant_monitor_ingest_reuse_wl_spot";
   var LS_WL_PAGE_SIZE = "quant_monitor_watchlist_page_size";
   var LS_WL_LIST_VIEW = "quant_monitor_wl_list_view_v1";
   var _wlShowFullPool = false;
   /** 上次「刷新列表」成功返回的自选全量（本机缓存） */
   var LS_LAST_WL_LIST = "quant_monitor_last_watchlist_v1";
+  /** ②「刷新列表」后的自选全量快照（查询只筛此数据，不联网） */
+  var _wlRefreshedPoolBody = null;
+  var _wlRefreshedPoolTs = null;
   var LS_LAST_WL_KLINE_DATES = "quant_monitor_wl_kline_dates_v1";
+  /** ② 联网拉取入库后的 K 线条缓存（symbol → 区间 → bars），供热门「本地缓存」等复用 */
+  var LS_WL_BARS_CACHE = "quant_monitor_wl_bars_cache_v1";
   /** ⑩ 持仓列表 + 定时推送 + 推送勾选（本机缓存，刷新页面后恢复展示） */
   var LS_LAST_HD_LIST = "quant_monitor_last_holdings_v1";
   /** ② 批量拉取日线任务（刷新页面后恢复按钮 loading） */
@@ -4731,6 +4786,34 @@
     var fromPanel2 = panel2SymbolsForCurrentView();
     if (fromPanel2 !== null) return fromPanel2;
     return null;
+  }
+
+  /** 从②「刷新列表」快照构建 reuse_watchlist_spot 请求体（symbol → spot 字段）。 */
+  function buildWatchlistSpotMapForIngest() {
+    var pool =
+      _wlRefreshedPoolBody && _wlRefreshedPoolBody.length
+        ? _wlRefreshedPoolBody
+        : _wlCachedBody && _wlCachedBody.length
+          ? _wlCachedBody
+          : [];
+    var out = {};
+    pool.forEach(function (it) {
+      if (!it || !it.symbol) return;
+      var sym = String(it.symbol).replace(/\D/g, "").slice(0, 6);
+      if (sym.length !== 6) return;
+      var px = it.spot_last_price;
+      if (px == null || !isFinite(Number(px)) || Number(px) <= 0) return;
+      out[sym] = {
+        spot_last_price: Number(px),
+        spot_change_pct:
+          it.spot_change_pct != null && isFinite(Number(it.spot_change_pct))
+            ? Number(it.spot_change_pct)
+            : null,
+        spot_quote_date: it.spot_quote_date != null ? String(it.spot_quote_date).slice(0, 10) : null,
+        live_price_source: "watchlist_spot_reuse",
+      };
+    });
+    return out;
   }
 
   function beginPanelServerTask(panelScope) {
@@ -8369,6 +8452,303 @@
     });
   }
 
+  function wlBarsCacheStorageKey(fromQ, toQ) {
+    return String(fromQ || "") + "|" + String(toQ || "");
+  }
+
+  function wlPersistBarsCacheEntry(sym, fromQ, toQ, bars) {
+    if (!sym || !fromQ || !toQ || !Array.isArray(bars) || !bars.length) return;
+    try {
+      var raw = localStorage.getItem(LS_WL_BARS_CACHE);
+      var store = raw ? JSON.parse(raw) : {};
+      if (!store || typeof store !== "object") store = {};
+      if (!store[sym]) store[sym] = {};
+      store[sym][wlBarsCacheStorageKey(fromQ, toQ)] = {
+        bars: bars,
+        from: fromQ,
+        to: toQ,
+        fetchedAt: Date.now(),
+      };
+      var keys = Object.keys(store[sym]);
+      if (keys.length > 5) {
+        keys.sort(function (a, b) {
+          var ta = (store[sym][a] && store[sym][a].fetchedAt) || 0;
+          var tb = (store[sym][b] && store[sym][b].fetchedAt) || 0;
+          return ta - tb;
+        });
+        for (var i = 0; i < keys.length - 5; i++) delete store[sym][keys[i]];
+      }
+      localStorage.setItem(LS_WL_BARS_CACHE, JSON.stringify(store));
+    } catch (eStore) {}
+  }
+
+  function wlLoadBarsCacheEntry(sym, fromQ, toQ) {
+    try {
+      var raw = localStorage.getItem(LS_WL_BARS_CACHE);
+      if (!raw) return null;
+      var store = JSON.parse(raw);
+      var hit = store && store[sym] && store[sym][wlBarsCacheStorageKey(fromQ, toQ)];
+      if (!hit || !Array.isArray(hit.bars) || !hit.bars.length) return null;
+      return {
+        bars: hit.bars,
+        from: fromQ,
+        to: toQ,
+        fetchedAt: hit.fetchedAt || Date.now(),
+        sourceLabel: "本地库（缓存）",
+        note: "②拉取入库后写入的本机 K 线缓存",
+      };
+    } catch (eLoad) {
+      return null;
+    }
+  }
+
+  function qssInvalidateKlineCacheForSymbols(syms) {
+    if (!syms || !syms.length) return;
+    qssClearKlineMonthCacheIfNeeded();
+    syms.forEach(function (s) {
+      var sym = String(s || "")
+        .replace(/\D/g, "")
+        .slice(-6);
+      if (sym.length === 6) {
+        delete _hotKlineCache[sym + ":wl-all"];
+      }
+    });
+    var rm = new Set();
+    syms.forEach(function (s) {
+      var c = String(s || "")
+        .replace(/\D/g, "")
+        .slice(-6);
+      if (c.length === 6) rm.add(c);
+    });
+    if (!rm.size) return;
+    Object.keys(_qssKlineMonthCache).forEach(function (k) {
+      var sym = String(k.split("|")[0] || "");
+      if (rm.has(sym)) delete _qssKlineMonthCache[k];
+    });
+  }
+
+  /** ② 拉取入库成功后：从 SQLite 读最新 bars，刷新内存与本机 K 线缓存。 */
+  async function wlSyncKlineCacheForSymbol(sym, fromQ, toQ) {
+    var qs =
+      "from_date=" +
+      encodeURIComponent(fromQ) +
+      "&to_date=" +
+      encodeURIComponent(toQ);
+    var res = await fetch("/quotes/" + encodeURIComponent(sym) + "/bars?" + qs, {
+      headers: authHeaders(),
+    });
+    var bars = await readBody(res);
+    if (!res.ok || !Array.isArray(bars) || !bars.length) return false;
+    var entry = {
+      bars: bars,
+      from: fromQ,
+      to: toQ,
+      fetchedAt: Date.now(),
+      sourceLabel: "本地库（已同步）",
+      note: "②联网拉取已入库，缓存已更新",
+    };
+    _hotKlineCache[sym + ":local"] = entry;
+    _hotKlineCache[sym + ":api"] = Object.assign({}, entry, {
+      sourceLabel: "API已入库",
+      note: "联网数据已写入本地库并同步至缓存",
+    });
+    wlPersistBarsCacheEntry(sym, fromQ, toQ, bars);
+    return true;
+  }
+
+  async function wlSyncKlineCachesAfterIngest(range, results) {
+    var okSyms = [];
+    (results || []).forEach(function (r) {
+      if (r && r.symbol && !r.error) okSyms.push(String(r.symbol));
+    });
+    if (!okSyms.length || !range || !range.from || !range.to) return { updated: 0 };
+    var ranges = [range];
+    var hm = hotMonthDateRange();
+    if (range.from !== hm.from || range.to !== hm.to) {
+      ranges.push({ from: hm.from, to: hm.to });
+    }
+    var updated = 0;
+    for (var i = 0; i < okSyms.length; i++) {
+      var sym = okSyms[i];
+      var symOk = false;
+      for (var ri = 0; ri < ranges.length; ri++) {
+        try {
+          if (
+            await wlSyncKlineCacheForSymbol(sym, ranges[ri].from, ranges[ri].to)
+          ) {
+            symOk = true;
+          }
+        } catch (eSync) {}
+      }
+      if (symOk) updated++;
+    }
+    qssInvalidateKlineCacheForSymbols(okSyms);
+    return { updated: updated };
+  }
+
+  function wlYmdDayBefore(ymd) {
+    var s = String(ymd || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var d = new Date(s + "T12:00:00");
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** ② 查看 K 线：读本地库全部已入库日线（分页合并，不限制近一月）。 */
+  async function wlFetchAllIngestedBars(sym, options) {
+    options = options || {};
+    var cacheKey = sym + ":wl-all";
+    if (
+      !options.forceRefresh &&
+      _hotKlineCache[cacheKey] &&
+      Array.isArray(_hotKlineCache[cacheKey].bars) &&
+      _hotKlineCache[cacheKey].bars.length
+    ) {
+      return _hotKlineCache[cacheKey].bars;
+    }
+    var merged = [];
+    var toDate = null;
+    var maxBars = 10000;
+    for (var guard = 0; guard < 25; guard++) {
+      var qs = "limit=500";
+      if (toDate) qs += "&to_date=" + encodeURIComponent(toDate);
+      var res = await panelFetch("/quotes/" + encodeURIComponent(sym) + "/bars?" + qs, {
+        headers: authHeaders(),
+      });
+      var batch = await readBody(res);
+      if (!res.ok) {
+        throw new Error(await formatError(res, batch));
+      }
+      if (!Array.isArray(batch) || !batch.length) break;
+      merged = merged.length ? batch.concat(merged) : batch.slice();
+      if (batch.length < 500 || merged.length >= maxBars) break;
+      toDate = wlYmdDayBefore(batch[0].trade_date);
+      if (!toDate || toDate === String(batch[0].trade_date || "").slice(0, 10)) break;
+    }
+    if (!merged.length) {
+      throw new Error("本地库暂无日线，请先点「重新获取」或「按日期拉取日线」。");
+    }
+    var fromQ = String(merged[0].trade_date || "").slice(0, 10);
+    var toQ = String(merged[merged.length - 1].trade_date || "").slice(0, 10);
+    var truncated = merged.length >= maxBars;
+    _hotKlineCache[cacheKey] = {
+      bars: merged,
+      from: fromQ,
+      to: toQ,
+      fetchedAt: Date.now(),
+      sourceLabel: "本地库（全部）",
+      note: truncated
+        ? "已展示至多 " + maxBars + " 根；若库内更多请缩小入库区间后重试。"
+        : "②已入库全部日线（共 " + merged.length + " 根）",
+    };
+    return merged;
+  }
+
+  function wlRenderIngestedKlineTableHtml(bars, cacheKey) {
+    if (!bars || !bars.length) {
+      return '<p class="hot-empty-sector" style="margin:0">暂无已入库日线。</p>';
+    }
+    var dr = _hotKlineCache[cacheKey] || {};
+    var lastTd = String(bars[bars.length - 1].trade_date || "").slice(0, 10);
+    var rows = "";
+    bars.forEach(function (b) {
+      rows +=
+        "<tr><td>" +
+        escHtml(b.trade_date || "—") +
+        '</td><td class="col-num">' +
+        escHtml(hotFmtNum(b.open, 2)) +
+        '</td><td class="col-num">' +
+        escHtml(hotFmtNum(b.high, 2)) +
+        '</td><td class="col-num">' +
+        escHtml(hotFmtNum(b.low, 2)) +
+        '</td><td class="col-num">' +
+        escHtml(hotFmtNum(b.close, 2)) +
+        '</td><td class="col-num">' +
+        escHtml(b.change_pct != null ? hotFmtPct(b.change_pct) : "—") +
+        '</td><td class="col-num">' +
+        escHtml(b.volume != null ? hotFmtNum(b.volume, 0) : "—") +
+        "</td></tr>";
+    });
+    var cap =
+      "已入库全部日线（" +
+      (dr.from || String(bars[0].trade_date || "").slice(0, 10) || "—") +
+      " ~ " +
+      (dr.to || lastTd || "—") +
+      "，共 " +
+      bars.length +
+      " 根" +
+      (dr.sourceLabel ? " · " + dr.sourceLabel : "") +
+      "）";
+    return (
+      '<p class="hot-kline-caption">' +
+      escHtml(cap) +
+      "</p>" +
+      '<div class="hot-result-table-wrap hot-kline-all-wrap">' +
+      '<table class="hot-result-table"><thead><tr>' +
+      "<th>交易日</th><th>开</th><th>高</th><th>低</th><th>收</th><th>涨跌%</th><th>成交量</th>" +
+      "</tr></thead><tbody>" +
+      rows +
+      "</tbody></table></div>"
+    );
+  }
+
+  /** ② 操作列：查看已拉取入库的全部 K 线（本地 SQLite，不联网、不限近一月）。 */
+  async function wlShowKlineDataDialog(sym, name) {
+    if (!guardKey()) return;
+    sym = String(sym || "")
+      .replace(/\D/g, "")
+      .slice(-6);
+    if (sym.length !== 6) return;
+    var nm = String(name || "").trim();
+    var dlg = $("hotKlineDlg");
+    var titleEl = $("hotKlineDlgTitle");
+    var quoteEl = $("hotKlineDlgQuote");
+    var bodyEl = $("hotKlineDlgBody");
+    var metaEl = $("hotKlineDlgMeta");
+    if (!dlg || !bodyEl) return;
+    bindHotKlineDialogOnce();
+    if (titleEl) {
+      titleEl.textContent =
+        sym + (nm ? " " + nm : "") + " · 已入库全部 K 线";
+    }
+    if (quoteEl) hotRenderKlineQuoteStrip(quoteEl, null);
+    if (metaEl) {
+      metaEl.textContent =
+        "展示②「重新获取/按日期拉取」写入本地库的全部日线，不限近一月，不联网。";
+    }
+    bodyEl.innerHTML =
+      '<p class="m3-hint" style="margin:0">正在读取已入库全部 K 线…</p>';
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    try {
+      var cacheKey = sym + ":wl-all";
+      var bars = await wlFetchAllIngestedBars(sym, { forceRefresh: true });
+      var quote = hotQuoteFromBars(bars, "末根收盘");
+      hotRenderKlineQuoteStrip(quoteEl, quote);
+      bodyEl.innerHTML = wlRenderIngestedKlineTableHtml(bars, cacheKey);
+      if (metaEl) {
+        var cached = _hotKlineCache[cacheKey] || {};
+        var extra = cached.note ? String(cached.note) : "";
+        var lastBar = bars.length
+          ? String(bars[bars.length - 1].trade_date || "").slice(0, 10)
+          : "";
+        metaEl.textContent =
+          "数据区间 " +
+          (cached.from || "—") +
+          " ~ " +
+          (cached.to || lastBar || "—") +
+          "；共 " +
+          bars.length +
+          " 根已入库日线。" +
+          (extra ? " " + extra : "");
+      }
+    } catch (e) {
+      bodyEl.innerHTML =
+        '<p class="lead" style="margin:0;color:var(--err)">' +
+        escHtml(String(e)) +
+        "</p>";
+    }
+  }
+
   function hotKlineBtnQuoteAttrs(st) {
     if (!st || typeof st !== "object") return "";
     var attrs = "";
@@ -8596,9 +8976,18 @@
       !options.forceRefresh &&
       _hotKlineCache[cacheKey] &&
       Array.isArray(_hotKlineCache[cacheKey].bars) &&
-      _hotKlineCache[cacheKey].bars.length
+      _hotKlineCache[cacheKey].bars.length &&
+      _hotKlineCache[cacheKey].from === dr.from &&
+      _hotKlineCache[cacheKey].to === dr.to
     ) {
       return _hotKlineCache[cacheKey].bars;
+    }
+    if (!options.forceRefresh) {
+      var lsEntry = wlLoadBarsCacheEntry(sym, dr.from, dr.to);
+      if (lsEntry && lsEntry.bars.length) {
+        _hotKlineCache[cacheKey] = lsEntry;
+        return lsEntry.bars;
+      }
     }
     var qs =
       "from_date=" +
@@ -8624,6 +9013,7 @@
       sourceLabel: "本地库",
       note: "仅读 SQLite 已入库日线，不联网。"
     };
+    wlPersistBarsCacheEntry(sym, dr.from, dr.to, bars);
     return bars;
   }
 
@@ -8901,62 +9291,6 @@
     hotSyncSectorDetailSelectAllHeaders();
   }
 
-  function hotUniqueSymbolsFromRows(stocks) {
-    var seen = {};
-    var out = [];
-    (Array.isArray(stocks) ? stocks : []).forEach(function (row) {
-      var raw = row && (row.code != null ? row.code : row.symbol);
-      var sym = String(raw || "").replace(/\D/g, "").slice(-6);
-      if (sym.length === 6 && !seen[sym]) {
-        seen[sym] = 1;
-        out.push(sym);
-      }
-    });
-    return out;
-  }
-
-  /** 仅在首次入库缺失时补写今日 bar，避免「加入自选后按首次入库筛选无结果」。 */
-  async function hotEnsureFirstIngestForRows(stocks) {
-    var syms = hotUniqueSymbolsFromRows(stocks);
-    if (!syms.length) return { ensured: 0, failed: 0 };
-    try {
-      var res = await fetchCancel("panel-2", "/watchlist/backfill-today-close", {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({
-          symbols: syms,
-          allow_intraday: true,
-          force_refresh: false,
-          data_source: getIngestDataSource(),
-        }),
-        skipPanelLoading: true,
-      });
-      var body = await readBody(res);
-      if (!res.ok || !body || !Array.isArray(body.results)) {
-        return { ensured: 0, failed: syms.length };
-      }
-      var ensured = 0;
-      var failed = 0;
-      body.results.forEach(function (r) {
-        if (r && r.ok) {
-          if ((r.rows_upserted != null ? Number(r.rows_upserted) : 0) > 0) ensured += 1;
-          return;
-        }
-        failed += 1;
-      });
-      if (ensured > 0) {
-        syms.forEach(function (sym) {
-          delete _hotKlineCache[sym];
-          delete _hotKlineCache[sym + ":local"];
-          delete _hotKlineCache[sym + ":api"];
-        });
-      }
-      return { ensured: ensured, failed: failed };
-    } catch (e) {
-      return { ensured: 0, failed: syms.length };
-    }
-  }
-
   async function hotAddStocksToWatchlist(stocks, hint) {
     if (!guardKey()) return;
     if (!stocks || !stocks.length) {
@@ -8967,7 +9301,7 @@
       var res = await fetchCancel("panel-2", "/watchlist/batch-add", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({ stocks: stocks }),
+        body: JSON.stringify({ stocks: stocks, log_snapshot: false }),
         skipPanelLoading: true,
       });
       var body = await readBody(res);
@@ -8975,7 +9309,6 @@
         showOut("out-2", await formatError(res, body), true);
         return;
       }
-      var logged = (body.added != null ? body.added : 0) + (body.updated != null ? body.updated : 0);
       var msg =
         (hint || "加入自选") +
         "完成：新增 " +
@@ -8983,33 +9316,20 @@
         " 条，已在池中更新为手动 " +
         (body.updated != null ? body.updated : 0) +
         " 条。";
-      if (logged > 0) {
-        msg += " 已写入加入日志 " + logged + " 条（② 可按「首次入库」起止日期查询）。";
-      }
-      var ensured = { ensured: 0, failed: 0 };
-      if (logged > 0) {
-        ensured = await hotEnsureFirstIngestForRows(stocks);
-        if (ensured.ensured > 0) {
-          msg += " 已补写首次入库 " + ensured.ensured + " 只。";
-        }
-      }
       if (body.skipped) msg += " 跳过无效 " + body.skipped + " 条。";
-      if (ensured.failed > 0) {
-        msg += " 首次入库补写失败/跳过 " + ensured.failed + " 只（可在②点「重新获取」）。";
+      wlMergeBatchAddStocksIntoLocalPool(stocks);
+      if (wlGetDateFilterMode() === "added_at") {
+        if (!$("chkWlShowFullPool") || !$("chkWlShowFullPool").checked) {
+          var t = wlCalendarTodayYmd();
+          wlDateRangeSetValue(t, t);
+        }
+        msg +=
+          " 已写入自选库与本机快照（不拉 K 线）；时间筛选用「加入自选」后点「查询」即可。现价/K 线列需点「刷新列表」或「拉取日线」。";
+      } else {
+        msg +=
+          " 已写入自选库（不拉 K 线）。当前筛「首次入库」：未拉日线前查询可能无数据，请改筛「加入自选」或先拉 K 线。";
       }
       showOut("out-2", msg, false);
-      if (logged > 0 && (!$("chkWlShowFullPool") || !$("chkWlShowFullPool").checked)) {
-        var t = wlCalendarTodayYmd();
-        var wlFrom = $("wlFirstIngestFrom");
-        var wlTo = $("wlFirstIngestTo");
-        if (wlFrom) wlFrom.value = t;
-        if (wlTo) wlTo.value = t;
-      }
-      await refreshWatchlistTable({
-        refreshSpot: false,
-        skipCacheRestore: true,
-        keepOutMessage: true,
-      });
     } catch (e) {
       showOut("out-2", String(e), true);
     }
@@ -9097,7 +9417,7 @@
       '<div class="hot-sector-detail-actions">' +
       '<button type="button" class="secondary hot-sector-select-all-btn" title="勾选本表全部股票">全选</button>' +
       '<button type="button" class="secondary hot-sector-select-none-btn" title="取消勾选本表全部股票">全不选</button>' +
-      '<button type="button" class="primary hot-add-wl-picked-in-detail" title="仅将本表已勾选股票写入②自选池">将勾选股加入自选</button>' +
+      '<button type="button" class="primary hot-add-wl-picked-in-detail" title="仅写入②自选池，不拉 K 线、不自动刷新列表">将勾选股加入自选</button>' +
       '<button type="button" class="secondary hot-sector-detail-close" id="btnHotSectorDetailClose">收起</button>' +
       "</div></header>" +
       '<div class="hot-sector-detail-body">' +
@@ -9174,10 +9494,7 @@
     }
   }
 
-  /**
-   * 逐只发送 /watchlist/batch-add，每成功一只实时更新进度 "N / M 只：code name"。
-   * 不拉取 K 线数据（跳过 hotEnsureFirstIngestForRows）。
-   */
+  /** 全部候选一次 batch-add，与明细内「将勾选股加入自选」共用逻辑。 */
   async function hotAddAllWithRoll(stocks) {
     if (!guardKey()) return;
 
@@ -9191,58 +9508,12 @@
 
     if (!stocks || !stocks.length) {
       setProgress("没有候选股票，请先获取热门板块数据。", false);
-      showOut("out-2", "请先勾选要加入自选的股票。", true);
+      showOut("out-2", "没有可加入的候选股票。", true);
       return;
     }
-    var total = stocks.length;
-    var doneCount = 0;
-    var totalAdded = 0;
-    var totalUpdated = 0;
-    var totalSkipped = 0;
-    var totalFailed = 0;
-
-    setProgress("准备加入，共 " + total + " 只…", false);
-
-    for (var i = 0; i < stocks.length; i++) {
-      var st = stocks[i];
-      var label = (st.code || "") + (st.name ? " " + st.name : "");
-      setProgress("正在加入 " + (i + 1) + " / " + total + " 只：" + label + "…", false);
-      try {
-        var res = await fetch("/watchlist/batch-add", {
-          method: "POST",
-          headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-          body: JSON.stringify({ stocks: [st] }),
-        });
-        var body = await readBody(res);
-        if (res.ok && body) {
-          totalAdded   += body.added   != null ? body.added   : 0;
-          totalUpdated += body.updated != null ? body.updated : 0;
-          totalSkipped += body.skipped != null ? body.skipped : 0;
-        } else {
-          totalFailed++;
-        }
-      } catch (e) {
-        totalFailed++;
-      }
-      doneCount++;
-      setProgress("已加入 " + doneCount + " / " + total + " 只：" + label, false);
-    }
-
-    // 全部完成
-    var msg = "完成 " + total + " 只：新增 " + totalAdded + " 条，更新 " + totalUpdated + " 条";
-    if (totalSkipped > 0) msg += "，跳过 " + totalSkipped + " 条";
-    if (totalFailed  > 0) msg += "，失败 " + totalFailed + " 条";
-    setProgress(msg, true);
-    showOut("out-2", "全部入选加入自选完成（" + total + " 只）：新增 " + totalAdded +
-      " 条，已在池中更新为手动 " + totalUpdated + " 条。" +
-      (totalSkipped > 0 ? " 跳过无效 " + totalSkipped + " 条。" : "") +
-      (totalFailed  > 0 ? " 请求失败 " + totalFailed  + " 条。" : ""), false);
-
-    refreshWatchlistTable({
-      refreshSpot: false,
-      skipCacheRestore: true,
-      keepOutMessage: true,
-    }).catch(function () {});
+    setProgress("正在加入 " + stocks.length + " 只…", false);
+    await hotAddStocksToWatchlist(stocks, "全部入选加入自选");
+    setProgress("已处理 " + stocks.length + " 只", true);
   }
 
   function hotReRenderGroupBlock(pickGroup) {
@@ -9908,7 +10179,7 @@
       '<button type="button" class="secondary" id="btnHotAddWlAll">全部入选加入自选</button>' +
       '<span id="hotAddWlProgress" style="margin-left:12px;font-size:0.85rem;color:#7eb8f7;vertical-align:middle;"></span>' +
       "</div>" +
-      '<p class="m3-hint hot-pick-toolbar-hint" style="margin:0;font-size:0.78rem">按板块挑选：先点「查看」→ 勾选 → 明细内「将勾选股加入自选」。若要一次加入本次全部候选，用左侧按钮。</p>' +
+      '<p class="m3-hint hot-pick-toolbar-hint" style="margin:0;font-size:0.78rem">按板块挑选：先点「查看」→ 勾选 → 明细内「将勾选股加入自选」。若要一次加入本次全部候选，用左侧按钮。加入仅写入②自选池（不拉 K 线）；②用「加入自选」+「查询」可见，现价/K 线需「刷新列表」或「拉取日线」。</p>' +
       "</div>";
     wrap.hidden = false;
     hotSyncPickSelectAllCheckbox();
@@ -10303,6 +10574,7 @@
     cancelled: false,
     scopeHeld: false,
     postInFlight: false,
+    refetchMode: "incremental",
   };
 
   function persistWlRefetchJob(active, extra) {
@@ -10379,12 +10651,16 @@
           var st = await fetchWlRefetchJobStatus();
           if (st && st.active) {
             _wlRefetchState.running = true;
-            setWlRefetchButtonLoading(true, wlRefetchProgressLabel(st));
+            setWlRefetchButtonLoading(true, wlRefetchProgressLabel(st), {
+              activeMode: _wlRefetchState.refetchMode,
+            });
             return;
           }
           if (_wlRefetchState.postInFlight) {
             _wlRefetchState.running = true;
-            setWlRefetchButtonLoading(true, "正在完成…");
+            setWlRefetchButtonLoading(true, "正在完成…", {
+              activeMode: _wlRefetchState.refetchMode,
+            });
             return;
           }
           wlRefetchJobFinished({
@@ -10402,6 +10678,7 @@
     stopWlRefetchPoll();
     _wlRefetchState.running = false;
     _wlRefetchState.cancelled = false;
+    _wlRefetchState.refetchMode = "incremental";
     persistWlRefetchJob(false);
     wlRefetchReleaseUi();
     if (!opts.silent) {
@@ -10417,13 +10694,6 @@
       _wlJumpToLastPageAfterRefreshOnce = true;
       void refreshWatchlistTable();
     }
-    if (opts.symbols && Array.isArray(opts.symbols)) {
-      opts.symbols.forEach(function (sym) {
-        delete _hotKlineCache[sym];
-        delete _hotKlineCache[sym + ":local"];
-        delete _hotKlineCache[sym + ":api"];
-      });
-    }
   }
 
   async function syncWlRefetchJobFromServer() {
@@ -10432,7 +10702,9 @@
       _wlRefetchState.running = true;
       persistWlRefetchJob(true, { total: st.total, done: st.done });
       wlRefetchAcquireUi();
-      setWlRefetchButtonLoading(true, wlRefetchProgressLabel(st));
+      setWlRefetchButtonLoading(true, wlRefetchProgressLabel(st), {
+        activeMode: _wlRefetchState.refetchMode,
+      });
       return true;
     }
     return false;
@@ -10534,23 +10806,32 @@
 
   function setWlRefetchButtonLoading(loading, text, opts) {
     opts = opts || {};
-    var btn = $("btnWlRefetchSelected");
+    var ids = ["btnWlRefetchSelected", "btnWlRefetchByDate"];
     var cancelBtn = $("btnWlCancelRefetch");
-    if (!btn) return;
-    if (!btn.dataset.defaultText) {
-      btn.dataset.defaultText = btn.textContent || "重新获取所选日线";
-    }
+    var activeMode = opts.activeMode || _wlRefetchState.refetchMode || "incremental";
+    ids.forEach(function (id) {
+      var btn = $(id);
+      if (!btn) return;
+      if (!btn.dataset.defaultText) btn.dataset.defaultText = btn.textContent;
+      if (loading) {
+        btn.disabled = true;
+        var isRangeBtn = id === "btnWlRefetchByDate";
+        var showProgress =
+          (activeMode === "range" && isRangeBtn) ||
+          (activeMode !== "range" && !isRangeBtn);
+        btn.textContent = showProgress ? text || "正在拉取日线…" : btn.dataset.defaultText;
+      } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.defaultText;
+      }
+    });
     if (loading) {
-      btn.disabled = true;
-      btn.textContent = text || "正在拉取日线…";
       if (cancelBtn) {
         cancelBtn.hidden = false;
         cancelBtn.disabled = !!opts.cancelling;
       }
       return;
     }
-    btn.disabled = false;
-    btn.textContent = btn.dataset.defaultText || "重新获取所选日线";
     if (cancelBtn) {
       cancelBtn.hidden = true;
       cancelBtn.disabled = false;
@@ -10571,7 +10852,10 @@
     _wlRefetchState.cancelled = true;
     _wlRefetchState.running = true;
     wlRefetchAcquireUi();
-    setWlRefetchButtonLoading(true, "正在取消拉取…", { cancelling: true });
+    setWlRefetchButtonLoading(true, "正在取消拉取…", {
+      cancelling: true,
+      activeMode: _wlRefetchState.refetchMode,
+    });
     try {
       await fetch("/meta/cancel-batch", {
         method: "POST",
@@ -10588,35 +10872,53 @@
     startWlRefetchPoll();
   }
 
-  function resolveWlKlineRefetchSymbols() {
+  /** 未勾选拉日线时：自选池全部代码（与列表日期筛选无关）。 */
+  async function fetchWlPoolSymbolList() {
+    if (_wlRefreshedPoolBody && _wlRefreshedPoolBody.length) {
+      return _wlRefreshedPoolBody.map(function (x) {
+        return x && x.symbol;
+      }).filter(Boolean);
+    }
+    if (_wlShowFullPool && _wlCachedBody && _wlCachedBody.length) {
+      return _wlCachedBody.map(function (x) {
+        return x && x.symbol;
+      }).filter(Boolean);
+    }
+    if (apiKeyRequired() && !getApiKey()) return [];
+    try {
+      var res = await fetch("/watchlist?pool=true", { headers: authHeaders() });
+      var body = await readBody(res);
+      if (!res.ok || !Array.isArray(body)) return [];
+      return body
+        .map(function (x) {
+          return x && x.symbol;
+        })
+        .filter(Boolean);
+    } catch (ePool) {
+      return [];
+    }
+  }
+
+  async function resolveWlKlineRefetchSymbols() {
     if (wlSelectedSyms.size > 0) {
       return {
         symbols: wlSelectedSymsOrder.length ? wlSelectedSymsOrder.slice() : Array.from(wlSelectedSyms),
         scopeHint: "已勾选 " + wlSelectedSyms.size + " 只",
       };
     }
-    if (_wlLastRenderedBody && _wlLastRenderedBody.length) {
-      var shown = _wlLastRenderedBody.map(function (x) {
-        return x.symbol;
-      });
-      return {
-        symbols: shown,
-        scopeHint: "②当前筛选展示 " + shown.length + " 只（未勾选）",
-      };
-    }
-    if (_wlCachedBody && _wlCachedBody.length) {
-      var all = _wlCachedBody.map(function (x) {
-        return x.symbol;
-      });
-      return { symbols: all, scopeHint: "②缓存 " + all.length + " 只（未勾选）" };
-    }
-    return { symbols: [], scopeHint: "" };
+    var poolSyms = await fetchWlPoolSymbolList();
+    return {
+      symbols: poolSyms,
+      scopeHint: poolSyms.length ? "自选池全部 " + poolSyms.length + " 只（未勾选）" : "",
+    };
   }
 
-  async function wlRefetchKlineSymbols(symbols) {
+  async function wlRefetchKlineSymbols(symbols, opts) {
+    opts = opts || {};
+    var useDateRange = !!opts.useDateRange;
     if (!symbols || !symbols.length) {
       showOut2(
-        "请先在表格中勾选股票，或先让②列表展示出要拉取的股票后再点本按钮（未勾选时将拉取当前展示范围）。也可点行内「重新获取」。",
+        "自选池为空或未能读取：请先添加股票，或点「刷新列表」后再试。也可勾选部分股票后只拉所选，或点行内「重新获取」。",
         true
       );
       return;
@@ -10636,15 +10938,31 @@
     }
     _wlUserRefetchTime = new Date().toISOString();
     persistWlKlineDates();
-    var range = getWlIngestDateRange();
-    var rangeLab =
-      (range.start_date || "…") + " ～ " + (range.end_date || "…");
+    var rangeLab;
+    var explicitRange = null;
+    var klineCacheRange = null;
+    if (useDateRange) {
+      explicitRange = getWlExplicitIngestDateRange();
+      if (explicitRange.error) {
+        showOut2(explicitRange.error, true);
+        return;
+      }
+      rangeLab = explicitRange.start_date + " ～ " + explicitRange.end_date;
+      klineCacheRange = { from: explicitRange.start_date, to: explicitRange.end_date };
+    } else {
+      rangeLab = "增量至东八区今日";
+      var hmRange = hotMonthDateRange();
+      klineCacheRange = { from: hmRange.from, to: hmRange.to };
+    }
     var reqId = ++_wlRefetchReqSeq;
     _wlRefetchState.running = true;
     _wlRefetchState.reqId = reqId;
     _wlRefetchState.cancelled = false;
+    _wlRefetchState.refetchMode = useDateRange ? "range" : "incremental";
     persistWlRefetchJob(true, { total: symbols.length });
-    setWlRefetchButtonLoading(true, "正在拉取 0/" + symbols.length + " 只…");
+    setWlRefetchButtonLoading(true, "正在拉取 0/" + symbols.length + " 只…", {
+      activeMode: _wlRefetchState.refetchMode,
+    });
     wlRefetchAcquireUi();
     startWlRefetchPoll();
     showOut2(
@@ -10663,10 +10981,12 @@
         symbols: symbols,
         data_source: getIngestDataSource(),
       };
-      if (range.start_date) payload.start_date = range.start_date;
-      if (range.end_date) payload.end_date = range.end_date;
+      if (useDateRange && explicitRange) {
+        payload.start_date = explicitRange.start_date;
+        payload.end_date = explicitRange.end_date;
+      }
       await clearServerCancelFlagsForScopes(["ingest"]);
-      var res = await fetch("/ingest/update", {
+      var res = await fetch("/watchlist/refetch-kline", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
         body: JSON.stringify(payload),
@@ -10693,37 +11013,56 @@
             }).length
           : 0;
       var failN = symbols.length - okN;
-      var backfillN =
-        body && body.results
-          ? body.results.filter(function (r) {
-              return r && r.today_bar_backfill;
-            }).length
-          : 0;
-      if (body && body.results) {
-        wlApplyIngestResultsToWatchlistCache(body.results);
-      }
-      wlRefetchJobFinished({
-        completedMsg:
+      var cacheSync = await wlSyncKlineCachesAfterIngest(klineCacheRange, body.results);
+      await wlRefreshWlAllKlineCachesAfterIngest(body.results);
+      var completedMsg;
+      if (useDateRange) {
+        completedMsg =
+          "区间 K 线拉取完成：成功 " +
+          okN +
+          " 只" +
+          (failN > 0 ? "，失败/跳过 " + failN + " 只（可重试）" : "") +
+          "。区间 " +
+          rangeLab +
+          "，已写入 SQLite。" +
+          (cacheSync.updated > 0 ? " 已同步 K 线缓存 " + cacheSync.updated + " 只。" : "") +
+          " 点「查看k线数据」可读该区间日线；自选表格请点「刷新列表」。";
+      } else {
+        var backfillN =
+          body && body.results
+            ? body.results.filter(function (r) {
+                return r && r.today_bar_backfill;
+              }).length
+            : 0;
+        completedMsg =
           "日线拉取完成：成功 " +
           okN +
           " 只" +
-          (failN > 0 ? "，失败/跳过 " + failN + " 只（见③拉取结果或重试）" : "") +
+          (failN > 0 ? "，失败/跳过 " + failN + " 只（可重试）" : "") +
           (backfillN > 0
-            ? "；其中 " + backfillN + " 只已用收盘后现价补写当日 K 线（数据源日线滞后时）"
+            ? "；其中 " + backfillN + " 只已补写当日 K 线（数据源滞后时）"
             : "") +
           "。区间 " +
           rangeLab +
-          "。正在刷新列表以更新昨收/当日收盘/现价…",
+          "。" +
+          (cacheSync.updated > 0
+            ? " 已写入 SQLite 并同步 K 线缓存 " + cacheSync.updated + " 只。"
+            : " 已写入 SQLite。") +
+          " 点「查看k线数据」可读全部已入库日线；自选表格与现价请点「刷新列表」。";
+      }
+      wlRefetchJobFinished({
+        completedMsg: completedMsg,
         completedWarn: failN > 0,
-        refreshTable: true,
-        symbols: symbols,
+        refreshTable: false,
       });
     } catch (e) {
       var stAfter = await fetchWlRefetchJobStatus();
       if (stAfter && stAfter.active) {
         _wlRefetchState.running = true;
         wlRefetchAcquireUi();
-        setWlRefetchButtonLoading(true, wlRefetchProgressLabel(stAfter));
+        setWlRefetchButtonLoading(true, wlRefetchProgressLabel(stAfter), {
+          activeMode: _wlRefetchState.refetchMode,
+        });
         startWlRefetchPoll();
         if (_wlRefetchState.cancelled) {
           showOut2("取消请求已发送，后台停止中…", true);
@@ -10753,7 +11092,9 @@
         if (stFin && stFin.active) {
           _wlRefetchState.running = true;
           wlRefetchAcquireUi();
-          setWlRefetchButtonLoading(true, wlRefetchProgressLabel(stFin));
+          setWlRefetchButtonLoading(true, wlRefetchProgressLabel(stFin), {
+            activeMode: _wlRefetchState.refetchMode,
+          });
           startWlRefetchPoll();
         }
       })();
@@ -10762,7 +11103,7 @@
 
   async function wlIngestMissingSymbol(sym) {
     if (!sym) return;
-    await wlRefetchKlineSymbols([sym]);
+    await wlRefetchKlineSymbols([sym], { useDateRange: false });
   }
 
   function wlShowTableIdle() {
@@ -10862,19 +11203,137 @@
     return { close: close, date: date, title: title };
   }
 
-  /** ② 自选：从本机缓存灌入内存（不联网） */
-  function ensureWlCacheHydrated() {
-    if (_wlCachedBody && Array.isArray(_wlCachedBody) && _wlCachedBody.length) return true;
+  /** 按当前时间筛选条，从「刷新列表」全量快照切片（不联网）。 */
+  function wlApplyCurrentWatchlistView(poolBody) {
+    if (!Array.isArray(poolBody)) return [];
+    if (_wlShowFullPool) return poolBody.slice();
+    return wlFilterByFirstIngestView(poolBody.slice());
+  }
+
+  function wlSetRefreshedPoolBody(body, ts) {
+    _wlRefreshedPoolBody = Array.isArray(body) ? body.slice() : [];
+    _wlRefreshedPoolTs = ts != null ? ts : Date.now();
+  }
+
+  function wlBuildRefreshListUrl(symbols) {
+    var parts = ["pool=true", "refresh_spot=true"];
+    if (Array.isArray(symbols) && symbols.length) {
+      symbols.forEach(function (s) {
+        if (s) parts.push("symbols=" + encodeURIComponent(String(s)));
+      });
+    }
+    return "/watchlist?" + parts.join("&");
+  }
+
+  /** 子集刷新：把本次返回行合并进自选全量快照，不替换未刷新标的。 */
+  function wlMergeFreshItemsIntoRefreshedPool(freshItems) {
+    if (!Array.isArray(freshItems) || !freshItems.length) return;
+    var bySym = {};
+    freshItems.forEach(function (it) {
+      if (it && it.symbol) bySym[it.symbol] = it;
+    });
+    if (!Object.keys(bySym).length) return;
+    wlEnsureRefreshedPoolHydrated();
+    var pool =
+      _wlRefreshedPoolBody && _wlRefreshedPoolBody.length
+        ? _wlRefreshedPoolBody.slice()
+        : _wlCachedBody && _wlCachedBody.length
+          ? _wlCachedBody.slice()
+          : [];
+    if (!pool.length) {
+      wlSetRefreshedPoolBody(freshItems.slice());
+    } else {
+      var seen = {};
+      _wlRefreshedPoolBody = pool.map(function (row) {
+        if (!row || !row.symbol) return row;
+        seen[row.symbol] = true;
+        var u = bySym[row.symbol];
+        return u ? Object.assign({}, row, u) : row;
+      });
+      freshItems.forEach(function (it) {
+        if (it && it.symbol && !seen[it.symbol]) {
+          _wlRefreshedPoolBody.push(it);
+          seen[it.symbol] = true;
+        }
+      });
+      _wlRefreshedPoolTs = Date.now();
+    }
+    _wlCachedBody = wlApplyCurrentWatchlistView(_wlRefreshedPoolBody);
+  }
+
+  function wlEnsureRefreshedPoolHydrated() {
+    if (_wlRefreshedPoolBody && _wlRefreshedPoolBody.length) return true;
     try {
       var raw = localStorage.getItem(LS_LAST_WL_LIST);
       if (!raw || !String(raw).trim()) return false;
       var snap = JSON.parse(raw);
+      var pool =
+        snap && snap.refreshedPoolBody && Array.isArray(snap.refreshedPoolBody)
+          ? snap.refreshedPoolBody
+          : snap && snap.body && Array.isArray(snap.body)
+            ? snap.body
+            : null;
+      if (!pool || !pool.length) return false;
+      wlSetRefreshedPoolBody(pool, snap.refreshedPoolTs || snap.ts);
+      return true;
+    } catch (ePool) {
+      return false;
+    }
+  }
+
+  /** ② 查询：仅筛选「刷新列表」后的全量快照，不发起 HTTP。 */
+  function wlQueryWatchlistFromRefreshedPool(opts) {
+    opts = opts || {};
+    if (!guardKey()) return false;
+    if (!wlEnsureRefreshedPoolHydrated()) {
+      showOut2("请先点「刷新列表」联网加载最新数据，再查询。", true);
+      return false;
+    }
+    watchlistPage = 1;
+    _wlServerAddedRangeFilter = false;
+    _wlCachedBody = wlApplyCurrentWatchlistView(_wlRefreshedPoolBody);
+    var lab = _wlShowFullPool ? "全部自选池" : wlFirstIngestRangeLabel();
+    wlUpdateDailyViewHint(_wlCachedBody.length, lab);
+    renderWatchlistTable(_wlCachedBody);
+    persistWatchlistSnapshot();
+    if (!opts.silent) {
+      if (!_wlCachedBody.length) {
+        showOut2("查询完成：" + lab + " 无匹配标的（本机筛选，未联网）。", true);
+      } else {
+        showOut2(
+          "查询完成：" + lab + " 共 " + _wlCachedBody.length + " 只（本机筛选，未联网）。",
+          false
+        );
+      }
+    }
+    return true;
+  }
+
+  /** ② 自选：从本机缓存灌入内存（不联网） */
+  function ensureWlCacheHydrated() {
+    if (_wlCachedBody && Array.isArray(_wlCachedBody) && _wlCachedBody.length) {
+      wlEnsureRefreshedPoolHydrated();
+      return true;
+    }
+    try {
+      var raw = localStorage.getItem(LS_LAST_WL_LIST);
+      if (!raw || !String(raw).trim()) return false;
+      var snap = JSON.parse(raw);
+      var pool =
+        snap && snap.refreshedPoolBody && Array.isArray(snap.refreshedPoolBody)
+          ? snap.refreshedPoolBody
+          : null;
+      if (pool && pool.length) {
+        wlSetRefreshedPoolBody(pool, snap.refreshedPoolTs || snap.ts);
+      }
       var body =
         snap && snap.body && Array.isArray(snap.body)
           ? snap.body
-          : Array.isArray(snap)
-            ? snap
-            : null;
+          : pool && pool.length
+            ? wlApplyCurrentWatchlistView(pool)
+            : Array.isArray(snap)
+              ? snap
+              : null;
       if (!body || !body.length) return false;
       _wlCachedBody = body.slice();
       var sp = snap && snap.page != null ? parseInt(String(snap.page), 10) : 1;
@@ -10889,7 +11348,7 @@
     if (!wrap || ts == null) return;
     if (wrap.querySelector(".wl-cache-banner")) return;
     var d = new Date(ts);
-    var when = !isNaN(d.getTime()) ? d.toLocaleString("zh-CN", { hour12: false }) : "—";
+    var when = !isNaN(d.getTime()) ? formatWlShanghaiAt(ts, "—") : "—";
     wrap.insertAdjacentHTML(
       "afterbegin",
       '<p class="lead wl-cache-banner" style="margin:0 0 0.65rem;padding:0.45rem 0.6rem;border-radius:6px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);font-size:0.82rem;">' +
@@ -10946,6 +11405,55 @@
     }
   }
 
+  function wlDateRangeNormPair(from, to) {
+    var a = from ? String(from).trim().slice(0, 10) : "";
+    var b = to ? String(to).trim().slice(0, 10) : "";
+    if (a && b && a > b) {
+      var t = a;
+      a = b;
+      b = t;
+    }
+    return { from: a, to: b };
+  }
+
+  function wlDateRangeSetValue(from, to) {
+    var p = wlDateRangeNormPair(from, to);
+    var fromEl = $("wlFirstIngestFrom");
+    var toEl = $("wlFirstIngestTo");
+    if (fromEl) fromEl.value = p.from;
+    if (toEl) toEl.value = p.to;
+  }
+
+  function wlDateRangeNormalizeInputs() {
+    var p = wlDateRangeNormPair(
+      $("wlFirstIngestFrom") && $("wlFirstIngestFrom").value,
+      $("wlFirstIngestTo") && $("wlFirstIngestTo").value
+    );
+    wlDateRangeSetValue(p.from, p.to);
+    return p;
+  }
+
+  function initWlDateRangePicker() {
+    var picker = $("wlDateRangePicker");
+    if (!picker || picker._wlDateRangeBound) return;
+    picker._wlDateRangeBound = true;
+    ["wlFirstIngestFrom", "wlFirstIngestTo"].forEach(function (id) {
+      var inp = $(id);
+      if (!inp || inp._wlDateRangeBound) return;
+      inp._wlDateRangeBound = true;
+      inp.addEventListener("change", function () {
+        wlDateRangeNormalizeInputs();
+      });
+      inp.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" && $("btnWlQueryDailyAdds")) {
+          ev.preventDefault();
+          wlDateRangeNormalizeInputs();
+          $("btnWlQueryDailyAdds").click();
+        }
+      });
+    });
+  }
+
   function wlGetFirstIngestRange() {
     var fromEl = $("wlFirstIngestFrom");
     var toEl = $("wlFirstIngestTo");
@@ -10992,6 +11500,15 @@
   function wlItemPassesCurrentView(item) {
     if (!item || _wlShowFullPool) return true;
     return wlFilterByFirstIngestView([item]).length > 0;
+  }
+
+  /** 补全加入自选时间，供「加入自选」日期筛选立即可见 */
+  function wlEnsureWatchlistAddedAt(item) {
+    if (!item || typeof item !== "object") return item;
+    if (item.watchlist_added_at != null && String(item.watchlist_added_at).trim()) {
+      return item;
+    }
+    return Object.assign({}, item, { watchlist_added_at: new Date().toISOString() });
   }
 
   /** 刚加入自选时若会被日期筛选隐藏，则自动切到「显示全部自选池」 */
@@ -11081,16 +11598,30 @@
     }
   }
 
-  function formatWlAddedAt(iso) {
-    if (!iso) return "—";
-    try {
-      return new Date(iso).toLocaleString("zh-CN", {
-        timeZone: "Asia/Shanghai",
-        hour12: false,
-      });
-    } catch (e) {
-      return String(iso);
+  /** ② 自选表时间列：统一按东八区（UTC+8）展示 */
+  function formatWlShanghaiAt(iso, emptyLabel) {
+    if (iso == null || !String(iso).trim()) {
+      return emptyLabel !== undefined ? emptyLabel : "";
     }
+    var s = String(iso).trim();
+    try {
+      var d = new Date(s);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleString("zh-CN", {
+          timeZone: "Asia/Shanghai",
+          hour12: false,
+        });
+      }
+    } catch (e0) {}
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s.slice(0, 10)) && s.length <= 10) {
+      return s.slice(0, 10);
+    }
+    return s.length > 19 ? s.slice(0, 19).replace("T", " ") : s;
+  }
+
+  function formatWlAddedAt(iso) {
+    var v = formatWlShanghaiAt(iso, "—");
+    return v || "—";
   }
 
   function initWlDailyViewFilter() {
@@ -11098,27 +11629,29 @@
     if (chk) chk.checked = _wlShowFullPool;
     var modeSel = $("wlDateFilterMode");
     if (modeSel && !modeSel.value) modeSel.value = "added_at";
+    initWlDateRangePicker();
     wlUpdateDailyViewHint(null);
   }
 
   function wlClearFirstIngestDateInputs() {
-    var fromEl = $("wlFirstIngestFrom");
-    var toEl = $("wlFirstIngestTo");
-    if (fromEl) fromEl.value = "";
-    if (toEl) toEl.value = "";
+    wlDateRangeSetValue("", "");
   }
 
   function persistWatchlistSnapshot() {
     try {
       if (!_wlCachedBody || !Array.isArray(_wlCachedBody) || !_wlCachedBody.length) {
-        localStorage.removeItem(LS_LAST_WL_LIST);
-        return;
+        if (!_wlRefreshedPoolBody || !_wlRefreshedPoolBody.length) {
+          localStorage.removeItem(LS_LAST_WL_LIST);
+          return;
+        }
       }
       var rng = wlGetFirstIngestRange();
       localStorage.setItem(
         LS_LAST_WL_LIST,
         JSON.stringify({
           ts: Date.now(),
+          refreshedPoolTs: _wlRefreshedPoolTs,
+          refreshedPoolBody: _wlRefreshedPoolBody,
           body: _wlCachedBody,
           page: watchlistPage,
           view: _wlShowFullPool ? "pool" : "daily",
@@ -11132,6 +11665,46 @@
         console.warn("quant-monitor: 无法缓存自选列表", e);
       } catch (e2) {}
     }
+  }
+
+  /** 批量加入自选后：仅合并进本机「刷新列表」快照，不联网、不拉 K 线、不渲染表格。 */
+  function wlMergeBatchAddStocksIntoLocalPool(stocks) {
+    if (!Array.isArray(stocks) || !stocks.length) return 0;
+    var nowIso = new Date().toISOString();
+    if (!_wlRefreshedPoolBody || !Array.isArray(_wlRefreshedPoolBody)) {
+      _wlRefreshedPoolBody = [];
+    }
+    var touched = 0;
+    stocks.forEach(function (st) {
+      var sym = String(st && st.code != null ? st.code : "")
+        .replace(/\D/g, "")
+        .slice(-6);
+      if (sym.length !== 6) return;
+      var item = {
+        symbol: sym,
+        name: st.name != null ? String(st.name).trim() : "",
+        origin: "manual",
+        watchlist_added_at: nowIso,
+      };
+      var pidx = -1;
+      for (var j = 0; j < _wlRefreshedPoolBody.length; j++) {
+        if (_wlRefreshedPoolBody[j] && _wlRefreshedPoolBody[j].symbol === sym) {
+          pidx = j;
+          break;
+        }
+      }
+      if (pidx >= 0) {
+        _wlRefreshedPoolBody[pidx] = Object.assign({}, _wlRefreshedPoolBody[pidx], item);
+      } else {
+        _wlRefreshedPoolBody.push(item);
+      }
+      touched += 1;
+    });
+    if (touched > 0) {
+      _wlRefreshedPoolTs = Date.now();
+      persistWatchlistSnapshot();
+    }
+    return touched;
   }
 
   /** 删除自选后仅更新本机列表，不联网 refresh_spot（需最新时点「刷新列表」）。 */
@@ -11149,6 +11722,17 @@
     }
     if (idx >= 0) _wlCachedBody[idx] = Object.assign({}, _wlCachedBody[idx], item);
     else _wlCachedBody.push(item);
+    if (!_wlRefreshedPoolBody || !Array.isArray(_wlRefreshedPoolBody)) _wlRefreshedPoolBody = [];
+    var pidx = -1;
+    for (var j = 0; j < _wlRefreshedPoolBody.length; j++) {
+      if (_wlRefreshedPoolBody[j] && _wlRefreshedPoolBody[j].symbol === sym) {
+        pidx = j;
+        break;
+      }
+    }
+    if (pidx >= 0) _wlRefreshedPoolBody[pidx] = Object.assign({}, _wlRefreshedPoolBody[pidx], item);
+    else _wlRefreshedPoolBody.push(item);
+    _wlCachedBody = wlApplyCurrentWatchlistView(_wlRefreshedPoolBody);
     renderWatchlistTable(_wlCachedBody);
     persistWatchlistSnapshot();
   }
@@ -11162,6 +11746,11 @@
       if (code.length === 6) rm.add(code);
     });
     if (!rm.size) return;
+    if (_wlRefreshedPoolBody && _wlRefreshedPoolBody.length) {
+      _wlRefreshedPoolBody = _wlRefreshedPoolBody.filter(function (x) {
+        return x && x.symbol && !rm.has(x.symbol);
+      });
+    }
     if (_wlCachedBody && _wlCachedBody.length) {
       _wlCachedBody = _wlCachedBody.filter(function (x) {
         return x && x.symbol && !rm.has(x.symbol);
@@ -11169,6 +11758,7 @@
     } else {
       _wlCachedBody = [];
     }
+    _wlCachedBody = wlApplyCurrentWatchlistView(_wlRefreshedPoolBody || _wlCachedBody);
     renderWatchlistTable(_wlCachedBody);
     persistWatchlistSnapshot();
   }
@@ -11178,12 +11768,18 @@
       _wlCachedBody = [];
     } else if (scope === "all") {
       _wlCachedBody = [];
+      _wlRefreshedPoolBody = [];
     } else {
-      _wlCachedBody = _wlCachedBody.filter(function (x) {
+      var pred = function (x) {
         var o = x && x.origin;
         return o !== "auto_hot" && o !== "auto_quant";
-      });
+      };
+      _wlCachedBody = _wlCachedBody.filter(pred);
+      if (_wlRefreshedPoolBody && _wlRefreshedPoolBody.length) {
+        _wlRefreshedPoolBody = _wlRefreshedPoolBody.filter(pred);
+      }
     }
+    _wlCachedBody = wlApplyCurrentWatchlistView(_wlRefreshedPoolBody || _wlCachedBody);
     renderWatchlistTable(_wlCachedBody);
     persistWatchlistSnapshot();
   }
@@ -11449,7 +12045,8 @@
     var pageRows = sortedBody.slice(startIdx, endIdx);
     var rows = pageRows.map(function (item) {
       var sym = item.symbol;
-      var nm = item.name != null && String(item.name).trim() ? escHtml(String(item.name).trim()) : "—";
+      var rawName = item.name != null ? String(item.name).trim() : "";
+      var nm = rawName ? escHtml(rawName) : "—";
       var origin =
         item.origin === "auto_hot"
           ? "热门自动"
@@ -11471,8 +12068,8 @@
       var firstIngAt = formatWlBarsIngestAt(item.bars_first_ingested_at);
       var firstIngCell =
         firstIngAt
-          ? '<span class="wl-ingest-at" title="' +
-            escHtml(String(item.bars_first_ingested_at || "").trim()) +
+          ? '<span class="wl-ingest-at" title="东八区 ' +
+            escHtml(formatWlShanghaiAt(item.bars_first_ingested_at, "—")) +
             '">' +
             escHtml(firstIngAt) +
             "</span>"
@@ -11483,8 +12080,8 @@
         escHtml(sym) +
         '" title="拉取日线并刷新现价；若尚无「首次入库」时间则记为本次">重新获取</button>';
       var ing = hasBars
-        ? '<span class="wl-ingest-at" title="' +
-          escHtml(String(item.bars_last_ingested_at || "").trim()) +
+        ? '<span class="wl-ingest-at" title="东八区 ' +
+          escHtml(formatWlShanghaiAt(item.bars_last_ingested_at, "—")) +
           '">' +
           escHtml(ingAt || "已入库") +
           "</span> " +
@@ -11535,16 +12132,19 @@
       var klineCell = wlFormatLastBarCell(item);
       var rowChk = wlSelectedSyms.has(sym) ? " checked" : "";
       var updateTimeCell = "—";
-      if (item.user_refetch_time != null) {
-        var t = String(item.user_refetch_time).trim();
-        updateTimeCell = t.replace("T", " ").slice(0, 19);
-      } else if (item.bars_last_ingested_at != null) {
-        var d = String(item.bars_last_ingested_at).trim();
-        updateTimeCell = d.replace("T", " ").slice(0, 19);
-      } else if (item.ingest_exec_date != null) {
-        var e = String(item.ingest_exec_date).trim();
-        updateTimeCell = e.replace("T", " ").slice(0, 19);
+      if (item.user_refetch_time != null && String(item.user_refetch_time).trim()) {
+        updateTimeCell = formatWlShanghaiAt(item.user_refetch_time, "—");
+      } else if (item.bars_last_ingested_at != null && String(item.bars_last_ingested_at).trim()) {
+        updateTimeCell = formatWlShanghaiAt(item.bars_last_ingested_at, "—");
+      } else if (item.ingest_exec_date != null && String(item.ingest_exec_date).trim()) {
+        updateTimeCell = formatWlShanghaiAt(item.ingest_exec_date, "—");
       }
+      var viewKlineBtn =
+        '<button type="button" class="wl-view-kline" data-sym="' +
+        escHtml(sym) +
+        '" data-name="' +
+        escHtml(rawName) +
+        '" title="查看②已入库的全部 K 线（本地库，不限日期）">查看k线数据</button>';
       return (
         '<tr><td class="wl-check-col"><input type="checkbox" class="wl-row-check" data-sym="' +
         escHtml(sym) +
@@ -11562,9 +12162,9 @@
         addedAtCell +
         '<td class="wl-bar-meta wl-col-ingest-first" title="该标的本地 K 线首次写入时间（东八区显示）">' +
         firstIngCell +
-        '</td><td class="wl-bar-meta wl-col-ingest" title="该行任意 K 线最近一次写入库的 UTC 时间">' +
+        '</td><td class="wl-bar-meta wl-col-ingest" title="该行任意 K 线最近一次写入库的时间（东八区 UTC+8）">' +
         ing +
-        '</td><td class="wl-bar-meta wl-col-update-time" title="K线数据最后更新时间">' +
+        '</td><td class="wl-bar-meta wl-col-update-time" title="K线数据最后更新时间（东八区 UTC+8）">' +
         updateTimeCell +
         '</td><td class="wl-prev-num" title="' +
         escHtml(prevDisp.title || "") +
@@ -11588,7 +12188,9 @@
         escHtml(klineCell.title || "") +
         '">' +
         klineCell.text +
-        '</td><td><button type="button" class="link-del" data-sym="' +
+        '</td><td class="wl-op-col">' +
+        viewKlineBtn +
+        '<button type="button" class="link-del" data-sym="' +
         escHtml(sym) +
         '">删除</button></td></tr>'
       );
@@ -11627,9 +12229,9 @@
       "</div>" +
       '<div class="wl-table-scroll"><table class="wl-stock-table"><thead><tr><th class="wl-check-col" title="全选或取消当前页；翻页勾选可累积多页"><input type="checkbox" id="wlCheckAllPage" aria-label="全选当前页" /></th><th class="wl-col-code">代码</th><th class="wl-col-name">名称</th><th>来源</th>' +
       addedTh +
-      '<th class="wl-bar-meta wl-col-ingest-first" title="该标的首次写入本地日线的时间">首次入库</th>' +
-      '<th class="wl-bar-meta wl-col-ingest" title="最近一次日线入库">最近入库</th>' +
-      '<th class="wl-bar-meta wl-col-update-time" title="K线数据最后更新时间">更新时间</th>' +
+      '<th class="wl-bar-meta wl-col-ingest-first" title="该标的首次写入本地日线的时间（东八区 UTC+8）">首次入库</th>' +
+      '<th class="wl-bar-meta wl-col-ingest" title="最近一次日线入库（东八区 UTC+8）">最近入库</th>' +
+      '<th class="wl-bar-meta wl-col-update-time" title="K线数据最后更新时间（东八区 UTC+8）">更新时间</th>' +
       wlSortThHtml("prev", "昨日收盘", "wl-prev-num", "上一完整交易日收盘") +
       wlSortThHtml("today", "当日收盘", "wl-close-num", "执行日收盘；无今日 bar 时为待入库") +
       wlSortThHtml("spot", "现价", "wl-spot-num", "联网现价快照") +
@@ -11674,11 +12276,19 @@
         var originalText = el.textContent;
         el.textContent = "获取中…";
         try {
-          await wlRefetchKlineSymbols([s]);
+          await wlRefetchKlineSymbols([s], { useDateRange: false });
         } finally {
           el.disabled = false;
           el.textContent = originalText;
         }
+      });
+    });
+    wrap.querySelectorAll(".wl-view-kline").forEach(function (el) {
+      el.addEventListener("click", function () {
+        void wlShowKlineDataDialog(
+          el.getAttribute("data-sym"),
+          el.getAttribute("data-name")
+        );
       });
     });
     var chkAll = wrap.querySelector("#wlCheckAllPage");
@@ -11781,53 +12391,18 @@
     });
   }
 
-  /** 将 ③/② ingest/update 成功条目的现价、日线摘要合并进自选表缓存（避免仍显示旧缓存现价） */
-  function wlApplyIngestResultsToWatchlistCache(results) {
-    if (!Array.isArray(results) || !results.length) return false;
-    if (!_wlCachedBody || !_wlCachedBody.length) return false;
-    var bySym = {};
-    results.forEach(function (r) {
-      if (!r || !r.symbol || r.error) return;
-      bySym[r.symbol] = r;
+  /** 拉取入库成功后：从本地库重建「全部 K 线」会话缓存，供「查看k线数据」使用。 */
+  async function wlRefreshWlAllKlineCachesAfterIngest(results) {
+    var okSyms = [];
+    (results || []).forEach(function (r) {
+      if (r && r.symbol && !r.error) okSyms.push(String(r.symbol));
     });
-    var keys = Object.keys(bySym);
-    if (!keys.length) return false;
-    _wlCachedBody = _wlCachedBody.map(function (row) {
-      var ing = bySym[row.symbol];
-      if (!ing) return row;
-      var merged = Object.assign({}, row);
-      if (_wlUserRefetchTime) {
-        merged.user_refetch_time = _wlUserRefetchTime;
-      }
-      if (ing.spot_last_price != null && isFinite(Number(ing.spot_last_price))) {
-        merged.spot_last_price = Number(ing.spot_last_price);
-        if (ing.spot_change_pct != null && isFinite(Number(ing.spot_change_pct))) {
-          merged.spot_change_pct = Number(ing.spot_change_pct);
-        }
-        if (ing.spot_quote_date != null) merged.spot_quote_date = ing.spot_quote_date;
-      }
-      if (ing.bars_first_ingested_at != null) merged.bars_first_ingested_at = ing.bars_first_ingested_at;
-      if (ing.bars_last_ingested_at != null) merged.bars_last_ingested_at = ing.bars_last_ingested_at;
-      if (ing.last_trade_date != null) merged.bars_last_trade_date = ing.last_trade_date;
-      if (ing.last_close != null && isFinite(Number(ing.last_close))) {
-        merged.last_close = Number(ing.last_close);
-      }
-      [
-        "display_prev_close",
-        "display_prev_trade_date",
-        "display_today_close",
-        "display_today_trade_date",
-        "display_today_close_basis",
-        "display_pair_basis",
-        "ingest_exec_date",
-      ].forEach(function (k) {
-        if (ing[k] != null && ing[k] !== "") merged[k] = ing[k];
-      });
-      return merged;
-    });
-    renderWatchlistTable(_wlCachedBody);
-    persistWatchlistSnapshot();
-    return true;
+    for (var i = 0; i < okSyms.length; i++) {
+      try {
+        await wlFetchAllIngestedBars(okSyms[i], { forceRefresh: true });
+      } catch (eWarm) {}
+    }
+    return { warmed: okSyms.length };
   }
 
   function wlMergeWatchlistItems(freshItems, provisionalBySym) {
@@ -11952,6 +12527,14 @@
     }
     var seq = ++_wlRefreshSeq;
     var useBtnLoading = !!opts.useButtonLoading;
+    var isRefreshList = !!(opts.useButtonLoading || opts.refreshList);
+    var subsetRefresh = !!(
+      isRefreshList &&
+      opts.isSubsetRefresh &&
+      opts.refreshSymbols &&
+      opts.refreshSymbols.length
+    );
+    var syncPoolFromDb = !!opts.syncPoolFromDb;
     var refreshSpot = opts.refreshSpot !== false;
     var keepOutMessage = !!opts.keepOutMessage;
     if (opts.skipCacheRestore) {
@@ -11964,8 +12547,11 @@
     }
     if (useBtnLoading) {
       _wlRefreshListState.running = true;
-      var totalHint =
-        _wlCachedBody && _wlCachedBody.length ? _wlCachedBody.length : 0;
+      var totalHint = subsetRefresh
+        ? opts.refreshSymbols.length
+        : _wlCachedBody && _wlCachedBody.length
+          ? _wlCachedBody.length
+          : 0;
       setWlRefreshListButtonLoading(
         true,
         totalHint > 0 ? "正在刷新 0/" + totalHint : "正在刷新列表…"
@@ -11982,14 +12568,23 @@
     activeRequests["panel-2"] = { controller: refreshCtrl };
     refreshCancelButtons();
     try {
-      var wlUrl = wlBuildWatchlistUrl(refreshSpot);
+      var wlUrl;
+      if (isRefreshList) {
+        wlUrl = subsetRefresh
+          ? wlBuildRefreshListUrl(opts.refreshSymbols)
+          : "/watchlist?pool=true&refresh_spot=true";
+      } else if (syncPoolFromDb) {
+        wlUrl = "/watchlist?pool=true";
+      } else {
+        wlUrl = wlBuildWatchlistUrl(refreshSpot);
+      }
       var res = await fetch(wlUrl, {
         headers: authHeaders(),
         signal: refreshCtrl.signal,
       });
       var body = await readBody(res);
       if (seq !== _wlRefreshSeq) return;
-      if (res.status === 409 && refreshSpot) {
+      if (res.status === 409 && refreshSpot && isRefreshList) {
         var waited = await wlWaitSpotRefreshIdle(120000);
         if (seq !== _wlRefreshSeq) return;
         if (waited) {
@@ -12020,7 +12615,23 @@
         showOut2(await formatError(res, body), true);
         return;
       }
-      _wlCachedBody = Array.isArray(body) ? body : [];
+      var poolBody = Array.isArray(body) ? body : [];
+      if (isRefreshList || syncPoolFromDb) {
+        if (subsetRefresh) {
+          wlMergeFreshItemsIntoRefreshedPool(poolBody);
+        } else if (syncPoolFromDb) {
+          wlSetRefreshedPoolBody(poolBody);
+          _wlCachedBody = wlApplyCurrentWatchlistView(_wlRefreshedPoolBody);
+        } else {
+          wlSetRefreshedPoolBody(poolBody);
+          _wlCachedBody = _wlRefreshedPoolBody.slice();
+          _wlShowFullPool = true;
+          var chkPool = $("chkWlShowFullPool");
+          if (chkPool) chkPool.checked = true;
+        }
+      } else {
+        _wlCachedBody = poolBody;
+      }
       _wlServerAddedRangeFilter =
         res.headers.get("X-Quant-Watchlist-View") === "added_range";
       var addCntHdr = res.headers.get("X-Quant-Watchlist-Add-Count");
@@ -12042,26 +12653,59 @@
       }
       renderWatchlistTable(_wlCachedBody);
       persistWatchlistSnapshot();
-      if (opts.skipCacheRestore && !keepOutMessage) {
-        var qn = wlFilterByFirstIngestView(_wlCachedBody, {
-          serverAddedRange: _wlServerAddedRangeFilter,
-        }).length;
-        var qlab = _wlShowFullPool ? "全部自选池" : wlFirstIngestRangeLabel();
-        showOut2("查询完成：" + qlab + " 共 " + qn + " 只。", false);
-      }
-      var stDone = await fetchWlRefreshListJobStatus();
-      if (stDone && stDone.total > 0) {
-        showOut2(
-          "刷新完成：现价成功 " +
+      if (isRefreshList && !keepOutMessage) {
+        var refreshMsg;
+        if (subsetRefresh) {
+          var okSubset = poolBody.filter(function (r) {
+            return r && r.symbol;
+          }).length;
+          refreshMsg =
+            "刷新完成：" +
+            (opts.scopeHint ? opts.scopeHint + "，" : "") +
+            "已更新 " +
+            okSubset +
+            " 只（SQLite K 线摘要 + 联网现价），快照仍含自选全量 " +
+            (_wlRefreshedPoolBody ? _wlRefreshedPoolBody.length : 0) +
+            " 只。";
+        } else {
+          refreshMsg =
+            "刷新完成：已保存自选全量 " +
+            _wlRefreshedPoolBody.length +
+            " 只（SQLite K 线摘要 + 联网现价）。下方「查询」仅筛此快照，不联网。";
+        }
+        var stDone = await fetchWlRefreshListJobStatus();
+        if (stDone && stDone.total > 0) {
+          refreshMsg +=
+            " 现价 " +
             (stDone.ok != null ? stDone.ok : 0) +
             "/" +
             stDone.total +
-            (stDone.cancelled ? "（已取消，列表仍为上次展示数据）" : "") +
-            "。",
-          !!stDone.cancelled
-        );
-      } else if (!keepOutMessage) {
-        showOut("out-2", "", false);
+            (stDone.cancelled ? "（部分取消）" : "") +
+            "。";
+        }
+        showOut2(refreshMsg, !!(stDone && stDone.cancelled));
+      } else {
+        if (opts.skipCacheRestore && !keepOutMessage && !syncPoolFromDb) {
+          var qn = wlFilterByFirstIngestView(_wlCachedBody, {
+            serverAddedRange: _wlServerAddedRangeFilter,
+          }).length;
+          var qlab = _wlShowFullPool ? "全部自选池" : wlFirstIngestRangeLabel();
+          showOut2("查询完成：" + qlab + " 共 " + qn + " 只。", false);
+        }
+        var stDone = await fetchWlRefreshListJobStatus();
+        if (stDone && stDone.total > 0) {
+          showOut2(
+            "刷新完成：现价成功 " +
+              (stDone.ok != null ? stDone.ok : 0) +
+              "/" +
+              stDone.total +
+              (stDone.cancelled ? "（已取消，列表仍为上次展示数据）" : "") +
+              "。",
+            !!stDone.cancelled
+          );
+        } else if (!keepOutMessage && !syncPoolFromDb) {
+          showOut("out-2", "", false);
+        }
       }
     } catch (e) {
       if (seq !== _wlRefreshSeq) return;
@@ -12222,91 +12866,70 @@
       showOut("out-2", "请先在「①」保存 API Key。", true);
       return;
     }
-    var btn = $("btnAddWl");
-    btn.disabled = true;
-    showOut("out-2", "正在添加并拉取近约 30 日日线，请稍候（需联网）…", true);
+    setActionButtonLoading("btnAddWl", true, "正在添加…");
     try {
-      persistWlKlineDates();
-      var wlRange = getWlIngestDateRange();
-      var addDays = 30;
-      if (wlRange.start_date && wlRange.end_date) {
-        try {
-          var d0 = new Date(wlRange.start_date);
-          var d1 = new Date(wlRange.end_date);
-          var span = Math.ceil((d1.getTime() - d0.getTime()) / 86400000) + 1;
-          if (isFinite(span) && span >= 7) addDays = Math.min(120, span);
-        } catch (eSpan) {}
-      }
-      var addPayload = {
-        symbol: digits,
-        auto_ingest_kline: true,
-        ingest_days: addDays,
-        data_source: getIngestDataSource(),
-      };
-      var res = await panelFetch("/watchlist", {
+      var res = await fetchCancel("panel-2", "/watchlist", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify(addPayload),
+        body: JSON.stringify({
+          symbol: digits,
+          auto_ingest_kline: false,
+        }),
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) showOut("out-2", await formatError(res, body), true);
       else {
-        var msg = "已添加 " + digits;
-        if (body && body.kline_ingest_ok === true) {
-          msg +=
-            "；日线入库 " +
-            (body.kline_ingest_rows != null ? body.kline_ingest_rows + " 条" : "成功") +
-            (body.last_close != null ? "，当日收盘 " + body.last_close : "");
-        } else if (body && body.kline_ingest_ok === false) {
-          msg +=
-            "；日线拉取失败：" +
-            (body.kline_ingest_error || "未知错误") +
-            "（可在该行点「重新获取」或到③重试；东财/代理失败时可改路线为 auto）";
-        } else if (
-          body &&
-          body.kline_ingest_ok === true &&
-          (body.bars_last_ingested_at == null || !String(body.bars_last_ingested_at).trim())
-        ) {
-          msg += "；入库条数已上报但列表仍无本地日线，请点「刷新列表」或「重新获取」";
-        }
-        var viewExpanded = wlExpandViewForNewWatchlistItem(body);
-        if (viewExpanded) {
-          msg +=
-            "；当前日期筛选看不到刚加入的标的，已自动勾选「显示全部自选池」。";
-        }
-        showOut("out-2", msg, body && body.kline_ingest_ok === false);
+        body = wlEnsureWatchlistAddedAt(body);
+        var msg = "已添加 " + digits + " 到自选库（未拉 K 线 / 现价）。";
         $("symAdd").value = "";
         if (body && body.symbol) {
-          wlUpsertWatchlistCacheItem(body);
           _wlJumpToLastPageAfterRefreshOnce = true;
+          wlUpsertWatchlistCacheItem(body);
         }
-        await refreshWatchlistTable({
-          refreshSpot: false,
-          skipCacheRestore: true,
-          keepOutMessage: true,
-        });
-        if (body && body.symbol) {
-          var symAdded = String(body.symbol);
-          var visibleAfterRefresh = wlFilterByFirstIngestView(_wlCachedBody || []).some(function (x) {
-            return x && x.symbol === symAdded;
-          });
-          if (!visibleAfterRefresh) {
-            wlExpandViewForNewWatchlistItem(body);
-            wlEnsureWatchlistItemInCache(body);
-          }
+        if (wlGetDateFilterMode() === "added_at") {
+          wlQueryWatchlistFromRefreshedPool({ silent: true });
+          var viewLab = _wlShowFullPool ? "全部自选池" : wlFirstIngestRangeLabel();
+          msg += " 当前仍按「" + viewLab + "」展示；现价/K 线列需点「刷新列表」或「拉取日线」。";
+        } else if (!wlItemPassesCurrentView(body)) {
+          msg +=
+            " 当前为「首次入库」筛选且尚无日线，表格可能看不到该行；请改筛「加入自选」或先拉取日线。";
+        } else {
+          msg += " 现价/K 线列需点「刷新列表」或「拉取日线」。";
         }
+        showOut("out-2", msg, false);
       }
     } catch (e) {
       showOut("out-2", String(e), true);
     } finally {
-      btn.disabled = false;
+      setActionButtonLoading("btnAddWl", false);
     }
   });
 
   $("btnRefreshWl").addEventListener("click", async function () {
     if (!guardKey()) return;
     try {
-      await refreshWatchlistTable({ useButtonLoading: true });
+      var resolved = await resolveWlKlineRefetchSymbols();
+      if (!resolved.symbols.length) {
+        showOut2(
+          "自选池为空或未能读取：请先添加股票，或点「刷新列表」后再试；也可勾选部分股票后只刷新所选。",
+          true
+        );
+        return;
+      }
+      var isSubset = wlSelectedSyms.size > 0;
+      if (isSubset) {
+        showOut2(
+          "开始刷新所选：" + resolved.scopeHint + "（SQLite K 线摘要 + 联网现价）…",
+          true
+        );
+      }
+      await refreshWatchlistTable({
+        useButtonLoading: true,
+        refreshSymbols: resolved.symbols,
+        isSubsetRefresh: isSubset,
+        scopeHint: resolved.scopeHint,
+      });
     } catch (e) {
       showOut("out-2", String(e), true);
     }
@@ -12323,8 +12946,7 @@
     btnWlQueryDailyAdds.addEventListener("click", function () {
       if (!guardKey()) return;
       wlEnterFirstIngestFilterView();
-      showOut2("正在查询…", true);
-      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+      wlQueryWatchlistFromRefreshedPool();
     });
   }
   var wlDateFilterModeSel = $("wlDateFilterMode");
@@ -12333,34 +12955,17 @@
     wlDateFilterModeSel.addEventListener("change", function () {
       if (!guardKey()) return;
       wlEnterFirstIngestFilterView();
-      showOut2("已切换筛选时间字段，正在查询…", true);
-      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+      wlQueryWatchlistFromRefreshedPool();
     });
   }
-  ["wlFirstIngestFrom", "wlFirstIngestTo"].forEach(function (id) {
-    var inp = $(id);
-    if (inp && !inp._wlQueryBound) {
-      inp._wlQueryBound = true;
-      inp.addEventListener("keydown", function (ev) {
-        if (ev.key === "Enter" && btnWlQueryDailyAdds) {
-          ev.preventDefault();
-          btnWlQueryDailyAdds.click();
-        }
-      });
-    }
-  });
   var btnWlTodayAdds = $("btnWlTodayAdds");
   if (btnWlTodayAdds) {
     btnWlTodayAdds.addEventListener("click", function () {
       var t = wlCalendarTodayYmd();
-      var fromEl = $("wlFirstIngestFrom");
-      var toEl = $("wlFirstIngestTo");
-      if (fromEl) fromEl.value = t;
-      if (toEl) toEl.value = t;
+      wlDateRangeSetValue(t, t);
       if (!guardKey()) return;
       wlEnterFirstIngestFilterView();
-      showOut2("正在查询今日首次入库…", true);
-      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+      wlQueryWatchlistFromRefreshedPool();
     });
   }
   var btnWlClearFirstIngestDates = $("btnWlClearFirstIngestDates");
@@ -12369,8 +12974,7 @@
       wlClearFirstIngestDateInputs();
       if (!guardKey()) return;
       wlEnterFirstIngestFilterView();
-      showOut2("已清空日期，正在查询全部…", true);
-      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+      wlQueryWatchlistFromRefreshedPool();
     });
   }
   var chkWlShowFullPool = $("chkWlShowFullPool");
@@ -12379,7 +12983,7 @@
       _wlShowFullPool = !!chkWlShowFullPool.checked;
       watchlistPage = 1;
       if (!guardKey()) return;
-      void refreshWatchlistTable({ refreshSpot: false, skipCacheRestore: true });
+      wlQueryWatchlistFromRefreshedPool();
     });
   }
   var btnWlBackfillTodayClose = $("btnWlBackfillTodayClose");
@@ -12400,19 +13004,51 @@
   if (btnWlRefetchSelected) {
     btnWlRefetchSelected.addEventListener("click", async function () {
       if (!guardKey()) return;
-      var resolved = resolveWlKlineRefetchSymbols();
+      var resolved = await resolveWlKlineRefetchSymbols();
       var syms = resolved.symbols;
       if (!syms.length) {
         showOut2(
-          "当前没有可拉取的股票：请点「刷新列表」加载自选，或在表格中勾选要拉取日线的股票。",
+          "自选池为空或未能读取：请先添加股票，或点「刷新列表」后再试；也可勾选部分股票后只拉所选。",
           true
         );
         return;
       }
       if (resolved.scopeHint) {
-        showOut2("开始拉取：" + resolved.scopeHint + "…", true);
+        showOut2("开始增量拉取：" + resolved.scopeHint + "…", true);
       }
-      await wlRefetchKlineSymbols(syms);
+      await wlRefetchKlineSymbols(syms, { useDateRange: false });
+    });
+  }
+
+  var btnWlRefetchByDate = $("btnWlRefetchByDate");
+  if (btnWlRefetchByDate) {
+    btnWlRefetchByDate.addEventListener("click", async function () {
+      if (!guardKey()) return;
+      var resolved = await resolveWlKlineRefetchSymbols();
+      var syms = resolved.symbols;
+      if (!syms.length) {
+        showOut2(
+          "自选池为空或未能读取：请先添加股票，或点「刷新列表」后再试；也可勾选部分股票后只拉所选。",
+          true
+        );
+        return;
+      }
+      var dr = getWlExplicitIngestDateRange();
+      if (dr.error) {
+        showOut2(dr.error, true);
+        return;
+      }
+      showOut2(
+        "开始按日期拉取：" +
+          (resolved.scopeHint ? resolved.scopeHint + "，" : "") +
+          "区间 " +
+          dr.start_date +
+          " ～ " +
+          dr.end_date +
+          "…",
+        true
+      );
+      await wlRefetchKlineSymbols(syms, { useDateRange: true });
     });
   }
 
@@ -12432,58 +13068,6 @@
   if (btnWlDeleteAll) {
     btnWlDeleteAll.addEventListener("click", function () {
       deleteWlAll("all");
-    });
-  }
-
-  async function importWlHotSnapshotStocks() {
-    if (!guardKey()) return;
-    if (
-      !confirm(
-        "将把 hot_market_snapshot.json 中的热门股写入自选（来源列显示为「热门自动」）。\n会先删除当前「热门自动」与「量化自动」池，再导入；手动自选不删。\n确定继续？"
-      )
-    )
-      return;
-    var btn = $("btnWlFetchHotSnapStocks");
-    if (btn) btn.disabled = true;
-    showOut("out-2", "正在导入快照热门股…", true);
-    try {
-      var res = await fetchCancel("panel-2", "/watchlist/import-hot-market-snapshot", {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify({ replace_auto_pool: true })
-      });
-      var body = await readBody(res);
-      if (!res.ok) {
-        showOut("out-2", await formatError(res, body), true);
-        return;
-      }
-      showOut(
-        "out-2",
-        "导入完成：写入 " +
-          body.added +
-          " 条；跳过手动已存在 " +
-          body.skipped_existing_manual +
-          " 条；删除原自动池 " +
-          body.removed_auto +
-          " 条（快照 stocks 记录 " +
-          body.snapshot_stock_rows +
-          " 条，有效代码 " +
-          body.candidates +
-          " 个）。下方列表「来源」为热门自动。",
-        true
-      );
-      await refreshWatchlistTable();
-    } catch (e) {
-      showOut("out-2", String(e), true);
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  var btnWlFetchHotSnapStocks = $("btnWlFetchHotSnapStocks");
-  if (btnWlFetchHotSnapStocks) {
-    btnWlFetchHotSnapStocks.addEventListener("click", function () {
-      importWlHotSnapshotStocks();
     });
   }
 
@@ -13094,14 +13678,28 @@
     return out;
   }
 
+  /** ②「按日期拉取日线」：仅读输入框已填日期，不做 30 日默认、不把结束日抬到今天。 */
+  function getWlExplicitIngestDateRange() {
+    var startVal = ($("wlIngestStartDate") && $("wlIngestStartDate").value.trim()) || "";
+    var endVal = ($("wlIngestEndDate") && $("wlIngestEndDate").value.trim()) || "";
+    if (!startVal || !endVal) {
+      return { error: "请先在上方填写开始日期与结束日期后再点「按日期拉取日线」。" };
+    }
+    if (startVal > endVal) {
+      return { error: "开始日期不能晚于结束日期。" };
+    }
+    var today = wlCalendarTodayYmd();
+    if (endVal > today) {
+      return { error: "结束日期不能晚于东八区今日（" + today + "）。" };
+    }
+    if (startVal > today) {
+      return { error: "开始日期不能晚于东八区今日（" + today + "）。" };
+    }
+    return { start_date: startVal, end_date: endVal };
+  }
+
   function formatWlBarsIngestAt(raw) {
-    if (raw == null || !String(raw).trim()) return "";
-    var s = String(raw).trim();
-    try {
-      var d = new Date(s);
-      if (!isNaN(d.getTime())) return d.toLocaleString("zh-CN", { hour12: false });
-    } catch (e0) {}
-    return s.length > 19 ? s.slice(0, 19).replace("T", " ") : s;
+    return formatWlShanghaiAt(raw, "");
   }
 
   function initFvOosDateInputs() {
@@ -15499,10 +16097,38 @@
   $("btnIngest").addEventListener("click", async function () {
     if (!guardKey()) return;
     var withFund = $("chkIngestIncludeFundamentals") && $("chkIngestIncludeFundamentals").checked;
+    var reuseSpot = $("chkIngestReuseWlSpot") && $("chkIngestReuseWlSpot").checked;
     var subset = resolveSubsetSymbolsWithPanel2(parseIngestSubsetSymbols);
     if (subset !== null && subset.length === 0) {
       showOut3("「仅更新部分自选」中未识别到 6 位代码，请检查输入；留空将按②当前列表缓存执行。", true);
       return;
+    }
+    var spotMap = reuseSpot ? buildWatchlistSpotMapForIngest() : null;
+    var spotKeys = spotMap ? Object.keys(spotMap) : [];
+    if (reuseSpot && !spotKeys.length) {
+      showOut3(
+        "已勾选「复用②现价快照」，但本机尚无②刷新列表的快照。请先到②点「刷新列表」，或取消勾选以逐只联网拉现价。",
+        true
+      );
+      return;
+    }
+    if (reuseSpot && subset && subset.length) {
+      var missSpot = subset.filter(function (s) {
+        return spotMap[s] == null;
+      });
+      if (missSpot.length) {
+        showOut3(
+          "复用②现价：" +
+            (subset.length - missSpot.length) +
+            " 只有快照；" +
+            missSpot.length +
+            " 只无快照将用本地 bars 回退（" +
+            missSpot.slice(0, 8).join("、") +
+            (missSpot.length > 8 ? "…" : "") +
+            "）。继续更新…",
+          false
+        );
+      }
     }
     var totalHint = subset !== null ? subset.length : estimateWlSubsetBatchTotal(parseIngestSubsetSymbols);
     beginPanelServerTask("panel-3");
@@ -15534,6 +16160,10 @@
       var payload = { data_source: getIngestDataSource(), skip_bars: true };
       if (withFund) payload.include_fundamentals = true;
       if (subset !== null) payload.symbols = subset;
+      if (reuseSpot) {
+        payload.reuse_watchlist_spot = true;
+        payload.watchlist_spot_by_symbol = spotMap;
+      }
       var res = await fetchCancel("panel-3", "/ingest/update", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
@@ -15547,6 +16177,22 @@
           showOut3("更新已取消：仅完成部分自选，详见下方表格。", true);
         } else if (body && body.fundamentals_cancelled) {
           showOut3("现价已刷新；扩展因子拉取已取消，详见拉取结果表。", true);
+        } else if (withFund && reuseSpot) {
+          showOut3(
+            "已复用②现价快照（未重复联网拉现价）；扩展因子已处理。详见下方表格。",
+            false
+          );
+        } else if (reuseSpot) {
+          var reusedN =
+            body && body.watchlist_spot_reused_count != null
+              ? body.watchlist_spot_reused_count
+              : spotKeys.length;
+          showOut3(
+            "已复用②现价快照（" +
+              reusedN +
+              " 只未重复联网拉现价；未拉 K 线）。详见下方表格。",
+            false
+          );
         } else if (withFund) {
           showOut3("现价与扩展因子已处理（未拉 K 线），详见下方表格。", false);
         } else {
@@ -19983,7 +20629,7 @@
       var guide =
         '<p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted)">' +
         winHint +
-        " 请先到 <strong>② 管理自选</strong>，在「<strong>拉取日线</strong>」里选好开始/结束日期，对该代码点「<strong>重新获取</strong>」（或勾选多行后点「<strong>重新获取所选日线</strong>」）完成入库；需要<strong>最新</strong>数据时也在②重新拉取后，再回到 <strong>③</strong> 点「K 线明细」查看。</p>";
+        " 请先到 <strong>② 管理自选</strong>，在「<strong>拉取日线</strong>」里选好开始/结束日期，对该代码点「<strong>重新获取</strong>」（或勾选多行后点「<strong>重新获取日线</strong>」）完成入库；需要<strong>最新</strong>数据时也在②重新拉取后，再回到 <strong>③</strong> 点「K 线明细」查看。</p>";
       var emptyDetail =
         '<details class="ingest-kline-detail" style="margin-top:0.45rem" open><summary>' +
         sumHead +
@@ -20124,6 +20770,9 @@
     } else ingestResultPage = 1;
     var batchDs = body.ingest_data_source != null ? escapeHtml(String(body.ingest_data_source)) : "—";
     var skipBars = !!body.skip_bars;
+    var reuseWlSpot = !!body.reuse_watchlist_spot;
+    var spotReusedN =
+      body.watchlist_spot_reused_count != null ? Number(body.watchlist_spot_reused_count) : 0;
     var results = Array.isArray(body.results) ? body.results : [];
     var okN = results.filter(function (r) {
       return !r.error;
@@ -20161,7 +20810,12 @@
       okN +
       "</strong> 只已成功" +
       (skipBars
-        ? "更新（未拉 K 线，基于本地 bars 刷新现价" +
+        ? "更新（未拉 K 线，" +
+          (reuseWlSpot
+            ? "复用②现价<strong>" +
+              (isFinite(spotReusedN) ? spotReusedN : "—") +
+              "</strong> 只未重复联网"
+            : "基于本地 bars 刷新现价") +
           (nFund > 0 ? "/扩展因子" : "") +
           "；下表<strong>仅展示成功</strong>，可分页与回测）"
         : "入库（下表<strong>仅展示成功</strong>，可分页与回测）") +
@@ -20169,7 +20823,10 @@
       "</p>";
     var rq = lastIngestRequestDates || {};
     var formRng = skipBars
-      ? "本次<strong>未联网拉 K 线</strong>（日线请在<strong>②</strong>「拉取日期区间」+「重新获取」）。"
+      ? "本次<strong>未联网拉 K 线</strong>（日线请在<strong>②</strong>「拉取日期区间」+「重新获取」）。" +
+        (reuseWlSpot
+          ? " 现价：<strong>复用②刷新列表快照</strong>（未逐只 push2）。"
+          : "")
       : rq.start || rq.end
         ? "本次提交时表单日期：<strong>" +
           escapeHtml(rq.start || "未填") +
@@ -20592,6 +21249,7 @@
   syncKeyInput();
   loadAuthStatus();
   initFvOosDateInputs();
+  initWlDateRangePicker();
   initForecastMethodChecks();
   initForecastLiveBars();
   loadIngestDataSourceSelect();
@@ -20605,6 +21263,19 @@
       try {
         localStorage.setItem(LS_INGEST_FUNDAMENTALS, chkFund.checked ? "1" : "0");
       } catch (eFund2) {}
+    });
+  }
+
+  var chkReuseSpot = $("chkIngestReuseWlSpot");
+  if (chkReuseSpot) {
+    try {
+      var storedReuse = localStorage.getItem(LS_INGEST_REUSE_WL_SPOT);
+      chkReuseSpot.checked = storedReuse === null ? true : storedReuse === "1";
+    } catch (eReuse) {}
+    chkReuseSpot.addEventListener("change", function () {
+      try {
+        localStorage.setItem(LS_INGEST_REUSE_WL_SPOT, chkReuseSpot.checked ? "1" : "0");
+      } catch (eReuse2) {}
     });
   }
 

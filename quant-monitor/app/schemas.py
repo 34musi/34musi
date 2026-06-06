@@ -124,6 +124,24 @@ class IngestSymbolSubsetOptional(BaseModel):
         return v
 
 
+class WatchlistSpotReuseEntry(BaseModel):
+    """②「刷新列表」现价字段，供 ③ reuse_watchlist_spot 传入（spot_* 与 live_* 均可）。"""
+
+    model_config = {"extra": "ignore"}
+
+    spot_last_price: float | None = None
+    live_last_price: float | None = None
+    spot_change_pct: float | None = None
+    live_change_pct: float | None = None
+    spot_quote_date: str | None = None
+    live_quote_date: str | None = None
+    spot_fetched_at: str | None = None
+    live_fetched_at: str | None = None
+    live_price_source: str | None = None
+    spot_volume: float | None = None
+    live_volume: float | None = None
+
+
 class IngestUpdateIn(IngestSymbolSubsetOptional):
     """POST /ingest/update 可选参数。"""
 
@@ -157,6 +175,17 @@ class IngestUpdateIn(IngestSymbolSubsetOptional):
             "为 true 时跳过联网拉取/写入日线，仅用本地 bars 构造结果行并刷新现价/强弱；"
             "可与 include_fundamentals 组合。K 线请在②或其它显式拉取路径更新。"
         ),
+    )
+    reuse_watchlist_spot: bool = Field(
+        False,
+        description=(
+            "为 true 时优先使用 Body 中 watchlist_spot_by_symbol（②「刷新列表」快照）"
+            "作为现价，不对已有快照的标的重复联网 push2/spot；缺快照的标的用本地 bars 回退。"
+        ),
+    )
+    watchlist_spot_by_symbol: dict[str, WatchlistSpotReuseEntry] | None = Field(
+        default=None,
+        description="② 现价快照：键为 6 位代码；与 reuse_watchlist_spot 联用。",
     )
 
 
@@ -260,24 +289,6 @@ class WatchlistDeleteAllOut(BaseModel):
     ok: bool = True
     removed: int = Field(..., description="实际删除的行数")
     scope: str = Field(..., description="本次删除范围：all 或 auto")
-
-
-class WatchlistHotSnapshotImportIn(BaseModel):
-    """POST /watchlist/import-hot-market-snapshot：从 hot_market_snapshot.json 导入热门股到自选。"""
-
-    replace_auto_pool: bool = Field(
-        True,
-        description="为 true 时先删除全部 auto_hot 与 auto_quant，再写入快照中的热门股（来源 auto_hot）；手动条目保留并跳过",
-    )
-
-
-class WatchlistHotSnapshotImportOut(BaseModel):
-    added: int = Field(..., description="新写入的 auto_hot 条数")
-    skipped_existing_manual: int = Field(..., description="已在自选且为手动的代码数（跳过）")
-    removed_auto: int = Field(..., description="若 replace_auto_pool，为删除的 auto_hot+auto_quant 条数；否则为 0")
-    snapshot_stock_rows: int = Field(..., description="快照 JSON 中 stocks 列表长度")
-    candidates: int = Field(..., description="规范化去重后可尝试导入的代码数")
-    warnings: list[str] = Field(default_factory=list, description="无效代码等提示")
 
 
 class WatchlistItem(BaseModel):
@@ -434,6 +445,52 @@ class WatchlistTodayCloseBackfillOut(BaseModel):
     failed_count: int = 0
 
 
+class WatchlistRefetchKlineIn(IngestSymbolSubsetOptional):
+    """POST /watchlist/refetch-kline：② 严格按闭区间拉 K 线入库，仅写 bars 并回传自选展示字段。"""
+
+    start_date: date | None = Field(
+        None,
+        description="区间起始日（含），YYYY-MM-DD；与 end_date 同时传则按闭区间拉取",
+    )
+    end_date: date | None = Field(
+        None,
+        description="区间结束日（含），YYYY-MM-DD",
+    )
+    data_source: IngestDataSource | None = Field(
+        None,
+        description="行情路线；不传则用 INGEST_DATA_SOURCE",
+    )
+
+
+class WatchlistRefetchKlineResultRow(BaseModel):
+    symbol: str
+    rows_upserted: int | None = Field(None, description="本次 upsert 的 K 线条数")
+    error: str | None = None
+    bars_first_ingested_at: str | None = None
+    bars_last_ingested_at: str | None = None
+    bars_last_trade_date: str | None = None
+    last_trade_date: str | None = Field(None, description="与 bars_last_trade_date 一致，供控制台合并缓存")
+    last_close: float | None = None
+    last_daily_close_label: str | None = None
+    display_prev_close: float | None = None
+    display_prev_trade_date: str | None = None
+    display_today_close: float | None = None
+    display_today_trade_date: str | None = None
+    display_today_close_basis: str | None = None
+    display_pair_basis: str | None = None
+    ingest_exec_date: str | None = None
+    today_bar_backfill: bool | None = None
+
+
+class WatchlistRefetchKlineOut(BaseModel):
+    ok: bool = True
+    cancelled: bool = False
+    start_date: date | None = None
+    end_date: date | None = None
+    ingest_data_source: str | None = None
+    results: list[WatchlistRefetchKlineResultRow] = Field(default_factory=list)
+
+
 class WatchlistBatchAddIn(BaseModel):
     """POST /watchlist/batch-add：批量加入自选（来源 manual，不删其它条目）。"""
 
@@ -442,6 +499,10 @@ class WatchlistBatchAddIn(BaseModel):
         min_length=1,
         max_length=500,
         description="至少含 code；name 可空。已存在则保留并标为手动（不覆盖已有简称）",
+    )
+    log_snapshot: bool = Field(
+        False,
+        description="为 true 时写入加入日志并附带 bars/现价快照；热门板块「加入自选」应传 false，仅写自选库",
     )
 
 

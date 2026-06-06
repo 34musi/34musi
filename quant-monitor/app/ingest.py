@@ -201,12 +201,19 @@ def _format_ingest_error(exc: BaseException) -> str:
 
 
 def _fetch_and_upsert(
-    sym: str, start: str, end: str, mode: str, *, data_source: str | None = None
+    sym: str,
+    start: str,
+    end: str,
+    mode: str,
+    *,
+    data_source: str | None = None,
+    range_only: bool = False,
 ) -> dict:
     """
     拉取 [start,end] 区间日线、upsert，并组装 ingest 结果摘要 dict。
 
     含 last/prev 交易日、可选当日 bar 补写、bars 首次/末次入库时间等字段。
+    range_only=True 时仅拉取并 upsert 闭区间内 K 线，不补写当日 bar、不联网补前一交易日。
     """
     try:
         try:
@@ -215,9 +222,11 @@ def _fetch_and_upsert(
             before_rows = []
         df, provider = fetch_daily_with_provider(sym, start, end, data_source=data_source)
         n = upsert_bars(df)
-        n_backfill = _try_backfill_today_bar_from_live(sym, data_source=data_source)
-        if n_backfill:
-            n += n_backfill
+        n_backfill = 0
+        if not range_only:
+            n_backfill = _try_backfill_today_bar_from_live(sym, data_source=data_source)
+            if n_backfill:
+                n += n_backfill
         out: dict = {
             "symbol": sym,
             "rows_upserted": n,
@@ -252,7 +261,7 @@ def _fetch_and_upsert(
                 out["prev_trade_date"] = prev_bar["trade_date"]
                 out["prev_close"] = round(float(prev_bar["close"]), 4)
                 out["prev_volume"] = round(float(prev_bar.get("volume") or 0), 4)
-            elif last_td:
+            elif last_td and not range_only:
                 remote_prev = _fetch_prev_trading_bar_remote(
                     sym, last_td, data_source=data_source, upsert=True
                 )
@@ -1851,11 +1860,70 @@ def enrich_ingest_results_with_spot(
             logger.debug("enrich batch eastmoney spot: %s", e)
 
 
+def watchlist_spot_entry_to_live_fields(entry: dict[str, Any]) -> dict[str, Any]:
+    """将 ② WatchlistItem 现价字段转为 ingest enrich 用的 live 字典。"""
+    px = entry.get("live_last_price")
+    if px is None:
+        px = entry.get("spot_last_price")
+    if px is None or not math.isfinite(float(px)) or float(px) <= 0:
+        return {}
+    chg = entry.get("live_change_pct")
+    if chg is None:
+        chg = entry.get("spot_change_pct")
+    chg_f: float | None = None
+    if chg is not None and math.isfinite(float(chg)):
+        chg_f = round(float(chg), 2)
+    qd = entry.get("live_quote_date") or entry.get("spot_quote_date")
+    fa = entry.get("live_fetched_at") or entry.get("spot_fetched_at")
+    src = entry.get("live_price_source") or "watchlist_spot_reuse"
+    out: dict[str, Any] = {
+        "live_last_price": round(float(px), 4),
+        "live_change_pct": chg_f,
+        "live_quote_date": str(qd)[:10] if qd else None,
+        "live_fetched_at": fa,
+        "live_price_source": src,
+    }
+    vol = entry.get("live_volume")
+    if vol is None:
+        vol = entry.get("spot_volume")
+    if vol is not None and math.isfinite(float(vol)) and float(vol) >= 0:
+        out["live_volume"] = round(float(vol), 4)
+    return out
+
+
+def parse_watchlist_spot_reuse_map(
+    reuse: bool,
+    raw: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    """解析 ③ Body.watchlist_spot_by_symbol → symbol → live 字段（仅含有效现价）。"""
+    if not reuse or not raw:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for key, val in raw.items():
+        try:
+            sym = normalize_symbol(str(key))
+        except ValueError:
+            continue
+        if isinstance(val, dict):
+            entry = val
+        else:
+            try:
+                entry = val.model_dump(exclude_none=True)  # type: ignore[union-attr]
+            except AttributeError:
+                continue
+        live = watchlist_spot_entry_to_live_fields(entry)
+        if _live_row_has_price(live):
+            out[sym] = live
+    return out
+
+
 def enrich_one_ingest_result_spot(
     r: dict[str, Any],
     *,
     data_source: str | None = None,
     skip_bar_fetch: bool = False,
+    prefetched_live: dict[str, Any] | None = None,
+    skip_spot_network: bool = False,
 ) -> None:
     """单条 ingest 结果：联网补现价并写入展示字段（③ 表格一行完整数据）。"""
     from app.fundamentals import _now_iso
@@ -1866,15 +1934,20 @@ def enrich_one_ingest_result_spot(
     if not sym:
         return
     req_at = _now_iso()
-    try:
-        live_by = live_quote_fields_for_codes_enhanced(
-            [sym], data_source=data_source, force_spot_refresh=True
-        )
-    except Exception:
-        live_by = {}
+    live: dict[str, Any] = {}
+    if prefetched_live and _live_row_has_price(prefetched_live):
+        live = dict(prefetched_live)
+    elif not skip_spot_network:
+        try:
+            live_by = live_quote_fields_for_codes_enhanced(
+                [sym], data_source=data_source, force_spot_refresh=True
+            )
+        except Exception:
+            live_by = {}
+        live = live_by.get(sym) or {}
     _apply_spot_enrich_to_ingest_row(
         r,
-        live_by.get(sym) or {},
+        live,
         data_source=data_source,
         skip_bar_fetch=skip_bar_fetch,
         req_at=req_at,
@@ -2451,6 +2524,7 @@ def ingest_symbol_range(
     range_end: date | None = None,
     lookback_years: int = 5,
     data_source: str | None = None,
+    strict_range: bool = False,
 ) -> dict:
     """
     按日期参数拉取并入库（自选批量更新入口）。
@@ -2459,6 +2533,7 @@ def ingest_symbol_range(
     - 仅 start：从 start 拉到「今天」。
     - 仅 end：等价于 incremental_refresh(..., as_of_date=end)。
     - 都不传：等价于 incremental_refresh 默认（增量到今天）。
+    strict_range=True：闭区间拉取时不把结束日抬到今天，且仅 upsert 区间内 K 线（②「按日期拉取日线」）。
     data_source：None 时用 Settings.ingest_data_source。
     """
     sym = normalize_symbol(symbol)
@@ -2472,11 +2547,18 @@ def ingest_symbol_range(
         if a > today:
             raise ValueError("开始日期不能晚于东八区今日")
         # 结束日落在近几日内但早于今日（日期框未改）：自动拉到今日，避免缺当日 bar
-        if b < today and (today - b).days <= 7:
+        if not strict_range and b < today and (today - b).days <= 7:
             b = today
         start = a.strftime("%Y%m%d")
         end = b.strftime("%Y%m%d")
-        return _fetch_and_upsert(sym, start, end, "explicit_range", data_source=data_source)
+        return _fetch_and_upsert(
+            sym,
+            start,
+            end,
+            "explicit_range",
+            data_source=data_source,
+            range_only=strict_range,
+        )
     if range_start is not None and range_end is None:
         if range_start > today:
             raise ValueError("开始日期不能晚于今天")

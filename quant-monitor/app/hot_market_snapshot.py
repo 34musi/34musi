@@ -4,7 +4,7 @@
 ## 功能作用
 
 从公开行情源拉取「最近一次收盘/当前截面」的**板块涨跌幅序**与**个股热门榜**，
-写入 `data/hot_market_snapshot.json`，供控制台 **⑨ 热门市场快照**、**② 导入热门股**、
+写入 `data/hot_market_snapshot.json`，供控制台 **⑨ 热门市场快照**、
 **⑨ 选股**（`data_source=hot_chain`）等模块**只读**使用，减轻重复联网与限流。
 
 默认数据源链（与 ingest 路线命名对齐）：
@@ -45,7 +45,6 @@ sina → tencent → baostock → eastmoney → akshare
 ## 调用方
 
 - `POST /meta/hot-market-snapshot/refresh`、`GET /meta/hot-market-snapshot`
-- `POST /watchlist/import-hot-market-snapshot`（② 导入 auto_hot 自选）
 - `quant_stock_selector.hot_chain_datasource`、`sectors._constituents_from_hot_market_snapshot`
 - `POST /research/sector-screen`（`data_source=hot_chain`、合并 snapshot stocks）
 
