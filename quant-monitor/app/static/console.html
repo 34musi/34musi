@@ -177,6 +177,31 @@
       opacity: 0.45;
       cursor: not-allowed;
     }
+    button.btn-loading {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      cursor: wait;
+    }
+    button.btn-loading:disabled {
+      opacity: 0.88;
+      cursor: wait;
+    }
+    button.btn-loading::before {
+      content: "";
+      width: 0.85rem;
+      height: 0.85rem;
+      flex-shrink: 0;
+      border: 2px solid rgba(255, 255, 255, 0.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: panel-loading-spin 0.75s linear infinite;
+    }
+    button.secondary.btn-loading::before {
+      border-color: rgba(148, 163, 184, 0.35);
+      border-top-color: var(--accent);
+    }
     button.secondary { background: var(--panel); color: var(--text); }
     .status-pill {
       display: inline-block;
@@ -697,6 +722,159 @@
     .disclaimer-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
     .disclaimer-box h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--muted); }
     .disclaimer-box p { margin: 0 0 0.75rem; }
+    .brief-concept-list { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+    .brief-concept-list li { background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 999px; padding: 0.15rem 0.55rem; font-size: 0.78rem; }
+    .brief-news-item { border-bottom: 1px solid var(--border); padding: 0.55rem 0; }
+    .brief-news-item:last-child { border-bottom: none; }
+    .brief-news-item h4 { margin: 0 0 0.25rem; font-size: 0.88rem; font-weight: 600; }
+    .brief-news-meta { margin: 0; font-size: 0.75rem; color: var(--muted); }
+    .brief-kv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.45rem 0.75rem; margin: 0; }
+    .brief-kv-grid dt { margin: 0; font-size: 0.72rem; color: var(--muted); }
+    .brief-kv-grid dd { margin: 0.1rem 0 0; font-size: 0.88rem; font-weight: 600; }
+    .brief-seg-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.35rem; }
+    .brief-seg-table th, .brief-seg-table td { border: 1px solid var(--border); padding: 0.35rem 0.45rem; text-align: left; }
+    .brief-seg-table th { color: var(--muted); font-weight: 500; background: rgba(255,255,255,0.02); }
+    .brief-card-d { margin-bottom: 0.65rem; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+    .brief-card-d:last-child { margin-bottom: 0; }
+    .brief-card-d > summary {
+      cursor: pointer;
+      padding: 0.55rem 0.7rem;
+      font-weight: 600;
+      font-size: 0.88rem;
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 0.65rem;
+    }
+    .brief-card-d > summary::-webkit-details-marker { display: none; }
+    .brief-card-d > summary::before {
+      content: "▸";
+      display: inline-block;
+      width: 0.85rem;
+      color: var(--muted);
+      transition: transform 0.15s ease;
+    }
+    .brief-card-d[open] > summary::before { transform: rotate(90deg); }
+    .brief-card-summary-meta { font-size: 0.76rem; font-weight: 500; color: var(--muted); }
+    .brief-card-summary-chg.up { color: #f87171; }
+    .brief-card-summary-chg.down { color: #4ade80; }
+    .brief-card-body { padding: 0 0.55rem 0.65rem; }
+    .brief-list-empty { margin: 0; font-size: 0.82rem; color: var(--muted); }
+    .brief-risk-list { margin: 0; padding: 0; list-style: none; }
+    .brief-risk-list li { margin: 0.35rem 0; padding: 0.4rem 0.55rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid var(--border); }
+    .brief-risk-list li.is-danger { border-color: rgba(248,113,113,0.45); background: rgba(248,113,113,0.08); }
+    .brief-risk-list li.is-warn { border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.08); }
+    .brief-risk-list li.is-info { border-color: rgba(96,165,250,0.35); background: rgba(96,165,250,0.06); }
+    /* ⑤ 涨跌解读：紧凑布局 */
+    .brief-move-panel { display: flex; flex-direction: column; gap: 0.65rem; }
+    .brief-move-hero {
+      border-radius: 8px;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(255,255,255,0.02) 100%);
+    }
+    .brief-move-hero.is-down { border-color: rgba(74,222,128,0.35); background: linear-gradient(135deg, rgba(74,222,128,0.1) 0%, rgba(255,255,255,0.02) 100%); }
+    .brief-move-hero.is-up { border-color: rgba(248,113,113,0.35); background: linear-gradient(135deg, rgba(248,113,113,0.1) 0%, rgba(255,255,255,0.02) 100%); }
+    .brief-move-hero-top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.65rem; margin-bottom: 0.35rem; }
+    .brief-move-verdict {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .brief-move-conf {
+      font-size: 0.72rem;
+      color: var(--muted);
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+    }
+    .brief-move-explain { margin: 0; font-size: 0.84rem; line-height: 1.5; color: var(--text, inherit); opacity: 0.92; }
+    .brief-move-compare {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.35rem;
+    }
+    @media (max-width: 720px) {
+      .brief-move-compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .brief-move-stat {
+      text-align: center;
+      padding: 0.45rem 0.35rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .brief-move-stat-label { display: block; font-size: 0.68rem; color: var(--muted); margin-bottom: 0.15rem; }
+    .brief-move-stat-val { display: block; font-size: 0.88rem; font-weight: 600; }
+    .brief-move-stat-val.up { color: #f87171; }
+    .brief-move-stat-val.down { color: #4ade80; }
+    .brief-move-stat-val.na { color: var(--muted); font-weight: 500; }
+    .brief-move-row2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    @media (max-width: 560px) {
+      .brief-move-row2 { grid-template-columns: 1fr; }
+    }
+    .brief-move-mini {
+      padding: 0.55rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      font-size: 0.82rem;
+    }
+    .brief-move-mini h4 { margin: 0 0 0.35rem; font-size: 0.78rem; font-weight: 600; color: var(--muted); }
+    .brief-move-mini p { margin: 0; line-height: 1.45; }
+    .brief-move-sub {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: rgba(255,255,255,0.015);
+    }
+    .brief-move-sub > summary {
+      cursor: pointer;
+      padding: 0.45rem 0.6rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      list-style: none;
+    }
+    .brief-move-sub > summary::-webkit-details-marker { display: none; }
+    .brief-move-sub > summary::before { content: "▸ "; color: var(--muted); }
+    .brief-move-sub[open] > summary::before { content: "▾ "; }
+    .brief-move-sub-body { padding: 0 0.6rem 0.55rem; font-size: 0.82rem; }
+    .brief-move-clue-list { margin: 0; padding: 0; list-style: none; }
+    .brief-move-clue-list li {
+      padding: 0.35rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      line-height: 1.45;
+    }
+    .brief-move-clue-list li:last-child { border-bottom: none; }
+    .brief-move-tag {
+      display: inline-block;
+      min-width: 2.6rem;
+      text-align: center;
+      font-size: 0.68rem;
+      padding: 0.05rem 0.3rem;
+      margin-right: 0.35rem;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      vertical-align: top;
+    }
+    .brief-move-src-foot { margin: 0.5rem 0 0; font-size: 0.68rem; color: var(--muted); line-height: 1.5; }
+    .brief-src-badge {
+      display: inline-block;
+      margin-right: 0.25rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.68rem;
+      line-height: 1.35;
+      opacity: 0.85;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
     details { margin-top: 0.75rem; color: var(--muted); font-size: 0.85rem; }
     .ingest-h3 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--text); }
     .ingest-result-wrap { margin-top: 1rem; width: 100%; }
@@ -2238,13 +2416,11 @@
       font-size: 0.82rem;
     }
     #panel-3 .panel-action-out-wrap,
-    #panel-4 .panel-action-out-wrap,
-    #panel-5 .panel-action-out-wrap {
+    #panel-4 .panel-action-out-wrap {
       margin-top: 0.55rem;
     }
     #panel-3 .panel-action-out-wrap pre.out,
-    #panel-4 .panel-action-out-wrap pre.out,
-    #panel-5 .panel-action-out-wrap pre.out {
+    #panel-4 .panel-action-out-wrap pre.out {
       margin-top: 0;
       max-height: 200px;
       font-size: 0.82rem;
@@ -3744,23 +3920,20 @@
       </section>
 
       <section id="panel-5" class="panel" data-module="5">
-        <h2>⑤ 变动预览</h2>
-        <p class="lead">对比「上一次缓存」与当前计算结果，看趋势或评分十位档是否变化。可与③使用<strong>相同行情路线</strong>：请求体携带 <code>data_source</code>，勾选后先增量更新再对比。</p>
-        <p class="lead" style="margin-top:0;font-size:0.82rem;">
-          当前路线：<strong id="routeEchoAlerts">—</strong>
-        </p>
-        <div class="row">
-          <label><input type="checkbox" id="chkPreRefreshAlerts" checked /> 对比前先按上述路线增量更新自选日线</label>
+        <h2>⑤ 个股咨询</h2>
+        <p class="lead">输入 6 位 A 股代码，联网查询<strong>公司行情</strong>、<strong>新闻面</strong>、<strong>相关概念</strong>、<strong>公司业务</strong>与<strong>营收能力</strong>（东财 / AkShare 公开数据）。非投资建议；接口有频率限制。</p>
+        <div class="row" style="margin-top:0.75rem;">
+          <label for="briefSym">股票代码</label>
+          <input type="text" id="briefSym" placeholder="6 位，如 600519" maxlength="16" style="max-width:160px;" />
         </div>
         <div class="btns">
-          <button type="button" class="primary" id="btnAlerts">对比上次缓存</button>
+          <button type="button" class="primary" id="btnStockBrief">查询个股资料</button>
           <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-5" hidden>取消请求</button>
         </div>
-        <p class="cancel-hint" data-cancel-hint="panel-5" hidden>可中断⑤变动对比（含增量更新）。</p>
-        <div class="panel-action-out-wrap" aria-live="polite">
-          <pre class="out" id="out-5" hidden></pre>
-        </div>
-        <div id="alerts-out-wrap" class="signals-out-wrap" hidden></div>
+        <p class="cancel-hint" data-cancel-hint="panel-5" hidden>可中断⑤联网查询。</p>
+        <p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted);">查询结果保存在本机浏览器，刷新后仍可见；同一代码再次查询会更新对应条目。点击标题可展开/收起。</p>
+        <div id="brief-render" style="margin-top:1rem;"></div>
+        <pre class="out" id="out-5" hidden></pre>
       </section>
 
       <section id="panel-6" class="panel" data-module="6">
@@ -3945,7 +4118,7 @@
         <div class="hd-auto-refresh-bar" id="hdAutoRefreshBar">
           <span class="wl-daily-view-label">定时推送</span>
           <label for="hdAutoRefreshSec">间隔</label>
-          <select id="hdAutoRefreshSec" title="按间隔检查推送条件（不刷新列表，现价请点上方「刷新列表」）">
+          <select id="hdAutoRefreshSec" title="按间隔联网刷新勾选行现价，再比对推送价并通知">
             <option value="30">30 秒</option>
             <option value="60" selected>60 秒</option>
             <option value="120">2 分钟</option>
@@ -3958,12 +4131,12 @@
             class="hd-notify-url-in"
             placeholder="企业微信/钉钉机器人 Webhook"
             autocomplete="off"
-            title="企业微信/钉钉 Webhook；列表刷新后，仅对勾选且达推送价的标的发送通知"
+            title="企业微信/钉钉 Webhook；定时任务联网刷新勾选现价后，仅对达推送价的标的发送通知"
           />
           <button type="button" class="secondary" id="btnHdPickHolding">勾选持仓中</button>
           <button type="button" class="secondary" id="btnHdClearPick">清空勾选</button>
           <label for="hdNotifyRuleOp">推送价</label>
-          <select id="hdNotifyRuleOp" class="hd-notify-rule-op" title="≥ 涨到该价推送；≤ 跌到该价推送；任意=每次刷新都推送">
+          <select id="hdNotifyRuleOp" class="hd-notify-rule-op" title="≥ 涨到该价推送；≤ 跌到该价推送；任意=每次检查都推送（须点「应用到勾选」或开始定时时自动写入）">
             <option value="gte" selected>≥</option>
             <option value="lte">≤</option>
             <option value="">任意</option>
@@ -3977,14 +4150,14 @@
             min="0"
             title="填价格后点「应用到勾选」；选「任意」可清除推送价条件"
           />
-          <button type="button" class="secondary" id="btnHdApplyNotifyPrice" title="将上方条件写入已勾选行">应用到勾选</button>
-          <button type="button" class="secondary" id="btnHdClearNotifyPrice" title="清除已勾选行的推送价（恢复为任意）">清除推送价</button>
+          <button type="button" class="secondary" id="btnHdApplyNotifyPrice" title="将上方条件写入已勾选行；修改价格后回车或失焦也会自动写入">应用到勾选</button>
+          <button type="button" class="secondary" id="btnHdClearNotifyPrice" title="清除已勾选行的推送价（恢复为未设，不再推送）">清除推送价</button>
           <button type="button" class="secondary" id="btnHdNotifyTest" title="用当前勾选行或缓存数据试发一条，不刷新现价">测试通知</button>
           <button type="button" class="primary" id="btnHdAutoRefreshStart">开始定时</button>
-          <span class="hd-auto-refresh-hint" id="hdAutoRefreshHint">现价请点上方「刷新列表」；勾选+推送价后「开始定时」仅按间隔检查并推送，再点同一按钮即「取消定时」。</span>
+          <span class="hd-auto-refresh-hint" id="hdAutoRefreshHint">勾选+推送价后「开始定时」：按间隔联网刷新勾选行现价，达标再推送；再点同一按钮即「取消定时」。</span>
         </div>
         <div id="hd-table-wrap" class="wl-table-scroll" style="margin-top:0.75rem;">
-          <p class="lead" style="margin:0">进入本页<strong>不会</strong>自动联网。点「<strong>查询</strong>」读库；「<strong>显示</strong>」仅本地筛选；「<strong>刷新列表</strong>」联网更新现价。上次列表与定时勾选会<strong>自动从本机缓存恢复</strong>展示。</p>
+          <p class="lead" style="margin:0">进入本页<strong>不会</strong>自动联网。点「<strong>查询</strong>」读库；「<strong>显示</strong>」仅本地筛选；「<strong>刷新列表</strong>」联网更新全部现价；「<strong>开始定时</strong>」仅联网刷新<strong>勾选行</strong>并比对推送价。上次列表与定时勾选会<strong>自动从本机缓存恢复</strong>展示。</p>
         </div>
         <div id="hd-advice-panel" class="hd-advice-panel" hidden aria-live="polite"></div>
         <pre class="out" id="out-10" hidden></pre>
@@ -4264,6 +4437,8 @@
   var LS_WL_BARS_CACHE = "quant_monitor_wl_bars_cache_v1";
   /** ⑩ 持仓列表 + 定时推送 + 推送勾选（本机缓存，刷新页面后恢复展示） */
   var LS_LAST_HD_LIST = "quant_monitor_last_holdings_v1";
+  /** ⑩ 定时推送是否在运行（刷新/重开页面后恢复） */
+  var LS_HD_AUTO_REFRESH = "quant_monitor_hd_auto_refresh_v1";
   /** ② 批量拉取日线任务（刷新页面后恢复按钮 loading） */
   var LS_WL_REFETCH_JOB = "quant_monitor_wl_refetch_job_v1";
   var LS_INGEST_PAGE_SIZE = "quant_monitor_ingest_page_size";
@@ -4274,6 +4449,7 @@
   /** 上次「查看自选全部信号」成功返回的响应（本机缓存，非服务端缓存） */
   var LS_LAST_SIGNALS_ALL = "quant_monitor_last_signals_all_v1";
   var LS_SIGNALS_PAGE_SIZE = "quant_monitor_signals_page_size";
+  var LS_STOCK_BRIEF_CACHE = "quant_monitor_stock_brief_cache_v1";
   var SS_MOD = "quant_console_module";
   var WL_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
   var INGEST_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -4345,7 +4521,7 @@
     { id: "2", title: "② 管理自选股票", hint: "自选来源 · 热门 / ⑨量化 / 列表" },
     { id: "3", title: "③ 更新行情数据", hint: "拉取日线 / 拉取结果与回测" },
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
-    { id: "5", title: "⑤ 变动预览", hint: "与上次结果对比" },
+    { id: "5", title: "⑤ 个股咨询", hint: "行情 · 新闻 · 概念 · 业务" },
     { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" },
     { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" },
     { id: "10", title: "⑩ 持仓记录", hint: "成本 · 股数 · 盈亏估算" },
@@ -4430,10 +4606,6 @@
     showOut("out-4", text, show !== false);
   }
 
-  function showOut5(text, show) {
-    showOut("out-5", text, show !== false);
-  }
-
   /** 批量任务进度轮询间隔（与②刷新列表类似，不宜过密以免日志刷屏） */
   var BATCH_PROGRESS_POLL_MS = 2500;
   var _batchProgressPolls = {};
@@ -4501,10 +4673,14 @@
     }
     if (loading) {
       btn.disabled = true;
+      btn.classList.add("btn-loading");
+      btn.setAttribute("aria-busy", "true");
       if (text) btn.textContent = text;
       return;
     }
     btn.disabled = false;
+    btn.classList.remove("btn-loading");
+    btn.removeAttribute("aria-busy");
     btn.textContent = btn.dataset.defaultText || btn.textContent;
   }
 
@@ -4860,15 +5036,6 @@
     }
   }
 
-  async function syncPanel5AlertsBtnFromServer() {
-    var st = await fetchSymbolsBatchStatus("alerts");
-    if (st && st.active) {
-      beginPanelServerTask("panel-5");
-      setActionButtonLoading("btnAlerts", true, batchProgressLabel(st, "正在对比"));
-      startSymbolsBatchPoll("alerts", "alerts", "btnAlerts", "正在对比");
-    }
-  }
-
   var _wlBackfillCloseState = { running: false };
 
   async function syncPanel2BackfillBtnFromServer() {
@@ -4915,7 +5082,7 @@
     "panel-2": ["hot_sectors", "backfill_close"],
     "panel-3": ["ingest", "fundamentals", "pre_refresh"],
     "panel-4": ["signals", "pre_refresh"],
-    "panel-5": ["alerts", "pre_refresh"],
+    "panel-5": [],
     "panel-6": [],
     "panel-7": [],
     "panel-9": ["sector_screen"],
@@ -5290,10 +5457,7 @@
       void syncPanel4SignalsBtnFromServer();
     }
     if (id === "5") {
-      void syncPanel5AlertsBtnFromServer();
-    }
-    if (id !== "10") {
-      hdStopAutoRefresh({ silent: true });
+      tryRestoreStockBriefFromStorage();
     }
     if (id === "9") {
       tryRestoreLastQssSectorScreenFromStorage();
@@ -13832,10 +13996,8 @@
     var label = opt ? opt.text : "";
     var line = sel.value + (label ? " — " + label : "");
     var a = $("routeEchoSignals");
-    var b = $("routeEchoAlerts");
     var c = $("wlRouteEcho");
     if (a) a.textContent = line;
-    if (b) b.textContent = line;
     if (c) c.textContent = line;
   }
 
@@ -14796,236 +14958,6 @@
       body: body,
     };
     paintSignalsPanelTable();
-  }
-
-  function alertsFieldGlossaryHtml() {
-    return (
-      '<details class="ingest-raw" style="margin-top:1rem"><summary>字段说明（点击展开）</summary>' +
-      '<dl class="signals-glossary-dl">' +
-      "<dt>events（事件列表）</dt><dd>本次点击「对比」时，相对<strong>服务端上次缓存</strong>筛出的变动；执行成功后缓存会被当前信号覆盖，下次再点会与本次结果比较。</dd>" +
-      "<dt>type = new（首次记录）</dt><dd>该代码上一次没有可对比的快照（例如第一次跑预览，或缓存被清空）。</dd>" +
-      "<dt>type = shift（信号变化）</dt><dd><strong>趋势（trend）</strong>与上次不同，或<strong>买入适合度（score）</strong>的<strong>十位档</strong>发生变化（例如 59→61 算变档，50→59 不算）。</dd>" +
-      "<dt>snapshot / before / after</dt><dd>均为精简快照：trend、strength、score、technical_score、fundamental_adjustment、position_hint、<strong>suggested_position_pct_low / high</strong>、<strong>trial_exit_applies / trial_stop_loss_pct_demo / reference_exit_ma20</strong>、as_of_date。</dd>" +
-      "<dt>disclaimer</dt><dd>接口一并返回的免责与数据源说明摘要，与「⑥」一致。</dd>" +
-      "<dt>request</dt><dd>回显本次请求体中的 pre_refresh、data_source（与③路线联动）。</dd>" +
-      "</dl></details>"
-    );
-  }
-
-  function alertsPairZh(b, a, map) {
-    var bz = b != null && b !== "" ? map[b] || String(b) : "—";
-    var az = a != null && a !== "" ? map[a] || String(a) : "—";
-    return escapeHtml(bz + " → " + az);
-  }
-
-  function alertsPosRangeRaw(s) {
-    if (!s || typeof s !== "object") return "—";
-    var lo = s.suggested_position_pct_low;
-    var hi = s.suggested_position_pct_high;
-    if (typeof lo !== "number" || typeof hi !== "number") return "—";
-    return String(lo) + "–" + String(hi);
-  }
-
-  function alertsPosRangeStr(s) {
-    return escapeHtml(alertsPosRangeRaw(s));
-  }
-
-  /** 告警快照里的试错离场一行（HTML，与信号表配色一致） */
-  function alertsTrialExitSnapshotHtml(s) {
-    if (!s || typeof s !== "object") return "—";
-    var applies = s.trial_exit_applies === true;
-    var sl = s.trial_stop_loss_pct_demo;
-    var ma = s.reference_exit_ma20;
-    var maStr =
-      ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 4) : "—";
-    if (applies && sl != null && typeof sl === "number" && isFinite(sl)) {
-      return (
-        '<span class="pill signal-exit">止损</span> ' +
-        escapeHtml(signalFmtNum(sl, 0)) +
-        "%<br><span style=\"color:var(--muted);font-size:0.76rem\">MA20 " +
-        escapeHtml(maStr) +
-        "</span>"
-      );
-    }
-    return (
-      '<span class="pill warn">不适用</span><br><span style=\"color:var(--muted);font-size:0.76rem\">MA20 ' +
-      escapeHtml(maStr) +
-      "</span>"
-    );
-  }
-
-  function alertsTrialExitSummaryPlain(s) {
-    if (!s || typeof s !== "object") return "—";
-    var ma = s.reference_exit_ma20;
-    var maStr =
-      ma != null && typeof ma === "number" && isFinite(ma) ? signalFmtNum(ma, 2) : "—";
-    if (s.trial_exit_applies === true && s.trial_stop_loss_pct_demo != null && typeof s.trial_stop_loss_pct_demo === "number") {
-      return signalFmtNum(s.trial_stop_loss_pct_demo, 0) + "% / MA20 " + maStr;
-    }
-    return "不适用 / MA20 " + maStr;
-  }
-
-  function alertsEventRow(ev) {
-    var t = ev && ev.type;
-    var sym = ev && ev.symbol ? String(ev.symbol) : "—";
-    if (t === "new") {
-      var s = ev.snapshot || {};
-      var typeLabel = "首次记录（new）";
-      return (
-        "<tr>" +
-        "<td>" + escapeHtml(typeLabel) + "</td>" +
-        "<td>" + escapeHtml(sym) + "</td>" +
-        '<td class="' + signalTrendClass(s.trend) + '">' +
-        escapeHtml(SIGNAL_TREND_ZH[s.trend] || signalFmtCell(s.trend)) +
-        "</td>" +
-        "<td>" + escapeHtml(SIGNAL_STRENGTH_ZH[s.strength] || signalFmtCell(s.strength)) + "</td>" +
-        '<td class="num">' + escapeHtml(signalFmtCell(s.score)) + "</td>" +
-        '<td class="num">' + escapeHtml(signalFmtCell(s.technical_score)) + "</td>" +
-        '<td class="num">' + escapeHtml(signalFmtCell(s.fundamental_adjustment)) + "</td>" +
-        "<td>" +
-        escapeHtml(SIGNAL_POSITION_ZH[s.position_hint] || signalFmtCell(s.position_hint)) +
-        "</td>" +
-        '<td class="num signal-cell-buy">' +
-        '<span class="pill signal-buy">建仓</span> ' +
-        alertsPosRangeStr(s) +
-        "</td>" +
-        '<td class="signal-cell-exit">' +
-        alertsTrialExitSnapshotHtml(s) +
-        "</td>" +
-        "<td>" + escapeHtml(signalFmtCell(s.as_of_date)) + "</td>" +
-        "</tr>"
-      );
-    }
-    if (t === "shift") {
-      var bef = ev.before || {};
-      var aft = ev.after || {};
-      var typeLabel2 = "信号变化（shift）";
-      return (
-        "<tr>" +
-        "<td>" + escapeHtml(typeLabel2) + "</td>" +
-        "<td>" + escapeHtml(sym) + "</td>" +
-        "<td>" + alertsPairZh(bef.trend, aft.trend, SIGNAL_TREND_ZH) + "</td>" +
-        "<td>" + alertsPairZh(bef.strength, aft.strength, SIGNAL_STRENGTH_ZH) + "</td>" +
-        '<td class="num">' +
-        escapeHtml(signalFmtCell(bef.score) + " → " + signalFmtCell(aft.score)) +
-        "</td>" +
-        '<td class="num">' +
-        escapeHtml(signalFmtCell(bef.technical_score) + " → " + signalFmtCell(aft.technical_score)) +
-        "</td>" +
-        '<td class="num">' +
-        escapeHtml(
-          signalFmtCell(bef.fundamental_adjustment) +
-            " → " +
-            signalFmtCell(aft.fundamental_adjustment)
-        ) +
-        "</td>" +
-        "<td>" + alertsPairZh(bef.position_hint, aft.position_hint, SIGNAL_POSITION_ZH) + "</td>" +
-        '<td class="num signal-cell-buy">' +
-        '<span class="pill signal-buy">建仓</span> ' +
-        escapeHtml(alertsPosRangeRaw(bef) + " → " + alertsPosRangeRaw(aft)) +
-        "</td>" +
-        '<td class="signal-cell-exit" style="font-size:0.8rem">' +
-        escapeHtml(alertsTrialExitSummaryPlain(bef) + " → " + alertsTrialExitSummaryPlain(aft)) +
-        "</td>" +
-        "<td>" + escapeHtml(signalFmtCell(aft.as_of_date)) + "</td>" +
-        "</tr>"
-      );
-    }
-    return (
-      "<tr><td colspan=\"11\">" +
-      escapeHtml("未知事件类型：" + signalFmtCell(t)) +
-      "</td></tr>"
-    );
-  }
-
-  function renderAlertsPanel(body) {
-    var wrap = $("alerts-out-wrap");
-    if (!wrap) return;
-    wrap.hidden = false;
-    if (!body || typeof body !== "object") {
-      wrap.innerHTML =
-        '<pre class="out" style="margin-top:0">' + escapeHtml(String(body)) + "</pre>";
-      return;
-    }
-    var req = body.request || {};
-    var metaHtml =
-      '<div class="signals-meta">【本次请求】行情路线：' +
-      escapeHtml(req.data_source != null ? String(req.data_source) : "—") +
-      " · 计算前增量更新：" +
-      (req.pre_refresh ? "是" : "否") +
-      " · 说明：成功后已用当前信号<strong>刷新服务端对比缓存</strong>，下次将与本次结果对比。</div>";
-
-    var events = Array.isArray(body.events) ? body.events : [];
-    var summary =
-      events.length === 0
-        ? '<p class="lead" style="margin:0 0 0.75rem">与上次缓存相比，<strong>无 new / shift 事件</strong>（无首次记录、且无趋势或适合度十位档变化）。自选各标的缓存仍已更新为当前快照。</p>'
-        : '<p class="lead" style="margin:0 0 0.75rem">共 <strong>' +
-          events.length +
-          "</strong> 条变动事件（new=首次进入对比；shift=趋势或适合度十位档变化）。</p>";
-
-    var th =
-      "<thead><tr>" +
-      [
-        "类型",
-        "代码",
-        "趋势",
-        "强度",
-        "买入适合度",
-        "技术分",
-        "扩展调整",
-        "仓位提示",
-        "建仓示例%",
-        "试错离场 Demo",
-        "截止日",
-      ]
-        .map(function (h, idx) {
-          var cls = "";
-          if (idx === 8) cls = ' class="signal-th-buy"';
-          if (idx === 9) cls = ' class="signal-th-exit"';
-          return "<th" + cls + ">" + escapeHtml(h) + "</th>";
-        })
-        .join("") +
-      "</tr></thead>";
-    var rows =
-      events.length === 0
-        ? '<tr><td colspan="11" style="color:var(--muted);text-align:center">（无事件行）</td></tr>'
-        : events.map(alertsEventRow).join("");
-
-    var disc = body.disclaimer || {};
-    var discHtml = "";
-    if (disc.disclaimer || disc.data_source_note || disc.data_delay_note) {
-      discHtml =
-        '<div style="margin-top:1rem">' +
-        '<h3 class="ingest-h3" style="margin-top:0">免责与数据源摘要</h3>' +
-        (disc.disclaimer
-          ? '<div class="disclaimer-box"><h3>免责声明</h3><p>' +
-            escapeHtml(disc.disclaimer) +
-            "</p></div>"
-          : "") +
-        (disc.data_source_note
-          ? '<div class="disclaimer-box"><h3>数据来源说明</h3><p>' +
-            escapeHtml(disc.data_source_note) +
-            "</p></div>"
-          : "") +
-        (disc.data_delay_note
-          ? '<div class="disclaimer-box"><h3>延时说明</h3><p>' +
-            escapeHtml(disc.data_delay_note) +
-            "</p></div>"
-          : "") +
-        "</div>";
-    }
-
-    wrap.innerHTML =
-      metaHtml +
-      summary +
-      '<div class="signals-table-wrap"><table class="signals-main-table ingest-table">' +
-      th +
-      "<tbody>" + rows + "</tbody></table></div>" +
-      discHtml +
-      alertsFieldGlossaryHtml() +
-      '<details class="ingest-raw" style="margin-top:0.75rem"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:360px">' +
-      escapeHtml(JSON.stringify(body, null, 2)) +
-      "</pre></details>";
   }
 
   async function loadIngestDataSourceSelect() {
@@ -16310,63 +16242,6 @@
     }
   });
 
-  $("btnAlerts").addEventListener("click", async function () {
-    if (!guardKey()) return;
-    var preRefA = $("chkPreRefreshAlerts") && $("chkPreRefreshAlerts").checked;
-    var totalHintA = estimateWlSubsetBatchTotal(function () {
-      return null;
-    });
-    beginPanelServerTask("panel-5");
-    setActionButtonLoading(
-      "btnAlerts",
-      true,
-      batchProgressLabel({ done: 0, total: totalHintA }, "正在对比")
-    );
-    startSymbolsBatchPoll("alerts", "alerts", "btnAlerts", "正在对比");
-    var aw = $("alerts-out-wrap");
-    try {
-      var payload = {
-        pre_refresh: !!preRefA,
-        data_source: getIngestDataSource(),
-      };
-      var res = await fetchCancel("panel-5", "/alerts/preview", {
-        method: "POST",
-        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        body: JSON.stringify(payload),
-        skipPanelLoading: true,
-        skipClearServerScopes: true,
-      });
-      var body = await readBody(res);
-      if (!res.ok) {
-        if (aw)
-          aw.innerHTML =
-            '<pre class="out" style="margin-top:0">' +
-            escapeHtml(await formatError(res, body)) +
-            "</pre>";
-        return;
-      }
-      renderAlertsPanel(body);
-      if (body && body.cancelled && aw) {
-        aw.insertAdjacentHTML(
-          "afterbegin",
-          '<p class="lead" style="margin:0 0 0.5rem;color:#c9b87c">变动对比已取消：仅对比部分自选。</p>'
-        );
-      }
-    } catch (e) {
-      if (aw) {
-        aw.hidden = false;
-        aw.innerHTML = isRequestAborted(e)
-          ? '<p class="lead" style="margin:0">请求已取消。</p>'
-          : '<pre class="out" style="margin-top:0">' + escapeHtml(String(e)) + "</pre>";
-      }
-    } finally {
-      stopBatchProgressPoll("alerts");
-      endPanelServerTask("panel-5");
-      var stFinA = await fetchSymbolsBatchStatus("alerts");
-      finishActionButtonLoading("btnAlerts", stFinA, "完成");
-    }
-  });
-
   $("btnSelfUseFromHome").addEventListener("click", async function () {
     var pre = $("out-1-selfuse");
     if (!pre) return;
@@ -16378,6 +16253,506 @@
       pre.textContent = res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body);
     } catch (e) {
       pre.textContent = String(e);
+    }
+  });
+
+  function fmtBriefNum(v, suffix) {
+    if (v == null || v === "" || !isFinite(Number(v))) return "—";
+    var n = Number(v);
+    var s = Math.abs(n) >= 100 ? n.toFixed(2) : n.toFixed(2);
+    return suffix ? s + suffix : s;
+  }
+
+  function fmtBriefPct(v) {
+    if (v == null || v === "" || !isFinite(Number(v))) return "—";
+    var n = Number(v);
+    var sign = n > 0 ? "+" : "";
+    return sign + n.toFixed(2) + "%";
+  }
+
+  var _stockBriefCache = null;
+
+  function normalizeBriefSymbol(raw) {
+    var s = String(raw || "").replace(/\D/g, "");
+    return s.length === 6 ? s : "";
+  }
+
+  var BRIEF_CATEGORY_LABELS = {
+    limit_up: "涨停",
+    limit_down: "跌停",
+    strong: "强势股",
+    lhb: "龙虎榜",
+    notice: "公告",
+    news: "新闻",
+    intraday: "盘口异动",
+    concept: "题材",
+    fund_flow: "资金流",
+    attribution: "归因",
+  };
+
+  function fmtBriefMoney(v) {
+    if (v == null || v === "" || isNaN(Number(v))) return "—";
+    var n = Number(v);
+    var av = Math.abs(n);
+    var sign = n < 0 ? "-" : "";
+    if (av >= 1e8) return sign + (av / 1e8).toFixed(2) + "亿";
+    if (av >= 1e4) return sign + (av / 1e4).toFixed(2) + "万";
+    return sign + av.toFixed(0) + "元";
+  }
+
+  function briefCategoryLabel(cat) {
+    return BRIEF_CATEGORY_LABELS[cat] || cat || "线索";
+  }
+
+  function briefSourceBadge(item, opts) {
+    opts = opts || {};
+    var label = (item && (item.source_label || item.label)) || (item && item.source) || "未知";
+    var api = (item && item.api) || "";
+    var kind = item && item.kind;
+    var html = '<span class="brief-src-badge" title="' + escapeHtml(api || label) + '">';
+    if (opts.showKind && kind === "rule") html += "规则·";
+    else if (opts.showKind && kind === "data") html += "数据·";
+    html += escapeHtml(label) + "</span>";
+    return html;
+  }
+
+  function briefMoveStatVal(v, asPct) {
+    if (v == null || v === "") return '<span class="brief-move-stat-val na">—</span>';
+    var n = Number(v);
+    var cls = "brief-move-stat-val";
+    if (asPct && !isNaN(n)) {
+      if (n > 0.05) cls += " up";
+      else if (n < -0.05) cls += " down";
+      return '<span class="' + cls + '">' + fmtBriefPct(n) + "</span>";
+    }
+    return '<span class="' + cls + '">' + escapeHtml(String(v)) + "</span>";
+  }
+
+  function briefFactorIsNoise(text) {
+    if (!text) return true;
+    return /未能拉取|未能匹配|未能获取|接口可能限流|返回格式异常|未找到/.test(text);
+  }
+
+  function renderStockBriefMoveHtml(mi, q) {
+    mi = mi || {};
+    q = q || {};
+    var attr = mi.attribution || {};
+    var cmpSources = attr.comparison_sources || [];
+    var ff = mi.fund_flow || {};
+    var tl = mi.event_timeline || {};
+    var tlItems = tl.items || [];
+    var confMap = { high: "置信较高", medium: "置信中等", low: "置信偏低" };
+    var dirHero = mi.direction === "up" ? "is-up" : (mi.direction === "down" ? "is-down" : "");
+    var attrTitle = mi.direction === "down" ? "下跌归因" : (mi.direction === "up" ? "上涨归因" : "涨跌归因");
+
+    var html = '<div class="brief-move-panel">';
+
+    html += '<div class="brief-move-hero ' + dirHero + '">';
+    html += '<div class="brief-move-hero-top">';
+    html += '<span class="brief-move-verdict">' + escapeHtml(attrTitle) + " · " + escapeHtml(attr.primary_label || "暂无法判断") + "</span>";
+    if (attr.confidence) html += '<span class="brief-move-conf">' + escapeHtml(confMap[attr.confidence] || attr.confidence) + "</span>";
+    html += "</div>";
+    if (attr.explanation) html += '<p class="brief-move-explain">' + escapeHtml(attr.explanation) + "</p>";
+    else if (mi.summary) html += '<p class="brief-move-explain">' + escapeHtml(mi.summary) + "</p>";
+    html += "</div>";
+
+    html += '<div class="brief-move-compare">';
+    html += '<div class="brief-move-stat"><span class="brief-move-stat-label">个股</span>' + briefMoveStatVal(mi.change_pct, true) + "</div>";
+    html += '<div class="brief-move-stat"><span class="brief-move-stat-label">' + escapeHtml(attr.index_name || "大盘") + "</span>";
+    html += briefMoveStatVal(attr.index_change_pct, true) + "</div>";
+    html += '<div class="brief-move-stat"><span class="brief-move-stat-label">' + escapeHtml((attr.industry_name || "行业").slice(0, 8)) + "</span>";
+    html += briefMoveStatVal(attr.industry_change_pct, true) + "</div>";
+    html += '<div class="brief-move-stat"><span class="brief-move-stat-label">超大盘</span>' + briefMoveStatVal(attr.vs_index_pp, true) + "</div>";
+    html += '<div class="brief-move-stat"><span class="brief-move-stat-label">超行业</span>' + briefMoveStatVal(attr.vs_industry_pp, true) + "</div>";
+    html += "</div>";
+
+    html += '<div class="brief-move-row2">';
+    html += '<div class="brief-move-mini"><h4>主力资金</h4>';
+    if (ff.available) {
+      html += "<p><strong>" + fmtBriefMoney(ff.main_net_inflow) + "</strong>";
+      if (ff.main_net_ratio_pct != null) html += " · 占成交 " + fmtBriefPct(ff.main_net_ratio_pct);
+      html += "</p>";
+      if (ff.note) html += '<p style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted);">' + escapeHtml(ff.note) + "</p>";
+      if (ff.source_label) html += '<p style="margin:0.25rem 0 0;font-size:0.72rem;color:var(--muted);">来源 ' + escapeHtml(ff.source_label) + "</p>";
+    } else {
+      html += '<p style="color:var(--muted);">暂无</p>';
+    }
+    html += "</div>";
+    html += '<div class="brief-move-mini"><h4>近' + escapeHtml(String(tl.days || 3)) + "日事件</h4>";
+    if (tlItems.length) {
+      var tradeDayCnt = tlItems.filter(function (it) { return it.is_trade_day; }).length;
+      html += "<p>共 " + tlItems.length + " 条";
+      if (tradeDayCnt) html += "（行情日 " + tradeDayCnt + " 条）";
+      html += "</p>";
+    } else {
+      html += '<p style="color:var(--muted);">暂无公告/新闻</p>';
+    }
+    html += "</div></div>";
+
+    var attrFactors = (attr.factors || []).map(function (f) {
+      if (typeof f === "string") return { text: f, kind: "rule", source_label: "本地规则" };
+      return f;
+    }).filter(function (f) { return !briefFactorIsNoise(f.text); });
+    var highlights = (mi.highlights || []).filter(function (h) { return h && h.text; });
+
+    if (attrFactors.length) {
+      html += '<details class="brief-move-sub"><summary>分析依据（' + attrFactors.length + " 条）</summary><div class=\"brief-move-sub-body\"><ul class=\"brief-move-clue-list\">";
+      attrFactors.forEach(function (f) {
+        var kindTag = f.kind === "data" ? "数据" : "规则";
+        html += "<li><span class=\"brief-move-tag\">" + escapeHtml(kindTag) + "</span>" + escapeHtml(f.text || "") + "</li>";
+      });
+      html += "</ul></div></details>";
+    }
+
+    if (highlights.length) {
+      html += '<details class="brief-move-sub"><summary>交易线索（' + highlights.length + " 条）</summary><div class=\"brief-move-sub-body\"><ul class=\"brief-move-clue-list\">";
+      highlights.forEach(function (h) {
+        html += "<li><span class=\"brief-move-tag\">" + escapeHtml(briefCategoryLabel(h.category)) + "</span>" + escapeHtml(h.text || "") + "</li>";
+      });
+      html += "</ul></div></details>";
+    }
+
+    if (tlItems.length) {
+      html += '<details class="brief-move-sub"><summary>事件时间线 ' + escapeHtml(tl.begin_date || "") + "～" + escapeHtml(tl.end_date || "") + "</summary><div class=\"brief-move-sub-body\"><ul class=\"brief-move-clue-list\">";
+      tlItems.forEach(function (it) {
+        var typeTag = it.event_type === "notice" ? "公告" : "新闻";
+        html += "<li>";
+        html += "<span class=\"brief-move-tag\">" + escapeHtml(typeTag) + "</span>";
+        html += "<span style=\"opacity:0.65;font-size:0.75rem;margin-right:0.35rem;\">" + escapeHtml(it.event_date || "") + "</span>";
+        if (it.is_trade_day) html += '<span class="brief-move-tag" style="color:#fbbf24;">行情日</span>';
+        if (it.url) html += '<a href="' + escapeHtml(it.url) + '" target="_blank" rel="noopener">' + escapeHtml(it.title || "") + "</a>";
+        else html += escapeHtml(it.title || "");
+        html += "</li>";
+      });
+      html += "</ul></div></details>";
+    }
+
+    html += '<details class="brief-move-sub"><summary>数据来源说明</summary><div class="brief-move-sub-body">';
+    html += '<p class="brief-move-src-foot">';
+    html += "个股行情：" + escapeHtml(q.quote_source || "live_quote_fields_for_codes_enhanced") + "<br>";
+    cmpSources.forEach(function (s) {
+      html += escapeHtml(s.label || s.key) + "：" + escapeHtml(s.api || "—") + (s.available === false ? "（未获取）" : "") + "<br>";
+    });
+    if (ff.api) html += "资金流：" + escapeHtml(ff.api) + "<br>";
+    if (tl.source_notices) html += "公告：" + escapeHtml(tl.source_notices) + "<br>";
+    if (tl.source_news) html += "新闻：" + escapeHtml(tl.source_news) + "<br>";
+    html += "归因结论：本地 Demo 规则引擎（非官方认定）";
+    html += "</p></div></details>";
+
+    if (mi.disclaimer) {
+      html += '<p class="brief-move-src-foot">' + escapeHtml(mi.disclaimer) + "</p>";
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function loadStockBriefCache() {
+    if (_stockBriefCache) return _stockBriefCache;
+    _stockBriefCache = { order: [], items: {} };
+    try {
+      var raw = localStorage.getItem(LS_STOCK_BRIEF_CACHE);
+      if (!raw) return _stockBriefCache;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return _stockBriefCache;
+      var order = Array.isArray(parsed.order) ? parsed.order : [];
+      var items = parsed.items && typeof parsed.items === "object" ? parsed.items : {};
+      var cleanOrder = [];
+      order.forEach(function (sym) {
+        var k = normalizeBriefSymbol(sym);
+        if (!k || !items[k] || !items[k].data) return;
+        if (cleanOrder.indexOf(k) < 0) cleanOrder.push(k);
+      });
+      Object.keys(items).forEach(function (sym) {
+        var k = normalizeBriefSymbol(sym);
+        if (!k || !items[sym] || !items[sym].data) return;
+        if (cleanOrder.indexOf(k) < 0) cleanOrder.push(k);
+        items[k] = items[sym];
+        if (k !== sym) delete items[sym];
+      });
+      _stockBriefCache = { order: cleanOrder, items: items };
+    } catch (e) {
+      _stockBriefCache = { order: [], items: {} };
+    }
+    return _stockBriefCache;
+  }
+
+  function saveStockBriefCache() {
+    if (!_stockBriefCache) return;
+    try {
+      localStorage.setItem(LS_STOCK_BRIEF_CACHE, JSON.stringify(_stockBriefCache));
+    } catch (e) {
+      /* quota */
+    }
+  }
+
+  function upsertStockBriefItem(data) {
+    if (!data || !data.symbol) return;
+    var sym = normalizeBriefSymbol(data.symbol);
+    if (!sym) return;
+    var cache = loadStockBriefCache();
+    var prev = cache.items[sym];
+    cache.items[sym] = {
+      data: data,
+      ts: Date.now(),
+      expanded: prev ? !!prev.expanded : true,
+    };
+    cache.order = cache.order.filter(function (s) { return s !== sym; });
+    cache.order.unshift(sym);
+    cache.items[sym].expanded = true;
+    saveStockBriefCache();
+  }
+
+  function setStockBriefExpanded(sym, expanded) {
+    var k = normalizeBriefSymbol(sym);
+    if (!k) return;
+    var cache = loadStockBriefCache();
+    if (!cache.items[k]) return;
+    cache.items[k].expanded = !!expanded;
+    saveStockBriefCache();
+  }
+
+  function renderStockBriefBodyHtml(body) {
+    if (!body || !body.symbol) return "";
+    var q = body.quote || {};
+    var biz = body.business || {};
+    var rev = body.revenue || {};
+    var chgCls = q.change_pct > 0 ? "color:#f87171" : (q.change_pct < 0 ? "color:#4ade80" : "");
+    var html = "";
+    html += '<div class="disclaimer-box"><h3>行情</h3>';
+    html += '<dl class="brief-kv-grid">';
+    html += "<dt>现价</dt><dd" + (chgCls ? ' style="' + chgCls + '"' : "") + ">" + fmtBriefNum(q.price) + "</dd>";
+    html += "<dt>涨跌幅</dt><dd" + (chgCls ? ' style="' + chgCls + '"' : "") + ">" + fmtBriefPct(q.change_pct) + "</dd>";
+    html += "<dt>昨收</dt><dd>" + fmtBriefNum(q.prev_close) + "</dd>";
+    html += "<dt>换手率</dt><dd>" + fmtBriefPct(q.turnover_rate_pct) + "</dd>";
+    html += "<dt>行情日期</dt><dd>" + escapeHtml(q.last_trade_date || "—") + "</dd>";
+    if (q.quote_source) html += "<dt>来源</dt><dd>" + escapeHtml(q.quote_source) + "</dd>";
+    html += "</dl></div>";
+
+    var mi = body.move_interpretation || {};
+    html += '<div class="disclaimer-box"><h3>当日涨跌解读</h3>';
+    if (mi.trade_date) {
+      html += "<p class=\"lead\" style=\"margin:0 0 0.55rem;font-size:0.78rem;color:var(--muted);\">";
+      html += escapeHtml(mi.trade_date);
+      if (mi.change_pct != null) html += " · 涨跌幅 " + fmtBriefPct(mi.change_pct);
+      html += "</p>";
+    }
+    html += renderStockBriefMoveHtml(mi, q);
+    html += "</div>";
+
+    html += '<div class="disclaimer-box"><h3>相关概念</h3>';
+    var concepts = body.concepts || [];
+    if (concepts.length) {
+      html += '<ul class="brief-concept-list">';
+      concepts.forEach(function (c) {
+        html += "<li title=\"" + escapeHtml(c.reason || "") + "\">" + escapeHtml(c.name || "") + "</li>";
+      });
+      html += "</ul>";
+    } else {
+      html += '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">暂无概念数据</p>';
+    }
+    html += "</div>";
+
+    html += '<div class="disclaimer-box"><h3>公司业务</h3>';
+    if (biz.industry) html += "<p><strong>行业：</strong>" + escapeHtml(biz.industry) + "</p>";
+    if (biz.main_business) html += "<p><strong>主营/经营范围：</strong>" + escapeHtml(biz.main_business) + "</p>";
+    if (biz.profile) html += "<p><strong>公司介绍：</strong>" + escapeHtml(biz.profile) + "</p>";
+    var segs = biz.segments || [];
+    if (segs.length) {
+      html += '<table class="brief-seg-table"><thead><tr><th>主营构成</th><th>收入占比</th><th>毛利率</th></tr></thead><tbody>';
+      segs.forEach(function (s) {
+        html += "<tr><td>" + escapeHtml(s.segment || "") + "</td><td>" + fmtBriefPct(s.revenue_ratio_pct) + "</td><td>" + fmtBriefPct(s.gross_margin_pct) + "</td></tr>";
+      });
+      html += "</tbody></table>";
+    }
+    html += "</div>";
+
+    html += '<div class="disclaimer-box"><h3>营收能力</h3>';
+    html += '<dl class="brief-kv-grid">';
+    html += "<dt>报告期</dt><dd>" + escapeHtml(rev.report_date || "—") + "</dd>";
+    html += "<dt>营收同比</dt><dd>" + fmtBriefPct(rev.revenue_yoy_pct) + "</dd>";
+    html += "<dt>净利同比</dt><dd>" + fmtBriefPct(rev.profit_yoy_pct) + "</dd>";
+    html += "<dt>ROE</dt><dd>" + fmtBriefPct(rev.roe_pct) + "</dd>";
+    html += "<dt>毛利率</dt><dd>" + fmtBriefPct(rev.gross_margin_pct) + "</dd>";
+    html += "<dt>净利率</dt><dd>" + fmtBriefPct(rev.net_margin_pct) + "</dd>";
+    html += "<dt>资产负债率</dt><dd>" + fmtBriefPct(rev.debt_to_assets_pct) + "</dd>";
+    html += "<dt>经营现金流/股</dt><dd>" + fmtBriefNum(rev.ocf_per_share) + "</dd>";
+    html += "<dt>PE(动)</dt><dd>" + fmtBriefNum(rev.pe_dynamic) + "</dd>";
+    html += "<dt>PB</dt><dd>" + fmtBriefNum(rev.pb) + "</dd>";
+    html += "</dl></div>";
+
+    var fq = body.financial_quality || {};
+    html += '<div class="disclaimer-box"><h3>财报质量</h3>';
+    html += '<dl class="brief-kv-grid">';
+    html += "<dt>报告期</dt><dd>" + escapeHtml(fq.report_date || rev.report_date || "—") + "</dd>";
+    html += "<dt>每股收益</dt><dd>" + fmtBriefNum(fq.eps) + "</dd>";
+    html += "<dt>经营现金流/股</dt><dd>" + fmtBriefNum(fq.ocf_per_share) + "</dd>";
+    html += "<dt>资产负债率</dt><dd>" + fmtBriefPct(fq.debt_to_assets_pct) + "</dd>";
+    html += "</dl>";
+    if (fq.cash_profit_match_note) html += "<p style=\"margin:0.5rem 0 0;font-size:0.82rem;\"><strong>现金流匹配：</strong>" + escapeHtml(fq.cash_profit_match_note) + "</p>";
+    if (fq.profit_sustainability_note) html += "<p style=\"margin:0.35rem 0 0;font-size:0.82rem;\"><strong>利润可持续：</strong>" + escapeHtml(fq.profit_sustainability_note) + "</p>";
+    html += "</div>";
+
+    var sh = body.shareholders || {};
+    html += '<div class="disclaimer-box"><h3>股东结构</h3>';
+    html += '<dl class="brief-kv-grid">';
+    html += "<dt>质押比例</dt><dd>" + fmtBriefPct(sh.pledge_ratio_pct) + "</dd>";
+    html += "<dt>质押统计日</dt><dd>" + escapeHtml(sh.pledge_trade_date || "—") + "</dd>";
+    html += "<dt>股东报告期</dt><dd>" + escapeHtml(sh.report_date || "—") + "</dd>";
+    html += "</dl>";
+    var holders = sh.top_holders || [];
+    if (holders.length) {
+      html += '<table class="brief-seg-table"><thead><tr><th>#</th><th>股东</th><th>性质</th><th>占流通%</th><th>变动%</th></tr></thead><tbody>';
+      holders.forEach(function (h) {
+        html += "<tr><td>" + escapeHtml(String(h.rank || "")) + "</td><td>" + escapeHtml(h.name || "") + "</td><td>" + escapeHtml(h.holder_type || "") + "</td><td>" + fmtBriefPct(h.ratio_pct) + "</td><td>" + fmtBriefPct(h.change_ratio_pct) + "</td></tr>";
+      });
+      html += "</tbody></table>";
+    } else {
+      html += '<p class="lead" style="margin:0.35rem 0 0;font-size:0.82rem;color:var(--muted);">暂无十大流通股东数据</p>';
+    }
+    html += "</div>";
+
+    var vc = body.valuation_compare || {};
+    html += '<div class="disclaimer-box"><h3>估值对比</h3>';
+    html += '<dl class="brief-kv-grid">';
+    html += "<dt>PE(TTM)</dt><dd>" + fmtBriefNum(vc.pe_ttm) + "</dd>";
+    html += "<dt>PB(MRQ)</dt><dd>" + fmtBriefNum(vc.pb_mrq) + "</dd>";
+    html += "<dt>同行PE中位</dt><dd>" + fmtBriefNum(vc.industry_pe_median) + "</dd>";
+    html += "<dt>同行PB中位</dt><dd>" + fmtBriefNum(vc.industry_pb_median) + "</dd>";
+    html += "<dt>行业PE排名</dt><dd>" + escapeHtml(vc.pe_industry_rank || "—") + "</dd>";
+    html += "<dt>PE历史分位</dt><dd>" + (vc.pe_hist_percentile_pct != null ? fmtBriefNum(vc.pe_hist_percentile_pct) + "%" : "—") + "</dd>";
+    html += "<dt>PB历史分位</dt><dd>" + (vc.pb_hist_percentile_pct != null ? fmtBriefNum(vc.pb_hist_percentile_pct) + "%" : "—") + "</dd>";
+    html += "</dl></div>";
+
+    var risk = body.risk || {};
+    html += '<div class="disclaimer-box"><h3>风险提示</h3>';
+    if (risk.summary) html += '<p style="margin:0 0 0.45rem;font-size:0.82rem;color:var(--muted);">' + escapeHtml(risk.summary) + "</p>";
+    var flags = risk.flags || [];
+    if (flags.length) {
+      html += '<ul class="brief-risk-list">';
+      flags.forEach(function (f) {
+        var cls = f.level === "danger" ? "is-danger" : (f.level === "warn" ? "is-warn" : "is-info");
+        var tag = f.level === "danger" ? "严重" : (f.level === "warn" ? "关注" : "提示");
+        html += '<li class="' + cls + '"><span style="opacity:0.75;font-size:0.72rem;margin-right:0.35rem;">[' + tag + "]</span>" + escapeHtml(f.text || "") + "</li>";
+      });
+      html += "</ul>";
+    } else {
+      html += '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">暂无显著风险标签</p>';
+    }
+    html += "</div>";
+
+    html += '<div class="disclaimer-box"><h3>新闻面</h3>';
+    var news = body.news || [];
+    if (news.length) {
+      news.forEach(function (n) {
+        html += '<div class="brief-news-item">';
+        if (n.url) html += '<h4><a href="' + escapeHtml(n.url) + '" target="_blank" rel="noopener">' + escapeHtml(n.title || "") + "</a></h4>";
+        else html += "<h4>" + escapeHtml(n.title || "") + "</h4>";
+        if (n.summary) html += "<p style=\"margin:0.25rem 0 0;font-size:0.82rem;\">" + escapeHtml(n.summary) + "</p>";
+        html += '<p class="brief-news-meta">' + escapeHtml((n.published_at || "") + (n.source ? " · " + n.source : "")) + "</p>";
+        html += "</div>";
+      });
+    } else {
+      html += '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">暂无近期新闻</p>';
+    }
+    html += "</div>";
+
+    if (body.warnings && body.warnings.length) {
+      html += '<p class="lead" style="font-size:0.78rem;color:var(--muted);">' + escapeHtml(body.warnings.join(" ")) + "</p>";
+    }
+    if (body.disclaimer) {
+      html += '<p class="lead" style="font-size:0.75rem;color:var(--muted);">' + escapeHtml(body.disclaimer) + "</p>";
+    }
+    return html;
+  }
+
+  function buildStockBriefCardHtml(sym, entry) {
+    var body = entry && entry.data;
+    if (!body) return "";
+    var q = body.quote || {};
+    var chgCls = "brief-card-summary-chg";
+    if (q.change_pct > 0) chgCls += " up";
+    else if (q.change_pct < 0) chgCls += " down";
+    var ts = entry.ts ? new Date(entry.ts).toLocaleString() : "";
+    var openAttr = entry.expanded ? " open" : "";
+    var html = '<details class="brief-card-d" data-symbol="' + escapeHtml(sym) + '"' + openAttr + ">";
+    html += "<summary>";
+    html += "<span>" + escapeHtml((body.name || sym) + "（" + sym + "）") + "</span>";
+    html += '<span class="' + chgCls + '">' + fmtBriefNum(q.price) + " · " + fmtBriefPct(q.change_pct) + "</span>";
+    if (ts) html += '<span class="brief-card-summary-meta">更新于 ' + escapeHtml(ts) + "</span>";
+    html += "</summary>";
+    html += '<div class="brief-card-body">' + renderStockBriefBodyHtml(body) + "</div>";
+    html += "</details>";
+    return html;
+  }
+
+  function bindStockBriefCardToggles() {
+    var box = $("brief-render");
+    if (!box) return;
+    box.querySelectorAll(".brief-card-d").forEach(function (el) {
+      if (el.getAttribute("data-brief-bound") === "1") return;
+      el.setAttribute("data-brief-bound", "1");
+      el.addEventListener("toggle", function () {
+        setStockBriefExpanded(el.getAttribute("data-symbol"), el.open);
+      });
+    });
+  }
+
+  function renderStockBriefList() {
+    var box = $("brief-render");
+    if (!box) return;
+    var cache = loadStockBriefCache();
+    if (!cache.order.length) {
+      box.innerHTML = '<p class="brief-list-empty">暂无查询记录，输入代码后点击「查询个股资料」。</p>';
+      return;
+    }
+    var html = "";
+    cache.order.forEach(function (sym) {
+      var entry = cache.items[sym];
+      if (!entry || !entry.data) return;
+      html += buildStockBriefCardHtml(sym, entry);
+    });
+    box.innerHTML = html || '<p class="brief-list-empty">暂无查询记录。</p>';
+    bindStockBriefCardToggles();
+  }
+
+  function tryRestoreStockBriefFromStorage() {
+    _stockBriefCache = null;
+    renderStockBriefList();
+  }
+
+  $("btnStockBrief").addEventListener("click", async function () {
+    var raw = normalizeBriefSymbol($("briefSym").value);
+    if (!raw) {
+      showOut("out-5", "请输入 6 位股票代码。", true);
+      return;
+    }
+    var symInput = $("briefSym");
+    beginPanelServerTask("panel-5");
+    setActionButtonLoading("btnStockBrief", true, "正在查询 " + raw + "…");
+    if (symInput) symInput.disabled = true;
+    showOut("out-5", "", false);
+    try {
+      var res = await fetchCancel("panel-5", "/research/stock-brief/" + raw, {
+        method: "GET",
+        headers: authHeaders(),
+        skipPanelLoading: true,
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-5", await formatError(res, body), true);
+        return;
+      }
+      upsertStockBriefItem(body);
+      renderStockBriefList();
+      showOut("out-5", "", false);
+    } catch (e) {
+      if (!isRequestAborted(e)) {
+        showOut("out-5", String(e), true);
+      }
+    } finally {
+      endPanelServerTask("panel-5");
+      setActionButtonLoading("btnStockBrief", false);
+      if (symInput) symInput.disabled = false;
     }
   });
 
@@ -16645,6 +17020,35 @@
     persistHoldingsSnapshot();
   }
 
+  function hdReadAutoRefreshPersisted() {
+    try {
+      var rawTimer = localStorage.getItem(LS_HD_AUTO_REFRESH);
+      if (rawTimer) return !!JSON.parse(rawTimer).active;
+    } catch (eTimer) {}
+    try {
+      var rawList = localStorage.getItem(LS_LAST_HD_LIST);
+      if (rawList) return !!JSON.parse(rawList).autoRefreshActive;
+    } catch (eList) {}
+    return false;
+  }
+
+  function hdPersistAutoRefreshState() {
+    try {
+      localStorage.setItem(
+        LS_HD_AUTO_REFRESH,
+        JSON.stringify({
+          active: !!_hdAutoRefreshActive,
+          ts: Date.now(),
+        })
+      );
+    } catch (ePersistTimer) {
+      try {
+        console.warn("quant-monitor: 无法缓存定时推送状态", ePersistTimer);
+      } catch (e2) {}
+    }
+    persistHoldingsSnapshot();
+  }
+
   function persistHoldingsSnapshot() {
     try {
       if (
@@ -16653,6 +17057,7 @@
         !_hdHoldingsListCache.allItems.length
       ) {
         localStorage.removeItem(LS_LAST_HD_LIST);
+        if (_hdAutoRefreshActive) hdStopAutoRefresh({ silent: true });
         return;
       }
       var secEl = $("hdAutoRefreshSec");
@@ -16667,6 +17072,7 @@
           notifyAlertFired: _hdNotifyAlertFired,
           autoRefreshSec: secEl && secEl.value ? String(secEl.value) : "60",
           notifyUrl: notifyEl && notifyEl.value ? String(notifyEl.value).trim() : "",
+          autoRefreshActive: !!_hdAutoRefreshActive,
         })
       );
     } catch (ePersistHd) {
@@ -16695,9 +17101,7 @@
       _hdNotifyPriceRules = Object.create(null);
       if (data.notifyPriceRules && typeof data.notifyPriceRules === "object") {
         Object.keys(data.notifyPriceRules).forEach(function (k) {
-          var r = data.notifyPriceRules[k];
-          if (!r || typeof r !== "object") return;
-          var norm = hdNormalizeNotifyPriceRule(r.op, r.price);
+          var norm = hdNormalizeStoredNotifyRule(data.notifyPriceRules[k]);
           if (norm) _hdNotifyPriceRules[k] = norm;
         });
       }
@@ -16732,17 +17136,36 @@
     ensureHdCacheHydrated();
     if (_hdHoldingsListCache && Array.isArray(_hdHoldingsListCache.allItems) && _hdHoldingsListCache.allItems.length) {
       hdRestoreHoldingsTableFromCache();
+      hdSyncToolbarFromPickedRules();
       void refreshHoldingsReviewSummary();
-      var n = hdAutoRefreshSelectedIdList().length;
-      var total = _hdHoldingsListCache.allItems.length;
-      hdUpdateAutoRefreshHint(
-        n
-          ? "已恢复 " + total + " 条列表；已勾选 " + n + " 条推送标的（可开始定时）。"
-          : "已恢复 " + total + " 条列表；现价请点「刷新列表」，勾选行用于推送。",
-        false
-      );
+      if (_hdAutoRefreshActive) {
+        hdSyncAutoRefreshButtons(true);
+        var secRun = $("hdAutoRefreshSec");
+        var secSec = secRun && secRun.value ? parseInt(secRun.value, 10) : 60;
+        if (!isFinite(secSec) || secSec < 10) secSec = 60;
+        var nRun = hdAutoRefreshSelectedIdList().length;
+        hdUpdateAutoRefreshHint(
+          "定时推送运行中（每 " + secSec + " 秒检查）" + (nRun ? "；勾选 " + nRun + " 条" : ""),
+          true
+        );
+      } else {
+        void hdResumeAutoRefreshIfNeeded().then(function (resumed) {
+          if (resumed || _hdAutoRefreshActive) return;
+          var n = hdAutoRefreshSelectedIdList().length;
+          var total = _hdHoldingsListCache.allItems.length;
+          hdUpdateAutoRefreshHint(
+            n
+              ? "已恢复 " + total + " 条列表；已勾选 " + n + " 条推送标的（可开始定时）。"
+              : "已恢复 " + total + " 条列表；勾选行后「开始定时」将按间隔联网刷新勾选现价。",
+            false
+          );
+        });
+      }
     } else {
       hdShowHoldingsIdle();
+      if (hdReadAutoRefreshPersisted()) {
+        hdUpdateAutoRefreshHint("定时推送状态已保存，请先点「查询」加载列表后自动恢复。", true);
+      }
     }
   }
 
@@ -16790,10 +17213,17 @@
   }
 
   function hdNormalizeNotifyPriceRule(op, priceRaw) {
+    if (op === "any") return { op: "any" };
     var opStr = op === "gte" || op === "lte" ? op : "";
     var price = parseFloat(String(priceRaw == null ? "" : priceRaw).trim());
     if (!opStr || !isFinite(price) || price <= 0) return null;
     return { op: opStr, price: price };
+  }
+
+  function hdNormalizeStoredNotifyRule(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    if (raw.op === "any") return { op: "any" };
+    return hdNormalizeNotifyPriceRule(raw.op, raw.price);
   }
 
   function hdGetNotifyPriceRule(id) {
@@ -16809,6 +17239,13 @@
     persistHoldingsSnapshot();
   }
 
+  function hdClearNotifyPriceRule(id) {
+    var key = String(id);
+    delete _hdNotifyPriceRules[key];
+    delete _hdNotifyAlertFired[key];
+    persistHoldingsSnapshot();
+  }
+
   function hdGetHoldingNotifyPrice(item) {
     if (!item) return null;
     var px = item.current_price;
@@ -16819,12 +17256,14 @@
 
   function hdItemMeetsNotifyRule(item, rule) {
     if (!item || !rule) return false;
+    if (rule.op === "any") return true;
     var px = hdGetHoldingNotifyPrice(item);
     if (px == null) return false;
     return rule.op === "lte" ? px <= rule.price : px >= rule.price;
   }
 
   function hdFormatNotifyTriggerLabel(rule, px) {
+    if (rule.op === "any") return "任意（每次推送）";
     var opLab = rule.op === "lte" ? "≤" : "≥";
     var pxS = px != null && isFinite(px) ? hdFmtNum(px, 4) : "—";
     return "触发" + opLab + hdFmtNum(rule.price, 4) + "（现价 " + pxS + "）";
@@ -16833,7 +17272,10 @@
   function hdFormatNotifyRuleBrief(id) {
     var rule = hdGetNotifyPriceRule(id);
     if (!rule) {
-      return '<span class="hd-notify-rule-none" title="未设推送价：该勾选行每次刷新都推送">任意</span>';
+      return '<span class="hd-notify-rule-none" title="未设推送价：勾选后在上方设定并点「应用到勾选」">未设</span>';
+    }
+    if (rule.op === "any") {
+      return '<span class="hd-notify-rule-none" title="已设任意：每次检查都推送">任意</span>';
     }
     var opLab = rule.op === "lte" ? "≤" : "≥";
     return (
@@ -16844,28 +17286,88 @@
     );
   }
 
-  function hdApplyNotifyPriceToPicked() {
+  function hdGetToolbarNotifyRuleDraft() {
+    var opEl = $("hdNotifyRuleOp");
+    var pxEl = $("hdNotifyRulePrice");
+    var op = opEl && opEl.value != null ? String(opEl.value) : "";
+    var px = pxEl && pxEl.value != null ? String(pxEl.value).trim() : "";
+    if (!op) return { op: "any", price: null };
+    if (!px) return null;
+    return hdNormalizeNotifyPriceRule(op, px);
+  }
+
+  function hdNotifyRulesEqual(a, b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.op === "any" && b.op === "any") return true;
+    if (a.op === "any" || b.op === "any") return false;
+    return a.op === b.op && Number(a.price) === Number(b.price);
+  }
+
+  function hdPickedRulesNeedToolbarApply(idList) {
+    var draft = hdGetToolbarNotifyRuleDraft();
+    if (!Array.isArray(idList) || !idList.length) return false;
+    if (!draft) return false;
+    return idList.some(function (id) {
+      return !hdNotifyRulesEqual(hdGetNotifyPriceRule(id), draft);
+    });
+  }
+
+  function hdSyncToolbarFromPickedRules() {
+    var idList = hdAutoRefreshSelectedIdList();
+    var opEl = $("hdNotifyRuleOp");
+    var pxEl = $("hdNotifyRulePrice");
+    if (!opEl || !pxEl || idList.length !== 1) return;
+    var rule = hdGetNotifyPriceRule(idList[0]);
+    if (!rule) {
+      opEl.value = "gte";
+      pxEl.value = "";
+      return;
+    }
+    if (rule.op === "any") {
+      opEl.value = "";
+      pxEl.value = "";
+      return;
+    }
+    opEl.value = rule.op;
+    pxEl.value = String(rule.price);
+  }
+
+  function hdApplyNotifyPriceToPicked(opts) {
+    opts = opts || {};
     var idList = hdAutoRefreshSelectedIdList();
     if (!idList.length) {
-      showOut("out-10", "请先勾选要设定推送价的记录。", true);
-      return;
+      if (!opts.silent) showOut("out-10", "请先勾选要设定推送价的记录。", true);
+      return false;
     }
     var opEl = $("hdNotifyRuleOp");
     var pxEl = $("hdNotifyRulePrice");
     var op = opEl && opEl.value != null ? String(opEl.value) : "";
     var px = pxEl && pxEl.value != null ? String(pxEl.value).trim() : "";
     if (op && !px) {
-      showOut("out-10", "请填写推送价，或选「任意」表示每次刷新都推送。", true);
-      if (pxEl) pxEl.focus();
-      return;
+      if (!opts.silent) {
+        showOut("out-10", "请填写推送价，或选「任意」表示每次刷新都推送。", true);
+        if (pxEl) pxEl.focus();
+      }
+      return false;
     }
+    if (!opts.force && !hdPickedRulesNeedToolbarApply(idList)) return true;
     idList.forEach(function (id) {
-      if (!op) hdSetNotifyPriceRule(id, "", "");
+      if (!op) hdSetNotifyPriceRule(id, "any", "");
       else hdSetNotifyPriceRule(id, op, px);
     });
     hdApplyHoldingsFilter();
     var lab = !op ? "任意（每次推送）" : (op === "lte" ? "≤" : "≥") + px;
-    showOut("out-10", "已为 " + idList.length + " 条设定推送价：" + lab + "。", false);
+    if (!opts.silent) showOut("out-10", "已为 " + idList.length + " 条设定推送价：" + lab + "。", false);
+    if (_hdAutoRefreshActive) {
+      hdUpdateAutoRefreshHint("推送价已更新为 " + lab + "；定时推送运行中。", true);
+    }
+    return true;
+  }
+
+  function hdTryAutoApplyToolbarNotifyDraft() {
+    if (!hdPickedRulesNeedToolbarApply(hdAutoRefreshSelectedIdList())) return false;
+    return hdApplyNotifyPriceToPicked({ silent: true });
   }
 
   function hdClearNotifyPriceForPicked() {
@@ -16875,14 +17377,14 @@
       return;
     }
     idList.forEach(function (id) {
-      hdSetNotifyPriceRule(id, "", "");
+      hdClearNotifyPriceRule(id);
     });
     var opEl = $("hdNotifyRuleOp");
     var pxEl = $("hdNotifyRulePrice");
-    if (opEl) opEl.value = "";
+    if (opEl) opEl.value = "gte";
     if (pxEl) pxEl.value = "";
     hdApplyHoldingsFilter();
-    showOut("out-10", "已清除 " + idList.length + " 条的推送价（恢复为任意）。", false);
+    showOut("out-10", "已清除 " + idList.length + " 条的推送价（恢复为未设，不再推送）。", false);
   }
 
   function hdFilterItemsForNotify(rows, opts) {
@@ -16903,27 +17405,33 @@
       if (!item || item.id == null) return;
       var key = String(item.id);
       var rule = hdGetNotifyPriceRule(item.id);
-      if (!rule) {
-        out.push(item);
-        return;
-      }
+      if (!rule) return;
       var px = hdGetHoldingNotifyPrice(item);
       if (!hdItemMeetsNotifyRule(item, rule)) {
         if (scheduled) delete _hdNotifyAlertFired[key];
         return;
       }
-      if (scheduled && _hdNotifyAlertFired[key]) return;
-      if (scheduled) _hdNotifyAlertFired[key] = true;
+      if (scheduled && rule.op !== "any") {
+        if (_hdNotifyAlertFired[key]) return;
+        _hdNotifyAlertFired[key] = true;
+      }
       triggers[item.id] = hdFormatNotifyTriggerLabel(rule, px);
       out.push(item);
     });
     if (scheduled) persistHoldingsSnapshot();
     var reason = "";
     if (!out.length) {
-      var hasRule = (rows || []).some(function (it) {
-        return it && it.id != null && hdGetNotifyPriceRule(it.id);
+      var hasPriceRule = (rows || []).some(function (it) {
+        if (!it || it.id == null) return false;
+        var r = hdGetNotifyPriceRule(it.id);
+        return r && r.op !== "any";
       });
-      reason = hasRule ? "无达标标的（已设推送价但未触发）" : "无可推送数据";
+      var hasUnset = (rows || []).some(function (it) {
+        return it && it.id != null && !hdGetNotifyPriceRule(it.id);
+      });
+      if (hasPriceRule) reason = "无达标标的（已设推送价但未触发）";
+      else if (hasUnset) reason = "勾选行未设推送价，请点「应用到勾选」";
+      else reason = "无可推送数据";
     }
     return { items: out, triggers: triggers, reason: reason };
   }
@@ -16937,6 +17445,73 @@
     return _hdHoldingsListCache.allItems.filter(function (it) {
       return it && it.id != null && want[String(it.id)];
     });
+  }
+
+  function hdBuildHoldingsSyncUrl(idList) {
+    var parts = ["sync=true"];
+    (idList || []).forEach(function (id) {
+      if (id != null && isFinite(Number(id)) && Number(id) > 0) {
+        parts.push("ids=" + encodeURIComponent(String(id)));
+      }
+    });
+    return "/holdings?" + parts.join("&");
+  }
+
+  function hdMergeHoldingsIntoCache(refreshedRows) {
+    if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) return 0;
+    if (!Array.isArray(refreshedRows) || !refreshedRows.length) return 0;
+    var byId = Object.create(null);
+    refreshedRows.forEach(function (it) {
+      if (it && it.id != null) byId[String(it.id)] = it;
+    });
+    var merged = 0;
+    _hdHoldingsListCache.allItems = _hdHoldingsListCache.allItems.map(function (it) {
+      if (!it || it.id == null) return it;
+      var updated = byId[String(it.id)];
+      if (!updated) return it;
+      merged += 1;
+      return updated;
+    });
+    if (merged) {
+      hdApplyHoldingsFilter();
+      persistHoldingsSnapshot();
+    }
+    return merged;
+  }
+
+  async function hdRefreshPickedHoldingsSpot(idList) {
+    if (!Array.isArray(idList) || !idList.length) {
+      return { ok: true, skipped: true, detail: "未勾选推送标的", rows: [] };
+    }
+    if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) {
+      return { ok: false, skipped: true, detail: "请先点「查询」或「刷新列表」加载列表", rows: [] };
+    }
+    try {
+      var res = await fetchCancel("panel-10", hdBuildHoldingsSyncUrl(idList), {
+        headers: authHeaders(),
+        skipPanelLoading: true,
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        return {
+          ok: false,
+          skipped: false,
+          detail: await formatError(res, body),
+          rows: [],
+        };
+      }
+      var rows = Array.isArray(body) ? body : [];
+      var merged = hdMergeHoldingsIntoCache(rows);
+      if (!merged) {
+        return { ok: false, skipped: false, detail: "勾选行刷新后未找到可合并数据", rows: rows };
+      }
+      return { ok: true, skipped: false, detail: "", rows: rows };
+    } catch (e) {
+      if (isRequestAborted(e)) {
+        return { ok: false, skipped: true, detail: "刷新勾选现价已取消", rows: [] };
+      }
+      return { ok: false, skipped: false, detail: String(e), rows: [] };
+    }
   }
 
   function hdSyncAutoRefreshButtons(running) {
@@ -17024,16 +17599,18 @@
       _hdAutoRefreshTimer = null;
     }
     hdSyncAutoRefreshButtons(false);
+    hdPersistAutoRefreshState();
     if (!opts.silent) {
       hdUpdateAutoRefreshHint(
-        "定时推送已取消。更新现价请点上方「刷新列表」。",
+        "定时推送已取消。手动更新全部现价请点上方「刷新列表」。",
         false
       );
     }
   }
 
-  /** 定时任务单次：仅检查勾选+推送价并通知（不刷新列表） */
-  async function hdAutoRefreshTick() {
+  /** 定时任务单次：联网刷新勾选行现价，再比对推送价并通知 */
+  async function hdAutoRefreshTick(opts) {
+    opts = opts || {};
     if (!_hdAutoRefreshActive) return false;
     if (_hdAutoRefreshInFlight) return false;
     if (apiKeyRequired() && !getApiKey()) {
@@ -17045,11 +17622,24 @@
     var notifyFiltered = { items: [], triggers: Object.create(null), reason: "" };
     try {
       if (!_hdHoldingsListCache || !Array.isArray(_hdHoldingsListCache.allItems)) {
-        hdUpdateAutoRefreshHint("请先点上方「刷新列表」或「查询」加载现价。", true);
+        hdUpdateAutoRefreshHint("请先点上方「刷新列表」或「查询」加载列表。", true);
         return false;
       }
       var idList = hdAutoRefreshSelectedIdList();
       var notifyRes = { ok: false, skipped: true, detail: "未勾选推送标的" };
+      var spotRes = { ok: true, skipped: true, detail: "" };
+      if (idList.length && !opts.skipSpotRefresh) {
+        spotRes = await hdRefreshPickedHoldingsSpot(idList);
+        if (!spotRes.ok) {
+          if (!_hdAutoRefreshActive) return true;
+          var failTs = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+          hdUpdateAutoRefreshHint(
+            "最近检查 " + failTs + "：刷新勾选现价失败（" + (spotRes.detail || "未知错误") + "）",
+            true
+          );
+          return false;
+        }
+      }
       if (idList.length && hdGetNotifyUrl()) {
         var rows = hdItemsForNotifyFromCache(idList);
         notifyFiltered = hdFilterItemsForNotify(rows, { scheduled: true });
@@ -17071,6 +17661,7 @@
 
       var ts = new Date().toLocaleTimeString("zh-CN", { hour12: false });
       var hint = "最近检查 " + ts;
+      if (idList.length && spotRes.ok && !spotRes.skipped) hint += "（已联网刷新勾选现价）";
       if (idList.length) {
         if (notifyRes.ok) {
           hint += "：已推送 " + notifyFiltered.items.length + " 条";
@@ -17105,12 +17696,13 @@
         if (!isFinite(id)) return;
         hdSetAutoRefreshPicked(id, !!el.checked);
         hdUpdatePickAllCheckbox();
+        hdSyncToolbarFromPickedRules();
         if (!_hdAutoRefreshActive) {
           var n = hdAutoRefreshSelectedIdList().length;
           hdUpdateAutoRefreshHint(
             n
-              ? "已勾选 " + n + " 条推送标的；点「开始定时」启动检查。"
-              : "现价请点上方「刷新列表」；勾选行用于推送。",
+              ? "已勾选 " + n + " 条推送标的；点「开始定时」将按间隔联网刷新现价并比对推送价。"
+              : "勾选行并设定推送价后，点「开始定时」将按间隔联网刷新勾选现价。",
             false
           );
         }
@@ -17126,12 +17718,13 @@
           var id = parseInt(el.getAttribute("data-id"), 10);
           if (isFinite(id)) hdSetAutoRefreshPicked(id, on);
         });
+        hdSyncToolbarFromPickedRules();
         if (!_hdAutoRefreshActive) {
           var n = hdAutoRefreshSelectedIdList().length;
           hdUpdateAutoRefreshHint(
             n
-              ? "已勾选 " + n + " 条推送标的；点「开始定时」启动检查。"
-              : "现价请点上方「刷新列表」；勾选行用于推送。",
+              ? "已勾选 " + n + " 条推送标的；点「开始定时」将按间隔联网刷新现价并比对推送价。"
+              : "勾选行并设定推送价后，点「开始定时」将按间隔联网刷新勾选现价。",
             false
           );
         }
@@ -17170,8 +17763,8 @@
     var n = hdAutoRefreshSelectedIdList().length;
     hdUpdateAutoRefreshHint(
       n
-        ? "已勾选 " + n + " 条推送标的；点「开始定时」启动检查。"
-        : "现价请点上方「刷新列表」；勾选行用于推送。",
+        ? "已勾选 " + n + " 条推送标的；点「开始定时」将按间隔联网刷新现价并比对推送价。"
+        : "勾选行并设定推送价后，点「开始定时」将按间隔联网刷新勾选现价。",
       false
     );
   }
@@ -17180,7 +17773,7 @@
     _hdAutoRefreshSelectedIds = Object.create(null);
     hdApplyHoldingsFilter();
     persistHoldingsSnapshot();
-    hdUpdateAutoRefreshHint("现价请点上方「刷新列表」；勾选行用于推送。", false);
+    hdUpdateAutoRefreshHint("勾选行并设定推送价后，点「开始定时」将按间隔联网刷新勾选现价。", false);
   }
 
   async function hdTestHoldingsNotify() {
@@ -17244,23 +17837,49 @@
     void hdStartAutoRefresh();
   }
 
-  async function hdStartAutoRefresh() {
+  function hdTryAutoApplyToolbarNotifyRule() {
+    var idList = hdAutoRefreshSelectedIdList();
+    if (!idList.length) return false;
+    var opEl = $("hdNotifyRuleOp");
+    var pxEl = $("hdNotifyRulePrice");
+    var op = opEl && opEl.value != null ? String(opEl.value) : "";
+    var px = pxEl && pxEl.value != null ? String(pxEl.value).trim() : "";
+    if (!op && !px) return false;
+    if (op && !px) return false;
+    var applied = 0;
+    idList.forEach(function (id) {
+      if (hdGetNotifyPriceRule(id)) return;
+      if (!op) hdSetNotifyPriceRule(id, "any", "");
+      else hdSetNotifyPriceRule(id, op, px);
+      applied += 1;
+    });
+    if (applied) hdApplyHoldingsFilter();
+    return applied > 0;
+  }
+
+  async function hdStartAutoRefresh(opts) {
+    opts = opts || {};
     if (!guardKey()) return;
     if (_hdAutoRefreshActive || _hdAutoRefreshTimer) return;
-    persistHoldingsSnapshot();
+    var autoApplied = false;
+    if (!opts.restored) autoApplied = hdTryAutoApplyToolbarNotifyRule();
     var idList = hdAutoRefreshSelectedIdList();
     var secEl = $("hdAutoRefreshSec");
     var sec = secEl && secEl.value ? parseInt(secEl.value, 10) : 60;
     if (!isFinite(sec) || sec < 10) sec = 60;
     _hdAutoRefreshActive = true;
     hdSyncAutoRefreshButtons(true);
-    var startHint = "定时推送已启动（每 " + sec + " 秒检查）";
+    hdPersistAutoRefreshState();
+    var startHint = opts.restored
+      ? "定时推送已恢复（每 " + sec + " 秒检查）"
+      : "定时推送已启动（每 " + sec + " 秒检查）";
     if (idList.length) startHint += "；勾选 " + idList.length + " 条";
     else startHint += "；未勾选推送标的";
+    if (autoApplied) startHint += "；已按工具栏自动写入推送价";
     if (idList.length && !hdGetNotifyUrl()) {
       startHint += "；未填通知地址";
     }
-    startHint += "。现价请点上方「刷新列表」…";
+    startHint += "。将按间隔联网刷新勾选行现价并比对推送价…";
     hdUpdateAutoRefreshHint(startHint, true);
     void hdAutoRefreshTick();
     _hdAutoRefreshTimer = setInterval(function () {
@@ -17268,11 +17887,19 @@
     }, sec * 1000);
   }
 
+  async function hdResumeAutoRefreshIfNeeded() {
+    if (_hdAutoRefreshActive || _hdAutoRefreshTimer) return false;
+    if (!hdReadAutoRefreshPersisted()) return false;
+    if (!ensureHdCacheHydrated()) return false;
+    await hdStartAutoRefresh({ restored: true });
+    return !!_hdAutoRefreshActive;
+  }
+
   function hdShowHoldingsIdle() {
     var wrap = $("hd-table-wrap");
     if (wrap) {
       wrap.innerHTML =
-        '<p class="lead" style="margin:0">点「<strong>查询</strong>」从本机数据库加载<strong>全部</strong>记录；切换「<strong>显示</strong>」仅在本地筛选。需要更新现价时点「<strong>刷新列表</strong>」；定时勾选在查询/刷新后会自动保存。</p>';
+        '<p class="lead" style="margin:0">点「<strong>查询</strong>」从本机数据库加载<strong>全部</strong>记录；切换「<strong>显示</strong>」仅在本地筛选。全部现价点「<strong>刷新列表</strong>」；定时推送会按间隔仅刷新<strong>勾选行</strong>现价。勾选与推送价会自动保存。</p>';
     }
     var box = $("hd-review-wrap");
     if (box) box.hidden = true;
@@ -17607,7 +18234,7 @@
         })
         .join("");
       wrap.innerHTML =
-        '<table><thead><tr><th class="hd-pick-col"><input type="checkbox" id="chkHdPickAll" title="全选当前列表" /></th><th class="hd-notify-rule-col" title="在上方工具栏设定；任意=每次刷新都推送">推送价</th><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
+        '<table><thead><tr><th class="hd-pick-col"><input type="checkbox" id="chkHdPickAll" title="全选当前列表" /></th><th class="hd-notify-rule-col" title="在上方工具栏设定并点「应用到勾选」；未设=不推送；任意=每次检查都推送">推送价</th><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
         rows +
         "</tbody></table>";
       hdBindHoldingsPickEvents();
@@ -17719,7 +18346,15 @@
       _hdHoldingsListCache = { allItems: allRows };
       hdApplyHoldingsFilter();
       persistHoldingsSnapshot();
-      if (_hdAutoRefreshActive) void hdAutoRefreshTick();
+      if (_hdAutoRefreshActive) {
+        var idListAfterRefresh = hdAutoRefreshSelectedIdList();
+        if (idListAfterRefresh.length) {
+          hdMergeHoldingsIntoCache(allRows.filter(function (it) {
+            return it && it.id != null && hdIsAutoRefreshPicked(it.id);
+          }));
+        }
+        void hdAutoRefreshTick({ skipSpotRefresh: true });
+      }
     } catch (e) {
       if (isRequestAborted(e)) showOut("out-10", "刷新持仓已取消。", true);
       else showOut("out-10", String(e), true);
@@ -19032,7 +19667,25 @@
   var btnHdApplyNotifyPrice = $("btnHdApplyNotifyPrice");
   if (btnHdApplyNotifyPrice) {
     btnHdApplyNotifyPrice.addEventListener("click", function () {
-      hdApplyNotifyPriceToPicked();
+      hdApplyNotifyPriceToPicked({ force: true });
+    });
+  }
+  var hdNotifyRuleOpEl = $("hdNotifyRuleOp");
+  if (hdNotifyRuleOpEl) {
+    hdNotifyRuleOpEl.addEventListener("change", function () {
+      hdTryAutoApplyToolbarNotifyDraft();
+    });
+  }
+  var hdNotifyRulePriceEl = $("hdNotifyRulePrice");
+  if (hdNotifyRulePriceEl) {
+    hdNotifyRulePriceEl.addEventListener("blur", function () {
+      hdTryAutoApplyToolbarNotifyDraft();
+    });
+    hdNotifyRulePriceEl.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        hdApplyNotifyPriceToPicked({ force: true });
+      }
     });
   }
   var btnHdClearNotifyPrice = $("btnHdClearNotifyPrice");
@@ -21243,6 +21896,7 @@
   updateSignalsLastBtnState();
   updateIngestLastBtnState();
   ensureHdCacheHydrated();
+  void hdResumeAutoRefreshIfNeeded();
   var initial = sessionStorage.getItem(SS_MOD) || "1";
   if (!modules.some(function (m) { return m.id === initial; })) initial = "1";
   showPanel(initial);

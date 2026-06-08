@@ -20,7 +20,6 @@
 |-------|----------|
 | `ingest` | ② 批量拉取日线（`/ingest/update`） |
 | `signals` | ④ 批量计算信号（`GET /signals`） |
-| `alerts` | ⑤ 变动预览（`POST /alerts/preview`） |
 | `fundamentals` | 扩展因子批量拉取 |
 | `pre_refresh` | 信号/告警前的按只增量日线刷新 |
 | `hot_sectors` | 热门板块分析 |
@@ -61,7 +60,6 @@ KNOWN_SCOPES = frozenset(
     {
         "ingest",
         "signals",
-        "alerts",
         "fundamentals",
         "pre_refresh",
         "hot_sectors",

@@ -15,7 +15,6 @@
 | ③ 仅本地 bars + 现价/扩展因子（skip_bars=true） | 本模块 scope=`ingest` |
 | ③ 扩展因子批量 | scope=`fundamentals` |
 | ④ 批量算信号 | scope=`signals` |
-| ⑤ 变动预览 | scope=`alerts` |
 | ② 自选昨收回填 | scope=`backfill_close` |
 
 ## 状态字段（symbols_batch_status）

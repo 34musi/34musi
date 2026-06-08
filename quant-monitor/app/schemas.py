@@ -20,7 +20,6 @@ Pydantic 请求/响应模型：API 契约层，与 FastAPI 校验及 OpenAPI 文
 | 类型别名 | `TrendRegime`, `StrengthRegime`, `PositionHint`, `WatchlistOrigin`, `BuyVerdict` |
 | 枚举 | `IngestDataSource`, `SectorScreenDataSource`, `SelectorSectorDataSource` |
 | meta / 批量 | `CancelBatchIn` |
-| ⑤ 变动 | `AlertsPreviewIn` |
 | ③ ingest | `IngestUpdateIn`, `IngestFundamentalsIn`, `WebDataPreviewIn` |
 | ② 自选 | `WatchlistIn`, `WatchlistItem`, `FillHotSectorsIn`, … |
 | ⑨ 选股 | `SectorScreenIn`, `SectorScreenOut`, `SectorConstituentsTopIn` |
@@ -75,23 +74,7 @@ class CancelBatchIn(BaseModel):
 
     scopes: list[str] = Field(
         default_factory=lambda: ["all"],
-        description="ingest / signals / alerts / fundamentals / pre_refresh / hot_sectors / sector_screen / all",
-    )
-
-
-# --- ⑤ 变动预览 ---
-
-
-class AlertsPreviewIn(BaseModel):
-    """POST /alerts/preview：可选先按指定路线增量更新日线再对比信号。"""
-
-    pre_refresh: bool = Field(
-        False,
-        description="为 true 时先对自选各标的按 data_source 执行增量 ingest，再计算信号并对比缓存",
-    )
-    data_source: IngestDataSource | None = Field(
-        None,
-        description="行情路线，与 POST /ingest/update 一致；不传则用服务端 INGEST_DATA_SOURCE",
+        description="ingest / signals / fundamentals / pre_refresh / hot_sectors / sector_screen / all",
     )
 
 
@@ -2052,3 +2035,259 @@ class ForecastValidateOut(BaseModel):
         ...,
         description="扩展因子是否参与历史回测、以及本地是否有快照",
     )
+
+
+class StockBriefQuoteOut(BaseModel):
+    """⑤ 个股咨询：现价与简要行情。"""
+
+    price: float | None = Field(None, description="现价或最近收盘")
+    change_pct: float | None = Field(None, description="涨跌幅 %")
+    prev_close: float | None = None
+    volume: float | None = Field(None, description="成交量（手或股，随数据源）")
+    amount: float | None = Field(None, description="成交额")
+    turnover_rate_pct: float | None = Field(None, description="换手率 %")
+    last_trade_date: str | None = None
+    quote_source: str | None = Field(None, description="现价来源说明")
+
+
+class StockBriefNewsItemOut(BaseModel):
+    title: str
+    published_at: str | None = None
+    source: str | None = None
+    summary: str | None = None
+    url: str | None = None
+
+
+class StockBriefConceptOut(BaseModel):
+    name: str
+    reason: str | None = Field(None, description="入选概念/题材说明")
+
+
+class StockBriefSegmentOut(BaseModel):
+    segment: str
+    revenue_ratio_pct: float | None = None
+    gross_margin_pct: float | None = None
+    report_date: str | None = None
+
+
+class StockBriefBusinessOut(BaseModel):
+    company_name: str | None = None
+    industry: str | None = None
+    listing_date: str | None = None
+    main_business: str | None = Field(None, description="经营范围 / 主营业务摘要")
+    profile: str | None = Field(None, description="公司介绍")
+    segments: list[StockBriefSegmentOut] = Field(default_factory=list, description="主营构成（按产品）")
+
+
+class StockBriefRevenueOut(BaseModel):
+    report_date: str | None = None
+    revenue_yoy_pct: float | None = Field(None, description="营业收入同比 %")
+    profit_yoy_pct: float | None = Field(None, description="归属净利润同比 %")
+    roe_pct: float | None = None
+    roa_pct: float | None = None
+    gross_margin_pct: float | None = None
+    net_margin_pct: float | None = None
+    debt_to_assets_pct: float | None = None
+    ocf_per_share: float | None = None
+    pe_dynamic: float | None = None
+    pb: float | None = None
+
+
+class StockBriefFinancialQualityOut(BaseModel):
+    """财报质量与现金流匹配（Demo 规则解读）。"""
+
+    report_date: str | None = None
+    eps: float | None = Field(None, description="基本每股收益")
+    ocf_per_share: float | None = Field(None, description="每股经营现金流")
+    debt_to_assets_pct: float | None = None
+    cash_profit_match_note: str | None = Field(None, description="现金流与利润匹配度说明")
+    profit_sustainability_note: str | None = Field(None, description="利润可持续/业绩变化说明")
+
+
+class StockBriefTopHolderOut(BaseModel):
+    rank: int
+    name: str
+    holder_type: str | None = None
+    ratio_pct: float | None = Field(None, description="占流通股本比例 %")
+    change_ratio_pct: float | None = Field(None, description="持股变动比率 %")
+
+
+class StockBriefShareholdersOut(BaseModel):
+    report_date: str | None = Field(None, description="十大流通股东报告期")
+    pledge_ratio_pct: float | None = Field(None, description="股权质押比例 %")
+    pledge_trade_date: str | None = None
+    pledge_shares: float | None = None
+    top_holders: list[StockBriefTopHolderOut] = Field(default_factory=list)
+
+
+class StockBriefValuationCompareOut(BaseModel):
+    pe_ttm: float | None = None
+    pb_mrq: float | None = None
+    industry_pe_median: float | None = Field(None, description="同行样本 PE-TTM 中位数")
+    industry_pb_median: float | None = Field(None, description="同行样本 PB-MRQ 中位数")
+    pe_industry_rank: str | None = Field(None, description="行业内 PE 排名，如 5/50")
+    pe_hist_percentile_pct: float | None = Field(None, description="PE-TTM 在近约3年样本中的分位 %")
+    pb_hist_percentile_pct: float | None = Field(None, description="PB 在近约3年样本中的分位 %")
+
+
+class StockBriefRiskFlagOut(BaseModel):
+    code: str
+    level: Literal["info", "warn", "danger"]
+    text: str
+
+
+class StockBriefRiskOut(BaseModel):
+    flags: list[StockBriefRiskFlagOut] = Field(default_factory=list)
+    summary: str = ""
+
+
+class StockBriefMoveHighlightOut(BaseModel):
+    """⑤ 当日涨跌解读：单条线索。"""
+
+    source: str = Field(..., description="数据来源标识，如 eastmoney_zt_pool")
+    source_label: str | None = Field(None, description="来源中文名，如 东财涨停池")
+    api: str | None = Field(None, description="接口或模块名")
+    category: str = Field(..., description="类别：limit_up / lhb / notice / news / intraday / concept")
+    text: str
+
+
+class StockBriefMoveNoticeOut(BaseModel):
+    title: str
+    notice_type: str | None = None
+    published_at: str | None = None
+    url: str | None = None
+
+
+class StockBriefMoveFactorOut(BaseModel):
+    """归因依据：标明数据接口或本地规则。"""
+
+    source: str
+    source_label: str
+    api: str = ""
+    kind: Literal["data", "rule"] = Field("rule", description="data=外部数据；rule=本地 Demo 规则推断")
+    text: str
+
+
+class StockBriefMoveCompareSourceOut(BaseModel):
+    """对比项的数据来源说明。"""
+
+    key: str = Field(..., description="stock / index / industry")
+    label: str
+    api: str = ""
+    detail: str | None = Field(None, description="如指数名、行业名")
+    available: bool = True
+
+
+class StockBriefFundFlowOut(BaseModel):
+    """行情日个股主力资金流（东财）。"""
+
+    trade_date: str | None = None
+    close: float | None = None
+    change_pct: float | None = None
+    main_net_inflow: float | None = Field(None, description="主力净流入净额（元）")
+    main_net_ratio_pct: float | None = Field(None, description="主力净流入占成交额 %")
+    super_large_net: float | None = Field(None, description="超大单净流入（元）")
+    large_net: float | None = Field(None, description="大单净流入（元）")
+    note: str | None = Field(None, description="与涨跌方向对照的一句话解读")
+    source_label: str = "东财个股资金流"
+    api: str = "ak.stock_individual_fund_flow"
+    available: bool = False
+
+
+class StockBriefTimelineItemOut(BaseModel):
+    event_type: Literal["notice", "news"]
+    event_date: str
+    title: str
+    summary: str | None = None
+    url: str | None = None
+    sub_type: str | None = None
+    source_label: str
+    api: str = ""
+    is_trade_day: bool = False
+
+
+class StockBriefEventTimelineOut(BaseModel):
+    days: int = 3
+    begin_date: str | None = None
+    end_date: str | None = None
+    items: list[StockBriefTimelineItemOut] = Field(default_factory=list)
+    source_notices: str = "ak.stock_individual_notice_report"
+    source_news: str = "ak.stock_news_em"
+
+
+class StockBriefMoveAttributionOut(BaseModel):
+    """⑤ 涨跌归因 Demo：相对大盘/行业 + 公告新闻线索的规则推断。"""
+
+    primary: Literal["company", "sector", "market", "sentiment", "mixed", "unknown"] = "unknown"
+    primary_label: str = Field("暂无法判断", description="中文主因标签")
+    confidence: Literal["high", "medium", "low"] = "low"
+    explanation: str = ""
+    factors: list[StockBriefMoveFactorOut] = Field(default_factory=list, description="归因依据条目")
+    comparison_sources: list[StockBriefMoveCompareSourceOut] = Field(
+        default_factory=list, description="个股/大盘/行业对比项的数据来源",
+    )
+    index_name: str | None = None
+    index_change_pct: float | None = None
+    industry_name: str | None = None
+    industry_change_pct: float | None = None
+    vs_index_pp: float | None = Field(None, description="个股涨跌幅减基准指数，百分点")
+    vs_industry_pp: float | None = Field(None, description="个股涨跌幅减所属行业，百分点")
+    score_breakdown: dict[str, int] = Field(default_factory=dict, description="各因素得分（Demo）")
+
+
+class StockBriefMoveInterpretOut(BaseModel):
+    """⑤ 当日涨跌解读：多源线索聚合，非官方因果认定。"""
+
+    trade_date: str | None = Field(None, description="解读所依据的行情/交易日 YYYY-MM-DD")
+    change_pct: float | None = Field(None, description="对应交易日涨跌幅 %")
+    direction: Literal["up", "down", "flat"] = Field("flat", description="涨跌方向")
+    summary: str = Field("", description="一句话汇总")
+    highlights: list[StockBriefMoveHighlightOut] = Field(default_factory=list)
+    limit_up_note: str | None = Field(None, description="涨停股池摘要")
+    limit_down_note: str | None = Field(None, description="跌停股池摘要")
+    strong_pool_reason: str | None = Field(None, description="强势股池入选理由")
+    lhb_reason: str | None = Field(None, description="龙虎榜上榜原因")
+    lhb_note: str | None = Field(None, description="龙虎榜解读")
+    intraday_events: list[str] = Field(default_factory=list, description="盘口异动标签")
+    related_notices: list[StockBriefMoveNoticeOut] = Field(default_factory=list)
+    related_news: list[StockBriefNewsItemOut] = Field(default_factory=list)
+    concept_hints: list[str] = Field(default_factory=list, description="可能关联题材名（非因果）")
+    attribution: StockBriefMoveAttributionOut = Field(
+        default_factory=StockBriefMoveAttributionOut,
+        description="涨跌归因 Demo（公司/板块/大盘/情绪）",
+    )
+    fund_flow: StockBriefFundFlowOut = Field(
+        default_factory=StockBriefFundFlowOut,
+        description="行情日主力资金流",
+    )
+    event_timeline: StockBriefEventTimelineOut = Field(
+        default_factory=StockBriefEventTimelineOut,
+        description="近 N 日公告与新闻事件线",
+    )
+    disclaimer: str = Field(
+        "以下为公开数据线索聚合，可能关联因素而非官方认定的涨跌原因；请结合公告原文与盘面自行判断。",
+        description="解读免责声明",
+    )
+
+
+class StockBriefOut(BaseModel):
+    """⑤ 个股咨询聚合响应。"""
+
+    symbol: str
+    name: str | None = None
+    secucode: str | None = Field(None, description="东财 secid 后缀，如 600519.SH")
+    quote: StockBriefQuoteOut
+    news: list[StockBriefNewsItemOut] = Field(default_factory=list)
+    concepts: list[StockBriefConceptOut] = Field(default_factory=list)
+    business: StockBriefBusinessOut
+    revenue: StockBriefRevenueOut
+    financial_quality: StockBriefFinancialQualityOut
+    shareholders: StockBriefShareholdersOut
+    valuation_compare: StockBriefValuationCompareOut
+    risk: StockBriefRiskOut
+    move_interpretation: StockBriefMoveInterpretOut = Field(
+        default_factory=StockBriefMoveInterpretOut,
+        description="当日涨跌解读（涨停池/龙虎榜/公告/新闻/盘口异动等线索）",
+    )
+    warnings: list[str] = Field(default_factory=list)
+    disclaimer: str

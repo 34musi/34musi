@@ -43,7 +43,7 @@ walk-forward 回测、前向展望 pre_refresh 等均依赖本模块。
 
 - `ingest_batch_job`：③ 批量拉日线时的进度（skip_bars=false）；
 - `fundamentals` / `eastmoney_liquidity`：扩展因子与流动性 spot；
-- `forward_outlook` / `alerts`：pre_refresh 调用 `incremental_refresh`。
+- `forward_outlook` / `signals`：pre_refresh 调用 `incremental_refresh`。
 
 ## 配置相关
 

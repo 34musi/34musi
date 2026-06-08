@@ -19,7 +19,7 @@ quant_stock_selector 等）暴露为 REST 接口，并托管 **[/ui](/ui)** 图�
 | ② 管理自选 | 自选 CRUD、现价刷新、热门股导入 | `/watchlist`, `/watchlist/*` |
 | ③ 更新行情 | 日线 ingest、扩展因子、连通性测试 | `/ingest/update`, `/ingest/fundamentals` |
 | ④ 查看信号 | K 线查询、批量/单只信号 | `/signals`, `/quotes/{symbol}/bars` |
-| ⑤ 变动预览 | 信号缓存对比 | `/alerts/preview` |
+| ⑤ 个股咨询 | 行情、新闻、概念、业务与营收 | `/research/stock-brief/{symbol}` |
 | ⑥ 说明与免责 | 免责声明全文 | `/meta/disclaimer` 等 |
 | ⑦ 决策日志 | 自用复盘 journal、前向展望 | `/journal`, `/forward-outlook` |
 | ⑧ 研究 | walk-forward 预测验证 | `/research/forecast-validate` |
@@ -98,7 +98,6 @@ from app.db import (
     DecisionJournalRow,
     ForwardOutlookRow,
     HoldingRow,
-    SignalCacheRow,
     WatchlistAddLogRow,
     WatchlistRow,
     init_db,
@@ -180,7 +179,6 @@ from app.holdings_goal import (
 from app.quant_stock_selector.cli import validate_args
 from app.quant_stock_selector.pipeline import run_analysis
 from app.schemas import (
-    AlertsPreviewIn,
     CancelBatchIn,
     DailyBarOut,
     DisclaimerOut,
@@ -225,6 +223,7 @@ from app.schemas import (
     SelectorSectorDataSource,
     SelfUseMetaOut,
     SignalOut,
+    StockBriefOut,
     WatchlistBatchAddIn,
     WatchlistBatchAddOut,
     WatchlistBatchDeleteIn,
@@ -261,7 +260,7 @@ from app.hot_market_snapshot import (
     save_hot_market_snapshot,
 )
 from app.signals import compute_signal
-from app.alerts import detect_changes, signal_to_snapshot
+from app.stock_brief import build_stock_brief
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -304,10 +303,7 @@ OPENAPI_DESCRIPTION = """
 4c. **（研究向）可验证的方向预测**  
    `GET /research/forecast-validate?symbol=600519`：仅用**已入库日线**做 walk-forward，含**双均线（周期可配）**、Logistic、趋势规则、多数类基线；响应中带 `pedagogy` 学习路线说明与参考阅读链接（非投资建议）。
 
-5. **（可选）看和上次比有没有变化**  
-   打开 **「⑤ 变动预览」** → `POST /alerts/preview`。
-
-6. **（推荐）自用定位与决策日志**  
+5. **（推荐）自用定位与决策日志**  
    `GET /meta/self-use` 查看工具定位与风控检查项；`POST /journal` 记录本周结论与实盘复盘（仓位、是否按计划）。
 
 ---
@@ -337,8 +333,8 @@ OPENAPI_TAGS = [
         "description": "根据已有日线计算趋势、强度、评分等；若已执行扩展因子入库，会展示 fundamentals 并与技术面分合成总分。",
     },
     {
-        "name": "⑤ 变动预览",
-        "description": "对比「上一次缓存」与「当前计算结果」，看趋势或评分档位是否变化。",
+        "name": "⑤ 个股咨询",
+        "description": "输入 6 位代码，联网聚合东财公开数据：现价行情、近期新闻、核心概念/题材、公司业务与主营构成、营收与盈利指标。非投资建议。",
     },
     {
         "name": "⑥ 说明与免责",
@@ -942,7 +938,7 @@ def meta_auth_status():
     "/meta/cancel-batch",
     tags=["① 入门必读"],
     summary="中断进行中的批量任务",
-    description="图形控制台「取消请求」调用。scopes 可为 ingest、signals、alerts、fundamentals、pre_refresh、hot_sectors、sector_screen 或 all。",
+    description="图形控制台「取消请求」调用。scopes 可为 ingest、signals、fundamentals、pre_refresh、hot_sectors、sector_screen 或 all。",
 )
 @limiter.limit("60/minute")
 def meta_cancel_batch(
@@ -1010,9 +1006,9 @@ def meta_watchlist_add_dates(_: None = Depends(optional_api_key)):
 @app.get(
     "/meta/symbols-batch-status",
     tags=["① 入门必读"],
-    summary="按只批量任务进度（③④⑤/扩展因子等）",
+    summary="按只批量任务进度（③④/扩展因子等）",
     description=(
-        "scope 为 ingest（③ 更新现价/扩展因子，skip_bars）、signals、alerts、"
+        "scope 为 ingest（③ 更新现价/扩展因子，skip_bars）、signals、"
         "fundamentals、backfill_close；active=true 时 done/total 供按钮显示进度。"
         "② 拉日线进度请用 GET /meta/ingest-batch-status。"
     ),
@@ -1020,15 +1016,15 @@ def meta_watchlist_add_dates(_: None = Depends(optional_api_key)):
 def meta_symbols_batch_status(
     scope: str = Query(
         ...,
-        description="ingest | signals | alerts | fundamentals | backfill_close",
+        description="ingest | signals | fundamentals | backfill_close",
     ),
     _: None = Depends(optional_api_key),
 ):
     sc = str(scope or "").strip().lower()
-    if sc not in ("ingest", "signals", "alerts", "fundamentals", "backfill_close"):
+    if sc not in ("ingest", "signals", "fundamentals", "backfill_close"):
         raise HTTPException(
             status_code=400,
-            detail="scope 须为 ingest、signals、alerts、fundamentals 或 backfill_close",
+            detail="scope 须为 ingest、signals、fundamentals 或 backfill_close",
         )
     return symbols_batch_status(sc)
 
@@ -1045,16 +1041,16 @@ def meta_symbols_batch_status(
 def meta_symbols_batch_partial_results(
     scope: str = Query(
         ...,
-        description="ingest | signals | alerts | fundamentals | backfill_close",
+        description="ingest | signals | fundamentals | backfill_close",
     ),
     offset: int = Query(0, ge=0, description="从第几条开始取（已拉取条数）"),
     _: None = Depends(optional_api_key),
 ):
     sc = str(scope or "").strip().lower()
-    if sc not in ("ingest", "signals", "alerts", "fundamentals", "backfill_close"):
+    if sc not in ("ingest", "signals", "fundamentals", "backfill_close"):
         raise HTTPException(
             status_code=400,
-            detail="scope 须为 ingest、signals、alerts、fundamentals 或 backfill_close",
+            detail="scope 须为 ingest、signals、fundamentals 或 backfill_close",
         )
     return symbols_batch_partial_results(sc, offset)
 
@@ -3200,6 +3196,52 @@ def signals_one(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+# --- ⑤ 个股咨询 ---
+
+
+@app.get(
+    "/research/stock-brief/{symbol}",
+    response_model=StockBriefOut,
+    tags=["⑤ 个股咨询"],
+    summary="个股速览：行情、新闻、概念、业务与营收",
+    description="""
+联网聚合东财 / AkShare 公开数据，便于快速了解单只 A 股：
+
+- **行情**：现价、涨跌幅、换手等（优先盘口快照，可回退本地日线末根）。
+- **新闻面**：近期个股新闻标题与摘要（东财搜索接口）。
+- **相关概念**：东财 F10 核心题材 / 概念板块列表。
+- **公司业务**：公司介绍、行业、经营范围；主营构成（按产品，含收入占比与毛利率）。
+- **营收能力**：最近报告期营收/净利润同比、ROE、毛利率、PE/PB 等。
+- **财报质量**：每股收益 vs 经营现金流、资产负债率及 Demo 解读。
+- **股东结构**：十大流通股东、股权质押比例。
+- **估值对比**：同行业 PE/PB 中位数、历史分位（约3年样本）。
+- **风险提示**：ST、高负债、质押、业绩变脸等 Demo 规则标签。
+- **当日涨跌解读**：涨停/跌停股池、龙虎榜、当日公告与新闻、盘口异动、题材线索；**涨跌归因（Demo）** 对比大盘/行业；**主力资金流**、**近3日事件时间线**。
+
+各块独立拉取，局部失败时对应字段为空并在 `warnings` 中说明。**非投资建议**；有频率限制，请勿连续狂点。
+""",
+)
+@limiter.limit("12/minute")
+def research_stock_brief(
+    request: Request,
+    symbol: str,
+    news_limit: int = Query(8, ge=1, le=20, description="返回新闻条数上限"),
+    _: None = Depends(optional_api_key),
+):
+    try:
+        sym = normalize_symbol(symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        raw = build_stock_brief(sym, news_limit=news_limit)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("stock-brief %s failed", sym)
+        raise HTTPException(status_code=502, detail=f"拉取个股资料失败：{e}") from e
+    return StockBriefOut.model_validate(raw)
+
+
 # --- ⑧ 研究：预测验证 ---
 
 
@@ -3822,91 +3864,6 @@ def research_sector_constituents_top(
     _: None = Depends(optional_api_key),
 ):
     return _run_sector_constituents_top(body)
-
-
-# --- ⑤ 变动预览 ---
-
-
-@app.post(
-    "/alerts/preview",
-    tags=["⑤ 变动预览"],
-    summary="看看和「上一次」比，信号变了吗",
-    description="""
-会把**当前算出来的信号**和**服务器里上次记住的结果**做对比：
-
-- **new**：第一次记录这只股票；
-- **shift**：趋势变了，或评分从「十位档」上跳了一档（例如 50→59 不算，59→61 算）。
-
-执行成功后，会用当前结果覆盖缓存，**下次再点**就会和这次比。
-
-**Body** 可传 `pre_refresh`、`data_source`（与 `GET /signals` 一致）：先按③所选路线增量更新自选日线，再对比信号。
-
-**Body 留空** 等价于二者默认，行为与旧版一致（仅用库内已有数据）。
-""",
-)
-@limiter.limit("30/minute")
-def alerts_preview(
-    request: Request,
-    body: AlertsPreviewIn = Body(default_factory=AlertsPreviewIn),
-    _: None = Depends(optional_api_key),
-):
-    """
-    对比 signal_cache 中上一版快照与当前 compute_signal 结果，返回 new/shift 事件。
-
-    随后用当前结果刷新缓存（upsert SignalCacheRow），供下次对比使用。
-    """
-    route = _resolve_ingest_route(body.data_source)
-    with session_scope() as s:
-        cached = s.execute(select(SignalCacheRow)).scalars().all()
-        watch = s.execute(select(WatchlistRow)).scalars().all()
-        prev_map = {row.symbol: json.loads(row.payload_json) for row in cached}
-        watch_symbols = [w.symbol for w in watch]
-    clear("alerts")
-    symbols_batch_start("alerts", len(watch_symbols))
-    current: dict[str, SignalOut] = {}
-    cancelled = False
-    pause = max(0.0, float(get_settings().akshare_pause_between_symbols_sec))
-    for i, sym in enumerate(watch_symbols):
-        if is_cancelled("alerts"):
-            cancelled = True
-            logger.info("alerts preview cancelled by user before %s", sym)
-            break
-        symbols_batch_set_current("alerts", sym)
-        if i > 0 and pause > 0:
-            time.sleep(pause)
-        if body.pre_refresh:
-            try:
-                incremental_refresh(sym, data_source=route)
-            except Exception as e:
-                logger.debug("pre_refresh skipped %s route=%s: %s", sym, route, e)
-        try:
-            current[sym] = compute_signal(sym, data_source=route)
-        except Exception:
-            continue
-        symbols_batch_tick("alerts", sym)
-    events = detect_changes(prev_map, current)
-    from datetime import datetime
-
-    now = datetime.utcnow().isoformat() + "Z"
-    with session_scope() as s:
-        for sym, sig in current.items():
-            payload = json.dumps(signal_to_snapshot(sig), ensure_ascii=False)
-            row = s.execute(select(SignalCacheRow).where(SignalCacheRow.symbol == sym)).scalar_one_or_none()
-            if row:
-                row.payload_json = payload
-                row.updated_at = now
-            else:
-                s.add(SignalCacheRow(symbol=sym, payload_json=payload, updated_at=now))
-    symbols_batch_finish("alerts", cancelled=cancelled)
-    return {
-        "events": events,
-        "cancelled": cancelled,
-        "disclaimer": _disclaimer_payload().model_dump(),
-        "request": {
-            "pre_refresh": body.pre_refresh,
-            "data_source": route,
-        },
-    }
 
 
 def _holding_one_out(s, row: HoldingRow) -> HoldingOut:
@@ -4684,6 +4641,7 @@ def root():
             "holdings": "/holdings",
             "research_forecast_validate": "/research/forecast-validate",
             "research_sector_screen": "/research/sector-screen",
+            "research_stock_brief": "/research/stock-brief/{symbol}",
             "disclaimer": d.disclaimer,
             "data_source_note": d.data_source_note,
         }

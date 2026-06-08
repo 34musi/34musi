@@ -80,7 +80,7 @@ class WatchlistAddLogRow(Base):
 
 
 class SignalCacheRow(Base):
-    """与 alerts 配合：存每个标的最近一次用于对比的信号摘要（JSON 字符串）。"""
+    """存每个标的最近一次信号摘要（JSON 字符串）；历史遗留表，当前无写入接口。"""
 
     __tablename__ = "signal_cache"
 

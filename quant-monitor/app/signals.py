@@ -8,7 +8,7 @@
 （`fundamentals.fundamental_score_delta`），再调用 `signal_enhanced` 生成
 增强分、买入门控与 verdict，最终组装为 `SignalOut`。
 
-典型调用链（`GET /signals/{symbol}`、`alerts.detect_changes`、持仓建议等）：
+典型调用链（`GET /signals/{symbol}`、持仓建议等）：
 
 1. `normalize_symbol` 规范化代码；
 2. 可选 `ensure_today_bar_for_live_signal`（⑩ 当日测算）补写今日 K 线；
@@ -31,7 +31,7 @@
 
 | 函数 | 调用方 | 用途 |
 |------|--------|------|
-| `compute_signal` | `main.py` GET /signals、alerts、holdings 等 | 单标的信号主入口 |
+| `compute_signal` | `main.py` GET /signals、holdings 等 | 单标的信号主入口 |
 | `_build_signal_metrics` | 本模块、`signal_enhanced` 间接 | 可被 `last_close_override` 注入现价 |
 
 ## 约定
