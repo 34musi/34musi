@@ -728,9 +728,60 @@
     .brief-news-item:last-child { border-bottom: none; }
     .brief-news-item h4 { margin: 0 0 0.25rem; font-size: 0.88rem; font-weight: 600; }
     .brief-news-meta { margin: 0; font-size: 0.75rem; color: var(--muted); }
-    .brief-kv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.45rem 0.75rem; margin: 0; }
-    .brief-kv-grid dt { margin: 0; font-size: 0.72rem; color: var(--muted); }
-    .brief-kv-grid dd { margin: 0.1rem 0 0; font-size: 0.88rem; font-weight: 600; }
+    .brief-kv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+      gap: 0.45rem;
+      margin: 0;
+    }
+    .brief-kv-item {
+      padding: 0.45rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .brief-kv-label { display: block; font-size: 0.68rem; color: var(--muted); margin-bottom: 0.18rem; }
+    .brief-kv-val { display: block; font-size: 0.88rem; font-weight: 600; line-height: 1.25; word-break: break-word; }
+    .brief-kv-val.up { color: #f87171; }
+    .brief-kv-val.down { color: #4ade80; }
+    .brief-quote-panel {
+      border-radius: 8px;
+      padding: 0.75rem 0.85rem;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(255,255,255,0.02) 100%);
+    }
+    .brief-quote-panel.is-up {
+      border-color: rgba(248,113,113,0.35);
+      background: linear-gradient(135deg, rgba(248,113,113,0.1) 0%, rgba(255,255,255,0.02) 100%);
+    }
+    .brief-quote-panel.is-down {
+      border-color: rgba(74,222,128,0.35);
+      background: linear-gradient(135deg, rgba(74,222,128,0.1) 0%, rgba(255,255,255,0.02) 100%);
+    }
+    .brief-quote-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.75rem; margin-bottom: 0.65rem; }
+    .brief-quote-price { font-size: 1.65rem; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+    .brief-quote-chg { font-size: 1.05rem; font-weight: 600; }
+    .brief-quote-chg.up { color: #f87171; }
+    .brief-quote-chg.down { color: #4ade80; }
+    .brief-card-body .brief-section {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 0.85rem;
+      margin-bottom: 0.55rem;
+    }
+    .brief-card-body .brief-section:last-child { margin-bottom: 0; }
+    .brief-section-title {
+      margin: 0 0 0.55rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .brief-section-lead { margin: 0 0 0.55rem; font-size: 0.78rem; color: var(--muted); line-height: 1.45; }
+    .brief-section .brief-move-panel { margin-top: 0; }
+    .brief-section .brief-kv-grid + .brief-seg-table { margin-top: 0.55rem; }
+    .brief-card-body .brief-section p { margin: 0 0 0.45rem; font-size: 0.82rem; line-height: 1.5; }
+    .brief-card-body .brief-section p:last-child { margin-bottom: 0; }
     .brief-seg-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.35rem; }
     .brief-seg-table th, .brief-seg-table td { border: 1px solid var(--border); padding: 0.35rem 0.45rem; text-align: left; }
     .brief-seg-table th { color: var(--muted); font-weight: 500; background: rgba(255,255,255,0.02); }
@@ -756,10 +807,18 @@
       transition: transform 0.15s ease;
     }
     .brief-card-d[open] > summary::before { transform: rotate(90deg); }
-    .brief-card-summary-meta { font-size: 0.76rem; font-weight: 500; color: var(--muted); }
-    .brief-card-summary-chg.up { color: #f87171; }
-    .brief-card-summary-chg.down { color: #4ade80; }
-    .brief-card-body { padding: 0 0.55rem 0.65rem; }
+    .brief-card-summary-meta { font-size: 0.76rem; font-weight: 500; color: var(--muted); margin-left: auto; }
+    .brief-card-summary-chg {
+      font-variant-numeric: tabular-nums;
+      padding: 0.12rem 0.45rem;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+    }
+    .brief-card-summary-chg.up { color: #f87171; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
+    .brief-card-summary-chg.down { color: #4ade80; border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.08); }
+    .brief-card-body { padding: 0 0.55rem 0.65rem; display: flex; flex-direction: column; gap: 0.55rem; }
+    .brief-card-body .brief-section { margin-bottom: 0; }
     .brief-list-empty { margin: 0; font-size: 0.82rem; color: var(--muted); }
     .brief-risk-list { margin: 0; padding: 0; list-style: none; }
     .brief-risk-list li { margin: 0.35rem 0; padding: 0.4rem 0.55rem; border-radius: 6px; font-size: 0.82rem; border: 1px solid var(--border); }
@@ -16270,6 +16329,40 @@
     return sign + n.toFixed(2) + "%";
   }
 
+  function briefChgClass(v) {
+    if (v == null || !isFinite(Number(v))) return "";
+    var n = Number(v);
+    if (n > 0) return "up";
+    if (n < 0) return "down";
+    return "";
+  }
+
+  function briefKvItem(label, value, valClass) {
+    var html = '<div class="brief-kv-item">';
+    html += '<span class="brief-kv-label">' + escapeHtml(label) + "</span>";
+    html += '<span class="brief-kv-val' + (valClass ? " " + valClass : "") + '">' + value + "</span>";
+    html += "</div>";
+    return html;
+  }
+
+  function renderStockBriefQuoteHtml(q) {
+    q = q || {};
+    var dirCls = briefChgClass(q.change_pct);
+    var panelCls = "brief-quote-panel" + (dirCls === "up" ? " is-up" : (dirCls === "down" ? " is-down" : ""));
+    var html = '<div class="' + panelCls + '">';
+    html += '<div class="brief-quote-main">';
+    html += '<span class="brief-quote-price">' + fmtBriefNum(q.price) + "</span>";
+    html += '<span class="brief-quote-chg' + (dirCls ? " " + dirCls : "") + '">' + fmtBriefPct(q.change_pct) + "</span>";
+    html += "</div>";
+    html += '<div class="brief-kv-grid">';
+    html += briefKvItem("昨收", fmtBriefNum(q.prev_close));
+    html += briefKvItem("换手率", fmtBriefPct(q.turnover_rate_pct));
+    html += briefKvItem("行情日期", escapeHtml(q.last_trade_date || "—"));
+    if (q.quote_source) html += briefKvItem("来源", escapeHtml(q.quote_source));
+    html += "</div></div>";
+    return html;
+  }
+
   var _stockBriefCache = null;
 
   function normalizeBriefSymbol(raw) {
@@ -16516,22 +16609,15 @@
     var q = body.quote || {};
     var biz = body.business || {};
     var rev = body.revenue || {};
-    var chgCls = q.change_pct > 0 ? "color:#f87171" : (q.change_pct < 0 ? "color:#4ade80" : "");
     var html = "";
-    html += '<div class="disclaimer-box"><h3>行情</h3>';
-    html += '<dl class="brief-kv-grid">';
-    html += "<dt>现价</dt><dd" + (chgCls ? ' style="' + chgCls + '"' : "") + ">" + fmtBriefNum(q.price) + "</dd>";
-    html += "<dt>涨跌幅</dt><dd" + (chgCls ? ' style="' + chgCls + '"' : "") + ">" + fmtBriefPct(q.change_pct) + "</dd>";
-    html += "<dt>昨收</dt><dd>" + fmtBriefNum(q.prev_close) + "</dd>";
-    html += "<dt>换手率</dt><dd>" + fmtBriefPct(q.turnover_rate_pct) + "</dd>";
-    html += "<dt>行情日期</dt><dd>" + escapeHtml(q.last_trade_date || "—") + "</dd>";
-    if (q.quote_source) html += "<dt>来源</dt><dd>" + escapeHtml(q.quote_source) + "</dd>";
-    html += "</dl></div>";
+    html += '<div class="brief-section"><h3 class="brief-section-title">行情</h3>';
+    html += renderStockBriefQuoteHtml(q);
+    html += "</div>";
 
     var mi = body.move_interpretation || {};
-    html += '<div class="disclaimer-box"><h3>当日涨跌解读</h3>';
+    html += '<div class="brief-section"><h3 class="brief-section-title">当日涨跌解读</h3>';
     if (mi.trade_date) {
-      html += "<p class=\"lead\" style=\"margin:0 0 0.55rem;font-size:0.78rem;color:var(--muted);\">";
+      html += '<p class="brief-section-lead">';
       html += escapeHtml(mi.trade_date);
       if (mi.change_pct != null) html += " · 涨跌幅 " + fmtBriefPct(mi.change_pct);
       html += "</p>";
@@ -16539,7 +16625,7 @@
     html += renderStockBriefMoveHtml(mi, q);
     html += "</div>";
 
-    html += '<div class="disclaimer-box"><h3>相关概念</h3>';
+    html += '<div class="brief-section"><h3 class="brief-section-title">相关概念</h3>';
     var concepts = body.concepts || [];
     if (concepts.length) {
       html += '<ul class="brief-concept-list">';
@@ -16548,11 +16634,11 @@
       });
       html += "</ul>";
     } else {
-      html += '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">暂无概念数据</p>';
+      html += '<p class="brief-section-lead" style="margin:0;">暂无概念数据</p>';
     }
     html += "</div>";
 
-    html += '<div class="disclaimer-box"><h3>公司业务</h3>';
+    html += '<div class="brief-section"><h3 class="brief-section-title">公司业务</h3>';
     if (biz.industry) html += "<p><strong>行业：</strong>" + escapeHtml(biz.industry) + "</p>";
     if (biz.main_business) html += "<p><strong>主营/经营范围：</strong>" + escapeHtml(biz.main_business) + "</p>";
     if (biz.profile) html += "<p><strong>公司介绍：</strong>" + escapeHtml(biz.profile) + "</p>";
@@ -16566,39 +16652,39 @@
     }
     html += "</div>";
 
-    html += '<div class="disclaimer-box"><h3>营收能力</h3>';
-    html += '<dl class="brief-kv-grid">';
-    html += "<dt>报告期</dt><dd>" + escapeHtml(rev.report_date || "—") + "</dd>";
-    html += "<dt>营收同比</dt><dd>" + fmtBriefPct(rev.revenue_yoy_pct) + "</dd>";
-    html += "<dt>净利同比</dt><dd>" + fmtBriefPct(rev.profit_yoy_pct) + "</dd>";
-    html += "<dt>ROE</dt><dd>" + fmtBriefPct(rev.roe_pct) + "</dd>";
-    html += "<dt>毛利率</dt><dd>" + fmtBriefPct(rev.gross_margin_pct) + "</dd>";
-    html += "<dt>净利率</dt><dd>" + fmtBriefPct(rev.net_margin_pct) + "</dd>";
-    html += "<dt>资产负债率</dt><dd>" + fmtBriefPct(rev.debt_to_assets_pct) + "</dd>";
-    html += "<dt>经营现金流/股</dt><dd>" + fmtBriefNum(rev.ocf_per_share) + "</dd>";
-    html += "<dt>PE(动)</dt><dd>" + fmtBriefNum(rev.pe_dynamic) + "</dd>";
-    html += "<dt>PB</dt><dd>" + fmtBriefNum(rev.pb) + "</dd>";
-    html += "</dl></div>";
+    html += '<div class="brief-section"><h3 class="brief-section-title">营收能力</h3>';
+    html += '<div class="brief-kv-grid">';
+    html += briefKvItem("报告期", escapeHtml(rev.report_date || "—"));
+    html += briefKvItem("营收同比", fmtBriefPct(rev.revenue_yoy_pct), briefChgClass(rev.revenue_yoy_pct));
+    html += briefKvItem("净利同比", fmtBriefPct(rev.profit_yoy_pct), briefChgClass(rev.profit_yoy_pct));
+    html += briefKvItem("ROE", fmtBriefPct(rev.roe_pct));
+    html += briefKvItem("毛利率", fmtBriefPct(rev.gross_margin_pct));
+    html += briefKvItem("净利率", fmtBriefPct(rev.net_margin_pct));
+    html += briefKvItem("资产负债率", fmtBriefPct(rev.debt_to_assets_pct));
+    html += briefKvItem("经营现金流/股", fmtBriefNum(rev.ocf_per_share));
+    html += briefKvItem("PE(动)", fmtBriefNum(rev.pe_dynamic));
+    html += briefKvItem("PB", fmtBriefNum(rev.pb));
+    html += "</div></div>";
 
     var fq = body.financial_quality || {};
-    html += '<div class="disclaimer-box"><h3>财报质量</h3>';
-    html += '<dl class="brief-kv-grid">';
-    html += "<dt>报告期</dt><dd>" + escapeHtml(fq.report_date || rev.report_date || "—") + "</dd>";
-    html += "<dt>每股收益</dt><dd>" + fmtBriefNum(fq.eps) + "</dd>";
-    html += "<dt>经营现金流/股</dt><dd>" + fmtBriefNum(fq.ocf_per_share) + "</dd>";
-    html += "<dt>资产负债率</dt><dd>" + fmtBriefPct(fq.debt_to_assets_pct) + "</dd>";
-    html += "</dl>";
-    if (fq.cash_profit_match_note) html += "<p style=\"margin:0.5rem 0 0;font-size:0.82rem;\"><strong>现金流匹配：</strong>" + escapeHtml(fq.cash_profit_match_note) + "</p>";
-    if (fq.profit_sustainability_note) html += "<p style=\"margin:0.35rem 0 0;font-size:0.82rem;\"><strong>利润可持续：</strong>" + escapeHtml(fq.profit_sustainability_note) + "</p>";
+    html += '<div class="brief-section"><h3 class="brief-section-title">财报质量</h3>';
+    html += '<div class="brief-kv-grid">';
+    html += briefKvItem("报告期", escapeHtml(fq.report_date || rev.report_date || "—"));
+    html += briefKvItem("每股收益", fmtBriefNum(fq.eps));
+    html += briefKvItem("经营现金流/股", fmtBriefNum(fq.ocf_per_share));
+    html += briefKvItem("资产负债率", fmtBriefPct(fq.debt_to_assets_pct));
+    html += "</div>";
+    if (fq.cash_profit_match_note) html += "<p><strong>现金流匹配：</strong>" + escapeHtml(fq.cash_profit_match_note) + "</p>";
+    if (fq.profit_sustainability_note) html += "<p><strong>利润可持续：</strong>" + escapeHtml(fq.profit_sustainability_note) + "</p>";
     html += "</div>";
 
     var sh = body.shareholders || {};
-    html += '<div class="disclaimer-box"><h3>股东结构</h3>';
-    html += '<dl class="brief-kv-grid">';
-    html += "<dt>质押比例</dt><dd>" + fmtBriefPct(sh.pledge_ratio_pct) + "</dd>";
-    html += "<dt>质押统计日</dt><dd>" + escapeHtml(sh.pledge_trade_date || "—") + "</dd>";
-    html += "<dt>股东报告期</dt><dd>" + escapeHtml(sh.report_date || "—") + "</dd>";
-    html += "</dl>";
+    html += '<div class="brief-section"><h3 class="brief-section-title">股东结构</h3>';
+    html += '<div class="brief-kv-grid">';
+    html += briefKvItem("质押比例", fmtBriefPct(sh.pledge_ratio_pct));
+    html += briefKvItem("质押统计日", escapeHtml(sh.pledge_trade_date || "—"));
+    html += briefKvItem("股东报告期", escapeHtml(sh.report_date || "—"));
+    html += "</div>";
     var holders = sh.top_holders || [];
     if (holders.length) {
       html += '<table class="brief-seg-table"><thead><tr><th>#</th><th>股东</th><th>性质</th><th>占流通%</th><th>变动%</th></tr></thead><tbody>';
@@ -16607,25 +16693,25 @@
       });
       html += "</tbody></table>";
     } else {
-      html += '<p class="lead" style="margin:0.35rem 0 0;font-size:0.82rem;color:var(--muted);">暂无十大流通股东数据</p>';
+      html += '<p class="brief-section-lead" style="margin:0.35rem 0 0;">暂无十大流通股东数据</p>';
     }
     html += "</div>";
 
     var vc = body.valuation_compare || {};
-    html += '<div class="disclaimer-box"><h3>估值对比</h3>';
-    html += '<dl class="brief-kv-grid">';
-    html += "<dt>PE(TTM)</dt><dd>" + fmtBriefNum(vc.pe_ttm) + "</dd>";
-    html += "<dt>PB(MRQ)</dt><dd>" + fmtBriefNum(vc.pb_mrq) + "</dd>";
-    html += "<dt>同行PE中位</dt><dd>" + fmtBriefNum(vc.industry_pe_median) + "</dd>";
-    html += "<dt>同行PB中位</dt><dd>" + fmtBriefNum(vc.industry_pb_median) + "</dd>";
-    html += "<dt>行业PE排名</dt><dd>" + escapeHtml(vc.pe_industry_rank || "—") + "</dd>";
-    html += "<dt>PE历史分位</dt><dd>" + (vc.pe_hist_percentile_pct != null ? fmtBriefNum(vc.pe_hist_percentile_pct) + "%" : "—") + "</dd>";
-    html += "<dt>PB历史分位</dt><dd>" + (vc.pb_hist_percentile_pct != null ? fmtBriefNum(vc.pb_hist_percentile_pct) + "%" : "—") + "</dd>";
-    html += "</dl></div>";
+    html += '<div class="brief-section"><h3 class="brief-section-title">估值对比</h3>';
+    html += '<div class="brief-kv-grid">';
+    html += briefKvItem("PE(TTM)", fmtBriefNum(vc.pe_ttm));
+    html += briefKvItem("PB(MRQ)", fmtBriefNum(vc.pb_mrq));
+    html += briefKvItem("同行PE中位", fmtBriefNum(vc.industry_pe_median));
+    html += briefKvItem("同行PB中位", fmtBriefNum(vc.industry_pb_median));
+    html += briefKvItem("行业PE排名", escapeHtml(vc.pe_industry_rank || "—"));
+    html += briefKvItem("PE历史分位", vc.pe_hist_percentile_pct != null ? fmtBriefNum(vc.pe_hist_percentile_pct) + "%" : "—");
+    html += briefKvItem("PB历史分位", vc.pb_hist_percentile_pct != null ? fmtBriefNum(vc.pb_hist_percentile_pct) + "%" : "—");
+    html += "</div></div>";
 
     var risk = body.risk || {};
-    html += '<div class="disclaimer-box"><h3>风险提示</h3>';
-    if (risk.summary) html += '<p style="margin:0 0 0.45rem;font-size:0.82rem;color:var(--muted);">' + escapeHtml(risk.summary) + "</p>";
+    html += '<div class="brief-section"><h3 class="brief-section-title">风险提示</h3>';
+    if (risk.summary) html += '<p class="brief-section-lead">' + escapeHtml(risk.summary) + "</p>";
     var flags = risk.flags || [];
     if (flags.length) {
       html += '<ul class="brief-risk-list">';
@@ -16636,11 +16722,11 @@
       });
       html += "</ul>";
     } else {
-      html += '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">暂无显著风险标签</p>';
+      html += '<p class="brief-section-lead" style="margin:0;">暂无显著风险标签</p>';
     }
     html += "</div>";
 
-    html += '<div class="disclaimer-box"><h3>新闻面</h3>';
+    html += '<div class="brief-section"><h3 class="brief-section-title">新闻面</h3>';
     var news = body.news || [];
     if (news.length) {
       news.forEach(function (n) {
@@ -16652,15 +16738,15 @@
         html += "</div>";
       });
     } else {
-      html += '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">暂无近期新闻</p>';
+      html += '<p class="brief-section-lead" style="margin:0;">暂无近期新闻</p>';
     }
     html += "</div>";
 
     if (body.warnings && body.warnings.length) {
-      html += '<p class="lead" style="font-size:0.78rem;color:var(--muted);">' + escapeHtml(body.warnings.join(" ")) + "</p>";
+      html += '<p class="brief-section-lead" style="margin:0;">' + escapeHtml(body.warnings.join(" ")) + "</p>";
     }
     if (body.disclaimer) {
-      html += '<p class="lead" style="font-size:0.75rem;color:var(--muted);">' + escapeHtml(body.disclaimer) + "</p>";
+      html += '<p class="brief-section-lead" style="margin:0;font-size:0.75rem;">' + escapeHtml(body.disclaimer) + "</p>";
     }
     return html;
   }
