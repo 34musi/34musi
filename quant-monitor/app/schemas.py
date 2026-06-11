@@ -28,7 +28,7 @@ Pydantic 请求/响应模型：API 契约层，与 FastAPI 校验及 OpenAPI 文
 | ⑩ 持仓 | `HoldingOut`, `HoldingGoalPlanOut`, `HoldingExitAdviceOut`, … |
 | ⑧ 研究 | `ForecastValidateOut` 及子结构 |
 | ⑨ 快照 | `HotMarketSnapshotOut`, `HotMarketSnapshotRefreshIn` |
-| 说明 | `DisclaimerOut`, `SelfUseMetaOut` |
+| 说明 | `DisclaimerOut`, `SelfUseMetaOut`, `StockKnowledgeOut` |
 
 ## 使用约定
 
@@ -1207,6 +1207,45 @@ class DisclaimerOut(BaseModel):
     disclaimer: str
     data_source_note: str
     data_delay_note: str
+
+
+class StockKnowledgeQuiz(BaseModel):
+    """单道自测题。"""
+
+    question: str
+    answer: str
+
+
+class StockKnowledgeLesson(BaseModel):
+    """一节学习内容。"""
+
+    id: str
+    title: str
+    summary: str
+    body: str
+    key_terms: list[str] = Field(default_factory=list)
+    practice: str | None = None
+    quiz: list[StockKnowledgeQuiz] = Field(default_factory=list)
+
+
+class StockKnowledgeModule(BaseModel):
+    """知识模块（含多节）。"""
+
+    id: str
+    title: str
+    description: str
+    lessons: list[StockKnowledgeLesson]
+    phase: str | None = Field(None, description="所属学习阶段，用于前端分组展示")
+
+
+class StockKnowledgeOut(BaseModel):
+    """GET /meta/stock-knowledge 完整 payload。"""
+
+    title: str
+    intro: str
+    learning_tips: list[str]
+    modules: list[StockKnowledgeModule]
+    roadmap: list[str] = Field(default_factory=list, description="分阶段学习路线摘要")
 
 
 # --- ⑦ 决策日志 ---

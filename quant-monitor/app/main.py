@@ -20,7 +20,7 @@ quant_stock_selector 等）暴露为 REST 接口，并托管 **[/ui](/ui)** 图�
 | ③ 更新行情 | 日线 ingest、扩展因子、连通性测试 | `/ingest/update`, `/ingest/fundamentals` |
 | ④ 查看信号 | K 线查询、批量/单只信号 | `/signals`, `/quotes/{symbol}/bars` |
 | ⑤ 个股咨询 | 行情、新闻、概念、业务与营收 | `/research/stock-brief/{symbol}` |
-| ⑥ 说明与免责 | 免责声明全文 | `/meta/disclaimer` 等 |
+| ⑥ 金融从零学起 | 系统课程、免责说明 | `/meta/stock-knowledge`, `/meta/disclaimer` |
 | ⑦ 决策日志 | 自用复盘 journal、前向展望 | `/journal`, `/forward-outlook` |
 | ⑧ 研究 | walk-forward 预测验证 | `/research/forecast-validate` |
 | ⑨ 量化选股 | 板块选股 pipeline | `/research/sector-screen` |
@@ -224,6 +224,7 @@ from app.schemas import (
     SelfUseMetaOut,
     SignalOut,
     StockBriefOut,
+    StockKnowledgeOut,
     WatchlistBatchAddIn,
     WatchlistBatchAddOut,
     WatchlistBatchDeleteIn,
@@ -244,7 +245,7 @@ from app.schemas import (
     WatchlistRefetchKlineResultRow,
     WebDataPreviewIn,
 )
-from app.forecast_validate import run_forecast_validate
+from app.stock_knowledge import stock_knowledge_payload
 from app.forward_outlook import (
     DEFAULT_HORIZON,
     _stock_names_for_symbols,
@@ -337,8 +338,8 @@ OPENAPI_TAGS = [
         "description": "输入 6 位代码，联网聚合东财公开数据：现价行情、近期新闻、核心概念/题材、公司业务与主营构成、营收与盈利指标。非投资建议。",
     },
     {
-        "name": "⑥ 说明与免责",
-        "description": "数据源与免责声明全文。",
+        "name": "⑥ 金融从零学起",
+        "description": "系统金融课程（约 30+ 节、8 阶段）：金融本质、货币宏观、市场与公司财务、估值、组合理论、A 股实务；含练手与自测。底部含免责全文。",
     },
     {
         "name": "⑦ 决策日志（自用）",
@@ -1087,9 +1088,29 @@ def meta_data_sources():
 
 
 @app.get(
+    "/meta/stock-knowledge",
+    response_model=StockKnowledgeOut,
+    tags=["⑥ 金融从零学起"],
+    summary="金融从零学起（分阶段系统课程）",
+    description="""
+返回 **8 阶段、30+ 节** 结构化金融课程：金融本质、时间价值、货币银行、宏观经济学、
+金融市场、公司财务三表与估值、投资组合与行为金融、A 股实务及与本工具配合。
+
+每节含摘要、正文、关键词、练手建议与自测题；`roadmap` 字段为推荐学习路线。
+
+**无需** API Key。阅读进度由浏览器 localStorage 记录，服务端不存储。
+""",
+)
+@limiter.limit(get_settings().rate_limit_default)
+def meta_stock_knowledge(request: Request):
+    """⑥ 股票知识学习静态内容。"""
+    return stock_knowledge_payload()
+
+
+@app.get(
     "/meta/disclaimer",
     response_model=DisclaimerOut,
-    tags=["⑥ 说明与免责"],
+    tags=["⑥ 金融从零学起"],
     summary="查看免责说明与数据来源",
     description="返回完整的免责声明、数据来源说明、延时说明。**不需要先加自选。**",
 )
@@ -1132,7 +1153,7 @@ def meta_self_use():
 @app.get(
     "/meta/hot-market-snapshot",
     response_model=HotMarketSnapshotFileOut,
-    tags=["⑥ 说明与免责"],
+    tags=["③ 更新行情数据"],
     summary="读取已保存的热门板块+热门股快照",
     description="""
 从本地 `data/hot_market_snapshot.json` 读取上次 **POST /meta/hot-market-snapshot/refresh** 落盘内容。

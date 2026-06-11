@@ -202,6 +202,15 @@
       border-color: rgba(148, 163, 184, 0.35);
       border-top-color: var(--accent);
     }
+    #panel-10 td button.btn-loading {
+      min-width: 4.2rem;
+      padding-left: 0.35rem;
+      padding-right: 0.35rem;
+      font-size: 0.78rem;
+    }
+    #panel-10 td button.link-del.btn-loading {
+      min-width: 3rem;
+    }
     button.secondary { background: var(--panel); color: var(--text); }
     .status-pill {
       display: inline-block;
@@ -722,6 +731,46 @@
     .disclaimer-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
     .disclaimer-box h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--muted); }
     .disclaimer-box p { margin: 0 0 0.75rem; }
+    .sk-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem 1rem; margin-bottom: 0.85rem; }
+    .sk-progress-wrap { flex: 1; min-width: 160px; }
+    .sk-progress-label { font-size: 0.78rem; color: var(--muted); margin: 0 0 0.35rem; }
+    .sk-progress-bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .sk-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #3b82f6, #22c55e); transition: width 0.25s ease; }
+    .sk-tips { margin: 0 0 1rem; padding: 0.75rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); background: rgba(59,130,246,0.06); font-size: 0.82rem; line-height: 1.5; }
+    .sk-tips ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
+    .sk-tips li { margin: 0.2rem 0; color: var(--muted); }
+    .sk-module { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.75rem; background: var(--panel); overflow: hidden; }
+    .sk-module-head { padding: 0.75rem 0.9rem; cursor: pointer; user-select: none; }
+    .sk-module-head:hover { background: rgba(255,255,255,0.03); }
+    .sk-module-title { margin: 0; font-size: 0.95rem; font-weight: 600; }
+    .sk-module-desc { margin: 0.25rem 0 0; font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+    .sk-module-meta { margin-top: 0.35rem; font-size: 0.72rem; color: var(--muted); }
+    .sk-module-body { border-top: 1px solid var(--border); padding: 0.35rem 0.65rem 0.65rem; }
+    .sk-module-body[hidden] { display: none; }
+    .sk-lesson { border: 1px solid var(--border); border-radius: 8px; margin-top: 0.55rem; background: rgba(255,255,255,0.02); }
+    .sk-lesson.is-done { border-color: rgba(34,197,94,0.35); }
+    .sk-lesson summary { padding: 0.65rem 0.75rem; cursor: pointer; list-style: none; }
+    .sk-lesson summary::-webkit-details-marker { display: none; }
+    .sk-lesson-title { font-weight: 600; font-size: 0.88rem; }
+    .sk-lesson-summary { display: block; margin-top: 0.2rem; font-size: 0.76rem; color: var(--muted); line-height: 1.4; }
+    .sk-lesson-body { padding: 0 0.75rem 0.75rem; font-size: 0.82rem; line-height: 1.55; }
+    .sk-lesson-body p { margin: 0 0 0.55rem; white-space: pre-wrap; }
+    .sk-term-list { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.35rem 0 0.55rem; padding: 0; list-style: none; }
+    .sk-term-list li { font-size: 0.72rem; padding: 0.12rem 0.5rem; border-radius: 999px; border: 1px solid rgba(59,130,246,0.35); background: rgba(59,130,246,0.1); color: #93c5fd; }
+    .sk-practice { margin: 0.5rem 0; padding: 0.55rem 0.65rem; border-radius: 6px; border-left: 3px solid #fbbf24; background: rgba(251,191,36,0.08); font-size: 0.78rem; }
+    .sk-quiz { margin-top: 0.45rem; }
+    .sk-quiz-item { margin-top: 0.35rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .sk-quiz-item summary { padding: 0.45rem 0.6rem; font-size: 0.78rem; cursor: pointer; background: rgba(255,255,255,0.02); }
+    .sk-quiz-ans { padding: 0.45rem 0.6rem; font-size: 0.76rem; color: var(--muted); border-top: 1px solid var(--border); }
+    .sk-done-row { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.55rem; font-size: 0.78rem; }
+    .sk-done-row input { accent-color: #22c55e; }
+    .sk-disclaimer-wrap { margin-top: 1.25rem; }
+    .sk-roadmap { margin: 0 0 1rem; padding: 0.75rem 0.9rem; border-radius: 8px; border: 1px solid rgba(34,197,94,0.25); background: rgba(34,197,94,0.06); font-size: 0.8rem; line-height: 1.55; }
+    .sk-roadmap strong { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; }
+    .sk-roadmap ol { margin: 0; padding-left: 1.15rem; }
+    .sk-roadmap li { margin: 0.25rem 0; color: var(--muted); }
+    .sk-phase-head { margin: 1rem 0 0.5rem; padding: 0.45rem 0.65rem; border-left: 3px solid #3b82f6; font-size: 0.82rem; font-weight: 600; color: #93c5fd; background: rgba(59,130,246,0.08); border-radius: 0 6px 6px 0; }
+    .sk-phase-head:first-child { margin-top: 0; }
     .brief-concept-list { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
     .brief-concept-list li { background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.35); border-radius: 999px; padding: 0.15rem 0.55rem; font-size: 0.78rem; }
     .brief-news-item { border-bottom: 1px solid var(--border); padding: 0.55rem 0; }
@@ -3996,13 +4045,28 @@
       </section>
 
       <section id="panel-6" class="panel" data-module="6">
-        <h2>⑥ 说明与免责</h2>
-        <p class="lead">数据源与免责声明全文。</p>
-        <div class="btns">
-          <button type="button" class="primary" id="btnDisclaimer">加载免责说明</button>
-          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-6" hidden>取消请求</button>
+        <h2>⑥ 金融从零学起</h2>
+        <p class="lead">系统课程：金融本质 → 货币宏观 → 市场体系 → 公司财务与估值 → 组合与 A 股实务。约 30+ 节，建议 8～12 周；勾选「已读完」记录本机进度。</p>
+        <div class="sk-head">
+          <div class="sk-progress-wrap">
+            <p class="sk-progress-label" id="skProgressLabel">阅读进度：—</p>
+            <div class="sk-progress-bar" aria-hidden="true"><div class="sk-progress-fill" id="skProgressFill" style="width:0%"></div></div>
+          </div>
+          <div class="btns" style="margin:0;">
+            <button type="button" class="primary" id="btnStockKnowledge">加载学习内容</button>
+            <button type="button" class="secondary" id="btnStockKnowledgeReset">重置进度</button>
+            <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-6" hidden>取消请求</button>
+          </div>
         </div>
-        <div id="disclaimer-render"></div>
+        <div id="stock-knowledge-render"></div>
+        <details class="sk-disclaimer-wrap">
+          <summary class="ingest-h3" style="cursor:pointer;margin-top:0;">数据源与免责</summary>
+          <p class="lead" style="margin:0.35rem 0 0.65rem;font-size:0.78rem;color:var(--muted);">完整免责声明与数据来源说明。</p>
+          <div class="btns">
+            <button type="button" class="secondary" id="btnDisclaimer">加载免责说明</button>
+          </div>
+          <div id="disclaimer-render"></div>
+        </details>
         <pre class="out" id="out-6" hidden></pre>
       </section>
 
@@ -4508,11 +4572,16 @@
   /** 上次「查看自选全部信号」成功返回的响应（本机缓存，非服务端缓存） */
   var LS_LAST_SIGNALS_ALL = "quant_monitor_last_signals_all_v1";
   var LS_SIGNALS_PAGE_SIZE = "quant_monitor_signals_page_size";
+  var LS_HD_PAGE_SIZE = "quant_monitor_hd_page_size";
   var LS_STOCK_BRIEF_CACHE = "quant_monitor_stock_brief_cache_v1";
+  var LS_STOCK_KNOWLEDGE_DONE = "quant_monitor_stock_knowledge_done_v1";
+  var _skPayload = null;
   var SS_MOD = "quant_console_module";
   var WL_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
   var INGEST_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
   var SIGNALS_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+  var HD_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+  var hdHoldingsPage = 1;
   var watchlistPage = 1;
   /** ② 自选表排序：prev / today / spot；首次点击降序，再点升序 */
   var _wlSortCol = null;
@@ -4581,7 +4650,7 @@
     { id: "3", title: "③ 更新行情数据", hint: "拉取日线 / 拉取结果与回测" },
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
     { id: "5", title: "⑤ 个股咨询", hint: "行情 · 新闻 · 概念 · 业务" },
-    { id: "6", title: "⑥ 说明与免责", hint: "数据源与免责全文" },
+    { id: "6", title: "⑥ 金融从零学起", hint: "系统课程·30+节·分阶段" },
     { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" },
     { id: "10", title: "⑩ 持仓记录", hint: "成本 · 股数 · 盈亏估算" },
     { id: "9", title: "⑨ 量化选股", hint: "范围 · 数据源 · 运行" }
@@ -4638,6 +4707,18 @@
     var n = parseInt(v, 10);
     if (INGEST_PAGE_SIZE_OPTIONS.indexOf(n) < 0) n = 10;
     localStorage.setItem(LS_INGEST_PAGE_SIZE, String(n));
+    return n;
+  }
+
+  function getHdPageSize() {
+    var raw = parseInt(localStorage.getItem(LS_HD_PAGE_SIZE) || "10", 10);
+    return HD_PAGE_SIZE_OPTIONS.indexOf(raw) >= 0 ? raw : 10;
+  }
+
+  function setHdPageSize(v) {
+    var n = parseInt(v, 10);
+    if (HD_PAGE_SIZE_OPTIONS.indexOf(n) < 0) n = 10;
+    localStorage.setItem(LS_HD_PAGE_SIZE, String(n));
     return n;
   }
 
@@ -5517,6 +5598,10 @@
     }
     if (id === "5") {
       tryRestoreStockBriefFromStorage();
+    }
+    if (id === "6") {
+      if (!_skPayload) void loadStockKnowledge({ silent: true });
+      else updateStockKnowledgeProgress();
     }
     if (id === "9") {
       tryRestoreLastQssSectorScreenFromStorage();
@@ -14977,7 +15062,7 @@
 
     var notesHtml =
       '<h3 class="ingest-h3">说明与免责（只读）</h3><div class="ingest-notes">' +
-      '<div class="note-field"><label>提示</label><div class="note-val">本表为基于历史日线与 Demo 规则的信号摘要，非实时行情，<strong>不构成投资建议</strong>。完整免责与数据源说明请打开「⑥ 说明与免责」。主表中<strong style="color:#8ee5b8">绿色列</strong>为建仓示例%、<strong style="color:#fbbf77">琥珀列</strong>为试错离场 Demo，便于区分「买侧区间」与「错侧止损参考」。</div></div>' +
+      '<div class="note-field"><label>提示</label><div class="note-val">本表为基于历史日线与 Demo 规则的信号摘要，非实时行情，<strong>不构成投资建议</strong>。完整免责与数据源说明请打开「⑥ 金融从零学起」底部「数据源与免责」。主表中<strong style="color:#8ee5b8">绿色列</strong>为建仓示例%、<strong style="color:#fbbf77">琥珀列</strong>为试错离场 Demo，便于区分「买侧区间」与「错侧止损参考」。</div></div>' +
       "</div>";
 
     var fcRaw = res.headers.get("X-Quant-Signals-Failed-Count");
@@ -16842,6 +16927,191 @@
     }
   });
 
+  function skGetDoneSet() {
+    try {
+      var raw = localStorage.getItem(LS_STOCK_KNOWLEDGE_DONE);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter(function (x) { return typeof x === "string"; }) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function skSaveDoneSet(ids) {
+    try {
+      localStorage.setItem(LS_STOCK_KNOWLEDGE_DONE, JSON.stringify(ids));
+    } catch (e2) {}
+  }
+
+  function skToggleDone(lessonId, checked) {
+    var set = skGetDoneSet();
+    var idx = set.indexOf(lessonId);
+    if (checked && idx < 0) set.push(lessonId);
+    if (!checked && idx >= 0) set.splice(idx, 1);
+    skSaveDoneSet(set);
+    var el = document.querySelector('.sk-lesson[data-lesson-id="' + lessonId + '"]');
+    if (el) el.classList.toggle("is-done", checked);
+    updateStockKnowledgeProgress();
+  }
+
+  function updateStockKnowledgeProgress() {
+    var label = $("skProgressLabel");
+    var fill = $("skProgressFill");
+    if (!label || !fill) return;
+    var total = 0;
+    if (_skPayload && _skPayload.modules) {
+      _skPayload.modules.forEach(function (mod) {
+        total += (mod.lessons || []).length;
+      });
+    }
+    var done = skGetDoneSet();
+    var hit = 0;
+    if (_skPayload && _skPayload.modules) {
+      _skPayload.modules.forEach(function (mod) {
+        (mod.lessons || []).forEach(function (les) {
+          if (done.indexOf(les.id) >= 0) hit += 1;
+        });
+      });
+    }
+    var pct = total ? Math.round((hit / total) * 100) : 0;
+    label.textContent = total ? ("阅读进度：" + hit + " / " + total + " 节（" + pct + "%）") : "阅读进度：—";
+    fill.style.width = pct + "%";
+    document.querySelectorAll(".sk-module").forEach(function (modEl) {
+      var modId = modEl.getAttribute("data-module-id");
+      if (!modId || !_skPayload) return;
+      var mod = (_skPayload.modules || []).find(function (m) { return m.id === modId; });
+      if (!mod) return;
+      var lesIds = (mod.lessons || []).map(function (l) { return l.id; });
+      var modDone = lesIds.filter(function (lid) { return done.indexOf(lid) >= 0; }).length;
+      var meta = modEl.querySelector(".sk-module-meta");
+      if (meta) meta.textContent = "已完成 " + modDone + " / " + lesIds.length + " 节";
+    });
+  }
+
+  function renderStockKnowledge(body) {
+    _skPayload = body;
+    var box = $("stock-knowledge-render");
+    if (!box) return;
+    var done = skGetDoneSet();
+    var html = "";
+    if (body.intro) {
+      html += '<p class="lead" style="margin:0 0 0.65rem;font-size:0.82rem;">' + escapeHtml(body.intro) + "</p>";
+    }
+    if (body.learning_tips && body.learning_tips.length) {
+      html += '<div class="sk-tips"><strong>学习建议</strong><ul>';
+      body.learning_tips.forEach(function (t) {
+        html += "<li>" + escapeHtml(t) + "</li>";
+      });
+      html += "</ul></div>";
+    }
+    if (body.roadmap && body.roadmap.length) {
+      html += '<div class="sk-roadmap"><strong>推荐路线（8～12 周）</strong><ol>';
+      body.roadmap.forEach(function (r) {
+        html += "<li>" + escapeHtml(r) + "</li>";
+      });
+      html += "</ol></div>";
+    }
+    var lastPhase = "";
+    (body.modules || []).forEach(function (mod, mi) {
+      if (mod.phase && mod.phase !== lastPhase) {
+        lastPhase = mod.phase;
+        html += '<div class="sk-phase-head">' + escapeHtml(mod.phase) + "</div>";
+      }
+      var openFirst = mi === 0 ? "" : " hidden";
+      html += '<div class="sk-module" data-module-id="' + escapeHtml(mod.id) + '">';
+      html += '<div class="sk-module-head" role="button" tabindex="0" aria-expanded="' + (mi === 0 ? "true" : "false") + '">';
+      html += '<h3 class="sk-module-title">' + escapeHtml(mod.title) + "</h3>";
+      html += '<p class="sk-module-desc">' + escapeHtml(mod.description || "") + "</p>";
+      html += '<p class="sk-module-meta">已完成 0 / ' + (mod.lessons || []).length + " 节</p>";
+      html += "</div>";
+      html += '<div class="sk-module-body"' + openFirst + ">";
+      (mod.lessons || []).forEach(function (les) {
+        var isDone = done.indexOf(les.id) >= 0;
+        html += '<details class="sk-lesson' + (isDone ? " is-done" : "") + '" data-lesson-id="' + escapeHtml(les.id) + '">';
+        html += "<summary><span class=\"sk-lesson-title\">" + escapeHtml(les.title) + "</span>";
+        html += '<span class="sk-lesson-summary">' + escapeHtml(les.summary || "") + "</span></summary>";
+        html += '<div class="sk-lesson-body">';
+        if (les.body) html += "<p>" + escapeHtml(les.body) + "</p>";
+        if (les.key_terms && les.key_terms.length) {
+          html += '<ul class="sk-term-list">';
+          les.key_terms.forEach(function (term) {
+            html += "<li>" + escapeHtml(term) + "</li>";
+          });
+          html += "</ul>";
+        }
+        if (les.practice) {
+          html += '<div class="sk-practice"><strong>练手：</strong>' + escapeHtml(les.practice) + "</div>";
+        }
+        if (les.quiz && les.quiz.length) {
+          html += '<div class="sk-quiz">';
+          les.quiz.forEach(function (q, qi) {
+            html += '<details class="sk-quiz-item"><summary>自测 ' + (qi + 1) + "：" + escapeHtml(q.question) + "</summary>";
+            html += '<div class="sk-quiz-ans">' + escapeHtml(q.answer) + "</div></details>";
+          });
+          html += "</div>";
+        }
+        html += '<label class="sk-done-row"><input type="checkbox" data-sk-done="' + escapeHtml(les.id) + '"' + (isDone ? " checked" : "") + " />已读完</label>";
+        html += "</div></details>";
+      });
+      html += "</div></div>";
+    });
+    box.innerHTML = html;
+    box.querySelectorAll(".sk-module-head").forEach(function (head) {
+      head.addEventListener("click", function () {
+        var bodyEl = head.nextElementSibling;
+        if (!bodyEl) return;
+        var open = bodyEl.hasAttribute("hidden");
+        bodyEl.toggleAttribute("hidden", !open);
+        head.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      head.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          head.click();
+        }
+      });
+    });
+    box.querySelectorAll("input[data-sk-done]").forEach(function (chk) {
+      chk.addEventListener("change", function () {
+        skToggleDone(chk.getAttribute("data-sk-done"), chk.checked);
+      });
+    });
+    updateStockKnowledgeProgress();
+  }
+
+  async function loadStockKnowledge(opts) {
+    opts = opts || {};
+    var btn = $("btnStockKnowledge");
+    var box = $("stock-knowledge-render");
+    if (btn) btn.disabled = true;
+    if (!opts.silent && box) box.innerHTML = '<p class="lead" style="font-size:0.82rem;color:var(--muted);">加载中…</p>';
+    showOut("out-6", "", false);
+    try {
+      var res = await panelFetch("/meta/stock-knowledge");
+      var body = await readBody(res);
+      if (!res.ok) {
+        if (!opts.silent) showOut("out-6", await formatError(res, body), true);
+        return;
+      }
+      renderStockKnowledge(body);
+    } catch (e) {
+      if (!opts.silent && !isRequestAborted(e)) showOut("out-6", String(e), true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  $("btnStockKnowledge").addEventListener("click", function () {
+    void loadStockKnowledge({ silent: false });
+  });
+
+  $("btnStockKnowledgeReset").addEventListener("click", function () {
+    if (!confirm("确定重置全部阅读进度？（仅清除本机浏览器记录）")) return;
+    skSaveDoneSet([]);
+    if (_skPayload) renderStockKnowledge(_skPayload);
+    else updateStockKnowledgeProgress();
+  });
+
   $("btnDisclaimer").addEventListener("click", async function () {
     var btn = $("btnDisclaimer");
     var box = $("disclaimer-render");
@@ -17630,6 +17900,25 @@
     btn.textContent = btn.dataset.defaultText || "刷新列表";
   }
 
+  /** ⑩ 持仓表「操作」列行内按钮 loading（与主按钮 btn-loading 样式一致） */
+  function setHdRowButtonLoading(btn, loading, text) {
+    if (!btn) return;
+    if (!btn.dataset.defaultText) {
+      btn.dataset.defaultText = btn.textContent || "";
+    }
+    if (loading) {
+      btn.disabled = true;
+      btn.classList.add("btn-loading");
+      btn.setAttribute("aria-busy", "true");
+      if (text) btn.textContent = text;
+      return;
+    }
+    btn.disabled = false;
+    btn.classList.remove("btn-loading");
+    btn.removeAttribute("aria-busy");
+    btn.textContent = btn.dataset.defaultText || btn.textContent;
+  }
+
   async function hdSendHoldingsNotify(rows, idList, opts) {
     opts = opts || {};
     var url = hdGetNotifyUrl();
@@ -18051,6 +18340,92 @@
     hdApplyHoldingsFilter();
   }
 
+  function hdGoPage(p) {
+    p = parseInt(p, 10);
+    if (!isFinite(p) || p < 1 || p === hdHoldingsPage) return;
+    hdHoldingsPage = p;
+    hdRestoreHoldingsTableFromCache();
+  }
+
+  function hdBuildPagerBlock(total, page, pageSize) {
+    var totalPages = Math.max(1, Math.ceil(total / pageSize));
+    page = Math.max(1, Math.min(page, totalPages));
+    var startIdx = (page - 1) * pageSize;
+    var endIdx = Math.min(startIdx + pageSize, total);
+    var pageSizeOptions = HD_PAGE_SIZE_OPTIONS.map(function (n) {
+      return (
+        '<option value="' + n + '"' + (n === pageSize ? " selected" : "") + ">" + n + "</option>"
+      );
+    }).join("");
+    var toolbar =
+      '<div class="wl-toolbar hd-toolbar">' +
+      '<div class="wl-page-hint">共 ' +
+      total +
+      " 条，显示第 " +
+      (total ? startIdx + 1 : 0) +
+      "-" +
+      endIdx +
+      " 条" +
+      (total > pageSize
+        ? "，第 " + page + "/" + totalPages + " 页"
+        : total > 0
+          ? "（未分页）"
+          : "") +
+      "</div>" +
+      '<label class="wl-page-size">每页 <select class="wl-page-size-select hd-page-size-select">' +
+      pageSizeOptions +
+      "</select> 条</label>" +
+      "</div>";
+    var pager = "";
+    if (total > pageSize) {
+      pager =
+        '<div class="wl-pager hd-pager">' +
+        '<button type="button" class="wl-page-btn hd-page-btn" data-page="1"' +
+        (page <= 1 ? " disabled" : "") +
+        ">首页</button>" +
+        '<button type="button" class="wl-page-btn hd-page-btn" data-page="' +
+        (page - 1) +
+        '"' +
+        (page <= 1 ? " disabled" : "") +
+        ">上一页</button>" +
+        '<span class="wl-page-hint">第 ' +
+        page +
+        " / " +
+        totalPages +
+        " 页</span>" +
+        '<button type="button" class="wl-page-btn hd-page-btn" data-page="' +
+        (page + 1) +
+        '"' +
+        (page >= totalPages ? " disabled" : "") +
+        ">下一页</button>" +
+        '<button type="button" class="wl-page-btn hd-page-btn" data-page="' +
+        totalPages +
+        '"' +
+        (page >= totalPages ? " disabled" : "") +
+        ">末页</button>" +
+        "</div>";
+    }
+    return toolbar + pager;
+  }
+
+  function hdBindHoldingsPagerEvents() {
+    var wrap = $("hd-table-wrap");
+    if (!wrap) return;
+    wrap.querySelectorAll(".hd-page-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (btn.disabled) return;
+        hdGoPage(btn.getAttribute("data-page"));
+      });
+    });
+    wrap.querySelectorAll(".hd-page-size-select").forEach(function (sel) {
+      sel.addEventListener("change", function () {
+        setHdPageSize(sel.value);
+        hdHoldingsPage = 1;
+        hdRestoreHoldingsTableFromCache();
+      });
+    });
+  }
+
   function hdRenderHoldingsList(body) {
     var wrap = $("hd-table-wrap");
     if (!wrap) return;
@@ -18065,7 +18440,14 @@
         wrap.innerHTML = emptyMsg;
         return;
       }
-      var rows = body
+      var total = body.length;
+      var pageSize = getHdPageSize();
+      var totalPages = Math.max(1, Math.ceil(total / pageSize));
+      if (hdHoldingsPage > totalPages) hdHoldingsPage = totalPages;
+      if (hdHoldingsPage < 1) hdHoldingsPage = 1;
+      var startIdx = (hdHoldingsPage - 1) * pageSize;
+      var pageRows = body.slice(startIdx, startIdx + pageSize);
+      var rows = pageRows
         .map(function (item) {
           var sym = item.symbol;
           var nm = item.name && String(item.name).trim() ? escHtml(String(item.name).trim()) : "—";
@@ -18319,20 +18701,24 @@
           );
         })
         .join("");
+      var pagerBlock = hdBuildPagerBlock(total, hdHoldingsPage, pageSize);
       wrap.innerHTML =
-        '<table><thead><tr><th class="hd-pick-col"><input type="checkbox" id="chkHdPickAll" title="全选当前列表" /></th><th class="hd-notify-rule-col" title="在上方工具栏设定并点「应用到勾选」；未设=不推送；任意=每次检查都推送">推送价</th><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
+        pagerBlock +
+        '<div class="wl-table-scroll"><table><thead><tr><th class="hd-pick-col"><input type="checkbox" id="chkHdPickAll" title="全选当前页" /></th><th class="hd-notify-rule-col" title="在上方工具栏设定并点「应用到勾选」；未设=不推送；任意=每次检查都推送">推送价</th><th>代码</th><th>名称</th><th>状态</th><th>股数</th><th>成本价</th><th>成本额</th><th title="持仓中：盘口现价；已平仓：卖出价 + 当前现价（两行）">当前/卖出价</th><th>参考价</th><th>市值估</th><th>盈亏</th><th>卖出价</th><th>卖出日</th><th class="hd-days-col" title="买入日算第1天（含首尾日历日）">持仓天数</th><th>买入日</th><th>备注</th><th>操作</th></tr></thead><tbody>' +
         rows +
-        "</tbody></table>";
+        "</tbody></table></div>" +
+        pagerBlock;
+      hdBindHoldingsPagerEvents();
       hdBindHoldingsPickEvents();
       hdUpdatePickAllCheckbox();
       wrap.querySelectorAll(".hd-del").forEach(function (el) {
         el.addEventListener("click", function () {
-          hdDelete(parseInt(el.getAttribute("data-id"), 10), el.getAttribute("data-status"));
+          hdDelete(parseInt(el.getAttribute("data-id"), 10), el);
         });
       });
       wrap.querySelectorAll(".hd-edit").forEach(function (el) {
         el.addEventListener("click", function () {
-          hdEdit(parseInt(el.getAttribute("data-id"), 10));
+          hdEdit(parseInt(el.getAttribute("data-id"), 10), el);
         });
       });
       wrap.querySelectorAll(".hd-exit-advice").forEach(function (el) {
@@ -18341,7 +18727,8 @@
           hdExitAdvice(
             parseInt(el.getAttribute("data-id"), 10),
             el.getAttribute("data-sym"),
-            cp && String(cp).trim() ? Number(cp) : null
+            cp && String(cp).trim() ? Number(cp) : null,
+            el
           );
         });
       });
@@ -18351,7 +18738,8 @@
           hdEntryAdvice(
             parseInt(el.getAttribute("data-id"), 10),
             el.getAttribute("data-sym"),
-            cp && String(cp).trim() ? Number(cp) : null
+            cp && String(cp).trim() ? Number(cp) : null,
+            el
           );
         });
       });
@@ -18361,13 +18749,14 @@
           hdGoalPlan(
             parseInt(el.getAttribute("data-id"), 10),
             el.getAttribute("data-sym"),
-            cp && String(cp).trim() ? Number(cp) : null
+            cp && String(cp).trim() ? Number(cp) : null,
+            el
           );
         });
       });
       wrap.querySelectorAll(".hd-goal-plan-live").forEach(function (el) {
         el.addEventListener("click", function () {
-          hdGoalPlanLive(parseInt(el.getAttribute("data-id"), 10), el.getAttribute("data-sym"));
+          hdGoalPlanLive(parseInt(el.getAttribute("data-id"), 10), el.getAttribute("data-sym"), el);
         });
       });
       wrap.querySelectorAll(".hd-close").forEach(function (el) {
@@ -18375,7 +18764,8 @@
           hdClose(
             parseInt(el.getAttribute("data-id"), 10),
             parseFloat(el.getAttribute("data-shares")),
-            parseFloat(el.getAttribute("data-cost"))
+            parseFloat(el.getAttribute("data-cost")),
+            el
           );
         });
       });
@@ -18386,13 +18776,14 @@
           hdPatchSellPrice(
             parseInt(el.getAttribute("data-id"), 10),
             isFinite(sell) ? sell : null,
-            isFinite(ref) ? ref : null
+            isFinite(ref) ? ref : null,
+            el
           );
         });
       });
       wrap.querySelectorAll(".hd-reopen").forEach(function (el) {
         el.addEventListener("click", function () {
-          hdReopen(parseInt(el.getAttribute("data-id"), 10));
+          hdReopen(parseInt(el.getAttribute("data-id"), 10), el);
         });
       });
       wrap.querySelectorAll(".hd-ed-btn").forEach(function (el) {
@@ -19103,7 +19494,7 @@
     panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
-  async function hdEntryAdvice(id, symLabel, currentPrice) {
+  async function hdEntryAdvice(id, symLabel, currentPrice, btn) {
     if (!id || !guardKey()) return;
     var panel = $("hd-advice-panel");
     if (panel) {
@@ -19114,6 +19505,7 @@
         " 可否建仓（按最新现价 + 本地 K 线 + ④ 规则）…</p>";
     }
     showOut("out-10", "", false);
+    setHdRowButtonLoading(btn, true, "判断中…");
     try {
       var ds = getIngestDataSource();
       var qParts = [];
@@ -19124,7 +19516,7 @@
       var q = qParts.length ? "?" + qParts.join("&") : "";
       var res = await fetchCancel("panel-10", "/holdings/" + id + "/entry-advice" + q, {
         headers: authHeaders(),
-        loadingMessage: "正在判断可否建仓…",
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -19138,10 +19530,12 @@
       if (panel) panel.hidden = true;
       if (isRequestAborted(e)) showOut("out-10", "建仓判断请求已取消。", true);
       else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
-  async function hdExitAdvice(id, symLabel, currentPrice) {
+  async function hdExitAdvice(id, symLabel, currentPrice, btn) {
     if (!id || !guardKey()) return;
     var panel = $("hd-advice-panel");
     if (panel) {
@@ -19152,6 +19546,7 @@
         " 的平仓建议（按当前价格 + 本地 K 线 + ④ 规则）…</p>";
     }
     showOut("out-10", "", false);
+    setHdRowButtonLoading(btn, true, "计算中…");
     try {
       var ds = getIngestDataSource();
       var qParts = [];
@@ -19162,7 +19557,7 @@
       var q = qParts.length ? "?" + qParts.join("&") : "";
       var res = await fetchCancel("panel-10", "/holdings/" + id + "/exit-advice" + q, {
         headers: authHeaders(),
-        loadingMessage: "正在计算平仓建议…",
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) {
@@ -19176,6 +19571,8 @@
       if (panel) panel.hidden = true;
       if (isRequestAborted(e)) showOut("out-10", "平仓建议请求已取消。", true);
       else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
@@ -19206,7 +19603,7 @@
     return lines.join("\n");
   }
 
-  async function hdGoalPlanLive(id, symLabel) {
+  async function hdGoalPlanLive(id, symLabel, btn) {
     if (!id || !guardKey()) return;
     var cap = hdReadGoalCapital();
     if (!cap.ok) {
@@ -19222,13 +19619,14 @@
         " 的当日测算数据…</p>";
     }
     showOut("out-10", "", false);
+    setHdRowButtonLoading(btn, true, "检查中…");
     try {
       var ds = getIngestDataSource();
       var preQ = ds ? "?data_source=" + encodeURIComponent(ds) : "";
       var preRes = await fetchCancel(
         "panel-10",
         "/holdings/" + id + "/goal-plan-live/preflight" + preQ,
-        { headers: authHeaders(), loadingMessage: "正在检查 K 线与联网现价…" }
+        { headers: authHeaders(), skipPanelLoading: true }
       );
       var preBody = await readBody(preRes);
       if (!preRes.ok) {
@@ -19244,6 +19642,7 @@
       if (preBody.warnings && preBody.warnings.length) {
         showOut("out-10", hdFormatGoalPreflightMessage(preBody), false);
       }
+      setHdRowButtonLoading(btn, true, "测算中…");
       if (panel) {
         panel.innerHTML =
           "<p class=\"lead\" style=\"margin:0\">正在当日测算 " +
@@ -19256,8 +19655,7 @@
       var res = await fetchCancel("panel-10", "/holdings/" + id + "/goal-plan-live" + postQ, {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        loadingMessage: "正在当日测算（联网现价 + 信号）…",
-        loadingSlow: true,
+        skipPanelLoading: true,
         body: JSON.stringify({
           start_capital: cap.start,
           target_capital: cap.target,
@@ -19287,10 +19685,12 @@
       if (panel) panel.hidden = true;
       if (isRequestAborted(e)) showOut("out-10", "当日测算已取消。", true);
       else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
-  async function hdGoalPlan(id, symLabel, currentPrice) {
+  async function hdGoalPlan(id, symLabel, currentPrice, btn) {
     if (!id || !guardKey()) return;
     var cap = hdReadGoalCapital();
     if (!cap.ok) {
@@ -19321,12 +19721,12 @@
       }
     }
     showOut("out-10", "", false);
+    setHdRowButtonLoading(btn, true, "测算中…");
     try {
       var res = await fetchCancel("panel-10", "/holdings/" + id + "/goal-plan", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
-        loadingMessage: "正在目标测算（信号 + 自选扫描）…",
-        loadingSlow: true,
+        skipPanelLoading: true,
         body: JSON.stringify({
           start_capital: cap.start,
           target_capital: cap.target,
@@ -19384,14 +19784,21 @@
           showOut("out-10", String(e), true);
         }
       }
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
-  async function hdDelete(id) {
+  async function hdDelete(id, btn) {
     if (!id || !guardKey()) return;
     if (!confirm("确定删除该持仓记录？")) return;
+    setHdRowButtonLoading(btn, true, "删除中…");
     try {
-      var res = await panelFetch("/holdings/" + id, { method: "DELETE", headers: authHeaders() });
+      var res = await fetchCancel("panel-10", "/holdings/" + id, {
+        method: "DELETE",
+        headers: authHeaders(),
+        skipPanelLoading: true,
+      });
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
       else {
@@ -19407,7 +19814,10 @@
         showOut("out-10", "已删除。", false);
       }
     } catch (e) {
-      showOut("out-10", String(e), true);
+      if (isRequestAborted(e)) showOut("out-10", "删除已取消。", true);
+      else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
@@ -19495,7 +19905,7 @@
     });
   }
 
-  async function hdEdit(id) {
+  async function hdEdit(id, btn) {
     if (!id || !guardKey()) return;
     var sh = prompt("持仓股数（留空不修改；须为 100 的整数倍，如 500）", "");
     var cost = prompt("成本价 元/股（留空表示不修改）", "");
@@ -19517,10 +19927,12 @@
       payload.cost_price = c;
     }
     if (!Object.keys(payload).length) return;
+    setHdRowButtonLoading(btn, true, "保存中…");
     try {
-      var res = await panelFetch("/holdings/" + id, {
+      var res = await fetchCancel("panel-10", "/holdings/" + id, {
         method: "PATCH",
         headers: authHeaders(),
+        skipPanelLoading: true,
         body: JSON.stringify(payload),
       });
       var body = await readBody(res);
@@ -19529,7 +19941,10 @@
         showOut("out-10", "已更新 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
-      showOut("out-10", String(e), true);
+      if (isRequestAborted(e)) showOut("out-10", "修改已取消。", true);
+      else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
@@ -19545,7 +19960,7 @@
     return null;
   }
 
-  async function hdPatchSellPrice(id, defaultPx, refPx) {
+  async function hdPatchSellPrice(id, defaultPx, refPx, btn) {
     if (!id || !guardKey()) return;
     var hint =
       refPx != null && isFinite(Number(refPx)) && Number(refPx) > 0
@@ -19558,10 +19973,12 @@
       showOut("out-10", "卖出价须为正数。", true);
       return;
     }
+    setHdRowButtonLoading(btn, true, "保存中…");
     try {
-      var res = await panelFetch("/holdings/" + id, {
+      var res = await fetchCancel("panel-10", "/holdings/" + id, {
         method: "PATCH",
         headers: authHeaders(),
+        skipPanelLoading: true,
         body: JSON.stringify({ sell_price: px }),
       });
       var body = await readBody(res);
@@ -19570,11 +19987,14 @@
         showOut("out-10", "已更新卖出价 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
-      showOut("out-10", String(e), true);
+      if (isRequestAborted(e)) showOut("out-10", "修改已取消。", true);
+      else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
-  async function hdClose(id, shares, cost) {
+  async function hdClose(id, shares, cost, btn) {
     if (!id || !guardKey()) return;
     var sh = shares != null && isFinite(Number(shares)) ? Number(shares) : 0;
     var cp = cost != null && isFinite(Number(cost)) ? Number(cost) : 0;
@@ -19602,10 +20022,12 @@
     var noteRaw = prompt("平仓备注（可选，回车跳过）", "");
     var payload = { sell_price: px, sell_date: sd };
     if (noteRaw != null && String(noteRaw).trim()) payload.notes = String(noteRaw).trim();
+    setHdRowButtonLoading(btn, true, "平仓中…");
     try {
-      var res = await panelFetch("/holdings/" + id + "/close", {
+      var res = await fetchCancel("panel-10", "/holdings/" + id + "/close", {
         method: "POST",
         headers: authHeaders(),
+        skipPanelLoading: true,
         body: JSON.stringify(payload),
       });
       var body = await readBody(res);
@@ -19614,17 +20036,22 @@
         showOut("out-10", "已标记平仓 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
-      showOut("out-10", String(e), true);
+      if (isRequestAborted(e)) showOut("out-10", "平仓已取消。", true);
+      else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
-  async function hdReopen(id) {
+  async function hdReopen(id, btn) {
     if (!id || !guardKey()) return;
     if (!confirm("恢复为持仓中？将清除卖出价/日期。")) return;
+    setHdRowButtonLoading(btn, true, "恢复中…");
     try {
-      var res = await panelFetch("/holdings/" + id + "/reopen", {
+      var res = await fetchCancel("panel-10", "/holdings/" + id + "/reopen", {
         method: "POST",
         headers: authHeaders(),
+        skipPanelLoading: true,
       });
       var body = await readBody(res);
       if (!res.ok) showOut("out-10", await formatError(res, body), true);
@@ -19632,7 +20059,10 @@
         showOut("out-10", "已恢复持仓 " + (body.symbol || "") + "。请点击「查询」或「刷新列表」查看。", false);
       }
     } catch (e) {
-      showOut("out-10", String(e), true);
+      if (isRequestAborted(e)) showOut("out-10", "恢复已取消。", true);
+      else showOut("out-10", String(e), true);
+    } finally {
+      setHdRowButtonLoading(btn, false);
     }
   }
 
@@ -19837,6 +20267,7 @@
   if (hdFilterEl) {
     hdResetFilterDisplay();
     hdFilterEl.addEventListener("change", function () {
+      hdHoldingsPage = 1;
       if (_hdHoldingsListCache && Array.isArray(_hdHoldingsListCache.allItems)) {
         hdApplyHoldingsFilter();
         showOut("out-10", "", false);
