@@ -3605,7 +3605,7 @@
         <div class="ingest-notes" style="margin-top:1rem;">
           <h3 class="ingest-h3">自用功能（与路线图对齐）</h3>
           <p class="lead" style="margin-top:0;font-size:0.82rem;">
-            <strong>⑦ 决策日志</strong>：周趋势结论、计划仓位、是否按计划执行。<strong>⑩ 持仓记录</strong>：成本、股数、浮动盈亏估算。<strong>扩展因子</strong>在③拉取。<strong>walk-forward 回测</strong>在③「拉取结果」表格内点「开始回测」；命令行仍可用 <code>scripts/run_forecast_validate.py</code>。
+            <strong>⑩ 持仓记录</strong>：成本、股数、浮动盈亏估算与平仓复盘。<strong>扩展因子</strong>在③拉取。<strong>walk-forward 回测</strong>在③「拉取结果」表格内点「开始回测」；命令行仍可用 <code>scripts/run_forecast_validate.py</code>。
           </p>
           <button type="button" class="secondary" id="btnSelfUseFromHome">加载自用定位摘要（GET /meta/self-use）</button>
           <pre class="out" id="out-1-selfuse" style="max-height:240px;margin-top:0.5rem" hidden></pre>
@@ -3858,7 +3858,7 @@
 
       <section id="panel-3" class="panel panel-ingest-module" data-module="3">
         <h2>③ 更新行情数据</h2>
-        <p class="lead" style="margin-bottom:0.75rem;">分两块：<strong>① 更新行情快照</strong>（刷新现价/强弱与扩展因子，并触发 ⑦ 自动前向展望；<strong>不拉 K 线</strong>，日线请在<strong>②</strong>）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）。</p>
+        <p class="lead" style="margin-bottom:0.75rem;">分两块：<strong>① 更新行情快照</strong>（刷新现价/强弱与扩展因子；<strong>不拉 K 线</strong>，日线请在<strong>②</strong>）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）。</p>
 
         <div class="m3-stack">
           <article class="m3-card m3-card-ingest">
@@ -4068,67 +4068,6 @@
           <div id="disclaimer-render"></div>
         </details>
         <pre class="out" id="out-6" hidden></pre>
-      </section>
-
-      <section id="panel-7" class="panel" data-module="7">
-        <h2>⑦ 决策日志（自用）</h2>
-        <p class="lead">记录一周趋势判断与实盘复盘（计划仓位、是否按计划）。详见仓库 <code>docs/SELF_USE_GUIDE.md</code>。非投资建议。</p>
-        <h3 class="ingest-h3" style="margin-top:0.85rem;">自动前向展望（③ 更新行情后全自动）</h3>
-        <p class="lead" style="margin:0 0 0.5rem;font-size:0.82rem;color:var(--muted);">
-          在 <strong>③ 开始更新自选行情</strong> 成功后，系统会自动校验本地 K 线、登记「未来约 <strong id="foHorizonHint">3</strong> 个交易日」方向演示；H 日行情入库后自动结算涨跌。无需手填。
-        </p>
-        <div class="btns" style="margin-bottom:0.45rem;">
-          <button type="button" class="secondary" id="btnForwardOutlookRefresh">刷新展望列表</button>
-          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-7" hidden>取消请求</button>
-        </div>
-        <div id="forwardOutlookWrap" class="ingest-result-wrap" style="margin-bottom:1rem;">
-          <p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">打开本页或点刷新加载…</p>
-        </div>
-        <div class="btns">
-          <button type="button" class="secondary" id="btnSelfUseMeta">加载自用定位摘要</button>
-        </div>
-        <pre class="out" id="out-7a" hidden></pre>
-        <h3 class="ingest-h3" style="margin-top:1rem;">新增记录（可选，手填复盘）</h3>
-        <div class="row">
-          <label for="jrTitle">标题</label>
-          <input type="text" id="jrTitle" placeholder="如：本周 600519 趋势结论" maxlength="200" />
-        </div>
-        <div class="row">
-          <label for="jrBody">正文（依据与计划）</label>
-          <textarea id="jrBody" rows="4" style="width:100%;max-width:520px;padding:0.5rem;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;"></textarea>
-        </div>
-        <div class="row">
-          <label for="jrSym">股票代码（可选）</label>
-          <input type="text" id="jrSym" placeholder="6 位" maxlength="16" style="max-width:140px;" />
-        </div>
-        <div class="row">
-          <label><input type="checkbox" id="jrAttachSig" /> 附加当前信号快照（需填代码且本地 K 线足够）</label>
-        </div>
-        <div class="row">
-          <label for="jrPlanned">计划动作（可选）</label>
-          <input type="text" id="jrPlanned" placeholder="观望 / 试错 / 减仓…" maxlength="128" style="max-width:320px;" />
-        </div>
-        <div class="row">
-          <label for="jrPos">计划仓位 %（可选）</label>
-          <input type="number" id="jrPos" placeholder="0-100" min="0" max="100" step="0.1" style="max-width:120px;" />
-        </div>
-        <div class="row">
-          <label for="jrExec">是否按计划执行（事后填）</label>
-          <select id="jrExec" style="max-width:160px;background:var(--panel);color:var(--text);border:1px solid var(--border);">
-            <option value="">未填</option>
-            <option value="true">是</option>
-            <option value="false">否</option>
-          </select>
-        </div>
-        <div class="row">
-          <label for="jrActual">实际动作（可选）</label>
-          <input type="text" id="jrActual" maxlength="256" style="max-width:360px;" />
-        </div>
-        <div class="btns">
-          <button type="button" class="primary" id="btnJournalSave">保存日志</button>
-          <button type="button" class="secondary" id="btnJournalList">列出最近 20 条</button>
-        </div>
-        <pre class="out" id="out-7" hidden></pre>
       </section>
 
       <section id="panel-10" class="panel" data-module="10">
@@ -4651,7 +4590,6 @@
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
     { id: "5", title: "⑤ 个股咨询", hint: "行情 · 新闻 · 概念 · 业务" },
     { id: "6", title: "⑥ 金融从零学起", hint: "系统课程·30+节·分阶段" },
-    { id: "7", title: "⑦ 决策日志", hint: "自用定位、周复盘记录" },
     { id: "10", title: "⑩ 持仓记录", hint: "成本 · 股数 · 盈亏估算" },
     { id: "9", title: "⑨ 量化选股", hint: "范围 · 数据源 · 运行" }
   ];
@@ -5224,7 +5162,6 @@
     "panel-4": ["signals", "pre_refresh"],
     "panel-5": [],
     "panel-6": [],
-    "panel-7": [],
     "panel-9": ["sector_screen"],
     "panel-10": [],
   };
@@ -5607,7 +5544,6 @@
       tryRestoreLastQssSectorScreenFromStorage();
       tryRestoreLastQssSingleFromStorage();
     }
-    if (id === "7") void refreshForwardOutlookPanel();
     if (id === "10") {
       hdEnterPanel10();
     }
@@ -17138,77 +17074,6 @@
     }
   });
 
-  $("btnSelfUseMeta").addEventListener("click", async function () {
-    var pre = $("out-7a");
-    pre.hidden = false;
-    pre.textContent = "加载中…";
-    try {
-      var res = await panelFetch("/meta/self-use");
-      var body = await readBody(res);
-      pre.textContent = res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body);
-    } catch (e) {
-      pre.textContent = String(e);
-    }
-  });
-
-  $("btnJournalSave").addEventListener("click", async function () {
-    if (!guardKey()) return;
-    var title = ($("jrTitle").value || "").trim();
-    var bodyTxt = ($("jrBody").value || "").trim();
-    if (!title || !bodyTxt) {
-      showOut("out-7", "请填写标题与正文。", true);
-      return;
-    }
-    var rawSym = ($("jrSym").value || "").replace(/\D/g, "");
-    var sym = rawSym.length === 6 ? rawSym : null;
-    var exec = $("jrExec").value;
-    var execBool = exec === "" ? null : exec === "true";
-    var posRaw = ($("jrPos").value || "").trim();
-    var posNum = posRaw === "" ? null : parseFloat(posRaw);
-    if (posNum != null && (!isFinite(posNum) || posNum < 0 || posNum > 100)) {
-      showOut("out-7", "计划仓位须在 0～100。", true);
-      return;
-    }
-    var btn = $("btnJournalSave");
-    btn.disabled = true;
-    showOut("out-7", "保存中…", true);
-    try {
-      var payload = {
-        title: title,
-        body: bodyTxt,
-        symbol: sym,
-        attach_current_signal: !!$("jrAttachSig").checked,
-        planned_action: ($("jrPlanned").value || "").trim() || null,
-        planned_position_pct: posNum,
-        executed_as_planned: execBool,
-        actual_action: ($("jrActual").value || "").trim() || null,
-      };
-      var res = await panelFetch("/journal", { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) });
-      var body = await readBody(res);
-      showOut("out-7", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
-    } catch (e) {
-      showOut("out-7", String(e), true);
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  $("btnJournalList").addEventListener("click", async function () {
-    if (!guardKey()) return;
-    var btn = $("btnJournalList");
-    btn.disabled = true;
-    showOut("out-7", "加载中…", true);
-    try {
-      var res = await panelFetch("/journal?limit=20", { headers: authHeaders() });
-      var body = await readBody(res);
-      showOut("out-7", res.ok ? JSON.stringify(body, null, 2) : await formatError(res, body), true);
-    } catch (e) {
-      showOut("out-7", String(e), true);
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
   var HD_LOT_SIZE = 100;
 
   function hdNormalizeShares(raw) {
@@ -20376,111 +20241,6 @@
     return d.innerHTML;
   }
 
-  function forwardOutlookStatusZh(st) {
-    if (st === "settled") return "已结算";
-    if (st === "pending") return "待验证";
-    return st || "—";
-  }
-
-  function forwardOutlookPredZh(up) {
-    if (up === true) return "偏多";
-    if (up === false) return "偏空/震荡";
-    return "—";
-  }
-
-  function renderForwardOutlookTable(rows) {
-    if (!rows || !rows.length) {
-      return '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">暂无记录。请先在 ③ 更新自选行情，成功后此处会自动出现。</p>';
-    }
-    var trs = rows
-      .map(function (r) {
-        var dq = r.data_quality_ok === true ? "通过" : r.data_quality_ok === false ? "待核对" : "—";
-        var dqCls = r.data_quality_ok === true ? "pill ok" : r.data_quality_ok === false ? "pill warn" : "";
-        var issues =
-          r.data_quality && r.data_quality.issues && r.data_quality.issues.length
-            ? ' title="' + escapeHtml(r.data_quality.issues.join("；")) + '"'
-            : "";
-        var actual =
-          r.status === "settled" && r.actual_return_pct != null
-            ? escapeHtml((r.actual_up ? "涨" : "跌/平") + " " + Number(r.actual_return_pct).toFixed(2) + "%")
-            : "—";
-        var nmFo =
-          r.stock_name != null && String(r.stock_name).trim()
-            ? escapeHtml(String(r.stock_name).trim())
-            : "—";
-        return (
-          "<tr><td>" +
-          escapeHtml(r.symbol || "") +
-          "</td><td>" +
-          nmFo +
-          "</td><td>" +
-          escapeHtml(String(r.horizon != null ? r.horizon : "—")) +
-          "</td><td>" +
-          escapeHtml(r.signal_trade_date || "—") +
-          "</td><td>" +
-          escapeHtml(r.signal_close != null ? String(r.signal_close) : "—") +
-          "</td><td>" +
-          escapeHtml(String(r.bars_count != null ? r.bars_count : "—")) +
-          '</td><td><span class="' +
-          dqCls +
-          '"' +
-          issues +
-          ">" +
-          escapeHtml(dq) +
-          "</span></td><td>" +
-          escapeHtml(forwardOutlookPredZh(r.predicted_up)) +
-          "</td><td>" +
-          escapeHtml(forwardOutlookStatusZh(r.status)) +
-          "</td><td>" +
-          actual +
-          '</td><td style="max-width:14rem;font-size:0.78rem;color:var(--muted)">' +
-          escapeHtml(r.outlook_summary_zh || "—") +
-          "</td></tr>"
-        );
-      })
-      .join("");
-    return (
-      '<div class="wl-table-scroll"><table class="ingest-table"><thead><tr>' +
-      "<th>代码</th><th>名称</th><th>H</th><th>信号日</th><th>信号收盘</th><th>K线根数</th><th>数据质量</th><th>展望</th><th>状态</th><th>实际</th><th>说明</th>" +
-      "</tr></thead><tbody>" +
-      trs +
-      "</tbody></table></div>"
-    );
-  }
-
-  async function refreshForwardOutlookPanel() {
-    var wrap = $("forwardOutlookWrap");
-    if (!wrap) return;
-    if (!guardKey()) {
-      wrap.innerHTML = '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">请先配置 API Key。</p>';
-      return;
-    }
-    wrap.innerHTML = '<p class="lead" style="margin:0;font-size:0.82rem;color:var(--muted);">加载中…</p>';
-    try {
-      var res = await panelFetch("/forward-outlook?limit=80", { headers: authHeaders() });
-      var body = await readBody(res);
-      if (!res.ok) {
-        wrap.innerHTML =
-          '<p class="lead" style="margin:0;color:var(--err)">' + escapeHtml(await formatError(res, body)) + "</p>";
-        return;
-      }
-      var list = Array.isArray(body) ? body : [];
-      var hz = list.length && list[0].horizon != null ? list[0].horizon : 3;
-      var hint = $("foHorizonHint");
-      if (hint) hint.textContent = String(hz);
-      wrap.innerHTML = renderForwardOutlookTable(list);
-    } catch (e) {
-      wrap.innerHTML = '<p class="lead" style="margin:0;color:var(--err)">' + escapeHtml(String(e)) + "</p>";
-    }
-  }
-
-  var btnFoRefresh = $("btnForwardOutlookRefresh");
-  if (btnFoRefresh) {
-    btnFoRefresh.addEventListener("click", function () {
-      void refreshForwardOutlookPanel();
-    });
-  }
-
   function wlPickUi() {
     return WL_PICK_UI[_wlPickMode] || WL_PICK_UI.ingest;
   }
@@ -22142,7 +21902,7 @@
         escapeHtml(String(fos.synced != null ? fos.synced : "—")) +
         " 只" +
         (fos.extra_settled ? "，另结算 " + escapeHtml(String(fos.extra_settled)) + " 条待验证记录" : "") +
-        "。请到 <strong>⑦ 决策日志</strong> 查看。</p>";
+        "。</p>";
     }
     $("ingest-result-wrap").innerHTML = html;
     $("ingest-result-wrap").hidden = false;
@@ -22156,7 +21916,6 @@
       stopIngestLivePoll();
     } else {
       startIngestLivePoll();
-      void refreshForwardOutlookPanel();
     }
   }
 

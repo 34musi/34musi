@@ -1708,7 +1708,7 @@ class ForwardOutlookSyncOut(BaseModel):
 
 
 class ForwardOutlookOut(BaseModel):
-    """单条自动前向展望（⑦ 展示）。"""
+    """单条自动前向展望（API 查询）。"""
 
     id: int
     symbol: str

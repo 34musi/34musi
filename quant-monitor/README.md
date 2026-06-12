@@ -46,7 +46,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- **图形控制台（推荐日常使用）**：<http://127.0.0.1:8000/ui> — 按 ①～⑦、⑩、⑨ 等模块分步操作，详见下文「图形控制台使用说明」。
+- **图形控制台（推荐日常使用）**：<http://127.0.0.1:8000/ui> — 按 ①～⑥、⑩、⑨ 等模块分步操作，详见下文「图形控制台使用说明」。
 - 交互文档：<http://127.0.0.1:8000/docs>（Swagger UI，面向开发者）
 - 服务信息（JSON）：<http://127.0.0.1:8000/>（含 `ui`、`docs` 等字段）
 - 探活：<http://127.0.0.1:8000/health>
@@ -55,7 +55,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ## 图形控制台（/ui）使用说明
 
-启动服务后，在浏览器打开 <http://127.0.0.1:8000/ui>（或部署地址下的 `/ui`）。左侧为功能模块 **①～⑦**，右侧为表单与结果区。数据为**公开日线（前复权）**，**非实时**，**不构成投资建议**。
+启动服务后，在浏览器打开 <http://127.0.0.1:8000/ui>（或部署地址下的 `/ui`）。左侧为功能模块 **①～⑥、⑩、⑨**，右侧为表单与结果区。数据为**公开日线（前复权）**，**非实时**，**不构成投资建议**。
 
 ### ① 入门必读
 
@@ -98,15 +98,11 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - 加载 `GET /meta/stock-knowledge`：**8 阶段、30+ 节**系统课程（金融本质 → 货币宏观 → 市场与公司财务 → 估值 → 组合与 A 股实务），含练手与自测；可勾选「已读完」记录本机进度。
 - 底部可加载 `GET /meta/disclaimer`（数据源说明与免责声明）。
 
-### ⑦ 决策日志（自用）
-
-- 记录周趋势、计划仓位、是否按计划执行等；可选附加当前信号快照（需该代码 K 线足够）。详见 [docs/SELF_USE_GUIDE.md](docs/SELF_USE_GUIDE.md)。
-
 ### 建议的首次使用顺序
 
 **① 填 Key（如需）→ ② 添加自选 → ③ 选好路线并「开始更新自选行情」→ ③ 用「查询本地 K 线」确认条数 → ④ 查看信号**。若某路线失败，可换 `auto` 或其它单一源并重试 **③**。
 
-与「自用决策、一周复盘」配套的**精简版**与 **⑦ 决策日志** 说明，另见 [docs/SELF_USE_GUIDE.md](docs/SELF_USE_GUIDE.md) **§5**。
+与「自用决策、一周复盘」配套的说明见 [docs/SELF_USE_GUIDE.md](docs/SELF_USE_GUIDE.md) **§5**。
 
 ## 配置（可选）
 
@@ -135,11 +131,9 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 - 图文说明：[docs/SELF_USE_GUIDE.md](docs/SELF_USE_GUIDE.md)（工具定位、风控红线模板、一周复盘节奏、实盘复盘字段）
 - 风控字段示例（请复制后改成自己的数字）：[examples/risk_policy.example.json](examples/risk_policy.example.json)
-- 接口：`GET /meta/self-use`（自用定位摘要）、`POST /journal` / `GET /journal`（决策日志，存本机 SQLite）
+- 接口：`GET /meta/self-use`（自用定位摘要）；`POST /journal` / `GET /journal`（复盘 API，存本机 SQLite，控制台无入口）
 - 冒烟（无需先起 uvicorn）：`python scripts/smoke_self_use.py`
 - 单规则历史检验示例（需已 ingest 足够日线）：`python scripts/backtest_sample_rule.py 600519`
-
-图形控制台 **[/ui](/ui)** 已增加 **「⑦ 决策日志」** 模块。
 
 ## 推荐使用流程
 
@@ -167,9 +161,9 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 6. **免责与数据源说明**  
    `GET /meta/disclaimer`
 
-7. **（推荐）自用摘要与决策日志**  
+7. **（可选）自用摘要与复盘 API**  
    `GET /meta/self-use`  
-   `POST /journal` / `GET /journal` / `GET /journal/{id}` / `DELETE /journal/{id}`
+   `POST /journal` / `GET /journal` / `GET /journal/{id}` / `DELETE /journal/{id}`（控制台无入口，供脚本或 `/docs` 调用）
 
 ## 主要 HTTP 接口一览
 
@@ -181,7 +175,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 | GET | `/meta/auth-status` | 是否要求 API Key（`api_key_required`，供控制台探测） |
 | GET | `/meta/disclaimer` | 免责与数据源说明 |
 | GET | `/meta/self-use` | 自用工具定位与风控检查摘要（无需 Key） |
-| POST / GET / DELETE | `/journal` … | 决策日志（需 Key 时同其它受保护接口） |
+| POST / GET / DELETE | `/journal` … | 复盘记录 API（控制台无入口；需 Key 时同其它受保护接口） |
 | GET | `/watchlist` | 列出自选（含 `origin`：手动 / 热门自动） |
 | POST | `/watchlist` | 添加自选（`manual`；若原为热门自动则升级为手动） |
 | DELETE | `/watchlist/{symbol}` | 删除自选 |

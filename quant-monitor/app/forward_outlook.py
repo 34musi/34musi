@@ -10,7 +10,7 @@
 3. **结算**已到期的 pending 记录：当库内已有 `signal_trade_date + H` 个交易日收盘时，
    计算实际涨跌并与预测对比，状态变为 `settled`。
 
-用户无需手填⑦决策日志；控制台 **⑦** 与 `GET /forward-outlook` 展示 pending / settled 列表。
+用户无需手填复盘；`GET /forward-outlook` 可查询 pending / settled 列表（③ 更新后自动登记）。
 
 ## 预测方法（末根投票）
 

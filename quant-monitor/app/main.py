@@ -21,7 +21,6 @@ quant_stock_selector 等）暴露为 REST 接口，并托管 **[/ui](/ui)** 图�
 | ④ 查看信号 | K 线查询、批量/单只信号 | `/signals`, `/quotes/{symbol}/bars` |
 | ⑤ 个股咨询 | 行情、新闻、概念、业务与营收 | `/research/stock-brief/{symbol}` |
 | ⑥ 金融从零学起 | 系统课程、免责说明 | `/meta/stock-knowledge`, `/meta/disclaimer` |
-| ⑦ 决策日志 | 自用复盘 journal、前向展望 | `/journal`, `/forward-outlook` |
 | ⑧ 研究 | walk-forward 预测验证 | `/research/forecast-validate` |
 | ⑨ 量化选股 | 板块选股 pipeline | `/research/sector-screen` |
 | ⑩ 持仓记录 | 持仓 CRUD、进离场与目标测算 | `/holdings/*` |
@@ -304,8 +303,8 @@ OPENAPI_DESCRIPTION = """
 4c. **（研究向）可验证的方向预测**  
    `GET /research/forecast-validate?symbol=600519`：仅用**已入库日线**做 walk-forward，含**双均线（周期可配）**、Logistic、趋势规则、多数类基线；响应中带 `pedagogy` 学习路线说明与参考阅读链接（非投资建议）。
 
-5. **（推荐）自用定位与决策日志**  
-   `GET /meta/self-use` 查看工具定位与风控检查项；`POST /journal` 记录本周结论与实盘复盘（仓位、是否按计划）。
+5. **（推荐）自用定位**  
+   `GET /meta/self-use` 查看工具定位与风控检查项。
 
 ---
 
@@ -340,10 +339,6 @@ OPENAPI_TAGS = [
     {
         "name": "⑥ 金融从零学起",
         "description": "系统金融课程（约 30+ 节、8 阶段）：金融本质、货币宏观、市场与公司财务、估值、组合理论、A 股实务；含练手与自测。底部含免责全文。",
-    },
-    {
-        "name": "⑦ 决策日志（自用）",
-        "description": "记录判断依据、计划仓位与执行一致性；辅助一周趋势复盘，非投资建议。",
     },
     {
         "name": "⑧ 研究：预测验证",
@@ -1141,7 +1136,7 @@ def meta_self_use():
             "明确单标的与总仓位上限",
             "写明停机条件（连续亏损笔数、单日回撤、信号背离周数等）",
             "固定复盘节奏（如以一周为窗口则每周固定时间更新日线并记录 3 条以内依据）",
-            "若实盘：在决策日志中记录计划仓位 % 与是否按计划执行，便于复盘",
+            "若实盘：在持仓记录中标注计划仓位 % 与是否按计划执行，便于复盘",
         ],
         related_doc_files=["docs/SELF_USE_GUIDE.md"],
         journal_api="/journal",
@@ -4443,13 +4438,16 @@ def _journal_row_to_out(row: DecisionJournalRow) -> JournalOut:
     )
 
 
-# --- ⑦ 决策日志 / 前向展望 ---
+_JOURNAL_API_TAG = "API · 复盘记录"
+
+
+# --- 复盘 API（journal / 前向展望，无控制台入口） ---
 
 
 @app.post(
     "/journal",
     response_model=JournalOut,
-    tags=["⑦ 决策日志（自用）"],
+    tags=[_JOURNAL_API_TAG],
     summary="新增一条决策/复盘记录",
     description="""
 记录本周趋势判断、依据与（若实盘）计划仓位、事后是否按计划执行。
@@ -4496,7 +4494,7 @@ def journal_create(body: JournalIn, request: Request, _: None = Depends(optional
 @app.get(
     "/journal",
     response_model=list[JournalOut],
-    tags=["⑦ 决策日志（自用）"],
+    tags=[_JOURNAL_API_TAG],
     summary="列出决策日志（新在前）",
     description="可选 `symbol` 过滤；`limit` 默认 30，最大 100。",
 )
@@ -4524,7 +4522,7 @@ def journal_list(
 @app.get(
     "/journal/{entry_id}",
     response_model=JournalOut,
-    tags=["⑦ 决策日志（自用）"],
+    tags=[_JOURNAL_API_TAG],
     summary="按 id 取单条日志",
 )
 @limiter.limit(get_settings().rate_limit_default)
@@ -4538,7 +4536,7 @@ def journal_one(entry_id: int, request: Request, _: None = Depends(optional_api_
 
 @app.delete(
     "/journal/{entry_id}",
-    tags=["⑦ 决策日志（自用）"],
+    tags=[_JOURNAL_API_TAG],
     summary="删除一条日志",
 )
 @limiter.limit("30/minute")
@@ -4554,8 +4552,8 @@ def journal_delete(entry_id: int, request: Request, _: None = Depends(optional_a
 @app.get(
     "/forward-outlook",
     response_model=list[ForwardOutlookOut],
-    tags=["⑦ 决策日志（自用）"],
-    summary="自动前向展望列表（③ 同步，⑦ 展示）",
+    tags=[_JOURNAL_API_TAG],
+    summary="自动前向展望列表（③ 更新后自动登记）",
     description="""
 ③ `POST /ingest/update` 成功后会对成功拉取的标的**自动**登记：
 
@@ -4563,7 +4561,7 @@ def journal_delete(entry_id: int, request: Request, _: None = Depends(optional_a
 - **pending**：基于末根 K 线的 H 日方向演示预测（默认 H=3）；
 - **settled**：库内已有 signal 日 + H 个交易日收盘后自动结算实际涨跌。
 
-无需手填⑦；打开本接口或控制台⑦区块即可查看。
+可通过本接口查询 pending / settled 列表（控制台无独立展示页）。
 """,
 )
 @limiter.limit(get_settings().rate_limit_default)
@@ -4601,7 +4599,7 @@ def forward_outlook_list(
 @app.post(
     "/forward-outlook/sync",
     response_model=ForwardOutlookSyncOut,
-    tags=["⑦ 决策日志（自用）"],
+    tags=[_JOURNAL_API_TAG],
     summary="手动触发前向展望同步（一般不必，③ 已自动）",
 )
 @limiter.limit("20/minute")
