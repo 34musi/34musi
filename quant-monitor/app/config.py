@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     # POST /watchlist 添加自选后自动拉取日线的大致日历天数（约近 N 日，非精确交易日）
     watchlist_auto_ingest_days: int = 30
 
+    # --- AI 潜力测算（⑦ OpenAI 兼容接口） ---
+    ai_api_key: str = ""
+    ai_api_base: str = "https://api.openai.com/v1"
+    ai_model: str = "gpt-4o-mini"
+    ai_timeout_sec: float = 90.0
+    ai_json_mode: bool = True
+
     # --- 合规与展示文案 ---
     # AkShare 聚合公开页，非交易所实时推送，可能有延迟或缺数
     data_source_note: str = "AkShare 聚合公开数据源，非交易所实时行情，可能存在延时与缺失。"

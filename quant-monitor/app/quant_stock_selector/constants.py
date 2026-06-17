@@ -13,6 +13,7 @@ PRICE_COLUMN_ALIASES = {
     "datetime": "date",
     "日期": "date",
     "交易日期": "date",
+    "trade_date": "date",
     "open": "open",
     "开盘": "open",
     "high": "high",

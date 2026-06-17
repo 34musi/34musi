@@ -856,7 +856,22 @@
       transition: transform 0.15s ease;
     }
     .brief-card-d[open] > summary::before { transform: rotate(90deg); }
-    .brief-card-summary-meta { font-size: 0.76rem; font-weight: 500; color: var(--muted); margin-left: auto; }
+    .brief-card-summary-meta { font-size: 0.76rem; font-weight: 500; color: var(--muted); }
+    .brief-card-summary-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.55rem;
+    }
+    .brief-card-refresh-btn {
+      font-size: 0.76rem;
+      padding: 0.12rem 0.45rem;
+      line-height: 1.35;
+    }
+    .brief-card-refresh-btn.btn-loading {
+      min-width: 4.5rem;
+    }
     .brief-card-summary-chg {
       font-variant-numeric: tabular-nums;
       padding: 0.12rem 0.45rem;
@@ -898,6 +913,21 @@
       border: 1px solid var(--border);
     }
     .brief-move-explain { margin: 0; font-size: 0.84rem; line-height: 1.5; color: var(--text, inherit); opacity: 0.92; }
+    .brief-move-explain-list {
+      margin: 0.15rem 0 0;
+      padding-left: 1.15rem;
+      font-size: 0.84rem;
+      line-height: 1.55;
+      color: var(--text, inherit);
+      opacity: 0.95;
+    }
+    .brief-move-explain-list li { margin: 0.35rem 0; }
+    .brief-move-explain-list li:first-child { margin-top: 0; }
+    .brief-move-explain-list li:last-child {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
     .brief-move-compare {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1006,6 +1036,7 @@
     }
     .m3-card-ingest { border-left: 3px solid var(--accent); }
     .m3-card-backtest { border-left: 3px solid #c9b87c; }
+    .m3-card-score-validate { border-left: 3px solid #9b7fd4; }
     .m3-card-fundamentals { border-left: 3px solid var(--ok); }
     .m3-card-head {
       display: flex;
@@ -1028,6 +1059,7 @@
     }
     .m3-card-ingest .m3-card-num { background: rgba(61, 139, 253, 0.22); color: #9ec5ff; }
     .m3-card-backtest .m3-card-num { background: rgba(201, 184, 124, 0.18); color: #d4c48a; }
+    .m3-card-score-validate .m3-card-num { background: rgba(155, 127, 212, 0.2); color: #c4b0f0; }
     .m3-card-fundamentals .m3-card-num { background: rgba(62, 207, 142, 0.18); color: #7ee5b0; }
     .m3-card-title { margin: 0; font-size: 0.96rem; font-weight: 600; color: var(--text); }
     .m3-card-desc {
@@ -1629,7 +1661,47 @@
       color: var(--muted);
     }
     /* ⑨ 量化选股：分区层次、二选一卡片、折叠说明 */
-    #panel-9 .qss-flow-details {
+    #panel-7 .ai-config-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1rem;
+      align-items: flex-end;
+      margin-bottom: 0.25rem;
+    }
+    #panel-7 .ai-config-box label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    #panel-7 .ai-config-box input[type="text"],
+    #panel-7 .ai-config-box input[type="password"],
+    #panel-7 .ai-config-box input[type="number"] {
+      font-size: 0.85rem;
+    }
+    #panel-7 .ai-question-box {
+      margin-top: 0.65rem;
+    }
+    #panel-7 .ai-question-box label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    #panel-7 .ai-question-box textarea {
+      width: 100%;
+      max-width: 640px;
+      min-height: 4.5rem;
+      resize: vertical;
+      font-size: 0.85rem;
+      padding: 0.5rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: inherit;
+      box-sizing: border-box;
+    }
       margin: 0 0 0.85rem;
       max-width: 52rem;
       font-size: 0.8rem;
@@ -3858,7 +3930,7 @@
 
       <section id="panel-3" class="panel panel-ingest-module" data-module="3">
         <h2>③ 更新行情数据</h2>
-        <p class="lead" style="margin-bottom:0.75rem;">分两块：<strong>① 更新行情快照</strong>（刷新现价/强弱与扩展因子；<strong>不拉 K 线</strong>，日线请在<strong>②</strong>）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）。</p>
+        <p class="lead" style="margin-bottom:0.75rem;">分三块：<strong>① 更新行情快照</strong>（刷新现价/强弱与扩展因子；<strong>不拉 K 线</strong>，日线请在<strong>②</strong>）→ <strong>② 行内回测</strong>（在拉取结果里点「开始回测」）→ <strong>③ 打分分档验证</strong>（用已结算前向展望检验本地打分）。</p>
 
         <div class="m3-stack">
           <article class="m3-card m3-card-ingest">
@@ -3989,6 +4061,44 @@
               </div>
             </div>
           </article>
+
+          <article class="m3-card m3-card-score-validate">
+            <header class="m3-card-head">
+              <span class="m3-card-num" aria-hidden="true">3</span>
+              <div>
+                <h3 class="m3-card-title">本地打分 vs 前向展望（H 日收益分档）</h3>
+                <p class="m3-card-desc">读取库内<strong>已结算</strong>的 <code>forward_outlook</code> 记录，在信号日因果复算短线分 / 综合分 / ④ 技术分，按分档统计实际 H 日涨跌。<strong>需先</strong>在 ② 拉日线、③ 更新后等待展望到期自动结算（或隔几日再点）。</p>
+              </div>
+            </header>
+            <div class="m3-card-body">
+              <div class="row ingest-fv-oos-grid" style="grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:0.65rem">
+                <div>
+                  <label for="sbvSymbol">单只代码（可选）</label>
+                  <input type="text" id="sbvSymbol" placeholder="留空=全部" maxlength="16" />
+                </div>
+                <div>
+                  <label for="sbvHorizon">展望 H 日（可选）</label>
+                  <input type="number" id="sbvHorizon" min="1" max="60" placeholder="默认全部" />
+                </div>
+                <div>
+                  <label for="sbvMinTurnover">20 日均成交额下限（元）</label>
+                  <input type="number" id="sbvMinTurnover" min="0" step="1000000" value="0" />
+                </div>
+              </div>
+              <div class="row" style="margin-top:0.35rem">
+                <label class="fv-live-bars-label">
+                  <input type="checkbox" id="chkSbvRequirePass" />
+                  <span>仅统计<strong>短线初筛通过</strong>（<code>short_term_passed</code>，交易向硬门槛）</span>
+                </label>
+              </div>
+              <p class="m3-hint">板块热度在复算时默认中性 50（历史板块热度未入库）。样本少于 5 条时结论仅供参考，<strong>不构成投资建议</strong>。</p>
+              <div class="m3-card-actions btns">
+                <button type="button" class="primary" id="btnScoreBucketValidate">运行分档统计</button>
+                <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-3">取消请求</button>
+              </div>
+              <div id="score-bucket-validate-wrap" class="ingest-result-wrap" hidden style="margin-top:0.75rem"></div>
+            </div>
+          </article>
         </div>
       </section>
       <section id="panel-4" class="panel" data-module="4">
@@ -4029,7 +4139,7 @@
 
       <section id="panel-5" class="panel" data-module="5">
         <h2>⑤ 个股咨询</h2>
-        <p class="lead">输入 6 位 A 股代码，联网查询<strong>公司行情</strong>、<strong>新闻面</strong>、<strong>相关概念</strong>、<strong>公司业务</strong>与<strong>营收能力</strong>（东财 / AkShare 公开数据）。非投资建议；接口有频率限制。</p>
+        <p class="lead">输入 6 位 A 股代码，联网查询<strong>公司行情</strong>、<strong>新闻面</strong>、<strong>相关概念</strong>、<strong>公司业务</strong>与<strong>营收能力</strong>（东财 / AkShare 公开数据）。<strong>行情为公开接口快照，非交易所 Level-1 实时推送</strong>；换手率需东财全市场或盘口接口，部分回退源（如 mootdx）不含该字段。非投资建议；接口有频率限制。</p>
         <div class="row" style="margin-top:0.75rem;">
           <label for="briefSym">股票代码</label>
           <input type="text" id="briefSym" placeholder="6 位，如 600519" maxlength="16" style="max-width:160px;" />
@@ -4039,7 +4149,7 @@
           <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-5" hidden>取消请求</button>
         </div>
         <p class="cancel-hint" data-cancel-hint="panel-5" hidden>可中断⑤联网查询。</p>
-        <p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted);">查询结果保存在本机浏览器，刷新后仍可见；同一代码再次查询会更新对应条目。点击标题可展开/收起。</p>
+        <p class="lead" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted);">查询结果保存在本机浏览器，刷新后仍可见；列表中每条可点「查询新数据」单独刷新，无需再输入代码。</p>
         <div id="brief-render" style="margin-top:1rem;"></div>
         <pre class="out" id="out-5" hidden></pre>
       </section>
@@ -4068,6 +4178,64 @@
           <div id="disclaimer-render"></div>
         </details>
         <pre class="out" id="out-6" hidden></pre>
+      </section>
+
+      <section id="panel-7" class="panel" data-module="7">
+        <h2>⑦ AI算法 · 潜力测算</h2>
+        <p class="lead">
+          读取你在<strong>②③④</strong>已测算好的<strong>本地数据</strong>（自选、K 线、信号、前向展望与本地打分），汇总后交给大模型做「潜力」<strong>Demo 解读</strong>。
+          在下方填写 <strong>OpenAI 兼容</strong>接口配置（仅存本机浏览器）；也可在服务端 <code>.env</code> 配置。可先点「预览②③④数据」核对上下文。<strong>非投资建议</strong>；单次最多 8 只。
+        </p>
+        <h3 class="ingest-h3" style="margin-top:0.65rem;">AI 接口配置</h3>
+        <div class="hd-goal-box ai-config-box">
+          <label for="aiApiKey">API Key
+            <input type="password" id="aiApiKey" autocomplete="off" placeholder="sk-…（OpenAI 兼容）" style="min-width:280px;" />
+          </label>
+          <label for="aiApiBase">API 地址
+            <input type="text" id="aiApiBase" placeholder="https://api.openai.com/v1" style="min-width:280px;" />
+          </label>
+          <label for="aiModel">模型
+            <input type="text" id="aiModel" placeholder="gpt-4o-mini" style="min-width:200px;" />
+          </label>
+          <label for="aiTimeout">超时（秒）
+            <input type="number" id="aiTimeout" min="5" max="300" value="90" style="max-width:90px;" />
+          </label>
+          <label class="hot-checkbox-main" style="margin:0;align-self:end;">
+            <input type="checkbox" id="aiJsonMode" checked /> JSON 结构化输出
+          </label>
+          <button type="button" class="secondary" id="btnAiSaveConfig">保存到本机浏览器</button>
+        </div>
+        <p class="lead" id="aiConfigHint" style="margin:0.35rem 0 0;font-size:0.78rem;color:var(--muted);">密钥仅存于本机 localStorage，不会写入服务端数据库。</p>
+        <div class="row" style="margin-top:0.75rem;">
+          <label for="aiSym">股票代码</label>
+          <input type="text" id="aiSym" placeholder="6 位，如 600519" maxlength="16" style="max-width:160px;" />
+        </div>
+        <div class="row">
+          <label for="aiHorizon">关注跨度（交易日）</label>
+          <input type="number" id="aiHorizon" min="1" max="60" value="5" style="max-width:100px;" />
+        </div>
+        <div class="row">
+          <label for="aiNote">补充说明（可选）</label>
+          <input type="text" id="aiNote" placeholder="如：偏短线、可接受波动" style="max-width:420px;" />
+        </div>
+        <div class="row" style="align-items:center;">
+          <label class="hot-checkbox-main" style="margin:0;">
+            <input type="checkbox" id="aiUseWatchlist" /> 包含自选池全部（与上方代码合并，去重）
+          </label>
+        </div>
+        <div class="ai-question-box">
+          <label for="aiQuestion">向 AI 提问</label>
+          <textarea id="aiQuestion" rows="3" maxlength="1000" placeholder="例如：未来 5 日更适合短线博弈还是观望？与同类相比潜力如何？"></textarea>
+          <p class="lead" style="margin:0.35rem 0 0;font-size:0.75rem;color:var(--muted);">将结合上方②③④汇总数据作答；留空则仅做默认潜力解读。</p>
+        </div>
+        <div class="btns">
+          <button type="button" class="secondary" id="btnAiPreview">预览②③④数据</button>
+          <button type="button" class="primary" id="btnAiPotential">AI 测算潜力</button>
+          <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-7" hidden>取消请求</button>
+        </div>
+        <p class="cancel-hint" data-cancel-hint="panel-7" hidden>可中断⑦ AI 请求。</p>
+        <div id="ai-potential-render" class="ingest-result-wrap" style="margin-top:1rem;"></div>
+        <pre class="out" id="out-7" hidden></pre>
       </section>
 
       <section id="panel-10" class="panel" data-module="10">
@@ -4483,6 +4651,8 @@
   <script>
 (function () {
   var LS_KEY = "quant_monitor_api_key";
+  var LS_AI_CONFIG = "quant_monitor_ai_config";
+  var LS_AI_FORM = "quant_monitor_ai_form";
   var LS_DS = "quant_monitor_ingest_data_source";
   var LS_INGEST_FUNDAMENTALS = "quant_monitor_ingest_include_fundamentals";
   var LS_INGEST_REUSE_WL_SPOT = "quant_monitor_ingest_reuse_wl_spot";
@@ -4590,6 +4760,7 @@
     { id: "4", title: "④ 查看信号", hint: "自选或单只" },
     { id: "5", title: "⑤ 个股咨询", hint: "行情 · 新闻 · 概念 · 业务" },
     { id: "6", title: "⑥ 金融从零学起", hint: "系统课程·30+节·分阶段" },
+    { id: "7", title: "⑦ AI算法", hint: "汇总②③④ · AI潜力测算" },
     { id: "10", title: "⑩ 持仓记录", hint: "成本 · 股数 · 盈亏估算" },
     { id: "9", title: "⑨ 量化选股", hint: "范围 · 数据源 · 运行" }
   ];
@@ -5162,6 +5333,7 @@
     "panel-4": ["signals", "pre_refresh"],
     "panel-5": [],
     "panel-6": [],
+    "panel-7": [],
     "panel-9": ["sector_screen"],
     "panel-10": [],
   };
@@ -5540,6 +5712,9 @@
       if (!_skPayload) void loadStockKnowledge({ silent: true });
       else updateStockKnowledgeProgress();
     }
+    if (id === "7") {
+      void syncAiConfigUi();
+    }
     if (id === "9") {
       tryRestoreLastQssSectorScreenFromStorage();
       tryRestoreLastQssSingleFromStorage();
@@ -5570,7 +5745,7 @@
       var data = await readBody(res);
       window.__apiKeyRequired = !!(data && data.api_key_required);
       if (window.__apiKeyRequired) {
-        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑩、⑨。<span class="status-pill warn">需密钥</span>';
+        banner.innerHTML = '当前服务器<strong>要求</strong>填写 API Key，请在下方保存后再使用 ②～⑩、⑦、⑨。<span class="status-pill warn">需密钥</span>';
       } else {
         banner.innerHTML = '当前服务器<strong>未启用</strong> API Key，可直接使用各模块（仍可在下方保存备用）。<span class="status-pill ok">无需密钥</span>';
       }
@@ -16095,10 +16270,180 @@
     showOut("out-3", "请在下方表格对应行点击「开始回测」（使用当前 ② 的策略与样本外设置）。", true);
   }
 
+  function scoreBucketPct(v) {
+    if (v == null || !isFinite(Number(v))) return "—";
+    var n = Number(v);
+    return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
+  }
+
+  function scoreBucketFieldTableHtml(field) {
+    if (!field || typeof field !== "object") return "";
+    var buckets = Array.isArray(field.buckets) ? field.buckets : [];
+    var rows = buckets
+      .filter(function (b) {
+        return b && b.count > 0;
+      })
+      .map(function (b) {
+        return (
+          "<tr><td>" +
+          escapeHtml(String(b.bucket)) +
+          "</td><td>" +
+          escapeHtml(String(b.count)) +
+          "</td><td>" +
+          escapeHtml(scoreBucketPct(b.mean_return_pct)) +
+          "</td><td>" +
+          escapeHtml(scoreBucketPct(b.median_return_pct)) +
+          "</td><td>" +
+          escapeHtml(b.win_rate_pct != null ? String(b.win_rate_pct) + "%" : "—") +
+          "</td></tr>"
+        );
+      })
+      .join("");
+    if (!rows) rows = '<tr><td colspan="5" style="color:var(--muted)">无样本</td></tr>';
+    var sp =
+      field.spearman_vs_return != null && isFinite(Number(field.spearman_vs_return))
+        ? Number(field.spearman_vs_return).toFixed(4)
+        : "—";
+    var po = field.passed_only_summary || {};
+    var poLine =
+      field.passed_only_count > 0
+        ? "初筛通过 n=" +
+          field.passed_only_count +
+          " · mean=" +
+          scoreBucketPct(po.mean_return_pct) +
+          " · 胜率=" +
+          (po.win_rate_pct != null ? po.win_rate_pct + "%" : "—")
+        : "初筛通过子样本：无";
+    return (
+      '<div class="forecast-card" style="margin-top:0.65rem">' +
+      "<h4 style=\"margin:0 0 0.35rem;font-size:0.88rem\">" +
+      escapeHtml(String(field.description || field.field || "")) +
+      "</h4>" +
+      '<p class="lead" style="margin:0 0 0.45rem;font-size:0.76rem;color:var(--muted)">Spearman(分, H日收益%)=' +
+      escapeHtml(sp) +
+      " · " +
+      escapeHtml(poLine) +
+      "</p>" +
+      '<div class="ingest-table-scroll"><table class="ingest-table" style="font-size:0.78rem"><thead><tr>' +
+      "<th>分档</th><th>n</th><th>均值</th><th>中位</th><th>胜率</th>" +
+      "</tr></thead><tbody>" +
+      rows +
+      "</tbody></table></div></div>"
+    );
+  }
+
+  function scoreBucketValidateResultHtml(body) {
+    if (!body || typeof body !== "object") return null;
+    var fields = Array.isArray(body.fields) ? body.fields : [];
+    var head =
+      '<p class="lead" style="margin:0 0 0.65rem">已结算 <strong>' +
+      escapeHtml(String(body.n_settled_rows != null ? body.n_settled_rows : 0)) +
+      "</strong> 条 · 有效样本 <strong>" +
+      escapeHtml(String(body.n_samples != null ? body.n_samples : 0)) +
+      "</strong> · 跳过 " +
+      escapeHtml(String(body.n_skipped != null ? body.n_skipped : 0)) +
+      (body.horizon_filter != null ? " · H=" + escapeHtml(String(body.horizon_filter)) : "") +
+      "</p>";
+    if (body.n_samples != null && body.n_samples < 5) {
+      head +=
+        '<p class="lead" style="margin:0 0 0.65rem;color:var(--warn,#c9b87c)">样本过少，分档结论仅供参考。</p>';
+    }
+    var tc = body.trade_score_contrast || {};
+    var hi = tc.high_gte_80 || {};
+    var lo = tc.low_lt_60 || {};
+    var contrast = "";
+    if ((hi.count || 0) > 0 || (lo.count || 0) > 0) {
+      contrast =
+        '<div class="forecast-card" style="margin-top:0.5rem"><h4 style="margin:0 0 0.35rem;font-size:0.88rem">v2_trade 高低分对比</h4><p class="lead" style="margin:0;font-size:0.78rem">≥80：n=' +
+        escapeHtml(String(hi.count || 0)) +
+        " mean=" +
+        escapeHtml(scoreBucketPct(hi.mean_return_pct)) +
+        " · &lt;60：n=" +
+        escapeHtml(String(lo.count || 0)) +
+        " mean=" +
+        escapeHtml(scoreBucketPct(lo.mean_return_pct)) +
+        "</p></div>";
+    }
+    var tables = fields.map(scoreBucketFieldTableHtml).join("");
+    var foot =
+      '<p class="lead" style="margin:0.75rem 0 0;font-size:0.76rem;color:var(--muted)">' +
+      escapeHtml(String(body.how_to_read || "")) +
+      "</p><p class=\"lead\" style=\"margin:0.35rem 0 0;font-size:0.74rem;color:var(--muted)\">" +
+      escapeHtml(String(body.disclaimer || "")) +
+      '</p><details class="ingest-raw" style="margin-top:0.65rem"><summary>查看原始 JSON</summary><pre class="out" style="margin-top:0.5rem;max-height:280px">' +
+      escapeHtml(JSON.stringify(body, null, 2)) +
+      "</pre></details>";
+    return head + contrast + tables + foot;
+  }
+
+  async function runScoreBucketValidate() {
+    if (!guardKey()) return;
+    var wrap = $("score-bucket-validate-wrap");
+    if (!wrap) return;
+    var symRaw = ($("sbvSymbol") && $("sbvSymbol").value || "").replace(/\D/g, "");
+    if (symRaw && symRaw.length !== 6) {
+      showOut("out-3", "单只代码须为 6 位数字，或留空统计全部。", true);
+      return;
+    }
+    var hzEl = $("sbvHorizon");
+    var hzVal = hzEl && hzEl.value.trim() ? parseInt(hzEl.value, 10) : null;
+    if (hzVal != null && (!isFinite(hzVal) || hzVal < 1)) hzVal = null;
+    var minTurn = $("sbvMinTurnover") ? Number($("sbvMinTurnover").value) : 0;
+    if (!isFinite(minTurn) || minTurn < 0) minTurn = 0;
+    var requirePass = $("chkSbvRequirePass") && $("chkSbvRequirePass").checked;
+    wrap.hidden = false;
+    wrap.innerHTML = '<p class="lead" style="margin:0">正在统计已结算前向展望与本地打分分档…</p>';
+  beginPanelServerTask("panel-3");
+    try {
+      var qs = "sector_hot_score=50&settle_pending=true";
+      if (symRaw) qs += "&symbol=" + encodeURIComponent(symRaw);
+      if (hzVal != null) qs += "&horizon=" + encodeURIComponent(String(hzVal));
+      if (minTurn > 0) qs += "&min_turnover_amt=" + encodeURIComponent(String(minTurn));
+      if (requirePass) qs += "&require_screen_pass=true";
+      var res = await fetchCancel("panel-3", "/research/score-bucket-validate?" + qs, {
+        headers: authHeaders(),
+      });
+      var body = await readBody(res);
+      if (res.ok) {
+        var html = scoreBucketValidateResultHtml(body);
+        wrap.innerHTML = html || '<p class="lead" style="color:var(--err)">返回格式异常。</p>';
+        showOut(
+          "out-3",
+          "分档统计完成：有效样本 " + (body && body.n_samples != null ? body.n_samples : 0) + " 条。",
+          false
+        );
+      } else {
+        wrap.innerHTML =
+          '<pre class="out" style="margin:0;border:none;white-space:pre-wrap">' +
+          escapeHtml(await formatError(res, body)) +
+          "</pre>";
+        showOut("out-3", "分档统计失败。", true);
+      }
+    } catch (e) {
+      var msg = isRequestAborted(e) ? "分档统计已取消。" : String(e);
+      wrap.innerHTML = '<pre class="out" style="margin:0;border:none">' + escapeHtml(msg) + "</pre>";
+      showOut("out-3", msg, true);
+    } finally {
+      endPanelServerTask("panel-3");
+    }
+    try {
+      wrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } catch (eSc) {
+      wrap.scrollIntoView();
+    }
+  }
+
   var btnScrollIngest = $("btnScrollToIngestResults");
   if (btnScrollIngest) {
     btnScrollIngest.addEventListener("click", function () {
       scrollToIngestResults();
+    });
+  }
+
+  var btnSbv = $("btnScoreBucketValidate");
+  if (btnSbv) {
+    btnSbv.addEventListener("click", function () {
+      runScoreBucketValidate();
     });
   }
 
@@ -16366,6 +16711,29 @@
     return html;
   }
 
+  function briefQuoteSourceLabel(src) {
+    var m = {
+      eastmoney_bid_ask: "东财盘口（快照）",
+      eastmoney_spot: "东财全 A 列表",
+      mootdx_snapshot: "通达信协议快照",
+      sina_daily: "新浪日线",
+      tencent_daily: "腾讯日线",
+      local_kline: "本地 K 线",
+    };
+    return m[src] || src || "—";
+  }
+
+  function fmtBriefIsoLocal(iso) {
+    if (!iso) return "";
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      return d.toLocaleString();
+    } catch (e) {
+      return String(iso);
+    }
+  }
+
   function renderStockBriefQuoteHtml(q) {
     q = q || {};
     var dirCls = briefChgClass(q.change_pct);
@@ -16379,8 +16747,17 @@
     html += briefKvItem("昨收", fmtBriefNum(q.prev_close));
     html += briefKvItem("换手率", fmtBriefPct(q.turnover_rate_pct));
     html += briefKvItem("行情日期", escapeHtml(q.last_trade_date || "—"));
-    if (q.quote_source) html += briefKvItem("来源", escapeHtml(q.quote_source));
-    html += "</div></div>";
+    if (q.quote_source) {
+      html += briefKvItem("来源", escapeHtml(briefQuoteSourceLabel(q.quote_source)));
+    }
+    if (q.quote_fetched_at) {
+      html += briefKvItem("拉取时刻", escapeHtml(fmtBriefIsoLocal(q.quote_fetched_at)));
+    }
+    html += "</div>";
+    if (q.quote_source === "mootdx_snapshot" || q.quote_source === "local_kline") {
+      html += '<p class="brief-section-lead" style="margin:0.35rem 0 0;font-size:0.75rem;color:var(--muted);">当前现价来自回退数据源，延迟可能高于东财盘口；换手率需东财接口成功才会显示。</p>';
+    }
+    html += "</div>";
     return html;
   }
 
@@ -16466,7 +16843,13 @@
     html += '<span class="brief-move-verdict">' + escapeHtml(attrTitle) + " · " + escapeHtml(attr.primary_label || "暂无法判断") + "</span>";
     if (attr.confidence) html += '<span class="brief-move-conf">' + escapeHtml(confMap[attr.confidence] || attr.confidence) + "</span>";
     html += "</div>";
-    if (attr.explanation) html += '<p class="brief-move-explain">' + escapeHtml(attr.explanation) + "</p>";
+    if (attr.explanation_points && attr.explanation_points.length) {
+      html += '<ul class="brief-move-explain-list">';
+      attr.explanation_points.forEach(function (pt) {
+        html += "<li>" + escapeHtml(pt) + "</li>";
+      });
+      html += "</ul>";
+    } else if (attr.explanation) html += '<p class="brief-move-explain">' + escapeHtml(attr.explanation) + "</p>";
     else if (mi.summary) html += '<p class="brief-move-explain">' + escapeHtml(mi.summary) + "</p>";
     html += "</div>";
 
@@ -16780,16 +17163,75 @@
     if (q.change_pct > 0) chgCls += " up";
     else if (q.change_pct < 0) chgCls += " down";
     var ts = entry.ts ? new Date(entry.ts).toLocaleString() : "";
+    var quoteTs = q.quote_fetched_at ? fmtBriefIsoLocal(q.quote_fetched_at) : "";
     var openAttr = entry.expanded ? " open" : "";
     var html = '<details class="brief-card-d" data-symbol="' + escapeHtml(sym) + '"' + openAttr + ">";
     html += "<summary>";
     html += "<span>" + escapeHtml((body.name || sym) + "（" + sym + "）") + "</span>";
     html += '<span class="' + chgCls + '">' + fmtBriefNum(q.price) + " · " + fmtBriefPct(q.change_pct) + "</span>";
-    if (ts) html += '<span class="brief-card-summary-meta">更新于 ' + escapeHtml(ts) + "</span>";
+    html += '<span class="brief-card-summary-actions">';
+    html += '<button type="button" class="secondary brief-card-refresh-btn" data-symbol="' + escapeHtml(sym) + '" title="重新联网查询该股票">查询新数据</button>';
+    if (quoteTs) html += '<span class="brief-card-summary-meta">行情拉取 ' + escapeHtml(quoteTs) + "</span>";
+    else if (ts) html += '<span class="brief-card-summary-meta">查询于 ' + escapeHtml(ts) + "</span>";
+    html += "</span>";
     html += "</summary>";
     html += '<div class="brief-card-body">' + renderStockBriefBodyHtml(body) + "</div>";
     html += "</details>";
     return html;
+  }
+
+  function bindStockBriefRefreshButtons() {
+    var box = $("brief-render");
+    if (!box) return;
+    box.querySelectorAll(".brief-card-refresh-btn").forEach(function (btn) {
+      if (btn.getAttribute("data-brief-refresh-bound") === "1") return;
+      btn.setAttribute("data-brief-refresh-bound", "1");
+      btn.addEventListener("click", async function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var sym = btn.getAttribute("data-symbol");
+        if (!sym) return;
+        setHdRowButtonLoading(btn, true, "查询中…");
+        try {
+          await runStockBriefQuery(sym);
+        } finally {
+          setHdRowButtonLoading(btn, false);
+        }
+      });
+    });
+  }
+
+  async function runStockBriefQuery(sym) {
+    var raw = normalizeBriefSymbol(sym);
+    if (!raw) {
+      showOut("out-5", "无效股票代码。", true);
+      return false;
+    }
+    beginPanelServerTask("panel-5");
+    showOut("out-5", "", false);
+    try {
+      var res = await fetchCancel("panel-5", "/research/stock-brief/" + raw, {
+        method: "GET",
+        headers: authHeaders(),
+        skipPanelLoading: true,
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-5", await formatError(res, body), true);
+        return false;
+      }
+      upsertStockBriefItem(body);
+      renderStockBriefList();
+      showOut("out-5", "", false);
+      return true;
+    } catch (e) {
+      if (!isRequestAborted(e)) {
+        showOut("out-5", String(e), true);
+      }
+      return false;
+    } finally {
+      endPanelServerTask("panel-5");
+    }
   }
 
   function bindStockBriefCardToggles() {
@@ -16820,6 +17262,7 @@
     });
     box.innerHTML = html || '<p class="brief-list-empty">暂无查询记录。</p>';
     bindStockBriefCardToggles();
+    bindStockBriefRefreshButtons();
   }
 
   function tryRestoreStockBriefFromStorage() {
@@ -16834,33 +17277,337 @@
       return;
     }
     var symInput = $("briefSym");
-    beginPanelServerTask("panel-5");
     setActionButtonLoading("btnStockBrief", true, "正在查询 " + raw + "…");
     if (symInput) symInput.disabled = true;
-    showOut("out-5", "", false);
     try {
-      var res = await fetchCancel("panel-5", "/research/stock-brief/" + raw, {
-        method: "GET",
-        headers: authHeaders(),
-        skipPanelLoading: true,
-      });
-      var body = await readBody(res);
-      if (!res.ok) {
-        showOut("out-5", await formatError(res, body), true);
-        return;
-      }
-      upsertStockBriefItem(body);
-      renderStockBriefList();
-      showOut("out-5", "", false);
-    } catch (e) {
-      if (!isRequestAborted(e)) {
-        showOut("out-5", String(e), true);
-      }
+      await runStockBriefQuery(raw);
     } finally {
-      endPanelServerTask("panel-5");
       setActionButtonLoading("btnStockBrief", false);
       if (symInput) symInput.disabled = false;
     }
+  });
+
+  var _aiDefaults = null;
+
+  function loadAiConfigLocal() {
+    try {
+      var raw = localStorage.getItem(LS_AI_CONFIG);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      return o && typeof o === "object" ? o : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveAiConfigLocal(obj) {
+    try {
+      localStorage.setItem(LS_AI_CONFIG, JSON.stringify(obj || {}));
+    } catch (e) { /* quota */ }
+  }
+
+  function readAiConfigForm() {
+    var t = parseFloat($("aiTimeout").value);
+    return {
+      api_key: ($("aiApiKey").value || "").trim(),
+      api_base: ($("aiApiBase").value || "").trim(),
+      model: ($("aiModel").value || "").trim(),
+      json_mode: $("aiJsonMode") ? !!$("aiJsonMode").checked : true,
+      timeout_sec: isFinite(t) && t >= 5 ? t : 90,
+    };
+  }
+
+  function writeAiConfigForm(cfg) {
+    cfg = cfg || {};
+    if ($("aiApiKey")) $("aiApiKey").value = cfg.api_key || "";
+    if ($("aiApiBase")) $("aiApiBase").value = cfg.api_base || "https://api.openai.com/v1";
+    if ($("aiModel")) $("aiModel").value = cfg.model || "gpt-4o-mini";
+    if ($("aiTimeout")) $("aiTimeout").value = String(cfg.timeout_sec != null ? cfg.timeout_sec : 90);
+    if ($("aiJsonMode")) $("aiJsonMode").checked = cfg.json_mode !== false;
+  }
+
+  function updateAiConfigHint(defs) {
+    var hint = $("aiConfigHint");
+    if (!hint) return;
+    var saved = loadAiConfigLocal();
+    var hasLocal = !!(saved && saved.api_key);
+    var hasSrv = defs && defs.server_key_configured;
+    var parts = ["密钥仅存于本机 localStorage，不会写入服务端数据库。"];
+    if (hasLocal) parts.push("已读取本机保存的 API Key。");
+    if (hasSrv) parts.push("服务端 .env 也已配置密钥（本页留空时将使用服务端）。");
+    if (!hasLocal && !hasSrv) parts.push("请填写 API Key 或配置服务端 AI_API_KEY。");
+    hint.textContent = parts.join(" ");
+  }
+
+  async function ensureAiDefaults() {
+    if (_aiDefaults) return _aiDefaults;
+    try {
+      var res = await panelFetch("/meta/ai-defaults");
+      var body = await readBody(res);
+      if (res.ok && body) _aiDefaults = body;
+    } catch (e) { /* ignore */ }
+    return _aiDefaults || {};
+  }
+
+  async function syncAiConfigUi() {
+    var saved = loadAiConfigLocal();
+    var form = loadAiFormLocal();
+    var defs = await ensureAiDefaults();
+    writeAiConfigForm({
+      api_key: saved ? saved.api_key || "" : "",
+      api_base: (saved && saved.api_base) || defs.api_base || "https://api.openai.com/v1",
+      model: (saved && saved.model) || defs.model || "gpt-4o-mini",
+      json_mode: saved && saved.json_mode !== undefined ? !!saved.json_mode : defs.json_mode !== false,
+      timeout_sec: (saved && saved.timeout_sec) || defs.timeout_sec || 90,
+    });
+    if (form) {
+      if ($("aiSym") && form.symbol) $("aiSym").value = form.symbol;
+      if ($("aiHorizon") && form.horizon_days) $("aiHorizon").value = String(form.horizon_days);
+      if ($("aiNote") && form.note != null) $("aiNote").value = form.note;
+      if ($("aiQuestion") && form.question != null) $("aiQuestion").value = form.question;
+      if ($("aiUseWatchlist") && form.use_watchlist != null) $("aiUseWatchlist").checked = !!form.use_watchlist;
+    }
+    updateAiConfigHint(defs);
+  }
+
+  function loadAiFormLocal() {
+    try {
+      var raw = localStorage.getItem(LS_AI_FORM);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      return o && typeof o === "object" ? o : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveAiFormLocal() {
+    var sym = normalizeAiSymbol($("aiSym").value);
+    var horizon = parseInt($("aiHorizon").value, 10);
+    if (!isFinite(horizon) || horizon < 1) horizon = 5;
+    try {
+      localStorage.setItem(LS_AI_FORM, JSON.stringify({
+        symbol: sym || "",
+        horizon_days: horizon,
+        note: ($("aiNote").value || "").trim(),
+        question: ($("aiQuestion").value || "").trim(),
+        use_watchlist: $("aiUseWatchlist") ? !!$("aiUseWatchlist").checked : false,
+      }));
+    } catch (e) { /* quota */ }
+  }
+
+  function buildAiConfigPayload() {
+    var f = readAiConfigForm();
+    var out = {};
+    if (f.api_key) out.api_key = f.api_key;
+    if (f.api_base) out.api_base = f.api_base;
+    if (f.model) out.model = f.model;
+    out.json_mode = f.json_mode;
+    if (f.timeout_sec) out.timeout_sec = f.timeout_sec;
+    return out;
+  }
+
+  function normalizeAiSymbol(raw) {
+    var s = String(raw || "").replace(/\D/g, "");
+    return s.length === 6 ? s : "";
+  }
+
+  function buildAiPotentialPayload(previewOnly) {
+    var sym = normalizeAiSymbol($("aiSym").value);
+    var useWl = $("aiUseWatchlist") && $("aiUseWatchlist").checked;
+    if (!sym && !useWl) return null;
+    var horizon = parseInt($("aiHorizon").value, 10);
+    if (!isFinite(horizon) || horizon < 1) horizon = 5;
+    if (horizon > 60) horizon = 60;
+    var payload = {
+      use_watchlist: !!useWl,
+      horizon_days: horizon,
+      note: ($("aiNote").value || "").trim() || null,
+      question: ($("aiQuestion").value || "").trim() || null,
+      preview_only: !!previewOnly,
+    };
+    if (sym) payload.symbols = [sym];
+    if (!previewOnly) payload.ai = buildAiConfigPayload();
+    return payload;
+  }
+
+  function renderAiContextCard(ctx) {
+    if (!ctx) return "";
+    var title = escapeHtml((ctx.name || ctx.symbol) + "（" + ctx.symbol + "）");
+    var sig = ctx.signal || {};
+    var bars = ctx.bars || {};
+    var ls = ctx.local_scores || {};
+    var fo = ctx.forward_outlook || {};
+    var errs = (ctx.errors || []).map(function (e) {
+      return "<li>" + escapeHtml(e) + "</li>";
+    }).join("");
+    var html = '<div class="signals-detail-block" style="margin-bottom:0.65rem;">';
+    html += "<h4>" + title + "</h4>";
+    if (errs) html += "<ul style=\"color:var(--err);font-size:0.8rem;\">" + errs + "</ul>";
+    html += "<p class=\"pos-range\">③ K 线：" + escapeHtml(String(bars.bars_count || "—")) + " 根 · 末根 "
+      + escapeHtml(String(bars.last_trade_date || "—")) + " · 收盘 " + escapeHtml(String(bars.last_close != null ? bars.last_close : "—")) + "</p>";
+    if (sig.trend) {
+      html += "<p class=\"pos-range\">④ 信号：" + escapeHtml(sig.trend) + " / " + escapeHtml(sig.strength || "—")
+        + " · 适合度 " + escapeHtml(String(sig.buy_suitability_score != null ? sig.buy_suitability_score : "—"))
+        + " · 技术分 " + escapeHtml(String(sig.technical_score != null ? sig.technical_score : "—")) + "</p>";
+    }
+    if (ls.final_score_v2_short != null) {
+      html += "<p class=\"pos-range\">本地打分：短线综合 " + escapeHtml(String(ls.final_score_v2_short))
+        + " · 技术 " + escapeHtml(String(ls.signal_technical_score != null ? ls.signal_technical_score : "—")) + "</p>";
+    }
+    if (fo.outlook_summary_zh) {
+      html += "<p class=\"pos-range\">前向展望：" + escapeHtml(fo.outlook_summary_zh) + "</p>";
+    }
+    html += "</div>";
+    return html;
+  }
+
+  function renderAiPotentialResult(body) {
+    var wrap = $("ai-potential-render");
+    if (!wrap) return;
+    if (!body) {
+      wrap.innerHTML = "";
+      return;
+    }
+    var html = "";
+    if (body.summary_zh) {
+      html += '<p class="lead" style="margin:0 0 0.75rem;">' + escapeHtml(body.summary_zh) + "</p>";
+    }
+    if (!body.preview_only && body.items && body.items.length) {
+      body.items.forEach(function (it) {
+        var score = it.potential_score != null ? it.potential_score : "—";
+        var label = it.potential_label || "";
+        html += '<div class="signals-detail-block" style="margin-bottom:0.65rem;">';
+        html += "<h4>" + escapeHtml((it.name || it.symbol) + " · 潜力 " + score + (label ? "（" + label + "）" : "")) + "</h4>";
+        if (it.comment_zh) html += "<p class=\"pos-range\">" + escapeHtml(it.comment_zh) + "</p>";
+        function listBlock(title, arr) {
+          if (!arr || !arr.length) return "";
+          return "<p class=\"pos-range\"><strong>" + escapeHtml(title) + "</strong></p><ul>"
+            + arr.map(function (x) { return "<li>" + escapeHtml(x) + "</li>"; }).join("") + "</ul>";
+        }
+        html += listBlock("利多因素", it.upside_factors);
+        html += listBlock("利空/制约", it.downside_factors);
+        html += listBlock("关注要点", it.key_watchpoints);
+        html += listBlock("数据缺口", it.data_gaps);
+        html += "</div>";
+      });
+    }
+    if (body.contexts && body.contexts.length) {
+      html += '<details style="margin-top:0.5rem;"><summary>②③④汇总明细</summary>';
+      body.contexts.forEach(function (ctx) { html += renderAiContextCard(ctx); });
+      html += "</details>";
+    }
+    if (body.disclaimer) {
+      html += '<p class="lead" style="margin:0.75rem 0 0;font-size:0.75rem;color:var(--muted);">' + escapeHtml(body.disclaimer) + "</p>";
+    }
+    if (!body.ai_configured && !body.preview_only) {
+      html += '<p class="lead" style="color:var(--err);">未配置 API Key：请在上方填写并保存，或在服务端 .env 设置 AI_API_KEY。</p>';
+    }
+    wrap.innerHTML = html || '<p class="lead" style="margin:0;color:var(--muted);">无结果</p>';
+  }
+
+  async function runAiPotentialPreview() {
+    var sym = normalizeAiSymbol($("aiSym").value);
+    var useWl = $("aiUseWatchlist") && $("aiUseWatchlist").checked;
+    if (!sym && !useWl) {
+      showOut("out-7", "请输入代码或勾选「包含自选池全部」。", true);
+      return;
+    }
+    var wrap = $("ai-potential-render");
+    if (wrap) wrap.innerHTML = '<p class="lead" style="margin:0;color:var(--muted);">加载中…</p>';
+    beginPanelServerTask("panel-7");
+    try {
+      if (sym && !useWl) {
+        var res = await panelFetch("/research/ai-potential/context?symbol=" + encodeURIComponent(sym), {
+          headers: authHeaders(),
+        });
+        var body = await readBody(res);
+        if (!res.ok) {
+          showOut("out-7", await formatError(res, body), true);
+          if (wrap) wrap.innerHTML = "";
+          return;
+        }
+        renderAiPotentialResult({
+          preview_only: true,
+          summary_zh: "已预览单只②③④本地数据。",
+          contexts: [body],
+          ai_configured: true,
+          disclaimer: "",
+        });
+        showOut("out-7", "", false);
+        return;
+      }
+      var payload = buildAiPotentialPayload(true);
+      var res2 = await panelFetch("/research/ai-potential", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      var body2 = await readBody(res2);
+      if (!res2.ok) {
+        showOut("out-7", await formatError(res2, body2), true);
+        if (wrap) wrap.innerHTML = "";
+        return;
+      }
+      renderAiPotentialResult(body2);
+      showOut("out-7", "", false);
+    } catch (e) {
+      if (!isRequestAborted(e)) showOut("out-7", String(e), true);
+    } finally {
+      endPanelServerTask("panel-7");
+    }
+  }
+
+  async function runAiPotentialAnalyze() {
+    var payload = buildAiPotentialPayload(false);
+    if (!payload) {
+      showOut("out-7", "请输入代码或勾选「包含自选池全部」。", true);
+      return;
+    }
+    var defs = await ensureAiDefaults();
+    var key = (readAiConfigForm().api_key || "").trim();
+    if (!key && !(defs && defs.server_key_configured)) {
+      showOut("out-7", "请先在上方填写 AI API Key 并保存，或在服务端配置 AI_API_KEY。", true);
+      return;
+    }
+    saveAiConfigLocal(readAiConfigForm());
+    saveAiFormLocal();
+    var wrap = $("ai-potential-render");
+    if (wrap) wrap.innerHTML = '<p class="lead" style="margin:0;color:var(--muted);">AI 测算中（可能需数十秒）…</p>';
+    setActionButtonLoading("btnAiPotential", true, "AI 测算中…");
+    beginPanelServerTask("panel-7");
+    try {
+      var res = await fetchCancel("panel-7", "/research/ai-potential", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify(payload),
+      });
+      var body = await readBody(res);
+      if (!res.ok) {
+        showOut("out-7", await formatError(res, body), true);
+        if (wrap) wrap.innerHTML = "";
+        return;
+      }
+      renderAiPotentialResult(body);
+      showOut("out-7", "", false);
+    } catch (e) {
+      if (!isRequestAborted(e)) {
+        showOut("out-7", String(e), true);
+        if (wrap) wrap.innerHTML = "";
+      }
+    } finally {
+      setActionButtonLoading("btnAiPotential", false);
+      endPanelServerTask("panel-7");
+    }
+  }
+
+  $("btnAiPreview").addEventListener("click", function () { void runAiPotentialPreview(); });
+  $("btnAiPotential").addEventListener("click", function () { void runAiPotentialAnalyze(); });
+  $("btnAiSaveConfig").addEventListener("click", function () {
+    saveAiConfigLocal(readAiConfigForm());
+    saveAiFormLocal();
+    updateAiConfigHint(_aiDefaults || {});
+    showOut("out-7", "AI 配置与测算表单已保存到本机浏览器。", true);
   });
 
   function skGetDoneSet() {

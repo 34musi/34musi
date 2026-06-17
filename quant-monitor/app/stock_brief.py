@@ -229,15 +229,30 @@ def _quote_turnover_rate(sym: str, live: dict[str, Any]) -> float | None:
         with _temporary_clear_proxy_env(
             enabled=bool(get_settings().ingest_eastmoney_bypass_proxy),
         ):
-            liq = spot_liquidity_fields_for_codes([sym], force_refresh=False).get(sym) or {}
-        return _num_or_none(liq.get("spot_turnover_rate"))
+            liq = spot_liquidity_fields_for_codes([sym], force_refresh=True).get(sym) or {}
+        tr = _num_or_none(liq.get("spot_turnover_rate"))
+        if tr is not None:
+            return tr
     except Exception as e:
-        logger.debug("quote turnover fallback %s: %s", sym, e)
+        logger.debug("quote turnover spot list %s: %s", sym, e)
+    try:
+        with _temporary_clear_proxy_env(
+            enabled=bool(get_settings().ingest_eastmoney_bypass_proxy),
+        ):
+            df = ak.stock_bid_ask_em(symbol=sym)
+        from app.ingest import _parse_bid_ask_em_df
+
+        parsed = _parse_bid_ask_em_df(df)
+        return _num_or_none(parsed.get("turnover"))
+    except Exception as e:
+        logger.debug("quote turnover bid_ask %s: %s", sym, e)
         return None
 
 
 def _fetch_quote(sym: str) -> dict[str, Any]:
-    live = live_quote_fields_for_codes_enhanced([sym]).get(sym, {})
+    live = live_quote_fields_for_codes_enhanced(
+        [sym], force_spot_refresh=True
+    ).get(sym, {})
     bars = list_bars_from_db(sym, limit=5)
     last_bar = bars[-1] if bars else None
     prev_bar = bars[-2] if len(bars) >= 2 else None
@@ -268,6 +283,7 @@ def _fetch_quote(sym: str) -> dict[str, Any]:
             live.get("live_quote_date") or live.get("trade_date") or (last_bar or {}).get("trade_date")
         ),
         "quote_source": _clean_text(live.get("live_price_source") or live.get("quote_source")),
+        "quote_fetched_at": _clean_text(live.get("live_fetched_at") or live.get("spot_fetched_at")),
     }
 
 
@@ -1736,6 +1752,254 @@ def _collect_event_texts(
     return [t for t in texts if t]
 
 
+def _describe_relative_pp(vs: float | None, *, baseline: str) -> str:
+    if vs is None or not math.isfinite(vs):
+        return ""
+    av = abs(vs)
+    if av < 0.15:
+        return f"与{baseline}幅度几乎一致"
+    if vs > 0:
+        return f"强于{baseline}约 {vs:+.2f} 个百分点"
+    return f"弱于{baseline}约 {vs:+.2f} 个百分点"
+
+
+def _compose_detailed_explanation(
+    *,
+    direction: str,
+    change_pct: float | None,
+    index_name: str,
+    index_chg: float | None,
+    vs_index: float | None,
+    industry_name: str | None,
+    industry_chg: float | None,
+    vs_industry: float | None,
+    primary: str,
+    notices: list[dict[str, str]],
+    related_news: list[dict[str, str]],
+    has_negative_event: bool,
+    has_positive_event: bool,
+    limit_up_note: str | None,
+    limit_down_note: str | None,
+    lhb_reason: str | None,
+    intraday_events: list[str],
+    fund_flow: dict[str, Any] | None,
+    concept_hints: list[str] | None,
+    industry: str = "",
+) -> tuple[str, list[str]]:
+    points: list[str] = []
+
+    if change_pct is not None:
+        if direction == "up":
+            points.append(f"个股当日收涨 {change_pct:+.2f}%。")
+        elif direction == "down":
+            points.append(f"个股当日收跌 {change_pct:+.2f}%。")
+        else:
+            points.append(f"个股当日涨跌幅 {change_pct:+.2f}%，整体震荡。")
+    else:
+        points.append("未能获取个股涨跌幅。")
+
+    ind_label = industry_name or industry.strip() or None
+    if ind_label and industry_chg is not None:
+        rel_ind = _describe_relative_pp(vs_industry, baseline=f"行业「{ind_label}」")
+        if direction == "up" and industry_chg > 0.3:
+            if vs_industry is not None and abs(vs_industry) <= 1.5:
+                points.append(
+                    f"所属行业「{ind_label}」同期涨 {industry_chg:+.2f}%，"
+                    f"个股与板块同向走强且幅度接近（{rel_ind}），"
+                    f"上涨很大程度受板块整体带动。"
+                )
+            elif vs_industry is not None and vs_industry >= 2.0:
+                points.append(
+                    f"行业「{ind_label}」涨 {industry_chg:+.2f}%，"
+                    f"个股超行业约 {vs_industry:+.2f} 个百分点，"
+                    f"在板块上行基础上还有个股层面的额外弹性或催化。"
+                )
+            elif vs_industry is not None and vs_industry <= -2.0:
+                points.append(
+                    f"行业「{ind_label}」涨 {industry_chg:+.2f}%，"
+                    f"但个股弱于板块约 {abs(vs_industry):.2f} 个百分点，"
+                    f"板块虽强但该股跟涨乏力，需关注个股自身因素。"
+                )
+            else:
+                points.append(
+                    f"行业「{ind_label}」涨 {industry_chg:+.2f}%，{rel_ind}，"
+                    f"板块环境偏暖，对个股上涨有支撑。"
+                )
+        elif direction == "down" and industry_chg < -0.3:
+            if vs_industry is not None and abs(vs_industry) <= 1.5:
+                points.append(
+                    f"所属行业「{ind_label}」同期跌 {industry_chg:+.2f}%，"
+                    f"个股与板块同步走弱（{rel_ind}），"
+                    f"下跌更可能受板块整体拖累。"
+                )
+            elif vs_industry is not None and vs_industry <= -2.0:
+                points.append(
+                    f"行业「{ind_label}」跌 {industry_chg:+.2f}%，"
+                    f"个股跌幅显著大于行业（超行业 {vs_industry:+.2f}pp），"
+                    f"除板块因素外或还有公司/资金层面的额外压力。"
+                )
+            elif vs_industry is not None and vs_industry >= 2.0:
+                points.append(
+                    f"行业「{ind_label}」跌 {industry_chg:+.2f}%，"
+                    f"个股相对抗跌（{rel_ind}），"
+                    f"板块走弱但该股跌幅小于同业。"
+                )
+            else:
+                points.append(
+                    f"行业「{ind_label}」跌 {industry_chg:+.2f}%，{rel_ind}，"
+                    f"板块环境偏弱，对个股形成下行压力。"
+                )
+        elif direction == "up" and industry_chg <= -0.3:
+            points.append(
+                f"行业「{ind_label}」跌 {industry_chg:+.2f}%，"
+                f"个股却逆势收涨（{rel_ind}），"
+                f"上涨更可能来自个股独立催化或资金聚焦，而非板块带动。"
+            )
+        elif direction == "down" and industry_chg >= 0.3:
+            points.append(
+                f"行业「{ind_label}」涨 {industry_chg:+.2f}%，"
+                f"个股却逆势走弱（{rel_ind}），"
+                f"下跌更可能来自公司自身或个股资金面的独立利空。"
+            )
+        else:
+            points.append(
+                f"行业「{ind_label}」涨跌幅 {industry_chg:+.2f}%，{rel_ind}。"
+            )
+    elif ind_label:
+        points.append(f"未能拉取行业「{ind_label}」当日涨跌幅，板块联动暂无法量化。")
+    elif concept_hints:
+        points.append(
+            "暂无匹配行业板块数据；可能关联题材："
+            + "、".join(concept_hints[:4])
+            + "（题材关联非因果认定）。"
+        )
+
+    if index_chg is not None:
+        rel_idx = _describe_relative_pp(vs_index, baseline=index_name or "大盘")
+        if direction == "up":
+            if vs_index is not None and vs_index >= 2.0:
+                points.append(
+                    f"{index_name}涨 {index_chg:+.2f}%，"
+                    f"个股明显强于大盘（{rel_idx}），"
+                    f"表现具备独立强势特征。"
+                )
+            elif vs_index is not None and vs_index <= -1.0:
+                points.append(
+                    f"{index_name}涨 {index_chg:+.2f}%，"
+                    f"个股弱于大盘（{rel_idx}），"
+                    f"虽收涨但跑输市场平均水平。"
+                )
+            elif index_chg >= 0.3 and vs_index is not None and abs(vs_index) <= 1.0:
+                points.append(
+                    f"{index_name}涨 {index_chg:+.2f}%，"
+                    f"个股与大盘共振（{rel_idx}），"
+                    f"存在系统性行情带动可能。"
+                )
+            else:
+                points.append(f"{index_name}涨 {index_chg:+.2f}%，{rel_idx}。")
+        elif direction == "down":
+            if vs_index is not None and vs_index <= -2.0:
+                points.append(
+                    f"{index_name}跌 {index_chg:+.2f}%，"
+                    f"个股跌幅显著大于大盘（{rel_idx}），"
+                    f"可能存在个股或资金层面的额外抛压。"
+                )
+            elif index_chg <= -0.3 and vs_index is not None and abs(vs_index) <= 1.0:
+                points.append(
+                    f"{index_name}跌 {index_chg:+.2f}%，"
+                    f"个股与大盘同步走弱（{rel_idx}），"
+                    f"存在系统性拖累可能。"
+                )
+            elif index_chg >= 0.3:
+                points.append(
+                    f"{index_name}涨 {index_chg:+.2f}%，"
+                    f"大盘收涨但个股下跌（{rel_idx}），"
+                    f"更偏个股独立利空或资金撤离。"
+                )
+            else:
+                points.append(f"{index_name}涨跌幅 {index_chg:+.2f}%，{rel_idx}。")
+        else:
+            points.append(f"{index_name}涨跌幅 {index_chg:+.2f}%，{rel_idx}。")
+    elif index_name:
+        points.append(f"未能拉取{index_name}涨跌幅，大盘对比暂缺。")
+
+    event_bits: list[str] = []
+    if notices:
+        titles = [_clean_text(n.get("title")) for n in notices[:2]]
+        titles = [t for t in titles if t]
+        if titles:
+            event_bits.append(f"当日公告 {len(notices)} 条（如「{titles[0]}」）")
+        else:
+            event_bits.append(f"当日公告 {len(notices)} 条")
+    if related_news:
+        titles = [_clean_text(n.get("title")) for n in related_news[:2]]
+        titles = [t for t in titles if t]
+        if titles:
+            event_bits.append(f"相关新闻 {len(related_news)} 条（如「{titles[0]}」）")
+        else:
+            event_bits.append(f"相关新闻 {len(related_news)} 条")
+    if has_negative_event and direction == "down":
+        event_bits.append("公告/新闻标题含业绩下滑、监管、减持等偏空关键词")
+    elif has_positive_event and direction == "up":
+        event_bits.append("公告/新闻标题含订单、预增、回购等偏暖关键词")
+    if event_bits:
+        points.append("公司层面：" + "；".join(event_bits) + "。")
+    elif direction in ("up", "down"):
+        points.append("当日未发现匹配的公司公告或相关新闻，公司自身事件线索较弱。")
+
+    trade_bits: list[str] = []
+    if limit_up_note:
+        trade_bits.append(limit_up_note)
+    if limit_down_note:
+        trade_bits.append(limit_down_note)
+    if lhb_reason:
+        trade_bits.append(f"龙虎榜：{lhb_reason}")
+    if intraday_events:
+        trade_bits.append("盘口异动：" + "、".join(intraday_events[:3]))
+    if trade_bits:
+        points.append("交易层线索：" + "；".join(trade_bits) + "。")
+
+    ff = fund_flow or {}
+    if ff.get("available"):
+        main_net = ff.get("main_net_inflow")
+        main_ratio = ff.get("main_net_ratio_pct")
+        ff_note = _fund_flow_note(change_pct, main_net, main_ratio)
+        if ff_note:
+            points.append("资金面：" + ff_note)
+    elif ff.get("note"):
+        points.append("资金面：" + str(ff.get("note")))
+
+    conclusion_map = {
+        "sector": (
+            "综合来看，涨跌与所属行业/板块联动最为密切，宜优先关注板块景气与同业走势。"
+            if direction != "flat"
+            else "板块联动可能是主要观察方向。"
+        ),
+        "market": (
+            "综合来看，涨跌与大盘/系统性环境方向接近，宜结合指数与宏观情绪理解。"
+            if direction != "flat"
+            else "大盘环境可能是主要观察方向。"
+        ),
+        "company": (
+            "综合来看，公司公告/新闻或个股相对同业明显偏离，宜优先核查公司自身信息与基本面。"
+            if direction != "flat"
+            else "公司自身因素值得优先关注。"
+        ),
+        "sentiment": (
+            "综合来看，缺少明确公司事件，但资金博弈、龙虎榜或盘口异动等交易层信号较突出，"
+            "宜结合量价与题材热度理解，勿简单等同于基本面变化。"
+            if direction != "flat"
+            else "交易层与资金信号可能是主要线索。"
+        ),
+        "mixed": "综合来看，板块、大盘、公司与资金多条线索交织，建议对照上文各点综合判断，勿单因子定论。",
+        "unknown": "综合来看，各维度线索均不显著，建议结合后续公告与盘面再确认。",
+    }
+    points.append(conclusion_map.get(primary, conclusion_map["unknown"]))
+
+    paragraph = " ".join(points)
+    return paragraph, points
+
+
 def _build_move_attribution(
     sym: str,
     *,
@@ -1873,7 +2137,16 @@ def _build_move_attribution(
             text=f"行业板块「{industry_name}」涨跌幅 {industry_chg:+.2f}%，个股相对行业 {vs_industry:+.2f} 个百分点",
         )
         if direction == "down":
-            if industry_chg <= -0.3 and vs_industry >= -1.0:
+            if industry_chg is not None and industry_chg <= -0.5 and change_pct is not None and change_pct <= -0.3:
+                if vs_industry is not None and abs(vs_industry) <= 1.5:
+                    scores["sector"] += 4
+                    _add_factor(
+                        factors,
+                        source="local_rule",
+                        kind="rule",
+                        text="行业板块明显走弱且个股跌幅与板块接近，板块拖累特征显著",
+                    )
+            elif industry_chg <= -0.3 and vs_industry >= -1.0:
                 scores["sector"] += 3
                 _add_factor(
                     factors,
@@ -1890,7 +2163,25 @@ def _build_move_attribution(
                     text="个股跌幅显著大于行业，可能存在公司层面额外因素",
                 )
         elif direction == "up":
-            if industry_chg >= 0.3 and vs_industry <= 1.0:
+            if industry_chg is not None and industry_chg >= 0.5 and change_pct is not None and change_pct >= 0.3:
+                if vs_industry is not None and abs(vs_industry) <= 1.5:
+                    scores["sector"] += 4
+                    _add_factor(
+                        factors,
+                        source="local_rule",
+                        kind="rule",
+                        text="行业板块明显走强且个股涨幅与板块接近，板块带动特征显著",
+                    )
+                elif vs_industry is not None and vs_industry >= 2.0:
+                    scores["company"] += 2
+                    scores["sector"] += 1
+                    _add_factor(
+                        factors,
+                        source="local_rule",
+                        kind="rule",
+                        text="板块上行但个股显著超行业，存在个股额外催化",
+                    )
+            elif industry_chg >= 0.3 and vs_industry is not None and vs_industry <= 1.0:
                 scores["sector"] += 2
                 _add_factor(
                     factors,
@@ -1988,7 +2279,7 @@ def _build_move_attribution(
         )
 
     if intraday_events and not has_notice and not has_news:
-        scores["sentiment"] += 2
+        scores["sentiment"] += 1
         _add_factor(
             factors,
             source="eastmoney_changes",
@@ -2058,6 +2349,7 @@ def _build_move_attribution(
         primary = "unknown"
         confidence = "low"
         explanation = "缺少个股与大盘/行业涨跌幅，暂无法做相对归因。"
+        explanation_points: list[str] = [explanation]
     else:
         ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
         top_key, top_score = ranked[0]
@@ -2066,12 +2358,9 @@ def _build_move_attribution(
         if top_score < 2:
             primary = "unknown"
             confidence = "low"
-            explanation = "相对大盘/行业与事件线索均不明显，暂无法给出倾向性归因。"
         elif len(active) >= 2 and top_score - second_score <= 1:
             primary = "mixed"
-            labels = "、".join(_ATTRIBUTION_LABELS[k] for k in active[:3])
             confidence = "medium" if top_score >= 4 else "low"
-            explanation = f"多重因素交织（{labels}），建议结合公告原文与板块联动综合判断。"
         else:
             primary = top_key
             confidence = (
@@ -2079,24 +2368,38 @@ def _build_move_attribution(
                 if top_score >= 6 and top_score - second_score >= 3
                 else ("medium" if top_score >= 4 else "low")
             )
-            if primary == "company":
-                explanation = "相对大盘/行业更弱或存在当日公司公告/新闻线索，下跌更可能与公司自身或个股事件相关。"
-                if direction == "up":
-                    explanation = "相对大盘/行业更强或存在公司正面事件线索，上涨更可能与公司自身催化相关。"
-            elif primary == "sector":
-                explanation = "个股与所属行业涨跌方向接近，更可能受行业/板块整体景气或情绪影响。"
-            elif primary == "market":
-                explanation = "个股与基准指数涨跌方向接近，更可能受大盘或系统性因素影响。"
-            elif primary == "sentiment":
-                explanation = "缺少明确公司事件，但存在跌停/龙虎榜/盘口异动等交易层线索，更偏资金或情绪驱动。"
-            else:
-                explanation = "暂无法判断主因。"
+        explanation, explanation_points = _compose_detailed_explanation(
+            direction=direction,
+            change_pct=change_pct,
+            index_name=index_name or "",
+            index_chg=index_chg,
+            vs_index=vs_index,
+            industry_name=industry_name,
+            industry_chg=industry_chg,
+            vs_industry=vs_industry,
+            primary=primary,
+            notices=notices,
+            related_news=related_news,
+            has_negative_event=has_negative_event,
+            has_positive_event=has_positive_event,
+            limit_up_note=limit_up_note,
+            limit_down_note=limit_down_note,
+            lhb_reason=lhb_reason,
+            intraday_events=intraday_events,
+            fund_flow=ff if ff else fund_flow,
+            concept_hints=concept_hints,
+            industry=industry,
+        )
+        if top_score < 2 and not explanation_points:
+            explanation = "相对大盘/行业与事件线索均不明显，暂无法给出倾向性归因。"
+            explanation_points = [explanation]
 
     return {
         "primary": primary,
         "primary_label": _ATTRIBUTION_LABELS.get(primary, "暂无法判断"),
         "confidence": confidence,
         "explanation": explanation,
+        "explanation_points": explanation_points,
         "factors": factors,
         "comparison_sources": comparison_sources,
         "index_name": index_name,

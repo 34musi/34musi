@@ -1213,7 +1213,7 @@ def _parse_bid_ask_em_df(df: pd.DataFrame) -> dict[str, float | None]:
         for _, r in df.iterrows()
         if pd.notna(r.get("value"))
     }
-    out: dict[str, float | None] = {"px": None, "chg": None, "prev_close": None, "volume": None}
+    out: dict[str, float | None] = {"px": None, "chg": None, "prev_close": None, "volume": None, "turnover": None}
     for key in ("最新", "最新价", "现价"):
         if key in m:
             try:
@@ -1245,6 +1245,15 @@ def _parse_bid_ask_em_df(df: pd.DataFrame) -> dict[str, float | None]:
                 v = float(m[vol_key])
                 if math.isfinite(v) and v >= 0:
                     out["volume"] = v
+                    break
+            except (TypeError, ValueError):
+                pass
+    for tr_key in ("换手", "换手率"):
+        if tr_key in m:
+            try:
+                v = float(m[tr_key])
+                if math.isfinite(v) and v >= 0:
+                    out["turnover"] = round(v, 4)
                     break
             except (TypeError, ValueError):
                 pass
@@ -1295,6 +1304,9 @@ def live_quote_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
             if vol is not None and math.isfinite(float(vol)) and float(vol) >= 0:
                 row["live_volume"] = round(float(vol), 4)
                 row["live_volume_source"] = "eastmoney_bid_ask_lots"
+            tr = parsed.get("turnover")
+            if tr is not None and math.isfinite(float(tr)):
+                row["spot_turnover_rate"] = round(float(tr), 4)
             out[sym] = row
         except Exception as e:
             logger.debug("live_quote %s: %s", sym, e)
@@ -1573,6 +1585,30 @@ def augment_live_quote_fields(
             amt = row.get("spot_amount")
             if amt is not None and math.isfinite(float(amt)) and sym in out:
                 out[sym]["spot_amount"] = round(float(amt), 2)
+
+    turnover_missing = [
+        sym
+        for sym in uniq
+        if _live_row_has_price(out.get(sym))
+        and not (
+            out.get(sym, {}).get("spot_turnover_rate") is not None
+            and math.isfinite(float(out[sym]["spot_turnover_rate"]))
+        )
+    ]
+    if turnover_missing and route != "sina":
+        try:
+            with _temporary_clear_proxy_env(enabled=bool(s.ingest_eastmoney_bypass_proxy)):
+                spot_tr_by = spot_liquidity_fields_for_codes(
+                    turnover_missing, force_refresh=force_spot_refresh
+                )
+        except Exception as e:
+            logger.debug("augment_live_quote turnover fallback: %s", e)
+            spot_tr_by = {}
+        for sym in turnover_missing:
+            row = spot_tr_by.get(sym) or {}
+            tr = row.get("spot_turnover_rate")
+            if tr is not None and math.isfinite(float(tr)) and sym in out:
+                out[sym]["spot_turnover_rate"] = round(float(tr), 4)
 
     return out
 

@@ -76,6 +76,7 @@ from app.forecast_validate import (
     build_feature_matrix,
 )
 from app.ingest import fetch_stock_name, fetch_stock_names_map, load_bars_from_db, normalize_symbol
+from app.local_scores import compute_local_scores_at_date
 from app.signals import compute_signal
 
 logger = logging.getLogger(__name__)
@@ -397,6 +398,14 @@ def sync_symbol_outlook(
     if not audit["ok"]:
         summary = "【数据待核对】" + "；".join(audit["issues"][:3]) + "。" + summary
     outlook_json = json.dumps({"audit": audit, "prediction": pred}, ensure_ascii=False)
+    local_scores = compute_local_scores_at_date(df, signal_td)
+    if local_scores is not None:
+        try:
+            payload = json.loads(outlook_json)
+            payload["local_scores"] = local_scores
+            outlook_json = json.dumps(payload, ensure_ascii=False)
+        except json.JSONDecodeError:
+            pass
     data_quality_json = json.dumps(audit, ensure_ascii=False)
     with session_scope() as s:
         existing = s.execute(

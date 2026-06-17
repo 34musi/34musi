@@ -587,12 +587,15 @@ def compose_final_score(
     - v1: 旧版默认（板块热度占比较高）
     - v2: 新版默认（更偏向个股技术面与回测表现）
     - v2_short: ⑨ 短线模式（板块 20% + 短线技术分 50% + 回测 30%）
+    - v2_trade: 交易向（板块 25% + 短线技术分 75%，**不含样本内回测分**）
     """
     key = (scoring_strategy or "").strip().lower() or "v2"
     if key == "v1":
         w_sector, w_screen, w_backtest = 0.25, 0.35, 0.40
     elif key in ("v2_short", "short", "short_term"):
         w_sector, w_screen, w_backtest = 0.20, 0.50, 0.30
+    elif key in ("v2_trade", "trade", "trade_ready"):
+        w_sector, w_screen, w_backtest = 0.25, 0.75, 0.0
     else:
         w_sector, w_screen, w_backtest = 0.15, 0.45, 0.40
     return round(

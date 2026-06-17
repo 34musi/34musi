@@ -21,7 +21,8 @@ quant_stock_selector 等）暴露为 REST 接口，并托管 **[/ui](/ui)** 图�
 | ④ 查看信号 | K 线查询、批量/单只信号 | `/signals`, `/quotes/{symbol}/bars` |
 | ⑤ 个股咨询 | 行情、新闻、概念、业务与营收 | `/research/stock-brief/{symbol}` |
 | ⑥ 金融从零学起 | 系统课程、免责说明 | `/meta/stock-knowledge`, `/meta/disclaimer` |
-| ⑧ 研究 | walk-forward 预测验证 | `/research/forecast-validate` |
+| ⑦ AI算法 | 汇总②③④数据、AI 潜力测算 | `/research/ai-potential` |
+| ⑧ 研究 | walk-forward 预测验证、打分分档验证 | `/research/forecast-validate`, `/research/score-bucket-validate` |
 | ⑨ 量化选股 | 板块选股 pipeline | `/research/sector-screen` |
 | ⑩ 持仓记录 | 持仓 CRUD、进离场与目标测算 | `/holdings/*` |
 
@@ -178,6 +179,10 @@ from app.holdings_goal import (
 from app.quant_stock_selector.cli import validate_args
 from app.quant_stock_selector.pipeline import run_analysis
 from app.schemas import (
+    AiPotentialIn,
+    AiPotentialOut,
+    AiPotentialContextOut,
+    AiDefaultsOut,
     CancelBatchIn,
     DailyBarOut,
     DisclaimerOut,
@@ -185,6 +190,7 @@ from app.schemas import (
     FillHotSectorsOut,
     FillHotSectorsSummary,
     ForecastValidateOut,
+    ScoreBucketValidateOut,
     HotMarketSnapshotFileOut,
     HotMarketSnapshotOut,
     HotMarketSnapshotRefreshIn,
@@ -244,6 +250,8 @@ from app.schemas import (
     WatchlistRefetchKlineResultRow,
     WebDataPreviewIn,
 )
+from app.forecast_validate import run_forecast_validate
+from app.score_validate import run_score_bucket_validate
 from app.stock_knowledge import stock_knowledge_payload
 from app.forward_outlook import (
     DEFAULT_HORIZON,
@@ -260,6 +268,12 @@ from app.hot_market_snapshot import (
     save_hot_market_snapshot,
 )
 from app.signals import compute_signal
+from app.ai_potential import (
+    ai_defaults_payload,
+    gather_symbol_context,
+    resolve_symbols_for_ai,
+    run_ai_potential,
+)
 from app.stock_brief import build_stock_brief
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -339,6 +353,10 @@ OPENAPI_TAGS = [
     {
         "name": "⑥ 金融从零学起",
         "description": "系统金融课程（约 30+ 节、8 阶段）：金融本质、货币宏观、市场与公司财务、估值、组合理论、A 股实务；含练手与自测。底部含免责全文。",
+    },
+    {
+        "name": "⑦ AI算法",
+        "description": "汇总②自选、③行情、④信号等本地测算结果，调用 OpenAI 兼容大模型做「潜力」Demo 解读（API Key 可在⑦控制台填写或服务端 .env）。非投资建议。",
     },
     {
         "name": "⑧ 研究：预测验证",
@@ -928,6 +946,17 @@ def health():
 def meta_auth_status():
     """公开：告知客户端服务端是否配置了 API_KEY（布尔值，不泄露密钥）。"""
     return {"api_key_required": bool(get_settings().api_key)}
+
+
+@app.get(
+    "/meta/ai-defaults",
+    response_model=AiDefaultsOut,
+    tags=["⑦ AI算法"],
+    summary="大模型默认参数（不含密钥）",
+    description="返回服务端 .env 中的 AI_API_BASE / AI_MODEL 等默认值，供⑦控制台预填；**不**返回密钥。",
+)
+def meta_ai_defaults():
+    return AiDefaultsOut.model_validate(ai_defaults_payload())
 
 
 @app.post(
@@ -3258,6 +3287,81 @@ def research_stock_brief(
     return StockBriefOut.model_validate(raw)
 
 
+# --- ⑦ AI 潜力测算 ---
+
+
+@app.get(
+    "/research/ai-potential/context",
+    response_model=AiPotentialContextOut,
+    tags=["⑦ AI算法"],
+    summary="预览单只②③④汇总数据（不调用 AI）",
+    description="""
+读取本地库内数据，汇总②自选、③ K 线质量、④ 信号、本地打分与前向展望，供⑦ AI 测算前核对。
+
+**不联网**增量；若 K 线不足请先在③更新。在⑦控制台填写 AI 配置或配置服务端 `AI_API_KEY` 后可测算。
+""",
+)
+@limiter.limit("30/minute")
+def research_ai_potential_context(
+    request: Request,
+    symbol: str = Query(..., description="6 位 A 股代码", examples=["600519"]),
+    _: None = Depends(optional_api_key),
+):
+    try:
+        sym = normalize_symbol(symbol)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    raw = gather_symbol_context(sym)
+    return AiPotentialContextOut.model_validate(raw)
+
+
+@app.post(
+    "/research/ai-potential",
+    response_model=AiPotentialOut,
+    tags=["⑦ AI算法"],
+    summary="AI 潜力测算（基于②③④本地数据）",
+    description="""
+在②③④已完成本地测算的前提下，汇总各标的信号、K 线质量、本地打分与前向展望，交由 **OpenAI 兼容** 大模型输出潜力 Demo 解读。
+
+- **preview_only=true**：仅返回 `contexts`，不调用 AI（无需密钥）。
+- **use_watchlist=true**：包含自选池全部代码（与 `symbols` 合并去重）；单次最多 8 只。
+- **ai**：⑦ 控制台传入的 `api_key` / `api_base` / `model` 等，优先于服务端 `.env`。
+
+**非投资建议**；有频率与 token 成本，请勿连续狂点。
+""",
+)
+@limiter.limit("8/minute")
+def research_ai_potential(
+    request: Request,
+    body: AiPotentialIn,
+    _: None = Depends(optional_api_key),
+):
+    try:
+        syms = resolve_symbols_for_ai(body.symbols, use_watchlist=body.use_watchlist)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    if not syms:
+        raise HTTPException(status_code=400, detail="请指定 symbols 或勾选 use_watchlist")
+    try:
+        raw = run_ai_potential(
+            syms,
+            horizon_days=body.horizon_days,
+            user_note=body.note,
+            question=body.question,
+            preview_only=body.preview_only,
+            ai=body.ai,
+        )
+        return AiPotentialOut.model_validate(raw)
+    except ValueError as e:
+        msg = str(e)
+        if "AI_API_KEY" in msg or "AI API Key" in msg or "AI 接口" in msg:
+            raise HTTPException(status_code=503, detail=msg) from e
+        raise HTTPException(status_code=400, detail=msg) from e
+    except Exception as e:
+        logger.exception("ai-potential failed")
+        raise HTTPException(status_code=502, detail=f"AI 测算失败：{e}") from e
+
+
 # --- ⑧ 研究：预测验证 ---
 
 
@@ -3391,6 +3495,64 @@ def research_forecast_validate(
             live_as_of=live_as_of if live_bars else None,
         )
         return ForecastValidateOut.model_validate(raw)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@app.get(
+    "/research/score-bucket-validate",
+    response_model=ScoreBucketValidateOut,
+    tags=["⑧ 研究：预测验证"],
+    summary="本地打分分档 vs 前向展望 H 日实际收益",
+    description="""
+读取 **forward_outlook 已结算（settled）** 记录，在每条 `signal_trade_date` 因果截断 K 线后复算：
+
+- **short_term_score**、**final_score_v2_short**（板块热度默认中性 50）、**final_score_v2_trade**（交易向，无样本内回测分）、**signal_technical_score**
+
+再按分档汇总 `actual_return_pct`，并给出 Spearman 相关与「初筛通过」子样本摘要。
+
+**过滤**：`require_screen_pass=true` 仅保留短线初筛通过；`min_turnover_amt` 过滤 20 日均成交额（元）。
+
+样本过少时结论不可靠，**不构成投资建议**。
+""",
+)
+@limiter.limit("20/minute")
+def research_score_bucket_validate(
+    request: Request,
+    symbol: str | None = Query(None, description="可选：仅统计单标的"),
+    horizon: int | None = Query(None, ge=1, le=60, description="可选：仅统计指定 H 日展望"),
+    sector_hot_score: float = Query(
+        50.0,
+        ge=0,
+        le=100,
+        description="复算综合分时假设的板块热度（历史板块热度未入库时用中性值）",
+    ),
+    min_turnover_amt: float = Query(
+        0.0,
+        ge=0,
+        description="20 日均成交额下限（元）；0 表示不过滤",
+    ),
+    require_screen_pass: bool = Query(
+        False,
+        description="为 true 时仅统计 short_term_passed 的样本（交易向硬门槛）",
+    ),
+    fast_period: int = Query(10, ge=2, le=120),
+    slow_period: int = Query(30, ge=3, le=250),
+    settle_pending: bool = Query(True, description="统计前先尝试结算 pending 展望"),
+    _: None = Depends(optional_api_key),
+):
+    try:
+        raw = run_score_bucket_validate(
+            symbol=symbol,
+            horizon=horizon,
+            sector_hot_score=sector_hot_score,
+            min_turnover_amt=min_turnover_amt,
+            require_screen_pass=require_screen_pass,
+            fast_period=fast_period,
+            slow_period=slow_period,
+            settle_pending=settle_pending,
+        )
+        return ScoreBucketValidateOut.model_validate(raw)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -4659,8 +4821,10 @@ def root():
             "journal": "/journal",
             "holdings": "/holdings",
             "research_forecast_validate": "/research/forecast-validate",
+            "research_score_bucket_validate": "/research/score-bucket-validate",
             "research_sector_screen": "/research/sector-screen",
             "research_stock_brief": "/research/stock-brief/{symbol}",
+            "research_ai_potential": "/research/ai-potential",
             "disclaimer": d.disclaimer,
             "data_source_note": d.data_source_note,
         }

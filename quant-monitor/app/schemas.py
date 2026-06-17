@@ -26,7 +26,7 @@ Pydantic 请求/响应模型：API 契约层，与 FastAPI 校验及 OpenAPI 文
 | ④ 信号 | `SignalOut`, `FundamentalPanel`, `DailyBarOut`, … |
 | ⑦ 日志 | `JournalIn`, `JournalOut`, `ForwardOutlookOut` |
 | ⑩ 持仓 | `HoldingOut`, `HoldingGoalPlanOut`, `HoldingExitAdviceOut`, … |
-| ⑧ 研究 | `ForecastValidateOut` 及子结构 |
+| ⑧ 研究 | `ForecastValidateOut`、`ScoreBucketValidateOut` 及子结构 |
 | ⑨ 快照 | `HotMarketSnapshotOut`, `HotMarketSnapshotRefreshIn` |
 | 说明 | `DisclaimerOut`, `SelfUseMetaOut`, `StockKnowledgeOut` |
 
@@ -805,9 +805,12 @@ class SectorScreenIn(BaseModel):
     initial_cash: float = Field(100_000.0, gt=0)
     commission: float = Field(0.001, ge=0, le=0.05)
     stop_loss: float = Field(0.08, gt=0, le=0.5)
-    scoring_strategy: Literal["v2", "v1"] = Field(
+    scoring_strategy: Literal["v2", "v1", "v2_trade"] = Field(
         "v2",
-        description="综合评分策略：v2（短线模式下自动用 v2_short 权重）/ v1（旧版，板块热度权重更高）",
+        description=(
+            "综合评分策略：v2（短线模式下自动用 v2_short 权重）/ v1（旧版）/ "
+            "v2_trade（交易向：板块25%+短线75%，不含样本内回测分）"
+        ),
     )
     screen_mode: Literal["short_term", "legacy"] = Field(
         "short_term",
@@ -1729,6 +1732,106 @@ class ForwardOutlookOut(BaseModel):
     updated_at: str
 
 
+# --- ⑦ AI 潜力测算 ---
+
+
+class AiConfigIn(BaseModel):
+    """⑦ 大模型连接配置；请求体传入时优先于服务端 .env。"""
+
+    api_key: str | None = Field(None, max_length=512, description="OpenAI 兼容 API Key")
+    api_base: str | None = Field(
+        None,
+        max_length=256,
+        description="API 根地址，如 https://api.openai.com/v1",
+    )
+    model: str | None = Field(None, max_length=128, description="模型名，如 gpt-4o-mini")
+    json_mode: bool | None = Field(None, description="是否请求 JSON 对象响应")
+    timeout_sec: float | None = Field(None, ge=5, le=300, description="HTTP 超时秒数")
+
+
+class AiDefaultsOut(BaseModel):
+    """GET /meta/ai-defaults：服务端默认 AI 参数（不含密钥）。"""
+
+    api_base: str
+    model: str
+    json_mode: bool
+    timeout_sec: float
+    server_key_configured: bool = Field(
+        False,
+        description="服务端 .env 是否已配置 AI_API_KEY",
+    )
+
+
+class AiPotentialIn(BaseModel):
+    """POST /research/ai-potential：基于②③④本地数据请 AI 解读潜力 Demo。"""
+
+    symbols: list[str] | None = Field(
+        None,
+        description="6 位代码列表；与 use_watchlist 可并用（去重）",
+    )
+    use_watchlist: bool = Field(
+        False,
+        description="为 true 时包含当前自选池全部代码",
+    )
+    horizon_days: int = Field(5, ge=1, le=60, description="关注未来约多少个交易日的潜力")
+    note: str | None = Field(None, max_length=500, description="补充说明（如你的风险偏好）")
+    question: str | None = Field(
+        None,
+        max_length=1000,
+        description="向 AI 提问；将结合②③④数据作答",
+    )
+    preview_only: bool = Field(
+        False,
+        description="为 true 时仅汇总②③④上下文，不调用 AI",
+    )
+    ai: AiConfigIn | None = Field(
+        None,
+        description="⑦ 控制台传入的大模型配置；省略则用服务端 .env",
+    )
+
+
+class AiPotentialContextOut(BaseModel):
+    """单标的②③④汇总上下文。"""
+
+    symbol: str
+    name: str | None = None
+    errors: list[str] = Field(default_factory=list)
+    watchlist: dict[str, Any] | None = None
+    bars: dict[str, Any] | None = None
+    signal: dict[str, Any] | None = None
+    local_scores: dict[str, Any] | None = None
+    forward_outlook: dict[str, Any] | None = None
+
+
+class AiPotentialItemOut(BaseModel):
+    """AI 对单标的潜力解读（Demo）。"""
+
+    symbol: str
+    name: str | None = None
+    potential_score: int | None = Field(None, ge=0, le=100)
+    potential_label: str | None = None
+    horizon_days: int | None = None
+    upside_factors: list[str] = Field(default_factory=list)
+    downside_factors: list[str] = Field(default_factory=list)
+    key_watchpoints: list[str] = Field(default_factory=list)
+    data_gaps: list[str] = Field(default_factory=list)
+    comment_zh: str | None = None
+
+
+class AiPotentialOut(BaseModel):
+    """⑦ AI 潜力测算响应。"""
+
+    symbols: list[str]
+    horizon_days: int
+    contexts: list[AiPotentialContextOut]
+    ai_configured: bool
+    ai_model: str | None = None
+    preview_only: bool
+    summary_zh: str | None = None
+    items: list[AiPotentialItemOut] = Field(default_factory=list)
+    disclaimer: str
+
+
 # --- meta / 自用说明 ---
 
 
@@ -2076,6 +2179,49 @@ class ForecastValidateOut(BaseModel):
     )
 
 
+class ScoreBucketSummaryOut(BaseModel):
+    """分档 H 日收益摘要。"""
+
+    bucket: str
+    score_min: float | None = None
+    score_max_exclusive: float | None = None
+    count: int = 0
+    mean_return_pct: float | None = None
+    median_return_pct: float | None = None
+    win_rate_pct: float | None = None
+    mean_abs_return_pct: float | None = None
+
+
+class ScoreBucketFieldOut(BaseModel):
+    field: str
+    description: str
+    spearman_vs_return: float | None = None
+    buckets: list[ScoreBucketSummaryOut]
+    passed_only_summary: ScoreBucketSummaryOut
+    passed_only_count: int = 0
+
+
+class ScoreBucketValidateOut(BaseModel):
+    """本地打分分档 vs 前向展望已结算 H 日收益。"""
+
+    n_settled_rows: int
+    n_samples: int
+    n_skipped: int
+    horizon_filter: int | None = None
+    symbol_filter: str | None = None
+    sector_hot_score_assumed: float
+    min_turnover_amt: float
+    require_screen_pass: bool
+    fast_period: int
+    slow_period: int
+    buckets: list[dict[str, Any]]
+    fields: list[ScoreBucketFieldOut]
+    trade_score_contrast: dict[str, Any]
+    samples_preview: list[dict[str, Any]]
+    disclaimer: str
+    how_to_read: str
+
+
 class StockBriefQuoteOut(BaseModel):
     """⑤ 个股咨询：现价与简要行情。"""
 
@@ -2087,6 +2233,7 @@ class StockBriefQuoteOut(BaseModel):
     turnover_rate_pct: float | None = Field(None, description="换手率 %")
     last_trade_date: str | None = None
     quote_source: str | None = Field(None, description="现价来源说明")
+    quote_fetched_at: str | None = Field(None, description="服务端拉取现价时刻（ISO）")
 
 
 class StockBriefNewsItemOut(BaseModel):
@@ -2261,6 +2408,7 @@ class StockBriefMoveAttributionOut(BaseModel):
     primary_label: str = Field("暂无法判断", description="中文主因标签")
     confidence: Literal["high", "medium", "low"] = "low"
     explanation: str = ""
+    explanation_points: list[str] = Field(default_factory=list, description="分条详细解读")
     factors: list[StockBriefMoveFactorOut] = Field(default_factory=list, description="归因依据条目")
     comparison_sources: list[StockBriefMoveCompareSourceOut] = Field(
         default_factory=list, description="个股/大盘/行业对比项的数据来源",

@@ -22,7 +22,12 @@ def _pct_ret(close: pd.Series, n: int) -> float:
     return (last - prev) / abs(prev)
 
 
-def evaluate_screen(frame: pd.DataFrame, *, mode: str = "short_term") -> ScreenMetrics:
+def evaluate_screen(
+    frame: pd.DataFrame,
+    *,
+    mode: str = "short_term",
+    min_bars: int | None = None,
+) -> ScreenMetrics:
     """
     技术面初筛。
 
@@ -34,9 +39,10 @@ def evaluate_screen(frame: pd.DataFrame, *, mode: str = "short_term") -> ScreenM
         screen_mode = "short_term"
 
     data = standardize_price_frame(frame).copy()
-    min_bars = 60 if screen_mode == "short_term" else 120
-    if len(data) < min_bars:
-        raise DataSourceError(f"历史数据少于 {min_bars} 个交易日，无法做技术面筛选")
+    default_min = 60 if screen_mode == "short_term" else 120
+    min_bars_req = int(min_bars) if min_bars is not None else default_min
+    if len(data) < min_bars_req:
+        raise DataSourceError(f"历史数据少于 {min_bars_req} 个交易日，无法做技术面筛选")
 
     close = data["close"]
     volume = data["volume"].fillna(0)
