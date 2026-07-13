@@ -4384,7 +4384,7 @@
           <button type="button" class="secondary" id="btnHdClearNotifyPrice" title="清除已勾选行的推送价（恢复为未设，不再推送）">清除推送价</button>
           <button type="button" class="secondary" id="btnHdNotifyTest" title="用当前勾选行或缓存数据试发一条，不刷新现价">测试通知</button>
           <button type="button" class="primary" id="btnHdAutoRefreshStart">开始定时</button>
-          <span class="hd-auto-refresh-hint" id="hdAutoRefreshHint">勾选+推送价后「开始定时」：按间隔联网刷新勾选行现价，达标再推送；再点同一按钮即「取消定时」。</span>
+          <span class="hd-auto-refresh-hint" id="hdAutoRefreshHint">勾选+推送价后「开始定时」：仅在<strong>交易日 9:30–11:30、13:00–15:00（东八区）</strong>按间隔联网刷新勾选行现价，达标再推送；其他时段待命不执行。再点同一按钮即「取消定时」。</span>
         </div>
         <div id="hd-table-wrap" class="wl-table-scroll" style="margin-top:0.75rem;">
           <p class="lead" style="margin:0">进入本页<strong>不会</strong>自动联网。点「<strong>查询</strong>」读库；「<strong>显示</strong>」仅本地筛选；「<strong>刷新列表</strong>」联网更新全部现价；「<strong>开始定时</strong>」仅联网刷新<strong>勾选行</strong>并比对推送价。上次列表与定时勾选会<strong>自动从本机缓存恢复</strong>展示。</p>
@@ -17967,6 +17967,64 @@
   /** 已推送过的达标记录，价格回落后清除 */
   var _hdNotifyAlertFired = Object.create(null);
 
+  /** A 股连续竞价时段（东八区工作日）：9:30–11:30、13:00–15:00 */
+  function hdAshareSessionPhase() {
+    var parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Shanghai",
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date());
+    var wd = "";
+    var hour = 0;
+    var minute = 0;
+    parts.forEach(function (p) {
+      if (p.type === "weekday") wd = p.value;
+      if (p.type === "hour") hour = parseInt(p.value, 10);
+      if (p.type === "minute") minute = parseInt(p.value, 10);
+    });
+    if (wd === "Sat" || wd === "Sun") {
+      return { phase: "non_trading", label: "周末非交易时段" };
+    }
+    var mins = hour * 60 + minute;
+    var m930 = 9 * 60 + 30;
+    var m1130 = 11 * 60 + 30;
+    var m1300 = 13 * 60;
+    var m1500 = 15 * 60;
+    if ((mins >= m930 && mins < m1130) || (mins >= m1300 && mins < m1500)) {
+      return { phase: "intraday", label: "盘中" };
+    }
+    if (mins < m930) return { phase: "pre_open", label: "开盘前" };
+    if (mins >= m1500) return { phase: "after_close", label: "已收盘" };
+    if (mins >= m1130 && mins < m1300) return { phase: "lunch", label: "午间休市" };
+    return { phase: "outside", label: "非开盘时段" };
+  }
+
+  function hdIsAshareTradingSession() {
+    return hdAshareSessionPhase().phase === "intraday";
+  }
+
+  function hdAutoRefreshIntervalSec() {
+    var secEl = $("hdAutoRefreshSec");
+    var sec = secEl && secEl.value ? parseInt(secEl.value, 10) : 60;
+    if (!isFinite(sec) || sec < 10) sec = 60;
+    return sec;
+  }
+
+  function hdAutoRefreshSessionSkipHint() {
+    var sess = hdAshareSessionPhase();
+    var ts = new Date().toLocaleTimeString("zh-CN", {
+      hour12: false,
+      timeZone: "Asia/Shanghai",
+    });
+    var sec = hdAutoRefreshIntervalSec();
+    return (
+      "定时运行中（每 " + sec + " 秒）· 当前东八区 " + ts + " " + sess.label +
+      "，仅在交易日 9:30–11:30、13:00–15:00 执行刷新与推送"
+    );
+  }
+
   function hdAutoRefreshSelectedIdList() {
     return Object.keys(_hdAutoRefreshSelectedIds)
       .map(function (k) {
@@ -18108,14 +18166,11 @@
       void refreshHoldingsReviewSummary();
       if (_hdAutoRefreshActive) {
         hdSyncAutoRefreshButtons(true);
-        var secRun = $("hdAutoRefreshSec");
-        var secSec = secRun && secRun.value ? parseInt(secRun.value, 10) : 60;
-        if (!isFinite(secSec) || secSec < 10) secSec = 60;
         var nRun = hdAutoRefreshSelectedIdList().length;
-        hdUpdateAutoRefreshHint(
-          "定时推送运行中（每 " + secSec + " 秒检查）" + (nRun ? "；勾选 " + nRun + " 条" : ""),
-          true
-        );
+        var runHint = hdIsAshareTradingSession()
+          ? "定时推送运行中（每 " + hdAutoRefreshIntervalSec() + " 秒检查）" + (nRun ? "；勾选 " + nRun + " 条" : "")
+          : hdAutoRefreshSessionSkipHint() + (nRun ? "；勾选 " + nRun + " 条" : "");
+        hdUpdateAutoRefreshHint(runHint, true);
       } else {
         void hdResumeAutoRefreshIfNeeded().then(function (resumed) {
           if (resumed || _hdAutoRefreshActive) return;
@@ -18600,6 +18655,10 @@
     opts = opts || {};
     if (!_hdAutoRefreshActive) return false;
     if (_hdAutoRefreshInFlight) return false;
+    if (!hdIsAshareTradingSession()) {
+      hdUpdateAutoRefreshHint(hdAutoRefreshSessionSkipHint(), true);
+      return true;
+    }
     if (apiKeyRequired() && !getApiKey()) {
       hdStopAutoRefresh({ silent: true });
       showOut("out-10", "请先在「①」保存 API Key。", true);
@@ -18860,15 +18919,21 @@
     var startHint = opts.restored
       ? "定时推送已恢复（每 " + sec + " 秒检查）"
       : "定时推送已启动（每 " + sec + " 秒检查）";
+    startHint += "；仅在交易日 9:30–11:30、13:00–15:00（东八区）执行";
     if (idList.length) startHint += "；勾选 " + idList.length + " 条";
     else startHint += "；未勾选推送标的";
     if (autoApplied) startHint += "；已按工具栏自动写入推送价";
     if (idList.length && !hdGetNotifyUrl()) {
       startHint += "；未填通知地址";
     }
-    startHint += "。将按间隔联网刷新勾选行现价并比对推送价…";
-    hdUpdateAutoRefreshHint(startHint, true);
-    void hdAutoRefreshTick();
+    if (!hdIsAshareTradingSession()) {
+      startHint += "。当前非开盘时段，到交易时段后自动开始检查…";
+      hdUpdateAutoRefreshHint(startHint, true);
+    } else {
+      startHint += "。将按间隔联网刷新勾选行现价并比对推送价…";
+      hdUpdateAutoRefreshHint(startHint, true);
+      void hdAutoRefreshTick();
+    }
     _hdAutoRefreshTimer = setInterval(function () {
       void hdAutoRefreshTick();
     }, sec * 1000);

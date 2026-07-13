@@ -603,6 +603,22 @@ class MootdxDataSource(BaseAShareDataSource):
                 if math.isfinite(f) and f > 0:
                     price = round(f, 2)
                     break
+            prev_close: float | None = None
+            if "last_close" in row.index:
+                raw_lc = row["last_close"]
+                if raw_lc is not None and not (isinstance(raw_lc, float) and pd.isna(raw_lc)):
+                    try:
+                        lc = float(raw_lc)
+                        if math.isfinite(lc) and lc > 0:
+                            prev_close = lc
+                    except (TypeError, ValueError):
+                        prev_close = None
+            if price is not None and prev_close is not None and prev_close > 0:
+                ratio = price / prev_close
+                if ratio > 50:
+                    price = round(price / 100.0, 2)
+                elif ratio < 0.02:
+                    price = round(price * 100.0, 2)
             qdate: str | None = None
             for dcol in ("servertime", "server_time", "datetime", "time", "date"):
                 if dcol not in row.index:
@@ -621,16 +637,6 @@ class MootdxDataSource(BaseAShareDataSource):
                     qdate = None
                 if qdate:
                     break
-            prev_close: float | None = None
-            if "last_close" in row.index:
-                raw_lc = row["last_close"]
-                if raw_lc is not None and not (isinstance(raw_lc, float) and pd.isna(raw_lc)):
-                    try:
-                        lc = float(raw_lc)
-                        if math.isfinite(lc) and lc > 0:
-                            prev_close = lc
-                    except (TypeError, ValueError):
-                        prev_close = None
             chg_pct: float | None = None
             if price is not None and prev_close is not None and prev_close > 0:
                 chg_pct = round((float(price) - prev_close) / prev_close * 100.0, 2)

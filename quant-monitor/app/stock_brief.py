@@ -26,6 +26,7 @@ from app.ingest import (
     fetch_stock_name,
     list_bars_from_db,
     live_quote_fields_for_codes_enhanced,
+    normalize_live_price_for_symbol,
     normalize_symbol,
 )
 from app.config import get_settings
@@ -257,6 +258,8 @@ def _fetch_quote(sym: str) -> dict[str, Any]:
     last_bar = bars[-1] if bars else None
     prev_bar = bars[-2] if len(bars) >= 2 else None
     price = live.get("live_last_price") or live.get("live_price") or live.get("last_close")
+    if price is not None:
+        price = normalize_live_price_for_symbol(sym, float(price)) or price
     if price is None and last_bar:
         price = last_bar.get("close")
     prev_close = live.get("prev_close")

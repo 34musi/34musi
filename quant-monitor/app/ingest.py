@@ -1204,6 +1204,51 @@ def _prev_bar_close_before(sym: str, before_ymd: str) -> float | None:
     return bar["close"] if bar else None
 
 
+def coerce_price_to_reference_close(
+    live_px: float,
+    ref_close: float | None,
+) -> tuple[float, str | None]:
+    """
+    将盘口现价与参照收盘对齐到同一量级（常见：通达信/mootdx 返回未除 100 的整数价）。
+
+    参照通常为本地日线末根收盘或昨收。
+    """
+    if not math.isfinite(live_px) or live_px <= 0:
+        return live_px, None
+    if ref_close is None or not math.isfinite(ref_close) or ref_close <= 0:
+        return live_px, None
+    ratio = live_px / ref_close
+    if ratio > 50:
+        return round(live_px / 100.0, 4), "price_scaled_div100"
+    if ratio < 0.02:
+        return round(live_px * 100.0, 4), "price_scaled_mul100"
+    return live_px, None
+
+
+def normalize_live_price_for_symbol(sym: str, live_px: float | None) -> float | None:
+    """用本地日线末根收盘校验现价量级（⑤⑦ 等单股现价回退）。"""
+    if live_px is None:
+        return None
+    try:
+        p = float(live_px)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(p) or p <= 0:
+        return None
+    ref: float | None = None
+    try:
+        bars = list_bars_from_db(sym, limit=1)
+        if bars:
+            c = float(bars[-1].get("close") or 0)
+            if math.isfinite(c) and c > 0:
+                ref = c
+    except Exception:
+        ref = None
+    if ref is not None:
+        p, _ = coerce_price_to_reference_close(p, ref)
+    return round(p, 4)
+
+
 def _parse_bid_ask_em_df(df: pd.DataFrame) -> dict[str, float | None]:
     """东财单股 push2 报价表 → 最新价、涨跌幅%、昨收。"""
     if df is None or df.empty or "item" not in df.columns or "value" not in df.columns:
@@ -1289,6 +1334,8 @@ def live_quote_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
                 df = ak.stock_bid_ask_em(symbol=sym)
             parsed = _parse_bid_ask_em_df(df)
             px = parsed.get("px")
+            if px is not None and math.isfinite(float(px)) and float(px) > 0:
+                px = normalize_live_price_for_symbol(sym, float(px)) or float(px)
             if px is None or not math.isfinite(float(px)) or float(px) <= 0:
                 continue
             row: dict[str, Any] = {
@@ -1300,6 +1347,9 @@ def live_quote_fields_for_codes(codes: list[str]) -> dict[str, dict[str, Any]]:
             chg = parsed.get("chg")
             if chg is not None and math.isfinite(float(chg)):
                 row["live_change_pct"] = round(float(chg), 2)
+            prev_pc = parsed.get("prev_close")
+            if prev_pc is not None and math.isfinite(float(prev_pc)) and float(prev_pc) > 0:
+                row["prev_close"] = round(float(prev_pc), 4)
             vol = parsed.get("volume")
             if vol is not None and math.isfinite(float(vol)) and float(vol) >= 0:
                 row["live_volume"] = round(float(vol), 4)
@@ -1609,6 +1659,36 @@ def augment_live_quote_fields(
             tr = row.get("spot_turnover_rate")
             if tr is not None and math.isfinite(float(tr)) and sym in out:
                 out[sym]["spot_turnover_rate"] = round(float(tr), 4)
+
+    for sym in uniq:
+        row = out.get(sym)
+        if not row or not _live_row_has_price(row):
+            continue
+        old_p = float(row["live_last_price"])
+        new_p = normalize_live_price_for_symbol(sym, old_p)
+        if new_p is None:
+            continue
+        if abs(new_p - old_p) > 1e-6:
+            row["live_last_price"] = new_p
+            note = row.get("live_price_scale_note")
+            row["live_price_scale_note"] = note or "price_vs_bar_normalized"
+        chg = row.get("live_change_pct")
+        if chg is None or abs(new_p - old_p) > 1e-6:
+            prev = row.get("prev_close")
+            if prev is None:
+                try:
+                    bars = list_bars_from_db(sym, limit=2)
+                    if len(bars) >= 2:
+                        pc = float(bars[-2].get("close") or 0)
+                        if math.isfinite(pc) and pc > 0:
+                            prev = pc
+                except Exception:
+                    prev = None
+            if prev is not None and float(prev) > 0:
+                try:
+                    row["live_change_pct"] = round((new_p / float(prev) - 1) * 100, 2)
+                except (TypeError, ValueError, ZeroDivisionError):
+                    pass
 
     return out
 
