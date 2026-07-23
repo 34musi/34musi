@@ -28,8 +28,14 @@ _HOT_PICK_UI_LOG_CAP = 120
 
 
 def _append_hot_pick_ui_log(progress_log: list[str] | None, text: str) -> None:
-    """同时写服务端 logger 与可回传控制台的进度列表。"""
+    """同时写服务端 logger、可回传 progress_log，以及进程内轮询缓冲。"""
     logger.info("%s", text)
+    try:
+        from app.hot_sectors_job import hot_sectors_job_append_log
+
+        hot_sectors_job_append_log(text)
+    except Exception:  # noqa: BLE001
+        pass
     if progress_log is None:
         return
     progress_log.append(text)
@@ -814,8 +820,18 @@ def _rising_3d_pick_from_constituents(
         exclude_cyb=exclude_cyb,
     )
     total = len(eligible)
+    _append_hot_pick_ui_log(
+        progress_log,
+        f"[三日连涨] 板块#{sector_rank}「{sector_name}」开始扫描 {total} 只成分…",
+    )
 
     for idx, (code, name, crow) in enumerate(eligible, start=1):
+        if idx == 1 or idx % 20 == 0 or idx == total:
+            _append_hot_pick_ui_log(
+                progress_log,
+                f"[三日连涨] 板块#{sector_rank}「{sector_name}」日线进度 {idx}/{total}"
+                f"（当前 {code} {name}）",
+            )
         try:
             hist = datasource.get_price_history(code, start_date, end_date, adjust="qfq")
         except Exception as exc:  # noqa: BLE001
@@ -908,6 +924,7 @@ def pick_from_hot_sectors(
     exclude_kcb: bool = True,
     exclude_cyb: bool = True,
     rankings_override: pd.DataFrame | None = None,
+    sector_names: list[str] | None = None,
     sort_by_trend_strength: bool = True,
     require_technical_pass: bool = False,
     exclude_overextended: bool = False,
@@ -933,6 +950,9 @@ def pick_from_hot_sectors(
     Fast path: if all advanced technical toggles are off, preserve original constituent row order.
     Advanced path: fetch price history, compute `evaluate_screen()`, optionally filter overextended /
     illiquid / technical-fail names, then rank by trend strength inside each sector.
+
+    If ``sector_names`` is provided, only those sectors are scanned (order follows rankings hot score);
+    ``top_sectors`` truncation is skipped.
     """
     warnings: list[str] = []
     cond_groups = normalize_pick_condition_groups(pick_condition_groups)
@@ -945,28 +965,82 @@ def pick_from_hot_sectors(
         logger.warning("[热门选股] 板块列表为空 路线=%s board=%s", ds_label, board_type)
         return HotPickResult(sectors_detail=[], symbols_for_watchlist=[], warnings=["热门板块列表为空"])
 
+    wanted_names: list[str] = []
+    if sector_names:
+        seen_names: set[str] = set()
+        for raw in sector_names:
+            name = str(raw or "").strip()
+            if not name or name in seen_names:
+                continue
+            seen_names.add(name)
+            wanted_names.append(name)
+        if not wanted_names:
+            return HotPickResult(
+                sectors_detail=[],
+                symbols_for_watchlist=[],
+                warnings=["未指定有效板块名称"],
+                pick_condition_groups=sorted(cond_groups),
+            )
+        name_col = rankings["sector_name"].astype(str)
+        rankings = rankings.loc[name_col.isin(seen_names)].reset_index(drop=True)
+        found = set(rankings["sector_name"].astype(str))
+        missing = [n for n in wanted_names if n not in found]
+        if missing:
+            show = "、".join(missing[:15])
+            more = f" 等共 {len(missing)} 个" if len(missing) > 15 else ""
+            warnings.append(f"以下板块未在排名表中找到：{show}{more}")
+        if rankings.empty:
+            return HotPickResult(
+                sectors_detail=[],
+                symbols_for_watchlist=[],
+                warnings=warnings + ["指定板块均不在热门排名表中"],
+                pick_condition_groups=sorted(cond_groups),
+            )
+
     rankings_len = len(rankings)
     rankings_src = "override" if rankings_override is not None else "live"
-    top_n_sector_hot = min(max(1, top_sectors), rankings_len) if want_sector_hot else 0
-    if want_ma5_capital or want_rising_3d:
+    if wanted_names:
+        # 用户已勾选板块：全部扫描，不再用 top_sectors 截断
         loop_n = rankings_len
+        top_n_sector_hot = rankings_len if want_sector_hot else 0
+        _append_hot_pick_ui_log(
+            progress_log,
+            f"按指定板块筛选：请求 {len(wanted_names)} 个，命中 {rankings_len} 个 · 路线={ds_label}",
+        )
         if want_ma5_capital:
             _append_hot_pick_ui_log(
                 progress_log,
-                f"[五日强承接] 扫描全部 {rankings_len} 个板块 · 路线={ds_label} "
+                f"[五日强承接] 扫描指定 {rankings_len} 个板块 · 路线={ds_label} "
                 f"排除ST={ma5_exclude_st} 科创板={ma5_exclude_kcb}",
             )
         if want_rising_3d:
             _append_hot_pick_ui_log(
                 progress_log,
-                f"[三日连涨] 扫描全部 {rankings_len} 个板块 · 路线={ds_label} "
+                f"[三日连涨] 扫描指定 {rankings_len} 个板块 · 路线={ds_label} "
                 f"排除ST={rising_3d_exclude_st} 科创板={rising_3d_exclude_kcb} "
                 f"创业板={rising_3d_exclude_cyb}",
             )
-    elif want_sector_hot:
-        loop_n = top_n_sector_hot
     else:
-        loop_n = 0
+        top_n_sector_hot = min(max(1, top_sectors), rankings_len) if want_sector_hot else 0
+        if want_ma5_capital or want_rising_3d:
+            loop_n = rankings_len
+            if want_ma5_capital:
+                _append_hot_pick_ui_log(
+                    progress_log,
+                    f"[五日强承接] 扫描全部 {rankings_len} 个板块 · 路线={ds_label} "
+                    f"排除ST={ma5_exclude_st} 科创板={ma5_exclude_kcb}",
+                )
+            if want_rising_3d:
+                _append_hot_pick_ui_log(
+                    progress_log,
+                    f"[三日连涨] 扫描全部 {rankings_len} 个板块 · 路线={ds_label} "
+                    f"排除ST={rising_3d_exclude_st} 科创板={rising_3d_exclude_kcb} "
+                    f"创业板={rising_3d_exclude_cyb}",
+                )
+        elif want_sector_hot:
+            loop_n = top_n_sector_hot
+        else:
+            loop_n = 0
     _append_hot_pick_ui_log(
         progress_log,
         f"开始筛选 首选路线={ds_label} 板块表={rankings_len} 行({rankings_src}) "
@@ -989,6 +1063,21 @@ def pick_from_hot_sectors(
         bt_arg = str(bt) if bt is not None and str(bt) not in ("", "nan") else None
 
         sector_metrics = _ranking_row_to_metrics(srow, sector_rank)
+        try:
+            from app.hot_sectors_job import hot_sectors_job_set_progress
+
+            hot_sectors_job_set_progress(
+                done=i,
+                total=loop_n,
+                current_sector=sector_name,
+                message=f"处理板块 {sector_rank}/{loop_n}「{sector_name}」",
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        _append_hot_pick_ui_log(
+            progress_log,
+            f"处理板块 {sector_rank}/{loop_n}「{sector_name}」· 拉取成分股…",
+        )
 
         if is_st_sector_name(sector_name):
             sector_hot_needed = want_sector_hot and i < top_n_sector_hot and not exclude_st
@@ -1012,6 +1101,10 @@ def pick_from_hot_sectors(
             cons = datasource.get_sector_constituents(sector_name, bt_arg)
         except Exception as exc:  # noqa: BLE001
             warnings.append(f"板块「{sector_name}」成分股获取失败：{exc}")
+            _append_hot_pick_ui_log(
+                progress_log,
+                f"板块#{sector_rank}「{sector_name}」成分股失败：{exc}",
+            )
             empty = {"sector_rank": sector_rank, "sector_metrics": sector_metrics, "stocks": []}
             if want_sector_hot and i < top_n_sector_hot:
                 sectors_detail.append(empty)
@@ -1124,6 +1217,7 @@ def pick_from_hot_sectors(
                 exclude_cyb=rising_3d_exclude_cyb,
                 rising_min_days=3,
                 warnings=warnings,
+                progress_log=progress_log,
             )
             for code in r3_syms:
                 if code not in seen_symbols:

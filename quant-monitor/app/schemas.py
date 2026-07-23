@@ -618,6 +618,35 @@ class FillHotSectorsIn(BaseModel):
         le=10,
         description="上述窗口内至少几日主力净流入为正，且合计为正",
     )
+    sector_names: list[str] | None = Field(
+        None,
+        description=(
+            "可选：仅分析指定板块名（须与排名表 sector_name 一致）。"
+            "传入后忽略 top_sectors 截断，扫描全部勾选板块；"
+            "不传则保持原行为（sector_hot 取前 N，ma5/rising_3d 扫全部排名）"
+        ),
+    )
+
+    @field_validator("sector_names", mode="before")
+    @classmethod
+    def _normalize_sector_names(cls, v: object) -> list[str] | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v = [v]
+        if not isinstance(v, (list, tuple)):
+            raise ValueError("sector_names 须为字符串列表")
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in v:
+            name = str(item or "").strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            out.append(name)
+            if len(out) >= 200:
+                break
+        return out or None
 
     @field_validator("pick_condition_groups", mode="before")
     @classmethod
@@ -642,6 +671,47 @@ class FillHotSectorsIn(BaseModel):
         if not out:
             raise ValueError("请至少选择一种选股条件（sector_hot / ma5_capital / rising_3d）")
         return out
+
+
+class HotSectorsListIn(BaseModel):
+    """POST /watchlist/hot-sectors/list：仅拉取板块热度排名，不做成分股筛选。"""
+
+    board_type: str = Field(
+        "all",
+        description="板块类型：all / concept / industry",
+    )
+    selector_data_source: SelectorSectorDataSource = Field(
+        ...,
+        description="akshare / mootdx / tushare",
+    )
+    use_sector_snapshot: bool = Field(
+        True,
+        description="是否优先使用本地板块热度快照；为 false 时强制重新请求并刷新快照",
+    )
+    tushare_token: str | None = Field(
+        None,
+        description="selector_data_source=tushare 时可选（或服务端已配置）",
+    )
+    limit: int | None = Field(
+        None,
+        ge=1,
+        le=500,
+        description="可选：只返回热度前 N 条（便于前端勾选）；不传则返回全部",
+    )
+
+
+class HotSectorsListOut(BaseModel):
+    """板块热度列表（第一步：供用户勾选后再分析）。"""
+
+    sectors: list[dict[str, Any]] = Field(
+        ...,
+        description="按热度排序；每项含 rank、sector_name、board_type、change_pct、hot_score 等",
+    )
+    total: int = Field(..., description="过滤 limit 前的总板块数")
+    from_snapshot: bool = Field(..., description="是否来自本地快照")
+    selector_data_source: str = Field(..., description="实际使用的数据路线")
+    board_type: str = Field(..., description="板块类型")
+    warnings: list[str] = Field(default_factory=list)
 
 
 class FillHotSectorsSummary(BaseModel):

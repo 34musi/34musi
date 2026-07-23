@@ -149,6 +149,12 @@ from app.watchlist_spot_job import (
     watchlist_spot_job_status,
     watchlist_spot_job_tick,
 )
+from app.hot_sectors_job import (
+    hot_sectors_job_append_log,
+    hot_sectors_job_finish,
+    hot_sectors_job_start,
+    hot_sectors_job_status,
+)
 from app.quant_stock_selector import DataSourceError, get_data_source, pick_from_hot_sectors
 from app.quant_stock_selector.models import StockEvaluation
 from app.quant_stock_selector.hot_pick import is_star_board_code, is_st_stock_name
@@ -189,6 +195,8 @@ from app.schemas import (
     FillHotSectorsIn,
     FillHotSectorsOut,
     FillHotSectorsSummary,
+    HotSectorsListIn,
+    HotSectorsListOut,
     ForecastValidateOut,
     ScoreBucketValidateOut,
     HotMarketSnapshotFileOut,
@@ -691,6 +699,74 @@ def _raise_if_hot_sectors_cancelled() -> None:
         raise HTTPException(status_code=499, detail="热门板块任务已取消")
 
 
+def _load_hot_sector_rankings(
+    *,
+    selector_data_source: str,
+    board_type: str,
+    use_sector_snapshot: bool,
+    tushare_token: str | None = None,
+    progress_log: list[str] | None = None,
+    cancel_check: bool = False,
+):
+    """加载板块热度排名（快照优先或实时拉取并写快照）。返回 (datasource, rankings, from_snapshot)。"""
+    ds_key = (selector_data_source or "akshare").strip().lower()
+    ds_label = _HOT_SECTOR_DS_LABELS.get(ds_key, ds_key)
+    board_key = (board_type or "all").strip().lower() or "all"
+
+    def _ui_log(msg: str) -> None:
+        if progress_log is not None:
+            progress_log.append(msg)
+            try:
+                hot_sectors_job_append_log(msg)
+            except Exception:  # noqa: BLE001
+                pass
+        elif msg:
+            logger.debug("hot_sectors rankings: %s", msg)
+
+    ds = _resolve_sector_datasource(selector_data_source, tushare_token=tushare_token)
+    snapshot_path = default_sector_snapshot_path(
+        get_settings().data_dir, selector_data_source, board_key
+    )
+    rankings = None
+    from_snapshot = False
+    if use_sector_snapshot and snapshot_path.exists():
+        try:
+            rankings = load_sector_rankings_snapshot(snapshot_path)
+            from_snapshot = True
+            logger.info("hot_sectors: loaded sector snapshot %s", snapshot_path)
+            _ui_log(f"板块列表：读取本地快照 {snapshot_path.name}（{len(rankings)} 行）")
+        except Exception as exc:
+            logger.warning("sector snapshot load failed, fallback to live fetch: %s", exc)
+            _ui_log(f"板块快照读取失败，改走实时拉取：{exc}")
+            rankings = None
+    if rankings is None:
+        logger.info("hot_sectors: live fetch sector rankings via %s (board=%s)", ds_key, board_key)
+        _ui_log(f"板块列表：实时拉取 路线={ds_key} board={board_key}")
+        if cancel_check:
+            _raise_if_hot_sectors_cancelled()
+        try:
+            rankings = ds.get_sector_rankings(board_key)
+            n_rows = len(rankings) if rankings is not None else 0
+            logger.info(
+                "hot_sectors: 板块列表已拉取 route=%s board=%s rows=%s",
+                ds_key,
+                board_key,
+                n_rows,
+            )
+            _ui_log(f"板块列表已拉取 {n_rows} 行")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"热门板块列表拉取失败（当前路线：{ds_label}）：{exc}",
+            ) from exc
+        try:
+            save_sector_rankings_snapshot(rankings, snapshot_path)
+        except Exception as exc:
+            logger.warning("sector snapshot save failed: %s", exc)
+        from_snapshot = False
+    return ds, rankings, from_snapshot
+
+
 def _run_hot_pick_common(
     *,
     top_sectors: int,
@@ -718,129 +794,120 @@ def _run_hot_pick_common(
     rising_3d_exclude_st: bool = True,
     rising_3d_exclude_kcb: bool = True,
     rising_3d_exclude_cyb: bool = True,
+    sector_names: list[str] | None = None,
 ):
     clear("hot_sectors")
+    hot_sectors_job_start(message="热门板块任务启动")
+    cancelled = False
     cond_set = None
     try:
         from app.quant_stock_selector.hot_pick import normalize_pick_condition_groups
 
         cond_set = normalize_pick_condition_groups(pick_condition_groups)
     except ValueError as e:
+        hot_sectors_job_finish(cancelled=False)
         raise HTTPException(status_code=400, detail=str(e)) from e
     ds_key = (selector_data_source or "akshare").strip().lower()
     ds_label = _HOT_SECTOR_DS_LABELS.get(ds_key, ds_key)
     progress_log: list[str] = []
-    logger.info(
-        "hot_sectors pick start: route=%s (%s) conditions=%s",
-        ds_key,
-        ds_label,
-        sorted(cond_set or []),
-    )
-    progress_log.append(
-        f"热门板块筛选启动 路线={ds_key}（{ds_label}）条件={','.join(sorted(cond_set or []))}"
-    )
-    _raise_if_hot_sectors_cancelled()
-    ds = _resolve_sector_datasource(selector_data_source, tushare_token=tushare_token)
-    impl_name = type(ds).__name__
-    logger.info(
-        "hot_sectors: 首选数据源已就绪 route=%s impl=%s",
-        ds_key,
-        impl_name,
-    )
-    progress_log.append(f"首选数据源已就绪 路线={ds_key} 实现={impl_name}")
-    board_key = (board_type or "all").strip().lower() or "all"
-    snapshot_path = default_sector_snapshot_path(
-        get_settings().data_dir, selector_data_source, board_key
-    )
-    rankings_override = None
-    if use_sector_snapshot and snapshot_path.exists():
-        try:
-            rankings_override = load_sector_rankings_snapshot(snapshot_path)
-            logger.info("hot_sectors: loaded sector snapshot %s", snapshot_path)
-            progress_log.append(
-                f"板块列表：读取本地快照 {snapshot_path.name}（{len(rankings_override)} 行）"
-            )
-        except Exception as exc:
-            logger.warning("sector snapshot load failed, fallback to live fetch: %s", exc)
-            progress_log.append(f"板块快照读取失败，改走实时拉取：{exc}")
-    if rankings_override is None:
-        logger.info("hot_sectors: live fetch sector rankings via %s (board=%s)", ds_key, board_key)
-        progress_log.append(f"板块列表：实时拉取 路线={ds_key} board={board_key}")
+
+    def _ui_log(msg: str) -> None:
+        progress_log.append(msg)
+        hot_sectors_job_append_log(msg)
+
+    try:
+        logger.info(
+            "hot_sectors pick start: route=%s (%s) conditions=%s sector_names=%s",
+            ds_key,
+            ds_label,
+            sorted(cond_set or []),
+            len(sector_names or []),
+        )
+        _ui_log(
+            f"热门板块筛选启动 路线={ds_key}（{ds_label}）条件={','.join(sorted(cond_set or []))}"
+            + (f" 指定板块={len(sector_names)} 个" if sector_names else "")
+        )
         _raise_if_hot_sectors_cancelled()
-        try:
-            rankings_override = ds.get_sector_rankings(board_key)
-            n_rows = len(rankings_override) if rankings_override is not None else 0
-            logger.info(
-                "hot_sectors: 板块列表已拉取 route=%s board=%s rows=%s",
-                ds_key,
-                board_key,
-                n_rows,
+        board_key = (board_type or "all").strip().lower() or "all"
+        ds, rankings_override, from_snapshot = _load_hot_sector_rankings(
+            selector_data_source=selector_data_source,
+            board_type=board_key,
+            use_sector_snapshot=use_sector_snapshot,
+            tushare_token=tushare_token,
+            progress_log=progress_log,
+            cancel_check=True,
+        )
+        impl_name = type(ds).__name__
+        logger.info(
+            "hot_sectors: 首选数据源已就绪 route=%s impl=%s from_snapshot=%s rows=%s",
+            ds_key,
+            impl_name,
+            from_snapshot,
+            len(rankings_override) if rankings_override is not None else 0,
+        )
+        _ui_log(f"首选数据源已就绪 路线={ds_key} 实现={impl_name}")
+        _raise_if_hot_sectors_cancelled()
+        hot = pick_from_hot_sectors(
+            ds,
+            top_sectors=top_sectors,
+            stocks_per_sector=stocks_per_sector,
+            board_type=board_key,
+            exclude_st=exclude_st,
+            exclude_kcb=exclude_kcb,
+            exclude_cyb=exclude_cyb,
+            rankings_override=rankings_override,
+            sector_names=sector_names,
+            sort_by_trend_strength=sort_by_trend_strength,
+            require_technical_pass=require_technical_pass,
+            exclude_overextended=exclude_overextended,
+            max_return_20d_pct=max_return_20d_pct,
+            enable_liquidity_filter=enable_liquidity_filter,
+            min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
+            should_cancel=lambda: is_cancelled("hot_sectors"),
+            pick_condition_groups=sorted(cond_set or []),
+            ma5_stand_min_days=ma5_stand_min_days,
+            capital_flow_lookback_days=capital_flow_lookback_days,
+            capital_min_positive_days=capital_min_positive_days,
+            ma5_exclude_st=ma5_exclude_st,
+            ma5_exclude_kcb=ma5_exclude_kcb,
+            ma5_exclude_cyb=ma5_exclude_cyb,
+            rising_3d_exclude_st=rising_3d_exclude_st,
+            rising_3d_exclude_kcb=rising_3d_exclude_kcb,
+            rising_3d_exclude_cyb=rising_3d_exclude_cyb,
+            progress_log=progress_log,
+        )
+        if hot.progress_log:
+            progress_log = hot.progress_log
+        _raise_if_hot_sectors_cancelled()
+        if "sector_hot" in cond_set:
+            price_warnings = _overlay_live_prices_on_hot_sectors_detail(
+                hot.sectors_detail,
+                selector_data_source=selector_data_source,
             )
-            progress_log.append(f"板块列表已拉取 {n_rows} 行")
-        except Exception as exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"热门板块列表拉取失败（当前路线：{ds_label}）：{exc}",
-            ) from exc
-        try:
-            save_sector_rankings_snapshot(rankings_override, snapshot_path)
-        except Exception as exc:
-            logger.warning("sector snapshot save failed: %s", exc)
-    _raise_if_hot_sectors_cancelled()
-    hot = pick_from_hot_sectors(
-        ds,
-        top_sectors=top_sectors,
-        stocks_per_sector=stocks_per_sector,
-        board_type=board_key,
-        exclude_st=exclude_st,
-        exclude_kcb=exclude_kcb,
-        exclude_cyb=exclude_cyb,
-        rankings_override=rankings_override,
-        sort_by_trend_strength=sort_by_trend_strength,
-        require_technical_pass=require_technical_pass,
-        exclude_overextended=exclude_overextended,
-        max_return_20d_pct=max_return_20d_pct,
-        enable_liquidity_filter=enable_liquidity_filter,
-        min_avg_turnover_20d_100m=min_avg_turnover_20d_100m,
-        should_cancel=lambda: is_cancelled("hot_sectors"),
-        pick_condition_groups=sorted(cond_set or []),
-        ma5_stand_min_days=ma5_stand_min_days,
-        capital_flow_lookback_days=capital_flow_lookback_days,
-        capital_min_positive_days=capital_min_positive_days,
-        ma5_exclude_st=ma5_exclude_st,
-        ma5_exclude_kcb=ma5_exclude_kcb,
-        ma5_exclude_cyb=ma5_exclude_cyb,
-        rising_3d_exclude_st=rising_3d_exclude_st,
-        rising_3d_exclude_kcb=rising_3d_exclude_kcb,
-        rising_3d_exclude_cyb=rising_3d_exclude_cyb,
-        progress_log=progress_log,
-    )
-    if hot.progress_log:
-        progress_log = hot.progress_log
-    _raise_if_hot_sectors_cancelled()
-    if "sector_hot" in cond_set:
-        price_warnings = _overlay_live_prices_on_hot_sectors_detail(
-            hot.sectors_detail,
-            selector_data_source=selector_data_source,
-        )
-        if price_warnings:
-            hot.warnings.extend(price_warnings)
-    if "ma5_capital" in cond_set and hot.ma5_capital_sectors_detail:
-        mc_warnings = _overlay_live_prices_on_hot_sectors_detail(
-            hot.ma5_capital_sectors_detail,
-            selector_data_source=selector_data_source,
-        )
-        if mc_warnings:
-            hot.warnings.extend(mc_warnings)
-    if "rising_3d" in cond_set and hot.rising_3d_sectors_detail:
-        r3_warnings = _overlay_live_prices_on_hot_sectors_detail(
-            hot.rising_3d_sectors_detail,
-            selector_data_source=selector_data_source,
-        )
-        if r3_warnings:
-            hot.warnings.extend(r3_warnings)
-    hot.progress_log = progress_log
-    return hot
+            if price_warnings:
+                hot.warnings.extend(price_warnings)
+        if "ma5_capital" in cond_set and hot.ma5_capital_sectors_detail:
+            mc_warnings = _overlay_live_prices_on_hot_sectors_detail(
+                hot.ma5_capital_sectors_detail,
+                selector_data_source=selector_data_source,
+            )
+            if mc_warnings:
+                hot.warnings.extend(mc_warnings)
+        if "rising_3d" in cond_set and hot.rising_3d_sectors_detail:
+            r3_warnings = _overlay_live_prices_on_hot_sectors_detail(
+                hot.rising_3d_sectors_detail,
+                selector_data_source=selector_data_source,
+            )
+            if r3_warnings:
+                hot.warnings.extend(r3_warnings)
+        hot.progress_log = progress_log
+        return hot
+    except HTTPException as he:
+        if he.status_code == 499:
+            cancelled = True
+        raise
+    finally:
+        hot_sectors_job_finish(cancelled=cancelled or is_cancelled("hot_sectors"))
 
 
 def _hot_sectors_preview_payload(
@@ -870,6 +937,7 @@ def _hot_sectors_preview_payload(
     rising_3d_exclude_st: bool = True,
     rising_3d_exclude_kcb: bool = True,
     rising_3d_exclude_cyb: bool = True,
+    sector_names: list[str] | None = None,
 ) -> FillHotSectorsOut:
     hot = _run_hot_pick_common(
         top_sectors=top_sectors,
@@ -897,6 +965,7 @@ def _hot_sectors_preview_payload(
         rising_3d_exclude_st=rising_3d_exclude_st,
         rising_3d_exclude_kcb=rising_3d_exclude_kcb,
         rising_3d_exclude_cyb=rising_3d_exclude_cyb,
+        sector_names=sector_names,
     )
     return FillHotSectorsOut(
         sectors_detail=hot.sectors_detail,
@@ -1003,6 +1072,19 @@ def meta_clear_batch(
 )
 def meta_ingest_batch_status(_: None = Depends(optional_api_key)):
     return ingest_batch_status()
+
+
+@app.get(
+    "/meta/hot-sectors-status",
+    tags=["① 入门必读"],
+    summary="热门板块筛选任务进度与过程日志",
+    description=(
+        "② 控制台在「获取热门板块候选」请求进行中轮询本接口，"
+        "实时展示服务端 progress_log（不必等 POST 整包返回）。"
+    ),
+)
+async def meta_hot_sectors_status(_: None = Depends(optional_api_key)):
+    return hot_sectors_job_status()
 
 
 @app.get(
@@ -2329,6 +2411,7 @@ def watchlist_fill_hot_sectors(
             rising_3d_exclude_st=body.rising_3d_exclude_st,
             rising_3d_exclude_kcb=body.rising_3d_exclude_kcb,
             rising_3d_exclude_cyb=body.rising_3d_exclude_cyb,
+            sector_names=body.sector_names,
         )
     except HTTPException:
         raise
@@ -2462,11 +2545,121 @@ def watchlist_hot_sectors_preview(
 
 
 @app.post(
+    "/watchlist/hot-sectors/list",
+    response_model=HotSectorsListOut,
+    tags=["② 管理自选股票"],
+    summary="仅拉取热门板块列表（不筛股）",
+    description="""
+**第一步**：按数据源与板块类型返回热度排名，供控制台勾选。
+
+- 不拉成分股、不跑选股条件；耗时远短于 preview。
+- `use_sector_snapshot=true` 时优先读本地快照；`false` 则实时拉取并刷新快照。
+- 勾选后把 `sector_names` 传给 `POST /watchlist/hot-sectors/preview` 做第二步分析。
+""",
+)
+@limiter.limit("20/minute")
+def watchlist_hot_sectors_list(
+    request: Request,
+    body: HotSectorsListIn = Body(...),
+    _: None = Depends(optional_api_key),
+):
+    route = body.selector_data_source.value
+    board_key = (body.board_type or "all").strip().lower() or "all"
+    t0 = time.monotonic()
+    logger.info(
+        "hot_sectors list start: route=%s board=%s snapshot=%s limit=%s",
+        route,
+        board_key,
+        body.use_sector_snapshot,
+        body.limit,
+    )
+    warnings: list[str] = []
+    try:
+        _ds, rankings, from_snapshot = _load_hot_sector_rankings(
+            selector_data_source=route,
+            board_type=board_key,
+            use_sector_snapshot=body.use_sector_snapshot,
+            tushare_token=body.tushare_token,
+            progress_log=None,
+            cancel_check=False,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("hot_sectors list failed: %s", e)
+        raise HTTPException(status_code=502, detail=f"板块列表拉取失败：{e}") from e
+
+    if rankings is None or rankings.empty:
+        return HotSectorsListOut(
+            sectors=[],
+            total=0,
+            from_snapshot=from_snapshot,
+            selector_data_source=route,
+            board_type=board_key,
+            warnings=["热门板块列表为空"],
+        )
+
+    total = int(len(rankings))
+    frame = rankings
+    if body.limit is not None and body.limit < total:
+        frame = rankings.head(int(body.limit))
+        warnings.append(f"已按 limit={body.limit} 截断（全表 {total} 行）")
+
+    sectors: list[dict] = []
+    for i, (_, row) in enumerate(frame.iterrows()):
+        item: dict = {
+            "rank": i + 1,
+            "sector_name": str(row.get("sector_name", "") or ""),
+            "board_type": str(row.get("board_type", "") or "") or None,
+        }
+        for col in (
+            "change_pct",
+            "hot_score",
+            "advancers_ratio",
+            "leader_change_pct",
+            "turnover_rate",
+            "liquidity_metric",
+            "source",
+        ):
+            if col not in row.index:
+                continue
+            val = row.get(col)
+            if val is None:
+                continue
+            try:
+                if hasattr(val, "item"):
+                    val = val.item()
+            except Exception:  # noqa: BLE001
+                pass
+            if isinstance(val, float) and (val != val):  # NaN
+                continue
+            item[col] = val
+        sectors.append(item)
+
+    logger.info(
+        "hot_sectors list done: %.1fs route=%s total=%s returned=%s snapshot=%s",
+        time.monotonic() - t0,
+        route,
+        total,
+        len(sectors),
+        from_snapshot,
+    )
+    return HotSectorsListOut(
+        sectors=sectors,
+        total=total,
+        from_snapshot=from_snapshot,
+        selector_data_source=route,
+        board_type=board_key,
+        warnings=warnings,
+    )
+
+
+@app.post(
     "/watchlist/hot-sectors/preview",
     response_model=FillHotSectorsOut,
     tags=["② 管理自选股票"],
     summary="预览热门板块选股（不写库，Body）",
-    description="请求体与 `POST /watchlist/fill-hot-sectors` 相同字段；**不写库**。控制台与 TuShare 推荐走本接口以便安全传递 `tushare_token`。",
+    description="请求体与 `POST /watchlist/fill-hot-sectors` 相同字段；**不写库**。控制台与 TuShare 推荐走本接口以便安全传递 `tushare_token`。可传 `sector_names` 仅分析勾选板块。",
 )
 @limiter.limit("12/minute")
 def watchlist_hot_sectors_preview_post(
@@ -2516,6 +2709,7 @@ def watchlist_hot_sectors_preview_post(
             rising_3d_exclude_st=body.rising_3d_exclude_st,
             rising_3d_exclude_kcb=body.rising_3d_exclude_kcb,
             rising_3d_exclude_cyb=body.rising_3d_exclude_cyb,
+            sector_names=body.sector_names,
         )
         n_stocks = sum(len(b.get("stocks") or []) for b in out.sectors_detail)
         n_mc = sum(len(b.get("stocks") or []) for b in out.ma5_capital_sectors_detail)

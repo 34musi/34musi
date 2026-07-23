@@ -2193,6 +2193,78 @@
     .hot-fill-actions .btns {
       margin: 0;
     }
+    .hot-sector-pick-panel {
+      margin: 0 1.35rem 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid rgba(45, 58, 79, 0.45);
+    }
+    .hot-sector-pick-meta {
+      font-weight: 400;
+      font-size: 0.78rem;
+      color: #8a9bb0;
+      margin-left: 0.35rem;
+    }
+    .hot-sector-pick-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      align-items: center;
+      margin: 0.55rem 0 0.65rem;
+    }
+    .hot-sector-pick-toolbar input[type="search"] {
+      flex: 1 1 10rem;
+      min-width: 8rem;
+      max-width: 18rem;
+      padding: 0.4rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid rgba(70, 86, 110, 0.85);
+      background: rgba(8, 12, 20, 0.55);
+      color: #e8eef6;
+      font-size: 0.82rem;
+    }
+    .hot-sector-pick-count {
+      font-size: 0.78rem;
+      color: #9eb0c4;
+      margin-left: 0.15rem;
+    }
+    .hot-sector-pick-table-wrap {
+      max-height: 16rem;
+      overflow: auto;
+      border: 1px solid rgba(55, 70, 92, 0.7);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.22);
+    }
+    .hot-sector-pick-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .hot-sector-pick-table th,
+    .hot-sector-pick-table td {
+      padding: 0.4rem 0.55rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(45, 58, 79, 0.55);
+      white-space: nowrap;
+    }
+    .hot-sector-pick-table th {
+      position: sticky;
+      top: 0;
+      background: #151c28;
+      z-index: 1;
+      color: #9aaaba;
+      font-weight: 600;
+      font-size: 0.72rem;
+    }
+    .hot-sector-pick-table tbody tr:hover {
+      background: rgba(56, 120, 200, 0.12);
+    }
+    .hot-sector-pick-table tbody tr.hot-sp-selected {
+      background: rgba(56, 120, 200, 0.18);
+    }
+    .hot-sector-pick-table .hot-sp-check { width: 2rem; }
+    .hot-sector-pick-table .hot-sp-rank { width: 2.5rem; color: #8a9bb0; }
+    .hot-sector-pick-table .hot-sp-chg-up { color: #e85d5d; }
+    .hot-sector-pick-table .hot-sp-chg-down { color: #3db87a; }
     .hot-fill-box > #hotSummaryLine {
       margin-top: 0;
       padding-top: 0.5rem;
@@ -2215,6 +2287,12 @@
     }
     .hot-pick-group-title.is-ma5 {
       color: #7dcea0;
+    }
+    .hot-pick-group-title .hot-sector-update-time,
+    .hot-summary-title .hot-sector-update-time {
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 0.78rem;
     }
     select.hot-pick-conditions-select {
       width: 100%;
@@ -3708,11 +3786,11 @@
         <div class="hot-fill-box">
           <header class="hot-fill-head">
             <h3>热门板块选股</h3>
-            <p class="hot-fill-desc">拉取热门板块排名并筛选候选，<strong>先展示在下方</strong>。点各板块「查看」展开明细，勾选后点明细内「<strong>将勾选股加入自选</strong>」（来源<strong>手动</strong>，不自动整批写入）。<strong>akshare</strong> 板块较全；<strong>mootdx</strong> 较少；<strong>TuShare</strong> 需 Token。需联网，耗时可较长。</p>
+            <p class="hot-fill-desc">分三步：<strong>① 获取板块</strong> → <strong>② 勾选要分析的板块</strong> → <strong>③ 按条件筛股</strong>。结果先展示在下方，点「查看」勾选后加入②自选（来源<strong>手动</strong>）。<strong>akshare</strong> 板块较全；<strong>mootdx</strong> 较少；<strong>TuShare</strong> 需 Token。</p>
           </header>
           <div class="hot-fill-body-grid">
           <div class="hot-fill-section">
-            <div class="hot-fill-section-title">数据源与板块</div>
+            <div class="hot-fill-section-title">① 数据源与板块类型</div>
             <div class="hot-form-grid">
               <div class="field-stack">
                 <label for="hotBoardType">板块类型</label>
@@ -3731,6 +3809,9 @@
                 </select>
               </div>
             </div>
+            <div class="hot-options-grid" style="margin-top:0.65rem">
+              <label class="hot-check-full"><input type="checkbox" id="hotUseSectorSnapshot" checked /> 使用板块快照（不勾选则强制请求最新板块数据）</label>
+            </div>
             <div id="hotTushareTokenRow" class="hot-tushare-row" aria-live="polite">
               <label for="hotTushareToken">TuShare Pro Token</label>
               <input type="password" id="hotTushareToken" placeholder="从 tushare.pro 获取；仅提交到本机服务" autocomplete="off" />
@@ -3739,9 +3820,12 @@
               </div>
               <p class="hot-field-hint" style="margin-top:0.65rem;">若已在服务器配置 <code>TUSHARE_TOKEN</code>，可留空。</p>
             </div>
+            <div class="btns" style="margin-top:0.85rem">
+              <button type="button" class="primary" id="btnHotFetchSectors">① 获取板块列表</button>
+            </div>
           </div>
           <div class="hot-fill-section">
-            <div class="hot-fill-section-title">选股条件（下拉多选，再点「获取热门板块候选」）</div>
+            <div class="hot-fill-section-title">选股条件（下拉多选，分析前至少选 1 项）</div>
             <div class="field-stack">
               <label for="hotPickConditions">条件类型</label>
               <select id="hotPickConditions" class="hot-pick-conditions-select" multiple size="5" aria-describedby="hotPickConditionsHint">
@@ -3753,12 +3837,37 @@
             </div>
           </div>
           </div>
+          <div id="hotSectorPickPanel" class="hot-fill-section hot-sector-pick-panel" hidden>
+            <div class="hot-fill-section-title">② 选择要分析的板块 <span id="hotSectorPickMeta" class="hot-sector-pick-meta"></span></div>
+            <div class="hot-sector-pick-toolbar">
+              <input type="search" id="hotSectorFilter" placeholder="筛选板块名称…" autocomplete="off" />
+              <button type="button" class="secondary" id="btnHotSectorSelectTop" title="按热度勾选前 N 个（取「热门板块个数」）">勾选前 N</button>
+              <button type="button" class="secondary" id="btnHotSectorSelectAll">全选可见</button>
+              <button type="button" class="secondary" id="btnHotSectorSelectNone">全不选</button>
+              <span id="hotSectorPickCount" class="hot-sector-pick-count">已选 0</span>
+            </div>
+            <div class="hot-sector-pick-table-wrap">
+              <table class="hot-sector-pick-table" id="hotSectorPickTable">
+                <thead>
+                  <tr>
+                    <th class="hot-sp-check"></th>
+                    <th class="hot-sp-rank">#</th>
+                    <th>板块</th>
+                    <th>类型</th>
+                    <th>涨跌%</th>
+                    <th>热度</th>
+                  </tr>
+                </thead>
+                <tbody id="hotSectorPickTbody"></tbody>
+              </table>
+            </div>
+          </div>
           <div class="hot-cond-panels-wrap">
           <div id="hotCondSectorHot" class="hot-fill-section hot-cond-panel">
             <div class="hot-fill-section-title">热门板块筛选 · 参数</div>
             <div class="hot-form-grid hot-sector-hot-qty-grid">
               <div class="field-stack">
-                <label for="hotTopSectors">热门板块个数</label>
+                <label for="hotTopSectors">热门板块个数（勾选前 N 用）</label>
                 <input type="number" id="hotTopSectors" value="5" min="1" max="200" />
               </div>
               <div class="field-stack">
@@ -3770,7 +3879,6 @@
               <label><input type="checkbox" id="hotExcludeSt" checked /> 排除 ST</label>
               <label><input type="checkbox" id="hotExcludeKcb" checked /> 排除科创板（688/689）</label>
               <label><input type="checkbox" id="hotExcludeCyb" checked /> 排除创业板（300/301）</label>
-              <label class="hot-check-full"><input type="checkbox" id="hotUseSectorSnapshot" checked /> 使用板块快照（不勾选则强制请求最新板块数据）</label>
               <label><input type="checkbox" id="hotSortByTrend" checked /> 板块内按趋势强度排序</label>
               <label><input type="checkbox" id="hotRequireTechPass" /> 热门 + 技术面通过才入选</label>
             </div>
@@ -3801,7 +3909,7 @@
               <label><input type="checkbox" id="hotRising3dExcludeKcb" checked /> 排除科创板（688/689）</label>
               <label><input type="checkbox" id="hotRising3dExcludeCyb" checked /> 排除创业板（300/301）</label>
             </div>
-            <p class="hot-field-hint" style="margin:0.65rem 0 0">扫描<strong>全部</strong>热门板块成分，不限每板块只数。规则：最近连续 <strong>3</strong> 个交易日收盘价逐日高于前一日（收涨）。日线走上方<strong>热门数据路线</strong>。</p>
+            <p class="hot-field-hint" style="margin:0.65rem 0 0">仅扫描<strong>上方勾选的板块</strong>成分，不限每板块只数。规则：最近连续 <strong>3</strong> 个交易日收盘价逐日高于前一日（收涨）。日线走上方<strong>热门数据路线</strong>。</p>
           </div>
           <div id="hotCondMa5Capital" class="hot-fill-section hot-cond-panel" hidden>
             <div class="hot-fill-section-title">五日强承接 · 参数</div>
@@ -3810,16 +3918,16 @@
               <label><input type="checkbox" id="hotMa5ExcludeKcb" checked /> 排除科创板（688/689）</label>
               <label><input type="checkbox" id="hotMa5ExcludeCyb" checked /> 排除创业板（300/301）</label>
             </div>
-            <p class="hot-field-hint" style="margin:0.65rem 0 0">扫描<strong>全部</strong>热门板块成分，不限每板块只数。日线与板块成分走上方<strong>热门数据路线</strong>；主力净流入为东财日级资金表。规则：末根起连续 ≥3 日收盘≥MA5，近 3 日中至少 2 日主力净流入为正且合计为正，最新一日大单+超大单净占比≥0。</p>
+            <p class="hot-field-hint" style="margin:0.65rem 0 0">仅扫描<strong>上方勾选的板块</strong>成分，不限每板块只数。日线与板块成分走上方<strong>热门数据路线</strong>；主力净流入为东财日级资金表。规则：末根起连续 ≥3 日收盘≥MA5，近 3 日中至少 2 日主力净流入为正且合计为正，最新一日大单+超大单净占比≥0。</p>
           </div>
           </div>
           <footer class="hot-fill-actions">
             <div class="btns">
               <button type="button" class="secondary" id="btnHotShowCache" title="读取本机浏览器上次缓存，不请求 API">展示上一次缓存数据</button>
-              <button type="button" class="primary" id="btnHotFill">获取热门板块候选</button>
+              <button type="button" class="primary" id="btnHotFill">③ 分析选中板块</button>
               <button type="button" class="secondary btn-cancel-request" data-cancel-scope="panel-2" hidden>取消请求</button>
             </div>
-            <p class="m3-hint" style="margin:0.5rem 0 0;font-size:0.78rem"><strong>展示上一次缓存数据</strong>：只读本机上次结果，不联网。<strong>获取热门板块候选</strong>：重新请求 API 并更新缓存。各板块点「查看」后在明细内勾选并加入②自选池。</p>
+            <p class="m3-hint" style="margin:0.5rem 0 0;font-size:0.78rem"><strong>① 获取板块</strong>只拉排名；<strong>② 勾选</strong>后点<strong>③ 分析</strong>才筛股（耗时长）。「展示上一次缓存」只读本机上次结果。各板块点「查看」后在明细内勾选并加入②自选池。</p>
             <pre class="out hot-pick-log" id="hotPickLog" hidden title="请求与服务端筛选过程日志（含首选数据源、板块进度、逐股抽样；同时写入 F12 控制台）"></pre>
           </footer>
           <div id="hotSummaryLine" style="padding:0 1.35rem 0.25rem;" hidden></div>
@@ -5838,6 +5946,7 @@
   var LS_LAST_QSS_SINGLE = "quant_monitor_last_qss_single_stock_v1";
   /** 上次成功「获取热门板块候选」的预览结果（本机浏览器缓存，非服务端） */
   var LS_LAST_HOT_SECTOR_PICK = "quant_monitor_last_hot_sector_pick_v1";
+  var LS_LAST_HOT_SECTOR_LIST = "quant_monitor_last_hot_sector_list_v1";
   var _qssCached = null;
   var _qssSectorPage = 1;
   var _qssStockPage = 1;
@@ -8311,13 +8420,78 @@
     qssPaintSectorScreenTables();
   }
 
-  var HOT_PICK_LOG_MAX_LINES = 100;
+  var HOT_PICK_LOG_MAX_LINES = 200;
+  var _hotPickProgressPollTimer = null;
+  var _hotPickHeartbeatTimer = null;
+  var _hotPickProgressSeen = 0;
+  var _hotPickProgressBusy = false;
 
   function hotPickLogClear() {
     var el = $("hotPickLog");
     if (!el) return;
     el.textContent = "";
     el.hidden = true;
+  }
+
+  function stopHotPickProgressPoll() {
+    if (_hotPickProgressPollTimer) {
+      clearInterval(_hotPickProgressPollTimer);
+      _hotPickProgressPollTimer = null;
+    }
+    if (_hotPickHeartbeatTimer) {
+      clearInterval(_hotPickHeartbeatTimer);
+      _hotPickHeartbeatTimer = null;
+    }
+    _hotPickProgressBusy = false;
+  }
+
+  /** 请求进行中：轮询服务端过程日志 + 本地心跳，证明任务仍在执行 */
+  function startHotPickProgressPoll(t0) {
+    stopHotPickProgressPoll();
+    _hotPickProgressSeen = 0;
+    hotPickLog("进度", "开始轮询 GET /meta/hot-sectors-status（约每 2 秒刷新服务端日志）");
+    _hotPickHeartbeatTimer = setInterval(function () {
+      var sec = ((Date.now() - t0) / 1000).toFixed(0);
+      hotPickLog(
+        "等待",
+        "浏览器仍在等待 POST 响应，已 " +
+          sec +
+          "s；若下方无新增「服务端」行，可能卡在通达信拉日线"
+      );
+    }, 15000);
+    _hotPickProgressPollTimer = setInterval(function () {
+      if (_hotPickProgressBusy) return;
+      _hotPickProgressBusy = true;
+      fetch("/meta/hot-sectors-status", { headers: authHeaders() })
+        .then(function (res) {
+          if (!res.ok) return null;
+          return res.json();
+        })
+        .then(function (st) {
+          if (!st) return;
+          var logs = Array.isArray(st.progress_log) ? st.progress_log : [];
+          if (logs.length > _hotPickProgressSeen) {
+            var neu = logs.slice(_hotPickProgressSeen);
+            _hotPickProgressSeen = logs.length;
+            hotPickLogServerLines(neu);
+          }
+          if (st.active && st.total > 0) {
+            var cur = st.current_sector ? " · 当前「" + st.current_sector + "」" : "";
+            var el = $("hotPickLog");
+            if (el && el.dataset) {
+              var key = String(st.done) + "/" + String(st.total) + cur;
+              if (el.dataset.hotProgKey !== key) {
+                el.dataset.hotProgKey = key;
+                hotPickLog("扫描", "板块进度 " + (st.done + 1) + "/" + st.total + cur);
+              }
+            }
+          }
+        })
+        .catch(function () {})
+        .then(function () {
+          _hotPickProgressBusy = false;
+        });
+    }, 2000);
   }
 
   /** 热门板块「获取候选」过程日志：页面 #hotPickLog + 浏览器控制台 */
@@ -8332,6 +8506,9 @@
     if (prev.length > HOT_PICK_LOG_MAX_LINES) prev = prev.slice(prev.length - HOT_PICK_LOG_MAX_LINES);
     el.textContent = prev.join("\n");
     el.hidden = false;
+    try {
+      el.scrollTop = el.scrollHeight;
+    } catch (eScroll) {}
   }
 
   /** 将服务端回传的 progress_log 逐条写入日志区（无时间戳前缀，便于对照筛选进度） */
@@ -8349,6 +8526,9 @@
     if (prev.length > HOT_PICK_LOG_MAX_LINES) prev = prev.slice(prev.length - HOT_PICK_LOG_MAX_LINES);
     el.textContent = prev.join("\n");
     el.hidden = false;
+    try {
+      el.scrollTop = el.scrollHeight;
+    } catch (eScroll2) {}
   }
 
   function hotGetSelectedPickConditions() {
@@ -8416,6 +8596,7 @@
     var hasSector = pickGroups.indexOf("sector_hot") >= 0;
     var hasMa5 = pickGroups.indexOf("ma5_capital") >= 0;
     var hasRising3d = pickGroups.indexOf("rising_3d") >= 0;
+    var sectorNames = hotGetSelectedSectorNames();
     var body = {
       top_sectors: parseInt($("hotTopSectors").value, 10) || 5,
       stocks_per_sector: parseInt($("hotStocksPerSector").value, 10) || 5,
@@ -8430,20 +8611,353 @@
       rising_3d_exclude_kcb: hasRising3d && $("hotRising3dExcludeKcb") ? $("hotRising3dExcludeKcb").checked : true,
       rising_3d_exclude_cyb: hasRising3d && $("hotRising3dExcludeCyb") ? $("hotRising3dExcludeCyb").checked : true,
       selector_data_source: $("hotSelectorDs").value,
-      use_sector_snapshot: $("hotUseSectorSnapshot").checked,
-      sort_by_trend_strength: $("hotSortByTrend").checked,
-      require_technical_pass: $("hotRequireTechPass").checked,
-      exclude_overextended: $("hotExcludeOverextended").checked,
+      use_sector_snapshot: $("hotUseSectorSnapshot") ? $("hotUseSectorSnapshot").checked : true,
+      sort_by_trend_strength: $("hotSortByTrend") ? $("hotSortByTrend").checked : true,
+      require_technical_pass: $("hotRequireTechPass") ? $("hotRequireTechPass").checked : false,
+      exclude_overextended: $("hotExcludeOverextended") ? $("hotExcludeOverextended").checked : false,
       max_return_20d_pct: parseFloat($("hotMax20dReturnPct").value) || 22,
-      enable_liquidity_filter: $("hotEnableLiquidityFilter").checked,
+      enable_liquidity_filter: $("hotEnableLiquidityFilter") ? $("hotEnableLiquidityFilter").checked : false,
       min_avg_turnover_20d_100m: parseFloat($("hotMinTurnover20d100m").value) || 2.5,
       pick_condition_groups: pickGroups,
       ma5_stand_min_days: 3,
       capital_flow_lookback_days: 3,
       capital_min_positive_days: 2
     };
+    if (sectorNames.length) body.sector_names = sectorNames;
     if (tok) body.tushare_token = tok;
     return body;
+  }
+
+  var _hotSectorListRows = [];
+  var _hotSectorSelected = {};
+
+  function hotGetSelectedSectorNames() {
+    var names = [];
+    (_hotSectorListRows || []).forEach(function (row) {
+      var n = row && row.sector_name;
+      if (n && _hotSectorSelected[n]) names.push(n);
+    });
+    return names;
+  }
+
+  function hotFmtPct(v) {
+    if (v == null || v === "" || !isFinite(Number(v))) return "—";
+    var n = Number(v);
+    return (n > 0 ? "+" : "") + n.toFixed(2);
+  }
+
+  function hotFmtNum(v, digits) {
+    if (v == null || v === "" || !isFinite(Number(v))) return "—";
+    return Number(v).toFixed(digits != null ? digits : 2);
+  }
+
+  function hotBoardTypeLabel(bt) {
+    var k = String(bt || "").toLowerCase();
+    if (k === "concept") return "概念";
+    if (k === "industry") return "行业";
+    return bt || "—";
+  }
+
+  function updateHotSectorPickCount() {
+    var el = $("hotSectorPickCount");
+    if (!el) return;
+    var total = (_hotSectorListRows || []).length;
+    var n = hotGetSelectedSectorNames().length;
+    el.textContent = "已选 " + n + " / " + total;
+  }
+
+  function renderHotSectorPickTable() {
+    var tbody = $("hotSectorPickTbody");
+    var panel = $("hotSectorPickPanel");
+    if (!tbody || !panel) return;
+    var filterEl = $("hotSectorFilter");
+    var q = ((filterEl && filterEl.value) || "").trim().toLowerCase();
+    var html = "";
+    (_hotSectorListRows || []).forEach(function (row) {
+      var name = String(row.sector_name || "");
+      if (q && name.toLowerCase().indexOf(q) < 0) return;
+      var checked = !!_hotSectorSelected[name];
+      var chg = row.change_pct;
+      var chgCls =
+        chg != null && isFinite(Number(chg))
+          ? Number(chg) >= 0
+            ? "hot-sp-chg-up"
+            : "hot-sp-chg-down"
+          : "";
+      html +=
+        '<tr class="' +
+        (checked ? "hot-sp-selected" : "") +
+        '" data-sector="' +
+        escHtml(name) +
+        '">' +
+        '<td class="hot-sp-check"><input type="checkbox" class="hot-sp-cb" data-sector="' +
+        escHtml(name) +
+        '"' +
+        (checked ? " checked" : "") +
+        " /></td>" +
+        '<td class="hot-sp-rank">' +
+        escHtml(String(row.rank != null ? row.rank : "")) +
+        "</td>" +
+        "<td>" +
+        escHtml(name) +
+        "</td>" +
+        "<td>" +
+        escHtml(hotBoardTypeLabel(row.board_type)) +
+        "</td>" +
+        '<td class="' +
+        chgCls +
+        '">' +
+        escHtml(hotFmtPct(chg)) +
+        "</td>" +
+        "<td>" +
+        escHtml(hotFmtNum(row.hot_score, 2)) +
+        "</td>" +
+        "</tr>";
+    });
+    tbody.innerHTML = html || '<tr><td colspan="6" style="color:#8a9bb0;padding:0.75rem">无匹配板块</td></tr>';
+    panel.hidden = !(_hotSectorListRows && _hotSectorListRows.length);
+    updateHotSectorPickCount();
+  }
+
+  function persistHotSectorListCache(payload, selectedNames) {
+    try {
+      localStorage.setItem(
+        LS_LAST_HOT_SECTOR_LIST,
+        JSON.stringify({
+          ts: Date.now(),
+          payload: payload,
+          selected: selectedNames || hotGetSelectedSectorNames(),
+        })
+      );
+    } catch (e) {}
+  }
+
+  function applyHotSectorListPayload(payload, opts) {
+    opts = opts || {};
+    _hotSectorListRows = (payload && payload.sectors) || [];
+    var prefer = opts.selected || [];
+    _hotSectorSelected = {};
+    if (prefer.length) {
+      prefer.forEach(function (n) {
+        if (n) _hotSectorSelected[n] = true;
+      });
+    } else {
+      var topN = parseInt($("hotTopSectors") && $("hotTopSectors").value, 10) || 5;
+      _hotSectorListRows.slice(0, Math.min(topN, _hotSectorListRows.length)).forEach(function (r) {
+        if (r.sector_name) _hotSectorSelected[r.sector_name] = true;
+      });
+    }
+    var meta = $("hotSectorPickMeta");
+    if (meta && payload) {
+      var parts = [];
+      parts.push("共 " + (payload.total != null ? payload.total : _hotSectorListRows.length) + " 个");
+      if (payload.from_snapshot) parts.push("本地快照");
+      else parts.push("实时");
+      if (payload.selector_data_source) parts.push(hotSelectorDsLabel(payload.selector_data_source));
+      meta.textContent = "（" + parts.join(" · ") + "）";
+    }
+    renderHotSectorPickTable();
+  }
+
+  function tryRestoreHotSectorListFromCache() {
+    try {
+      var raw = localStorage.getItem(LS_LAST_HOT_SECTOR_LIST);
+      if (!raw) return;
+      var o = JSON.parse(raw);
+      if (!o || !o.payload || !Array.isArray(o.payload.sectors) || !o.payload.sectors.length) return;
+      applyHotSectorListPayload(o.payload, { selected: o.selected || [] });
+    } catch (e) {}
+  }
+
+  async function runHotFetchSectors() {
+    if (!guardKey()) return;
+    if (isUseQuantWatchlistMode()) {
+      showOut(
+        "out-2",
+        "当前已开启「使用⑨量化选股结果维护自选池」：请先关闭该开关，再使用热门板块选股。",
+        true
+      );
+      return;
+    }
+    var ds = ($("hotSelectorDs") && $("hotSelectorDs").value) || "akshare";
+    var tok = ($("hotTushareToken") && $("hotTushareToken").value || "").trim();
+    if (ds === "tushare" && !tok) {
+      openHotTushareDialog();
+      showOut("out-2", "请先填写 TuShare Token，或在服务器配置 TUSHARE_TOKEN。", true);
+      return;
+    }
+    var btn = $("btnHotFetchSectors");
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("btn-loading");
+    }
+    var reqBody = {
+      board_type: ($("hotBoardType") && $("hotBoardType").value) || "all",
+      selector_data_source: ds,
+      use_sector_snapshot: $("hotUseSectorSnapshot") ? $("hotUseSectorSnapshot").checked : true,
+    };
+    if (tok) reqBody.tushare_token = tok;
+    hotPickLogClear();
+    hotPickLog(
+      "开始",
+      "① 拉取板块列表 路线=" +
+        ds +
+        " 类型=" +
+        reqBody.board_type +
+        " 快照=" +
+        (reqBody.use_sector_snapshot ? "是" : "否")
+    );
+    showOut("out-2", "正在获取板块列表（不筛股）…", true);
+    var t0 = Date.now();
+    try {
+      var res = await fetchCancel("panel-2", "/watchlist/hot-sectors/list", {
+        method: "POST",
+        headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
+        body: JSON.stringify(reqBody),
+        skipPanelLoading: true,
+      });
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      hotPickLog("响应", "HTTP " + res.status + "，耗时 " + elapsed + "s");
+      var body = await readBody(res);
+      if (!res.ok) {
+        if (res.status === 499) {
+          hotPickLog("结束", "已取消");
+          showOut("out-2", "板块列表请求已取消。", true);
+          return;
+        }
+        var errTxt = await formatError(res, body);
+        hotPickLog("失败", errTxt.split("\n")[0] || "HTTP " + res.status);
+        showOut("out-2", errTxt, true);
+        return;
+      }
+      var prevSelected = hotGetSelectedSectorNames();
+      applyHotSectorListPayload(body, { selected: prevSelected });
+      if (!hotGetSelectedSectorNames().length) {
+        applyHotSectorListPayload(body, {});
+      }
+      persistHotSectorListCache(body, hotGetSelectedSectorNames());
+      var n = (_hotSectorListRows || []).length;
+      var sel = hotGetSelectedSectorNames().length;
+      hotPickLog("成功", "板块 " + n + " 个（已选 " + sel + "）" + (body.from_snapshot ? " · 快照" : " · 实时"));
+      showOut(
+        "out-2",
+        "已获取 " +
+          n +
+          " 个板块" +
+          (body.from_snapshot ? "（本地快照）" : "（实时）") +
+          "。请在②勾选后点「③ 分析选中板块」。当前已选 " +
+          sel +
+          " 个。",
+        false
+      );
+      var panel = $("hotSectorPickPanel");
+      try {
+        if (panel) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (eScroll) {}
+    } catch (e) {
+      var elapsedErr = ((Date.now() - t0) / 1000).toFixed(1);
+      if (isRequestAborted(e)) {
+        hotPickLog("结束", "浏览器中断请求（" + elapsedErr + "s）");
+        showOut("out-2", "板块列表请求已取消。", true);
+      } else {
+        hotPickLog("异常", String(e) + "（" + elapsedErr + "s）");
+        showOut("out-2", String(e), true);
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove("btn-loading");
+      }
+    }
+  }
+
+  function initHotSectorPickUi() {
+    var tbody = $("hotSectorPickTbody");
+    if (tbody && !tbody._hotSpBound) {
+      tbody._hotSpBound = true;
+      tbody.addEventListener("change", function (ev) {
+        var t = ev.target;
+        if (!t || !t.classList || !t.classList.contains("hot-sp-cb")) return;
+        var name = t.getAttribute("data-sector") || "";
+        if (!name) return;
+        if (t.checked) _hotSectorSelected[name] = true;
+        else delete _hotSectorSelected[name];
+        var tr = t.closest("tr");
+        if (tr) tr.classList.toggle("hot-sp-selected", t.checked);
+        updateHotSectorPickCount();
+        persistHotSectorListCache(
+          { sectors: _hotSectorListRows, total: _hotSectorListRows.length },
+          hotGetSelectedSectorNames()
+        );
+      });
+      tbody.addEventListener("click", function (ev) {
+        var tr = ev.target && ev.target.closest ? ev.target.closest("tr[data-sector]") : null;
+        if (!tr || (ev.target && ev.target.classList && ev.target.classList.contains("hot-sp-cb"))) return;
+        var name = tr.getAttribute("data-sector") || "";
+        if (!name) return;
+        var cb = tr.querySelector(".hot-sp-cb");
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        if (cb.checked) _hotSectorSelected[name] = true;
+        else delete _hotSectorSelected[name];
+        tr.classList.toggle("hot-sp-selected", cb.checked);
+        updateHotSectorPickCount();
+      });
+    }
+    var filterEl = $("hotSectorFilter");
+    if (filterEl && !filterEl._hotSpBound) {
+      filterEl._hotSpBound = true;
+      filterEl.addEventListener("input", function () {
+        renderHotSectorPickTable();
+      });
+    }
+    var btnAll = $("btnHotSectorSelectAll");
+    if (btnAll && !btnAll._bound) {
+      btnAll._bound = true;
+      btnAll.addEventListener("click", function () {
+        var q = (($("hotSectorFilter") && $("hotSectorFilter").value) || "").trim().toLowerCase();
+        (_hotSectorListRows || []).forEach(function (row) {
+          var name = String(row.sector_name || "");
+          if (!name) return;
+          if (q && name.toLowerCase().indexOf(q) < 0) return;
+          _hotSectorSelected[name] = true;
+        });
+        renderHotSectorPickTable();
+        persistHotSectorListCache(
+          { sectors: _hotSectorListRows, total: _hotSectorListRows.length },
+          hotGetSelectedSectorNames()
+        );
+      });
+    }
+    var btnNone = $("btnHotSectorSelectNone");
+    if (btnNone && !btnNone._bound) {
+      btnNone._bound = true;
+      btnNone.addEventListener("click", function () {
+        _hotSectorSelected = {};
+        renderHotSectorPickTable();
+        persistHotSectorListCache(
+          { sectors: _hotSectorListRows, total: _hotSectorListRows.length },
+          []
+        );
+      });
+    }
+    var btnTop = $("btnHotSectorSelectTop");
+    if (btnTop && !btnTop._bound) {
+      btnTop._bound = true;
+      btnTop.addEventListener("click", function () {
+        var topN = parseInt($("hotTopSectors") && $("hotTopSectors").value, 10) || 5;
+        _hotSectorSelected = {};
+        (_hotSectorListRows || []).slice(0, Math.min(topN, _hotSectorListRows.length)).forEach(function (r) {
+          if (r.sector_name) _hotSectorSelected[r.sector_name] = true;
+        });
+        renderHotSectorPickTable();
+        persistHotSectorListCache(
+          { sectors: _hotSectorListRows, total: _hotSectorListRows.length },
+          hotGetSelectedSectorNames()
+        );
+      });
+    }
+    tryRestoreHotSectorListFromCache();
   }
 
   function hotSectorPickStockCount(payload) {
@@ -8469,17 +8983,33 @@
     };
   }
 
-  function persistLastHotSectorPick(payload, requestBody) {
+  function persistLastHotSectorPick(payload, requestBody, fetchedAt) {
+    var ts = fetchedAt != null ? Number(fetchedAt) : Date.now();
+    if (!isFinite(ts)) ts = Date.now();
     try {
       localStorage.setItem(
         LS_LAST_HOT_SECTOR_PICK,
         JSON.stringify({
-          ts: Date.now(),
+          ts: ts,
           request: requestBody || null,
           payload: payload
         })
       );
     } catch (e) {}
+    return ts;
+  }
+
+  /** 「获取热门板块候选」成功完成时间（本机缓存 ts / 本次联网完成时刻） */
+  var _hotLastFetchedAt = null;
+
+  function hotSectorUpdateTimeHtml(ts) {
+    var when = formatQssCacheTime(ts);
+    if (!when) return "";
+    return (
+      ' <span class="hot-sector-update-time" title="点击「③ 分析选中板块」成功完成时的时间">· 板块更新时间 ' +
+      escHtml(when) +
+      "</span>"
+    );
   }
 
   function loadLastHotSectorPickCached() {
@@ -8497,7 +9027,7 @@
   function showLastHotSectorPickFromCache() {
     var cached = loadLastHotSectorPickCached();
     if (!cached) {
-      showOut("out-2", "暂无本机缓存。请先点击「获取热门板块候选」联网拉取一次。", true);
+      showOut("out-2", "暂无本机缓存。请先完成「①获取板块 → ③分析」联网拉取一次。", true);
       return;
     }
     applyHotPickConditionsFromRequest(cached.request);
@@ -8510,7 +9040,7 @@
         (when ? "（" + when + "）" : "") +
         "，共 " +
         n +
-        " 只候选。未请求网络；参数若已改，请以「获取热门板块候选」重新拉取。",
+        " 只候选。未请求网络；参数若已改，请重新「①获取板块 → ③分析」。",
       true
     );
     var hw = $("hotSectorsWrap");
@@ -8560,6 +9090,7 @@
     } catch (eDs) {}
     syncHotTushareTokenRow();
     initHotPickConditionUi();
+    initHotSectorPickUi();
     if (sel && !sel._hotTsBound) {
       sel._hotTsBound = true;
       sel.addEventListener("change", function () {
@@ -10465,19 +10996,26 @@
     displayRising3d.forEach(function (block) {
       totalRising3d += (Array.isArray(block.stocks) ? block.stocks : []).length;
     });
-    var cachedWhen =
-      opts.cachedAt != null ? formatQssCacheTime(opts.cachedAt) : "";
+    var updateAt =
+      opts.fetchedAt != null
+        ? opts.fetchedAt
+        : opts.cachedAt != null
+          ? opts.cachedAt
+          : null;
+    if (updateAt != null) _hotLastFetchedAt = updateAt;
+    var fromCacheOnly = opts.fetchedAt == null && opts.cachedAt != null;
+    var updateTimeHtml = hotSectorUpdateTimeHtml(_hotLastFetchedAt);
     var statHtml =
       '<div class="hot-summary-box">' +
       '<h4 class="hot-summary-title">' +
       (isPreview ? "本次热门板块候选（未写入自选）" : "本次热门自选摘要") +
-      (cachedWhen ? ' <span style="font-weight:400;color:var(--muted);font-size:0.78rem">· 缓存 ' + escHtml(cachedWhen) + "</span>" : "") +
+      updateTimeHtml +
       "</h4>";
     if (isPreview) {
       statHtml +=
         '<p class="m3-hint" style="margin:0 0 0.65rem;font-size:0.78rem">' +
-        (cachedWhen
-          ? "当前为<strong>本机缓存</strong>展示，未联网。若要按最新参数重算，请点「获取热门板块候选」。"
+        (fromCacheOnly
+          ? "当前为<strong>本机缓存</strong>展示，未联网。若要按最新参数重算，请重新「①获取板块 → ③分析」。"
           : "请点各板块「查看」展开明细，勾选需要的股票后点「将勾选股加入自选」；未勾选不会进入②自选池。") +
         "</p>" +
         '<div class="hot-summary-grid">' +
@@ -10558,7 +11096,9 @@
     if (wantSector && displayDetail.length) {
       groupsHtml +=
         '<div class="hot-pick-group-block" data-hot-pick-group="sector_hot">' +
-        '<h4 class="hot-pick-group-title">一、热门板块筛选（原条件）</h4>' +
+        '<h4 class="hot-pick-group-title">一、热门板块筛选（原条件）' +
+        updateTimeHtml +
+        "</h4>" +
         hotRenderSectorOverviewTable(
           detail,
           "sector_hot",
@@ -10569,7 +11109,9 @@
     if (wantMa5 && displayMa5.length) {
       groupsHtml +=
         '<div class="hot-pick-group-block" data-hot-pick-group="ma5_capital">' +
-        '<h4 class="hot-pick-group-title is-ma5">二、五日强承接（连续≥3日站上MA5 + 资金承接强）</h4>' +
+        '<h4 class="hot-pick-group-title is-ma5">二、五日强承接（连续≥3日站上MA5 + 资金承接强）' +
+        updateTimeHtml +
+        "</h4>" +
         hotRenderSectorOverviewTable(
           ma5Detail,
           "ma5_capital",
@@ -10580,7 +11122,9 @@
     if (wantRising3d && displayRising3d.length) {
       groupsHtml +=
         '<div class="hot-pick-group-block" data-hot-pick-group="rising_3d">' +
-        '<h4 class="hot-pick-group-title is-rising3d">三、连续三日上涨（收盘逐日抬高）</h4>' +
+        '<h4 class="hot-pick-group-title is-rising3d">三、连续三日上涨（收盘逐日抬高）' +
+        updateTimeHtml +
+        "</h4>" +
         hotRenderSectorOverviewTable(
           rising3dDetail,
           "rising_3d",
@@ -10822,6 +11366,14 @@
       showOut("out-2", "请至少在「条件类型」多选框中选择一种选股条件。", true);
       return;
     }
+    if (!b0.sector_names || !b0.sector_names.length) {
+      showOut(
+        "out-2",
+        "请先点「① 获取板块列表」，再在②勾选要分析的板块，然后点「③ 分析选中板块」。",
+        true
+      );
+      return;
+    }
     if (b0.selector_data_source === "tushare" && !(b0.tushare_token || "").trim()) {
       openHotTushareDialog();
       showOut("out-2", "请先填写 TuShare Token（弹窗或下方输入框），或在服务器配置 TUSHARE_TOKEN。", true);
@@ -10836,25 +11388,20 @@
     hotPickLogClear();
     hotPickLog(
       "开始",
-      "路线=" +
+      "③ 分析选中板块 路线=" +
         reqBody.selector_data_source +
+        " 板块数=" +
+        reqBody.sector_names.length +
         " " +
         (function () {
           var g = reqBody.pick_condition_groups || [];
-          var onlyFullScan =
-            g.indexOf("sector_hot") < 0 &&
-            (g.indexOf("ma5_capital") >= 0 || g.indexOf("rising_3d") >= 0);
-          if (onlyFullScan && g.length === 1) {
-            if (g.indexOf("ma5_capital") >= 0) return "板块=全部 只数=不限（五日强承接）";
-            if (g.indexOf("rising_3d") >= 0) return "板块=全部 只数=不限（连续三日上涨）";
-          }
           var parts = [];
           if (g.indexOf("sector_hot") >= 0) {
-            parts.push("热门板块数=" + reqBody.top_sectors + " 每板块=" + reqBody.stocks_per_sector);
+            parts.push("热门筛选每板块=" + reqBody.stocks_per_sector);
           }
-          if (g.indexOf("ma5_capital") >= 0) parts.push("五日强承接=全部板块不限只数");
-          if (g.indexOf("rising_3d") >= 0) parts.push("连续三日上涨=全部板块不限只数");
-          return parts.join("；");
+          if (g.indexOf("ma5_capital") >= 0) parts.push("五日强承接");
+          if (g.indexOf("rising_3d") >= 0) parts.push("连续三日上涨");
+          return parts.join("；") || "无条件";
         })() +
         " 类型=" +
         reqBody.board_type +
@@ -10865,14 +11412,17 @@
     );
     showOut(
       "out-2",
-      "正在用「" +
+      "正在分析已选 " +
+        reqBody.sector_names.length +
+        " 个板块（" +
         hotSelectorDsLabel(reqBody.selector_data_source) +
-        "」联网拉取热门板块候选（不写入自选）…",
+        "，不写入自选）…",
       true
     );
     var t0 = Date.now();
+    startHotPickProgressPoll(t0);
     try {
-      hotPickLog("请求", "POST /watchlist/hot-sectors/preview …（耗时可能较长，完成后回传服务端过程日志）");
+      hotPickLog("请求", "POST /watchlist/hot-sectors/preview …（下方会实时刷服务端过程日志）");
       var res = await fetchCancel("panel-2", "/watchlist/hot-sectors/preview", {
         method: "POST",
         headers: Object.assign({ "Content-Type": "application/json" }, authHeaders()),
@@ -10893,8 +11443,9 @@
         showOut("out-2", errTxt, true);
         return;
       }
-      persistLastHotSectorPick(body, reqBody);
-      renderHotSectorsDetail(body, { preview: true });
+      var fetchedAt = Date.now();
+      persistLastHotSectorPick(body, reqBody, fetchedAt);
+      renderHotSectorsDetail(body, { preview: true, fetchedAt: fetchedAt });
       var groups = reqBody.pick_condition_groups || [];
       var parts = [];
       if (groups.indexOf("sector_hot") >= 0) {
@@ -10939,8 +11490,16 @@
           : 0;
       hotPickLog("成功", parts.join("；") + (warnN ? "；警告 " + warnN + " 条" : ""));
       if (body.summary && body.summary.progress_log && body.summary.progress_log.length) {
-        hotPickLog("过程", "服务端日志 " + body.summary.progress_log.length + " 条（路线/板块进度/逐股抽样）");
-        hotPickLogServerLines(body.summary.progress_log);
+        var allPl = body.summary.progress_log;
+        if (allPl.length > _hotPickProgressSeen) {
+          hotPickLog("过程", "补全服务端日志 " + (allPl.length - _hotPickProgressSeen) + " 条");
+          hotPickLogServerLines(allPl.slice(_hotPickProgressSeen));
+          _hotPickProgressSeen = allPl.length;
+        } else {
+          hotPickLog("过程", "服务端日志已在请求过程中实时展示（共 " + allPl.length + " 条）");
+        }
+      } else if (_hotPickProgressSeen > 0) {
+        hotPickLog("过程", "服务端日志已在请求过程中实时展示（共 " + _hotPickProgressSeen + " 条）");
       } else {
         hotPickLog("过程", "未收到服务端 progress_log（请确认已重启 quant-monitor 服务）");
       }
@@ -10967,6 +11526,7 @@
         showOut("out-2", String(e), true);
       }
     } finally {
+      stopHotPickProgressPoll();
       if (btn) {
         btn.disabled = false;
         btn.classList.remove("btn-loading");
@@ -13492,6 +14052,8 @@
 
   var btnHotFill = $("btnHotFill");
   if (btnHotFill) btnHotFill.addEventListener("click", runHotSectorPick);
+  var btnHotFetchSectors = $("btnHotFetchSectors");
+  if (btnHotFetchSectors) btnHotFetchSectors.addEventListener("click", runHotFetchSectors);
   var btnHotShowCache = $("btnHotShowCache");
   if (btnHotShowCache) {
     btnHotShowCache.addEventListener("click", function () {
