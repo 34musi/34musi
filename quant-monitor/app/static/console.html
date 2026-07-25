@@ -3833,8 +3833,12 @@
                 <option value="ma5_capital">五日强承接（连续站上 MA5 + 资金承接强）</option>
                 <option value="rising_3d">连续三日上涨（收盘逐日抬高）</option>
               </select>
-              <p id="hotPickConditionsHint" class="hot-field-hint" style="margin:0.35rem 0 0">Windows 按住 Ctrl、Mac 按住 ⌘ 可多选；至少选 1 项。各条件结果在下方<strong>分表展示</strong>，同属热门候选。</p>
+              <p id="hotPickConditionsHint" class="hot-field-hint" style="margin:0.35rem 0 0">Windows 按住 Ctrl、Mac 按住 ⌘ 可多选；至少选 1 项。改条件后点下方按钮，按<strong>最新条件</strong>重新拉股筛选。</p>
             </div>
+            <div class="btns" style="margin-top:0.75rem">
+              <button type="button" class="primary" id="btnHotAnalyzeByCond" title="用当前勾选板块 + 当前条件重新筛股">按当前条件重新获取</button>
+            </div>
+            <p id="hotCondChangeHint" class="hot-field-hint" style="margin:0.45rem 0 0;color:#e8b86d" hidden>条件已变更：请点「按当前条件重新获取」才会按新条件拉数据。</p>
           </div>
           </div>
           <div id="hotSectorPickPanel" class="hot-fill-section hot-sector-pick-panel" hidden>
@@ -3863,16 +3867,22 @@
             </div>
           </div>
           <div class="hot-cond-panels-wrap">
+          <div class="hot-fill-section">
+            <div class="hot-fill-section-title">每板块取股数量</div>
+            <div class="hot-form-grid hot-sector-hot-qty-grid">
+              <div class="field-stack">
+                <label for="hotStocksPerSector">每板块取前 N 只</label>
+                <input type="number" id="hotStocksPerSector" value="10" min="1" max="100" />
+              </div>
+            </div>
+            <p class="hot-field-hint" style="margin:0.5rem 0 0">按成分表顺序，过滤 ST/科创板/创业板后取前 N 只再拉日线筛选（默认 10）。修改数字后点「③ 分析选中板块」即按最新值获取。</p>
+          </div>
           <div id="hotCondSectorHot" class="hot-fill-section hot-cond-panel">
             <div class="hot-fill-section-title">热门板块筛选 · 参数</div>
             <div class="hot-form-grid hot-sector-hot-qty-grid">
               <div class="field-stack">
                 <label for="hotTopSectors">热门板块个数（勾选前 N 用）</label>
                 <input type="number" id="hotTopSectors" value="5" min="1" max="200" />
-              </div>
-              <div class="field-stack">
-                <label for="hotStocksPerSector">每板块只数</label>
-                <input type="number" id="hotStocksPerSector" value="5" min="1" max="50" />
               </div>
             </div>
             <div class="hot-options-grid">
@@ -3909,7 +3919,7 @@
               <label><input type="checkbox" id="hotRising3dExcludeKcb" checked /> 排除科创板（688/689）</label>
               <label><input type="checkbox" id="hotRising3dExcludeCyb" checked /> 排除创业板（300/301）</label>
             </div>
-            <p class="hot-field-hint" style="margin:0.65rem 0 0">仅扫描<strong>上方勾选的板块</strong>成分，不限每板块只数。规则：最近连续 <strong>3</strong> 个交易日收盘价逐日高于前一日（收涨）。日线走上方<strong>热门数据路线</strong>。</p>
+            <p class="hot-field-hint" style="margin:0.65rem 0 0">仅扫描<strong>上方勾选的板块</strong>，每板块取前 N 只（见上方「每板块取股数量」）。规则：最近连续 <strong>3</strong> 个交易日收盘价逐日高于前一日（收涨）。日线走上方<strong>热门数据路线</strong>。</p>
           </div>
           <div id="hotCondMa5Capital" class="hot-fill-section hot-cond-panel" hidden>
             <div class="hot-fill-section-title">五日强承接 · 参数</div>
@@ -3918,7 +3928,7 @@
               <label><input type="checkbox" id="hotMa5ExcludeKcb" checked /> 排除科创板（688/689）</label>
               <label><input type="checkbox" id="hotMa5ExcludeCyb" checked /> 排除创业板（300/301）</label>
             </div>
-            <p class="hot-field-hint" style="margin:0.65rem 0 0">仅扫描<strong>上方勾选的板块</strong>成分，不限每板块只数。日线与板块成分走上方<strong>热门数据路线</strong>；主力净流入为东财日级资金表。规则：末根起连续 ≥3 日收盘≥MA5，近 3 日中至少 2 日主力净流入为正且合计为正，最新一日大单+超大单净占比≥0。</p>
+            <p class="hot-field-hint" style="margin:0.65rem 0 0">仅扫描<strong>上方勾选的板块</strong>，每板块取前 N 只（见上方「每板块取股数量」）。日线与板块成分走上方<strong>热门数据路线</strong>；主力净流入为东财日级资金表。规则：末根起连续 ≥3 日收盘≥MA5，近 3 日中至少 2 日主力净流入为正且合计为正，最新一日大单+超大单净占比≥0。</p>
           </div>
           </div>
           <footer class="hot-fill-actions">
@@ -8553,6 +8563,12 @@
     }).join("、");
   }
 
+  var _hotPickConditionsAppliedKey = "";
+
+  function hotPickConditionsKey(groups) {
+    return (groups || []).slice().sort().join(",");
+  }
+
   function syncHotPickConditionPanels() {
     var groups = hotGetSelectedPickConditions();
     var hasSector = groups.indexOf("sector_hot") >= 0;
@@ -8564,9 +8580,29 @@
     if (pSector) pSector.hidden = !hasSector;
     if (pMa5) pMa5.hidden = !hasMa5;
     if (pRising3d) pRising3d.hidden = !hasRising3d;
+    var hint = $("hotCondChangeHint");
+    if (hint) {
+      var cur = hotPickConditionsKey(groups);
+      var dirty = !!_hotPickConditionsAppliedKey && cur !== _hotPickConditionsAppliedKey;
+      hint.hidden = !dirty;
+    }
     try {
       localStorage.setItem(LS_HOT_PICK_CONDITIONS, JSON.stringify(groups));
     } catch (eStore) {}
+    updateHotFetchSectorsButtonLabel();
+  }
+
+  function updateHotFetchSectorsButtonLabel() {
+    var btn = $("btnHotFetchSectors");
+    if (!btn) return;
+    var hasList = _hotSectorListRows && _hotSectorListRows.length;
+    btn.textContent = hasList ? "① 重新获取板块列表" : "① 获取板块列表";
+  }
+
+  function markHotPickConditionsApplied() {
+    _hotPickConditionsAppliedKey = hotPickConditionsKey(hotGetSelectedPickConditions());
+    var hint = $("hotCondChangeHint");
+    if (hint) hint.hidden = true;
   }
 
   function initHotPickConditionUi() {
@@ -8599,7 +8635,7 @@
     var sectorNames = hotGetSelectedSectorNames();
     var body = {
       top_sectors: parseInt($("hotTopSectors").value, 10) || 5,
-      stocks_per_sector: parseInt($("hotStocksPerSector").value, 10) || 5,
+      stocks_per_sector: parseInt($("hotStocksPerSector").value, 10) || 10,
       board_type: $("hotBoardType").value,
       exclude_st: hasSector && $("hotExcludeSt") ? $("hotExcludeSt").checked : true,
       exclude_kcb: hasSector && $("hotExcludeKcb") ? $("hotExcludeKcb").checked : true,
@@ -8717,6 +8753,7 @@
     tbody.innerHTML = html || '<tr><td colspan="6" style="color:#8a9bb0;padding:0.75rem">无匹配板块</td></tr>';
     panel.hidden = !(_hotSectorListRows && _hotSectorListRows.length);
     updateHotSectorPickCount();
+    updateHotFetchSectorsButtonLabel();
   }
 
   function persistHotSectorListCache(payload, selectedNames) {
@@ -8769,7 +8806,8 @@
     } catch (e) {}
   }
 
-  async function runHotFetchSectors() {
+  async function runHotFetchSectors(opts) {
+    opts = opts || {};
     if (!guardKey()) return;
     if (isUseQuantWatchlistMode()) {
       showOut(
@@ -8786,6 +8824,14 @@
       showOut("out-2", "请先填写 TuShare Token，或在服务器配置 TUSHARE_TOKEN。", true);
       return;
     }
+    var hadList = !!(_hotSectorListRows && _hotSectorListRows.length);
+    // 再次点击「重新获取」时强制实时拉板块（忽略快照勾选）
+    var forceLive = opts.forceLive === true || hadList;
+    var autoAnalyze =
+      opts.autoAnalyze === true ||
+      (hadList &&
+        hotGetSelectedPickConditions().length > 0 &&
+        hotGetSelectedSectorNames().length > 0);
     var btn = $("btnHotFetchSectors");
     if (btn) {
       btn.disabled = true;
@@ -8794,20 +8840,33 @@
     var reqBody = {
       board_type: ($("hotBoardType") && $("hotBoardType").value) || "all",
       selector_data_source: ds,
-      use_sector_snapshot: $("hotUseSectorSnapshot") ? $("hotUseSectorSnapshot").checked : true,
+      use_sector_snapshot: forceLive
+        ? false
+        : $("hotUseSectorSnapshot")
+          ? $("hotUseSectorSnapshot").checked
+          : true,
     };
     if (tok) reqBody.tushare_token = tok;
     hotPickLogClear();
     hotPickLog(
       "开始",
-      "① 拉取板块列表 路线=" +
+      (hadList ? "① 重新获取板块列表" : "① 拉取板块列表") +
+        " 路线=" +
         ds +
         " 类型=" +
         reqBody.board_type +
         " 快照=" +
-        (reqBody.use_sector_snapshot ? "是" : "否")
+        (reqBody.use_sector_snapshot ? "是" : "否") +
+        (forceLive ? "（强制实时）" : "") +
+        (autoAnalyze ? " → 随后按条件分析" : "")
     );
-    showOut("out-2", "正在获取板块列表（不筛股）…", true);
+    showOut(
+      "out-2",
+      forceLive
+        ? "正在重新获取最新板块列表…"
+        : "正在获取板块列表（不筛股）…",
+      true
+    );
     var t0 = Date.now();
     try {
       var res = await fetchCancel("panel-2", "/watchlist/hot-sectors/list", {
@@ -8836,16 +8895,30 @@
         applyHotSectorListPayload(body, {});
       }
       persistHotSectorListCache(body, hotGetSelectedSectorNames());
+      updateHotFetchSectorsButtonLabel();
       var n = (_hotSectorListRows || []).length;
       var sel = hotGetSelectedSectorNames().length;
       hotPickLog("成功", "板块 " + n + " 个（已选 " + sel + "）" + (body.from_snapshot ? " · 快照" : " · 实时"));
+      if (autoAnalyze && sel > 0 && hotGetSelectedPickConditions().length) {
+        showOut(
+          "out-2",
+          "板块列表已更新（" + n + " 个，已选 " + sel + "）。正在按当前条件重新筛股…",
+          true
+        );
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove("btn-loading");
+        }
+        await runHotSectorPick();
+        return;
+      }
       showOut(
         "out-2",
         "已获取 " +
           n +
           " 个板块" +
           (body.from_snapshot ? "（本地快照）" : "（实时）") +
-          "。请在②勾选后点「③ 分析选中板块」。当前已选 " +
+          "。请勾选板块后点「按当前条件重新获取」或「③ 分析选中板块」。当前已选 " +
           sel +
           " 个。",
         false
@@ -11397,10 +11470,10 @@
           var g = reqBody.pick_condition_groups || [];
           var parts = [];
           if (g.indexOf("sector_hot") >= 0) {
-            parts.push("热门筛选每板块=" + reqBody.stocks_per_sector);
+            parts.push("热门筛选每板块前=" + reqBody.stocks_per_sector);
           }
-          if (g.indexOf("ma5_capital") >= 0) parts.push("五日强承接");
-          if (g.indexOf("rising_3d") >= 0) parts.push("连续三日上涨");
+          if (g.indexOf("ma5_capital") >= 0) parts.push("五日强承接每板块前=" + reqBody.stocks_per_sector);
+          if (g.indexOf("rising_3d") >= 0) parts.push("三日连涨每板块前=" + reqBody.stocks_per_sector);
           return parts.join("；") || "无条件";
         })() +
         " 类型=" +
@@ -11445,6 +11518,7 @@
       }
       var fetchedAt = Date.now();
       persistLastHotSectorPick(body, reqBody, fetchedAt);
+      markHotPickConditionsApplied();
       renderHotSectorsDetail(body, { preview: true, fetchedAt: fetchedAt });
       var groups = reqBody.pick_condition_groups || [];
       var parts = [];
@@ -14052,6 +14126,8 @@
 
   var btnHotFill = $("btnHotFill");
   if (btnHotFill) btnHotFill.addEventListener("click", runHotSectorPick);
+  var btnHotAnalyzeByCond = $("btnHotAnalyzeByCond");
+  if (btnHotAnalyzeByCond) btnHotAnalyzeByCond.addEventListener("click", runHotSectorPick);
   var btnHotFetchSectors = $("btnHotFetchSectors");
   if (btnHotFetchSectors) btnHotFetchSectors.addEventListener("click", runHotFetchSectors);
   var btnHotShowCache = $("btnHotShowCache");

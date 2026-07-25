@@ -2480,7 +2480,7 @@ def watchlist_fill_hot_sectors(
 def watchlist_hot_sectors_preview(
     request: Request,
     top_sectors: int = Query(5, ge=1, le=200),
-    stocks_per_sector: int = Query(5, ge=1, le=50),
+    stocks_per_sector: int = Query(10, ge=1, le=100),
     board_type: str = Query("all"),
     exclude_st: bool = Query(True),
     exclude_kcb: bool = Query(True),

@@ -538,7 +538,12 @@ class FillHotSectorsIn(BaseModel):
     """POST /watchlist/fill-hot-sectors：按热门板块写入自选（仅新增 auto_hot，不覆盖手动）。"""
 
     top_sectors: int = Field(5, ge=1, le=200, description="仅 sector_hot：取排名前多少板块")
-    stocks_per_sector: int = Field(5, ge=1, le=50, description="仅 sector_hot：每板块过滤 ST/科创板后至多几只")
+    stocks_per_sector: int = Field(
+        10,
+        ge=1,
+        le=100,
+        description="每板块按成分表顺序取前多少只再筛选（三日连涨/五日强承接/热门筛选均适用）；改后下次分析按新值拉取",
+    )
     board_type: str = Field(
         "all",
         description="板块类型：all / concept / industry（与核心数据源一致）",

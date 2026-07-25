@@ -156,9 +156,14 @@ def _eligible_constituent_rows(
     exclude_st: bool,
     exclude_kcb: bool,
     exclude_cyb: bool = False,
+    limit: int | None = None,
 ) -> list[tuple[str, str, pd.Series]]:
-    """过滤 ST/科创板/创业板后，返回 (code, name, row) 列表供逐股拉取日志计数。"""
+    """过滤 ST/科创板/创业板后，返回 (code, name, row) 列表供逐股拉取日志计数。
+
+    ``limit`` 为正整数时：按成分表原有顺序只保留前 N 只（用于「每板块取前 N」）。
+    """
     rows: list[tuple[str, str, pd.Series]] = []
+    max_n = max(1, int(limit)) if limit is not None else None
     for _, crow in constituents.iterrows():
         code = normalize_code(crow.get("code", crow.get("代码", "")))
         if not code or len(code) != 6 or not is_listed_a_share_equity(code):
@@ -171,6 +176,8 @@ def _eligible_constituent_rows(
         if exclude_st and is_st_stock_name(name):
             continue
         rows.append((code, name, crow))
+        if max_n is not None and len(rows) >= max_n:
+            break
     return rows
 
 
@@ -329,11 +336,15 @@ def _technical_pick_from_constituents(
     failed_history = 0
     ds_label = _data_source_label(datasource)
     eligible = _eligible_constituent_rows(
-        constituents, exclude_st=exclude_st, exclude_kcb=exclude_kcb, exclude_cyb=exclude_cyb
+        constituents,
+        exclude_st=exclude_st,
+        exclude_kcb=exclude_kcb,
+        exclude_cyb=exclude_cyb,
+        limit=max(1, int(stocks_per_sector)),
     )
     total = len(eligible)
     logger.debug(
-        "[热门选股][sector_hot] 板块#%s「%s」扫描 %s 只 路线=%s",
+        "[热门选股][sector_hot] 板块#%s「%s」扫描前 %s 只 路线=%s",
         sector_rank,
         sector_name,
         total,
@@ -593,7 +604,7 @@ def _ma5_capital_pick_from_constituents(
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """连续站上 MA5 + 资金承接强的候选（与上方热门条件分开展示）。
 
-    stocks_per_sector 为 None 时不限每板块入选只数。
+    stocks_per_sector 为 None 时扫描全部合格成分；否则按成分顺序只取前 N 只再筛。
     """
     start_date, end_date = _pick_history_window()
     min_days = max(1, int(ma5_stand_min_days))
@@ -603,19 +614,36 @@ def _ma5_capital_pick_from_constituents(
     failed_capital = 0
     failed_fund = 0
     ds_label = _data_source_label(datasource)
+    scan_limit = max(1, int(stocks_per_sector)) if stocks_per_sector is not None else None
     eligible = _eligible_constituent_rows(
-        constituents, exclude_st=exclude_st, exclude_kcb=exclude_kcb, exclude_cyb=exclude_cyb
+        constituents,
+        exclude_st=exclude_st,
+        exclude_kcb=exclude_kcb,
+        exclude_cyb=exclude_cyb,
+        limit=scan_limit,
     )
     total = len(eligible)
+    limit_hint = f"取前 {scan_limit} 只" if scan_limit is not None else "不限只数"
+    _append_hot_pick_ui_log(
+        progress_log,
+        f"[五日强承接] 板块#{sector_rank}「{sector_name}」开始扫描 {total} 只（{limit_hint}）…",
+    )
     logger.debug(
-        "[热门选股][ma5_capital] 板块#%s「%s」扫描 %s 只 日线路线=%s",
+        "[热门选股][ma5_capital] 板块#%s「%s」扫描 %s 只（%s）日线路线=%s",
         sector_rank,
         sector_name,
         total,
+        limit_hint,
         ds_label,
     )
 
     for idx, (code, name, crow) in enumerate(eligible, start=1):
+        if idx == 1 or idx % 20 == 0 or idx == total:
+            _append_hot_pick_ui_log(
+                progress_log,
+                f"[五日强承接] 板块#{sector_rank}「{sector_name}」日线进度 {idx}/{total}"
+                f"（当前 {code} {name}）",
+            )
         _hot_pick_stock_log(
             "ma5_capital",
             sector_rank=sector_rank,
@@ -806,23 +834,29 @@ def _rising_3d_pick_from_constituents(
     warnings: list[str],
     progress_log: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """连续收涨候选：末根起至少 rising_min_days 日收盘逐日抬高。"""
+    """连续收涨候选：末根起至少 rising_min_days 日收盘逐日抬高。
+
+    stocks_per_sector 为 None 时扫描全部合格成分；否则按成分顺序只取前 N 只再筛。
+    """
     start_date, end_date = _pick_history_window()
     min_days = max(1, int(rising_min_days))
     candidates: list[dict[str, Any]] = []
     failed_history = 0
     failed_rising = 0
     ds_label = _data_source_label(datasource)
+    scan_limit = max(1, int(stocks_per_sector)) if stocks_per_sector is not None else None
     eligible = _eligible_constituent_rows(
         constituents,
         exclude_st=exclude_st,
         exclude_kcb=exclude_kcb,
         exclude_cyb=exclude_cyb,
+        limit=scan_limit,
     )
     total = len(eligible)
+    limit_hint = f"取前 {scan_limit} 只" if scan_limit is not None else "不限只数"
     _append_hot_pick_ui_log(
         progress_log,
-        f"[三日连涨] 板块#{sector_rank}「{sector_name}」开始扫描 {total} 只成分…",
+        f"[三日连涨] 板块#{sector_rank}「{sector_name}」开始扫描 {total} 只（{limit_hint}）…",
     )
 
     for idx, (code, name, crow) in enumerate(eligible, start=1):
@@ -1186,7 +1220,7 @@ def pick_from_hot_sectors(
                 cons,
                 sector_rank=sector_rank,
                 sector_name=sector_name,
-                stocks_per_sector=None,
+                stocks_per_sector=stocks_per_sector,
                 exclude_st=ma5_exclude_st,
                 exclude_kcb=ma5_exclude_kcb,
                 exclude_cyb=ma5_exclude_cyb,
@@ -1211,7 +1245,7 @@ def pick_from_hot_sectors(
                 cons,
                 sector_rank=sector_rank,
                 sector_name=sector_name,
-                stocks_per_sector=None,
+                stocks_per_sector=stocks_per_sector,
                 exclude_st=rising_3d_exclude_st,
                 exclude_kcb=rising_3d_exclude_kcb,
                 exclude_cyb=rising_3d_exclude_cyb,
