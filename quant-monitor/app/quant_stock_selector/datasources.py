@@ -532,6 +532,14 @@ class MootdxDataSource(BaseAShareDataSource):
     source_name = "mootdx"
 
     _QUOTE_BATCH = 80
+    # 部分 HQ 节点能 connect 但 quotes/bars 恒为空（如缓存 BESTIP 失效）；探测失败时依次尝试。
+    _FALLBACK_HQ_SERVERS: Tuple[Tuple[str, int], ...] = (
+        ("180.153.18.170", 7709),
+        ("218.75.126.9", 7709),
+        ("119.147.212.81", 7709),
+        ("60.12.136.91", 7709),
+        ("61.152.107.168", 7721),
+    )
 
     def __init__(self) -> None:
         try:
@@ -543,10 +551,82 @@ class MootdxDataSource(BaseAShareDataSource):
         self._stock_universe_cache: pd.DataFrame | None = None
         self._stock_name_map_cache: Dict[str, str] | None = None
 
+    @staticmethod
+    def _quotes_probe_ok(client: Any) -> bool:
+        try:
+            sample = client.quotes(symbol=["000001"])
+        except Exception:
+            return False
+        return sample is not None and not getattr(sample, "empty", True)
+
+    @staticmethod
+    def _persist_hq_bestip(server: Tuple[str, int]) -> None:
+        """把可用 HQ 写回 ~/.mootdx/config.json，避免下次再命中空行情节点。"""
+        try:
+            from mootdx.utils import get_config_path  # type: ignore
+        except Exception:
+            return
+        path = Path(get_config_path("config.json"))
+        try:
+            cfg: Dict[str, Any] = {}
+            if path.exists():
+                import json
+
+                cfg = json.loads(path.read_text(encoding="utf-8"))
+            best = dict(cfg.get("BESTIP") or {})
+            best["HQ"] = [server[0], int(server[1])]
+            cfg["BESTIP"] = best
+            path.parent.mkdir(parents=True, exist_ok=True)
+            import json
+
+            path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
     def _get_client(self) -> Any:
-        if self._client is None or getattr(self._client, "closed", False):
-            self._client = self._Quotes.factory(market="std")
-        return self._client
+        if self._client is not None and not getattr(self._client, "closed", False):
+            return self._client
+
+        tried: List[str] = []
+        # 1) 默认（含 ~/.mootdx BESTIP 缓存）
+        try:
+            client = self._Quotes.factory(market="std")
+            if self._quotes_probe_ok(client):
+                self._client = client
+                return self._client
+            srv = getattr(client, "server", None)
+            tried.append(f"default:{srv}")
+            try:
+                client.close()
+            except Exception:
+                pass
+        except Exception as exc:
+            tried.append(f"default:exc={exc}")
+
+        # 2) 备用节点
+        for ip, port in self._FALLBACK_HQ_SERVERS:
+            label = f"{ip}:{port}"
+            if any(label in t for t in tried):
+                continue
+            try:
+                client = self._Quotes.factory(market="std", server=(ip, port))
+                if self._quotes_probe_ok(client):
+                    self._persist_hq_bestip((ip, port))
+                    self._client = client
+                    return self._client
+                tried.append(label)
+                try:
+                    client.close()
+                except Exception:
+                    pass
+            except Exception as exc:
+                tried.append(f"{label}:exc={exc}")
+
+        raise DataSourceError(
+            "mootdx 通达信行情节点不可用（能连接但 quotes 为空或全部连不上）。"
+            f" 已尝试：{', '.join(tried) or '无'}。"
+            " 可勾选「使用板块快照」、改用 akshare，或删除 ~/.mootdx/config.json 后重试。"
+        )
 
     def _batch_quotes(self, codes: List[str]) -> pd.DataFrame:
         client = self._get_client()
@@ -557,6 +637,8 @@ class MootdxDataSource(BaseAShareDataSource):
             if result is not None and not result.empty:
                 frames.append(result)
         if not frames:
+            # 会话中途节点变空：清客户端以便下次重建
+            self._client = None
             return pd.DataFrame()
         return pd.concat(frames, ignore_index=True)
 
@@ -686,7 +768,14 @@ class MootdxDataSource(BaseAShareDataSource):
         if not frames:
             raise DataSourceError(f"不支持的板块类型: {board_types}")
 
-        combined = pd.concat([f for f in frames if not f.empty], ignore_index=True)
+        non_empty = [f for f in frames if f is not None and not f.empty]
+        if not non_empty:
+            raise DataSourceError(
+                "mootdx 未返回任何板块行情（板块文件已读到，但批量 quotes 为空）。"
+                "常见原因：通达信 HQ 节点失效。请改用 akshare、勾选「使用板块快照」，"
+                "或删除 ~/.mootdx/config.json 后重试。"
+            )
+        combined = pd.concat(non_empty, ignore_index=True)
         if combined.empty:
             raise DataSourceError("mootdx 未返回任何板块数据，请检查网络连接")
 
