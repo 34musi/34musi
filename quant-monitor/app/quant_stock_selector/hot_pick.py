@@ -599,12 +599,14 @@ def _ma5_capital_pick_from_constituents(
     ma5_stand_min_days: int,
     capital_lookback_days: int,
     capital_min_positive_days: int,
+    require_capital: bool = True,
     warnings: list[str],
     progress_log: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """连续站上 MA5 + 资金承接强的候选（与上方热门条件分开展示）。
+    """连续站上 MA5；可选再叠加资金承接（与上方热门条件分开展示）。
 
     stocks_per_sector 为 None 时扫描全部合格成分；否则按成分顺序只取前 N 只再筛。
+    require_capital=False 时跳过东财资金流，仅按 MA5 入选。
     """
     start_date, end_date = _pick_history_window()
     min_days = max(1, int(ma5_stand_min_days))
@@ -614,6 +616,7 @@ def _ma5_capital_pick_from_constituents(
     failed_capital = 0
     failed_fund = 0
     ds_label = _data_source_label(datasource)
+    mode_label = "五日MA5" if not require_capital else "五日强承接"
     scan_limit = max(1, int(stocks_per_sector)) if stocks_per_sector is not None else None
     eligible = _eligible_constituent_rows(
         constituents,
@@ -624,16 +627,18 @@ def _ma5_capital_pick_from_constituents(
     )
     total = len(eligible)
     limit_hint = f"取前 {scan_limit} 只" if scan_limit is not None else "不限只数"
+    capital_hint = "仅MA5" if not require_capital else "MA5+资金"
     _append_hot_pick_ui_log(
         progress_log,
-        f"[五日强承接] 板块#{sector_rank}「{sector_name}」开始扫描 {total} 只（{limit_hint}）…",
+        f"[{mode_label}] 板块#{sector_rank}「{sector_name}」开始扫描 {total} 只（{limit_hint}·{capital_hint}）…",
     )
     logger.debug(
-        "[热门选股][ma5_capital] 板块#%s「%s」扫描 %s 只（%s）日线路线=%s",
+        "[热门选股][ma5_capital] 板块#%s「%s」扫描 %s 只（%s·%s）日线路线=%s",
         sector_rank,
         sector_name,
         total,
         limit_hint,
+        capital_hint,
         ds_label,
     )
 
@@ -641,7 +646,7 @@ def _ma5_capital_pick_from_constituents(
         if idx == 1 or idx % 20 == 0 or idx == total:
             _append_hot_pick_ui_log(
                 progress_log,
-                f"[五日强承接] 板块#{sector_rank}「{sector_name}」日线进度 {idx}/{total}"
+                f"[{mode_label}] 板块#{sector_rank}「{sector_name}」日线进度 {idx}/{total}"
                 f"（当前 {code} {name}）",
             )
         _hot_pick_stock_log(
@@ -670,7 +675,7 @@ def _ma5_capital_pick_from_constituents(
                 message=f"日线失败：{exc}",
                 data_source=ds_label,
             )
-            warnings.append(f"「五日+资金」板块「{sector_name}」{code} 日线失败：{exc}")
+            warnings.append(f"「{mode_label}」板块「{sector_name}」{code} 日线失败：{exc}")
             continue
         streak = consecutive_close_on_ma5_streak(hist)
         if not last_n_days_close_on_ma5(hist, min_days=min_days):
@@ -687,25 +692,20 @@ def _ma5_capital_pick_from_constituents(
                 data_source=ds_label,
             )
             continue
-        _hot_pick_stock_log(
-            "ma5_capital",
-            sector_rank=sector_rank,
-            sector_name=sector_name,
-            code=code,
-            name=name,
-            idx=idx,
-            total=total,
-            message=f"MA5 通过({streak}日)，拉取东财资金流…",
-            data_source=ds_label,
-        )
-        try:
-            cap_ok, cap_score, cap_meta = evaluate_capital_support(
-                code,
-                lookback_days=capital_lookback_days,
-                min_positive_days=capital_min_positive_days,
-            )
-        except Exception as exc:  # noqa: BLE001
-            failed_fund += 1
+
+        cap_ok = True
+        cap_score = float(streak)
+        cap_meta: dict[str, Any] = {
+            "fund_flow_lookback_days": capital_lookback_days,
+            "fund_flow_positive_days": None,
+            "main_net_inflow_3d": None,
+            "main_net_inflow": None,
+            "fund_flow_date": None,
+            "em_large_net_pct": None,
+            "capital_support_score": 0.0,
+            "capital_check_skipped": not require_capital,
+        }
+        if require_capital:
             _hot_pick_stock_log(
                 "ma5_capital",
                 sector_rank=sector_rank,
@@ -714,15 +714,48 @@ def _ma5_capital_pick_from_constituents(
                 name=name,
                 idx=idx,
                 total=total,
-                message=f"资金流失败：{exc}",
+                message=f"MA5 通过({streak}日)，拉取东财资金流…",
                 data_source=ds_label,
             )
-            warnings.append(f"「五日+资金」板块「{sector_name}」{code} 资金流失败：{exc}")
-            continue
-        if not cap_ok:
-            failed_capital += 1
-            pos_days = cap_meta.get("fund_flow_positive_days")
-            inflow_3d = cap_meta.get("main_net_inflow_3d")
+            try:
+                cap_ok, cap_score, cap_meta = evaluate_capital_support(
+                    code,
+                    lookback_days=capital_lookback_days,
+                    min_positive_days=capital_min_positive_days,
+                )
+                cap_meta["capital_check_skipped"] = False
+            except Exception as exc:  # noqa: BLE001
+                failed_fund += 1
+                _hot_pick_stock_log(
+                    "ma5_capital",
+                    sector_rank=sector_rank,
+                    sector_name=sector_name,
+                    code=code,
+                    name=name,
+                    idx=idx,
+                    total=total,
+                    message=f"资金流失败：{exc}",
+                    data_source=ds_label,
+                )
+                warnings.append(f"「{mode_label}」板块「{sector_name}」{code} 资金流失败：{exc}")
+                continue
+            if not cap_ok:
+                failed_capital += 1
+                pos_days = cap_meta.get("fund_flow_positive_days")
+                inflow_3d = cap_meta.get("main_net_inflow_3d")
+                _hot_pick_stock_log(
+                    "ma5_capital",
+                    sector_rank=sector_rank,
+                    sector_name=sector_name,
+                    code=code,
+                    name=name,
+                    idx=idx,
+                    total=total,
+                    message=f"跳过：资金承接不足（{pos_days}日正流入，3日合计 {inflow_3d}）",
+                    data_source=ds_label,
+                )
+                continue
+        else:
             _hot_pick_stock_log(
                 "ma5_capital",
                 sector_rank=sector_rank,
@@ -731,10 +764,9 @@ def _ma5_capital_pick_from_constituents(
                 name=name,
                 idx=idx,
                 total=total,
-                message=f"跳过：资金承接不足（{pos_days}日正流入，3日合计 {inflow_3d}）",
+                message=f"MA5 通过({streak}日)，跳过资金检查",
                 data_source=ds_label,
             )
-            continue
 
         detail = _series_to_jsonable_dict(crow)
         detail["pick_group"] = "ma5_capital"
@@ -742,12 +774,14 @@ def _ma5_capital_pick_from_constituents(
         detail["sector_name"] = sector_name
         detail["ma5_consecutive_days"] = streak
         detail["ma5_stand_min_days"] = min_days
+        detail["ma5_require_capital"] = require_capital
         detail["capital_support_score"] = cap_meta.get("capital_support_score")
         detail["fund_flow_positive_days"] = cap_meta.get("fund_flow_positive_days")
         detail["main_net_inflow_3d"] = cap_meta.get("main_net_inflow_3d")
         detail["main_net_inflow"] = cap_meta.get("main_net_inflow")
         detail["fund_flow_date"] = cap_meta.get("fund_flow_date")
         detail["em_large_net_pct"] = cap_meta.get("em_large_net_pct")
+        detail["capital_check_skipped"] = bool(cap_meta.get("capital_check_skipped"))
         try:
             screen = evaluate_screen(hist)
             detail["latest_close"] = screen.latest_close
@@ -759,6 +793,11 @@ def _ma5_capital_pick_from_constituents(
         detail["_sort_capital"] = cap_score
         detail["_sort_ma5"] = streak
         candidates.append(detail)
+        pass_msg = (
+            f"入选候选（MA5={streak}日，未检查资金）"
+            if not require_capital
+            else f"入选候选（MA5={streak}日，资金分={cap_meta.get('capital_support_score')}）"
+        )
         _hot_pick_stock_log(
             "ma5_capital",
             sector_rank=sector_rank,
@@ -767,18 +806,27 @@ def _ma5_capital_pick_from_constituents(
             name=name,
             idx=idx,
             total=total,
-            message=f"入选候选（MA5={streak}日，资金分={cap_meta.get('capital_support_score')}）",
+            message=pass_msg,
             data_source=ds_label,
         )
 
-    candidates.sort(
-        key=lambda x: (
-            safe_float(x.get("_sort_capital")),
-            safe_float(x.get("_sort_ma5")),
-            safe_float(x.get("main_net_inflow_3d")),
-        ),
-        reverse=True,
-    )
+    if require_capital:
+        candidates.sort(
+            key=lambda x: (
+                safe_float(x.get("_sort_capital")),
+                safe_float(x.get("_sort_ma5")),
+                safe_float(x.get("main_net_inflow_3d")),
+            ),
+            reverse=True,
+        )
+    else:
+        candidates.sort(
+            key=lambda x: (
+                safe_float(x.get("_sort_ma5")),
+                safe_float(x.get("return_5d")),
+            ),
+            reverse=True,
+        )
     selected = candidates if stocks_per_sector is None else candidates[: max(1, int(stocks_per_sector))]
     for idx, detail in enumerate(selected, start=1):
         detail["stock_rank_in_sector"] = idx
@@ -786,14 +834,19 @@ def _ma5_capital_pick_from_constituents(
         detail.pop("_sort_ma5", None)
 
     if failed_ma5:
-        warnings.append(f"「五日+资金」板块「{sector_name}」未满足连续 {min_days} 日站上 MA5：{failed_ma5} 只")
+        warnings.append(f"「{mode_label}」板块「{sector_name}」未满足连续 {min_days} 日站上 MA5：{failed_ma5} 只")
     if failed_capital:
-        warnings.append(f"「五日+资金」板块「{sector_name}」资金承接不足：{failed_capital} 只")
+        warnings.append(f"「{mode_label}」板块「{sector_name}」资金承接不足：{failed_capital} 只")
     if failed_fund:
-        warnings.append(f"「五日+资金」板块「{sector_name}」资金流拉取失败：{failed_fund} 只")
+        warnings.append(f"「{mode_label}」板块「{sector_name}」资金流拉取失败：{failed_fund} 只")
     if failed_history:
-        warnings.append(f"「五日+资金」板块「{sector_name}」日线不足：{failed_history} 只")
+        warnings.append(f"「{mode_label}」板块「{sector_name}」日线不足：{failed_history} 只")
 
+    extra = f"MA5不符 {failed_ma5}，日线失败 {failed_history}"
+    if require_capital:
+        extra += f"，资金不符 {failed_capital}，资金失败 {failed_fund}"
+    else:
+        extra += "，未检查资金"
     _log_sector_pick_summary(
         "ma5_capital",
         sector_rank=sector_rank,
@@ -801,7 +854,7 @@ def _ma5_capital_pick_from_constituents(
         selected=selected,
         total_scanned=total,
         progress_log=progress_log,
-        extra=f"MA5不符 {failed_ma5}，资金不符 {failed_capital}，日线失败 {failed_history}",
+        extra=extra,
     )
     return selected, [normalize_code(x.get("code", "")) for x in selected if x.get("code")]
 
@@ -968,6 +1021,7 @@ def pick_from_hot_sectors(
     should_cancel: Callable[[], bool] | None = None,
     pick_condition_groups: list[str] | None = None,
     ma5_stand_min_days: int = 3,
+    ma5_require_capital: bool = False,
     capital_flow_lookback_days: int = 3,
     capital_min_positive_days: int = 2,
     ma5_exclude_st: bool = True,
@@ -1227,6 +1281,7 @@ def pick_from_hot_sectors(
                 ma5_stand_min_days=ma5_stand_min_days,
                 capital_lookback_days=capital_flow_lookback_days,
                 capital_min_positive_days=capital_min_positive_days,
+                require_capital=ma5_require_capital,
                 warnings=warnings,
                 progress_log=progress_log,
             )
@@ -1268,7 +1323,8 @@ def pick_from_hot_sectors(
     _append_hot_pick_ui_log(
         progress_log,
         f"任务完成：热门筛选 {_count_stocks(sectors_detail)} 只/{len(sectors_detail)} 板块，"
-        f"五日+资金 {_count_stocks(ma5_capital_sectors_detail)} 只/{len(ma5_capital_sectors_detail)} 板块，"
+        f"{'五日MA5' if not ma5_require_capital else '五日+资金'} "
+        f"{_count_stocks(ma5_capital_sectors_detail)} 只/{len(ma5_capital_sectors_detail)} 板块，"
         f"三日连涨 {_count_stocks(rising_3d_sectors_detail)} 只/{len(rising_3d_sectors_detail)} 板块",
     )
 

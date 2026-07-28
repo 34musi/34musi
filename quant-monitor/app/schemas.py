@@ -611,17 +611,21 @@ class FillHotSectorsIn(BaseModel):
         le=10,
         description="连续站上五日线最少交易日数（收盘>=MA5）",
     )
+    ma5_require_capital: bool = Field(
+        False,
+        description="五日强承接是否要求东财资金承接；false=仅看连续站上 MA5（资金接口不可用时可开）",
+    )
     capital_flow_lookback_days: int = Field(
         3,
         ge=1,
         le=10,
-        description="资金承接判定：考察最近几个交易日的主力净流入",
+        description="资金承接判定：考察最近几个交易日的主力净流入（仅 ma5_require_capital=true 时生效）",
     )
     capital_min_positive_days: int = Field(
         2,
         ge=1,
         le=10,
-        description="上述窗口内至少几日主力净流入为正，且合计为正",
+        description="上述窗口内至少几日主力净流入为正，且合计为正（仅 ma5_require_capital=true 时生效）",
     )
     sector_names: list[str] | None = Field(
         None,
